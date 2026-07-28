@@ -62,6 +62,35 @@ namespace MiNET.Client
 			Log.Warn($"Got soft enum update for {message}");
 		}
 
+		private static int _subChunkPacketsLogged;
+
+		public override void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
+		{
+			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
+			foreach (SubChunkEntryCommon entry in message.entries)
+			{
+				switch (entry.RequestResult)
+				{
+					case SubChunkRequestResult.Success:
+						success++;
+						if (ClientUtils.TryParseSubChunkPayload(entry.Data, Client.BlockNetworkIdsAreHashes)) parsedOk++;
+						else parseFail++;
+						break;
+					case SubChunkRequestResult.SuccessAllAir:
+						allAir++;
+						break;
+					default:
+						other++;
+						break;
+				}
+			}
+
+			if (System.Threading.Interlocked.Increment(ref _subChunkPacketsLogged) <= 5 || parseFail > 0)
+			{
+				Log.Warn($"SubChunk response: origin=({message.originX},{message.originY},{message.originZ}) entries={message.entries.Length} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other}");
+			}
+		}
+
 		public override void HandleMcpeDisconnect(McpeDisconnect message)
 		{
 			Log.Warn($"Disconnect {Client.Username}: reason={message.reason} message={message.message}");
@@ -210,6 +239,8 @@ namespace MiNET.Client
 
 			//var blockPalette = BlockFactory.BlockStates;
 			Log.Warn($"Got position from startgame packet: {Client.CurrentLocation}");
+			Log.Warn($"StartGame: blockNetworkIdsAreHashes={message.blockNetworkIdsAreHashes}, spawn={message.spawn}");
+			Client.BlockNetworkIdsAreHashes = message.blockNetworkIdsAreHashes;
 
 			var settings = new JsonSerializerSettings
 			{
@@ -788,7 +819,27 @@ namespace MiNET.Client
 					ChunkColumn chunk = null;
 					try
 					{
-						chunk = ClientUtils.DecodeChunkColumn((int) message.subChunkCount, message.chunkData);
+						if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
+						{
+							// Skeleton chunk: payload is biomes only; block data must be
+							// requested per subchunk. Highest requestable relative index is
+							// subChunkCount in limited mode; relative index 0 is section y -4.
+							int highest = message.subChunkRequestMode == SubChunkRequestMode.SubChunkRequestModeLimited ? (int) message.subChunkCount : 23;
+							var request = McpeSubChunkRequestPacket.CreateObject();
+							request.dimension = message.dimension;
+							request.originX = message.chunkX;
+							request.originY = 0;
+							request.originZ = message.chunkZ;
+							for (int i = 0; i <= highest; i++)
+							{
+								request.offsets.Add(new SubChunkPositionOffset {XOffset = 0, YOffset = (sbyte) (i - 4), ZOffset = 0});
+							}
+
+							Client.SendPacket(request);
+							return null;
+						}
+
+						chunk = ClientUtils.DecodeChunkColumn((int) message.subChunkCount, message.chunkData, blockNetworkIdsAreHashes: Client.BlockNetworkIdsAreHashes);
 						if (chunk != null)
 						{
 							chunk.X = coordinates.X;
@@ -943,3 +994,9 @@ namespace MiNET.Client
 		}
 	}
 }
+
+
+
+
+
+

@@ -9,6 +9,9 @@
     <None Remove="log4net.xml" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Data\blockStates-1.26.30.json" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="log4net.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

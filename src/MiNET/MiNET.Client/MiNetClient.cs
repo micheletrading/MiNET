@@ -110,6 +110,7 @@ namespace MiNET.Client
 
 		public int PlayerStatus { get; set; }
 		public bool UseBlobCache { get; set; }
+		public bool BlockNetworkIdsAreHashes { get; set; }
 		public Dictionary<ulong, byte[]> BlobCache { get; set; } = new Dictionary<ulong, byte[]>();
 
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
@@ -903,3 +904,4 @@ namespace MiNET.Client
 		}
 	}
 }
+

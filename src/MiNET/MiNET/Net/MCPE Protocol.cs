@@ -9906,7 +9906,9 @@ namespace MiNET.Net
 
 		public bool cacheEnabled; // = null;
 		public int dimension; // = null;
-		public BlockCoordinates subchunkCoordinates; // = null;
+		public int originX; // = null;
+		public int originY; // = null;
+		public int originZ; // = null;
 
 		public McpeSubChunkPacket()
 		{
@@ -9921,8 +9923,10 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			Write(cacheEnabled);
-			WriteVarInt(dimension);
-			Write(subchunkCoordinates);
+			WriteSignedVarInt(dimension);
+			WriteSignedVarInt(originX);
+			WriteSignedVarInt(originY);
+			WriteSignedVarInt(originZ);
 
 			AfterEncode();
 		}
@@ -9937,8 +9941,10 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			cacheEnabled = ReadBool();
-			dimension = ReadVarInt();
-			subchunkCoordinates = ReadBlockCoordinates();
+			dimension = ReadSignedVarInt();
+			originX = ReadSignedVarInt();
+			originY = ReadSignedVarInt();
+			originZ = ReadSignedVarInt();
 
 			AfterDecode();
 		}
@@ -9952,7 +9958,9 @@ namespace MiNET.Net
 
 			cacheEnabled=default(bool);
 			dimension=default(int);
-			subchunkCoordinates=default(BlockCoordinates);
+			originX=default(int);
+			originY=default(int);
+			originZ=default(int);
 		}
 
 	}
@@ -9960,9 +9968,6 @@ namespace MiNET.Net
 	public partial class McpeSubChunkRequestPacket : Packet<McpeSubChunkRequestPacket>
 	{
 
-		public int dimension; // = null;
-		public BlockCoordinates basePosition; // = null;
-		public SubChunkPositionOffset[] offsets; // = null;
 
 		public McpeSubChunkRequestPacket()
 		{
@@ -9976,9 +9981,6 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			WriteVarInt(dimension);
-			Write(basePosition);
-			Write(offsets);
 
 			AfterEncode();
 		}
@@ -9992,9 +9994,6 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			dimension = ReadVarInt();
-			basePosition = ReadBlockCoordinates();
-			offsets = ReadSubChunkPositionOffsets();
 
 			AfterDecode();
 		}
@@ -10006,9 +10005,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			dimension=default(int);
-			basePosition=default(BlockCoordinates);
-			offsets=default(SubChunkPositionOffset[]);
 		}
 
 	}

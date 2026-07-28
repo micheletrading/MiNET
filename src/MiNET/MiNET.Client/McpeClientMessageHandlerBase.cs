@@ -715,7 +715,7 @@ namespace MiNET.Client
 		}
 
 		/// <inheritdoc />
-		public void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
+		public virtual void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
 			
 		}
@@ -742,3 +742,4 @@ namespace MiNET.Client
 		}
 	}
 }
+

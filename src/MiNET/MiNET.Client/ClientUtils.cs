@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -26,6 +26,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using fNbt;
 using log4net;
 using MiNET.Blocks;
@@ -45,7 +46,7 @@ namespace MiNET.Client
 
 		private static object _chunkRead = new object();
 
-		public static ChunkColumn DecodeChunkColumn(int subChunkCount, byte[] buffer, BlockPalette bedrockPalette = null, HashSet<BlockStateContainer> internalBlockPallet = null)
+		public static ChunkColumn DecodeChunkColumn(int subChunkCount, byte[] buffer, BlockPalette bedrockPalette = null, HashSet<BlockStateContainer> internalBlockPallet = null, bool blockNetworkIdsAreHashes = false)
 		{
 			//lock (_chunkRead)
 			{
@@ -68,15 +69,32 @@ namespace MiNET.Client
 						int version = stream.ReadByte();
 						int storageSize = stream.ReadByte();
 
-						var subChunk = chunkColumn[chunkIndex];
+						// Version 9 adds a signed y-index byte (world height is -64..320
+						// since 1.18, so indexes run -4..19). Older ChunkColumn only has
+						// 16 sections; sections outside 0..15 are parsed but not stored.
+						int yIndex = chunkIndex;
+						if (version >= 9)
+						{
+							yIndex = (sbyte) stream.ReadByte();
+						}
+
+						SubChunk subChunk = yIndex >= 0 && yIndex < 16 ? chunkColumn[yIndex] : null;
 
 						for (int storageIndex = 0; storageIndex < storageSize; storageIndex++)
 						{
 							int flags = stream.ReadByte();
 							bool isRuntime = (flags & 1) != 0;
 							int bitsPerBlock = flags >> 1;
-							int blocksPerWord = (int) Math.Floor(32f / bitsPerBlock);
-							int wordsPerChunk = (int) Math.Ceiling(4096f / blocksPerWord);
+
+							// bitsPerBlock 0 is the single-value storage: no data words at
+							// all, just a one-entry palette that fills the whole section.
+							int blocksPerWord = 0;
+							int wordsPerChunk = 0;
+							if (bitsPerBlock > 0)
+							{
+								blocksPerWord = (int) Math.Floor(32f / bitsPerBlock);
+								wordsPerChunk = (int) Math.Ceiling(4096f / blocksPerWord);
+							}
 							if (Log.IsTraceEnabled())
 								Log.Trace($"New section {chunkIndex}, " +
 										$"version={version}, " +
@@ -121,10 +139,34 @@ namespace MiNET.Client
 								else
 								{
 									int runtimeId = VarInt.ReadSInt32(stream);
-									if (bedrockPalette == null || internalBlockPallet == null) continue;
+									if (blockNetworkIdsAreHashes)
+									{
+										palette[j] = ResolveHashedBlockId(unchecked((uint) runtimeId));
+									}
+									else
+									{
+										if (bedrockPalette == null || internalBlockPallet == null) continue;
 
-									palette[j] = GetServerRuntimeId(bedrockPalette, internalBlockPallet, runtimeId);
+										palette[j] = GetServerRuntimeId(bedrockPalette, internalBlockPallet, runtimeId);
+									}
 								}
+							}
+
+							if (bitsPerBlock == 0)
+							{
+								// Single-value: fill the whole section with palette[0].
+								if (subChunk != null && palette.Length > 0 && palette[0] >= 0)
+								{
+									for (int pos = 0; pos < 4096; pos++)
+									{
+										int x = (pos >> 8) & 0xF;
+										int y = pos & 0xF;
+										int z = (pos >> 4) & 0xF;
+										if (storageIndex == 0) subChunk.SetBlockByRuntimeId(x, y, z, palette[0]);
+										else subChunk.SetLoggedBlockByRuntimeId(x, y, z, palette[0]);
+									}
+								}
+								continue;
 							}
 
 							long afterPos = stream.Position;
@@ -144,15 +186,21 @@ namespace MiNET.Client
 									int y = position & 0xF;
 									int z = (position >> 4) & 0xF;
 
-									int runtimeId = palette[state];
+									if (state < palette.Length)
+									{
+										int runtimeId = palette[state];
 
-									if (storageIndex == 0)
-									{
-										subChunk.SetBlockByRuntimeId(x, y, z, (int) runtimeId);
-									}
-									else
-									{
-										subChunk.SetLoggedBlockByRuntimeId(x, y, z, (int) runtimeId);
+										if (subChunk != null && runtimeId >= 0)
+										{
+											if (storageIndex == 0)
+											{
+												subChunk.SetBlockByRuntimeId(x, y, z, (int) runtimeId);
+											}
+											else
+											{
+												subChunk.SetLoggedBlockByRuntimeId(x, y, z, (int) runtimeId);
+											}
+										}
 									}
 
 									position++;
@@ -162,6 +210,13 @@ namespace MiNET.Client
 						}
 					}
 
+					// TODO: The tail is 3D biome palettes per section since 1.18, then
+					// border blocks and block entities. Not parsed yet; blocks above are
+					// the useful part for tracing.
+					if (Log.IsDebugEnabled) Log.Debug($"Skipping chunk tail: {stream.Length - stream.Position} bytes (biomes, border blocks, block entities)");
+					return chunkColumn;
+
+#pragma warning disable CS0162
 					if (stream.Read(chunkColumn.biomeId, 0, 256) != 256) return chunkColumn;
 					//Log.Debug($"biomeId:\n{Package.HexDump(chunk.biomeId)}");
 
@@ -223,7 +278,123 @@ namespace MiNET.Client
 					}
 
 					return chunkColumn;
+#pragma warning restore CS0162
 				}
+			}
+		}
+
+		private static readonly System.Collections.Concurrent.ConcurrentDictionary<uint, int> HashToInternalRuntimeId = new System.Collections.Concurrent.ConcurrentDictionary<uint, int>();
+		private static long _hashResolveExact;
+		private static long _hashResolveDefault;
+		private static long _hashResolveUnknown;
+		private static int _chunksLogged;
+
+		/// <summary>
+		///     Maps a network block state hash to an internal (current embedded palette)
+		///     runtime id. Falls back to the block's default state when the exact state
+		///     does not exist internally, and -1 when the hash or block is unknown.
+		/// </summary>
+		private static int ResolveHashedBlockId(uint hash)
+		{
+			int resolved = HashToInternalRuntimeId.GetOrAdd(hash, h =>
+			{
+				if (!NetworkBlockPalette.HashToEntry.TryGetValue(h, out NetworkBlockPalette.Entry entry))
+				{
+					Interlocked.Increment(ref _hashResolveUnknown);
+					return -1;
+				}
+
+				var container = new BlockStateContainer
+				{
+					Name = entry.Name,
+					States = new List<IBlockState>(entry.States)
+				};
+
+				if (BlockFactory.BlockStates.TryGetValue(container, out BlockStateContainer match))
+				{
+					Interlocked.Increment(ref _hashResolveExact);
+					return match.RuntimeId;
+				}
+
+				Block block = BlockFactory.GetBlockByName(entry.Name);
+				if (block != null && !(block is Air))
+				{
+					Interlocked.Increment(ref _hashResolveDefault);
+					return block.GetRuntimeId();
+				}
+
+				Interlocked.Increment(ref _hashResolveUnknown);
+				return -1;
+			});
+
+			if (_chunksLogged < 3 && Interlocked.Increment(ref _chunksLogged) <= 3)
+			{
+				Log.Warn($"Hash palette resolution so far: exact={_hashResolveExact}, default-state={_hashResolveDefault}, unknown={_hashResolveUnknown}");
+			}
+
+			return resolved;
+		}
+
+		/// <summary>
+		///     Parses the serialized subchunk payload from a SubChunkPacket entry: version
+		///     header, block storages, then block entities. Parse-only for now; feeds the
+		///     hash resolution statistics.
+		/// </summary>
+		public static bool TryParseSubChunkPayload(byte[] data, bool blockNetworkIdsAreHashes)
+		{
+			if (data == null || data.Length == 0) return false;
+
+			try
+			{
+				var stream = new MemoryStream(data);
+				var defStream = new BinaryReader(stream);
+
+				int version = stream.ReadByte();
+				int storageSize = stream.ReadByte();
+				if (version >= 9) stream.ReadByte(); // y index
+
+				for (int storageIndex = 0; storageIndex < storageSize; storageIndex++)
+				{
+					int flags = stream.ReadByte();
+					bool isRuntime = (flags & 1) != 0;
+					int bitsPerBlock = flags >> 1;
+
+					if (bitsPerBlock > 0)
+					{
+						int blocksPerWord = (int) Math.Floor(32f / bitsPerBlock);
+						int wordsPerChunk = (int) Math.Ceiling(4096f / blocksPerWord);
+						stream.Seek(wordsPerChunk * 4, SeekOrigin.Current);
+					}
+
+					int paletteCount = VarInt.ReadSInt32(stream);
+					for (int j = 0; j < paletteCount; j++)
+					{
+						if (!isRuntime)
+						{
+							var file = new NbtFile {BigEndian = false, UseVarInt = true};
+							file.LoadFromStream(stream, NbtCompression.None);
+						}
+						else
+						{
+							int value = VarInt.ReadSInt32(stream);
+							if (blockNetworkIdsAreHashes) ResolveHashedBlockId(unchecked((uint) value));
+						}
+					}
+				}
+
+				// Trailing block entities, varint nbt until end.
+				while (stream.Position < stream.Length)
+				{
+					var file = new NbtFile {BigEndian = false, UseVarInt = true};
+					file.LoadFromStream(stream, NbtCompression.None);
+				}
+
+				return true;
+			}
+			catch (Exception e)
+			{
+				if (Log.IsDebugEnabled) Log.Warn("Parsing subchunk payload", e);
+				return false;
 			}
 		}
 

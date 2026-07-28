@@ -1218,15 +1218,15 @@
 
 	<pdu id="0xae" online="false" client="false" server="true" name="MCPE_SUB_CHUNK_PACKET">
 		<field name="Cache enabled" type="bool" />
-		<field name="Dimension" type="VarInt" />
-		<field name="Subchunk coordinates" type="BlockCoordinates"/>
-		
+		<field name="Dimension" type="SignedVarInt" />
+		<field name="Origin X" type="SignedVarInt" />
+		<field name="Origin Y" type="SignedVarInt" />
+		<field name="Origin Z" type="SignedVarInt" />
+		<!-- entries handled in partial -->
 	</pdu>
 
 	<pdu id="0xaf" online="false" client="true" server="false" name="MCPE_SUB_CHUNK_REQUEST_PACKET">
-		<field name="Dimension" type="VarInt" />
-		<field name="Base Position" type="BlockCoordinates"/>
-		<field name="Offsets" type="SubChunkPositionOffset[]"/>
+		<!-- all fields handled in partial: dimension, offset list, origin (li32 triple) -->
 	</pdu>
 	
 	<pdu id="0xb4" online="false" client="false" server="true" name="MCPE_DIMENSION_DATA">
