@@ -54,7 +54,17 @@ namespace MiNET.Utils.IO
 		{
 			var batch = McpeWrapper.CreateObject();
 			batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-			batch.payload = Compression.Compress(input, writeLen, input.Length > 1000 ? compressionLevel : CompressionLevel.NoCompression);
+
+			byte[] compressed = Compression.Compress(input, writeLen, input.Length > 1000 ? compressionLevel : CompressionLevel.NoCompression);
+
+			// Post-1.19.30 wrapper payloads carry a leading compressor-id byte. This path
+			// runs only after compression is negotiated, so tag it as zlib/deflate (0x00);
+			// a NoCompression deflate stream still inflates through the same 0x00 branch.
+			byte[] payload = new byte[compressed.Length + 1];
+			payload[0] = 0x00;
+			compressed.CopyTo(payload, 1);
+			batch.payload = payload;
+
 			batch.Encode(); // prepare
 			return batch;
 		}
