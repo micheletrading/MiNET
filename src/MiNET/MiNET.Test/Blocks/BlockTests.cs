@@ -15,8 +15,8 @@ namespace MiNET.Blocks.Tests
 		[TestMethod()]
 		public void GetItemFromBlockStateTest()
 		{
-			// Picked block minecraft:chain from blockstate 917
-			int runtimeId = 917;
+			// Picked block minecraft:chain from blockstate 7063 (1.18.30 palette)
+			int runtimeId = 7063;
 
 			BlockStateContainer blocStateFromPick = BlockFactory.BlockPalette[runtimeId];
 			var block = BlockFactory.GetBlockById(blocStateFromPick.Id) as Chain;
@@ -33,9 +33,8 @@ namespace MiNET.Blocks.Tests
 		[TestMethod()]
 		public void GetDoorItemFromBlockStateTest()
 		{
-			// Picked block minecraft:dark_oak_door from blockstate 4003. Expected block to be in slot 9
-			// Picked block minecraft:dark_oak_door from blockstate 3991. Expected block to be in slot 9
-			int runtimeId = 3991;
+			// Picked block minecraft:dark_oak_door from blockstate 5667 (1.18.30 palette)
+			int runtimeId = 5667;
 
 			BlockStateContainer blocStateFromPick = BlockFactory.BlockPalette[runtimeId];
 			var block = BlockFactory.GetBlockById(blocStateFromPick.Id) as DarkOakDoor;
@@ -57,7 +56,7 @@ namespace MiNET.Blocks.Tests
 			block.DoublePlantType = "grass";
 			block.UpperBlockBit = true;
 
-			Assert.AreEqual(0, block.GetRuntimeId());
+			Assert.AreEqual(5410, block.GetRuntimeId());
 		}
 	}
 }

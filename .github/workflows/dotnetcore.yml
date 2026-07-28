@@ -26,7 +26,11 @@ jobs:
       - name: Dotnet Restore
         working-directory: src/MiNET/MiNET
         run: dotnet restore
-      
+
+      - name: Test
+        working-directory: src/MiNET
+        run: dotnet test MiNET.Test/MiNETTests.csproj --configuration Release
+
       - name: Build & Pack
         working-directory: src/MiNET/MiNET
         run: |

@@ -102,6 +102,7 @@ namespace MiNET.Blocks
 			lock (lockObj)
 			{
 				Dictionary<string, int> idMapping = new Dictionary<string, int>(ResourceUtil.ReadResource<Dictionary<string, int>>("block_id_map.json", typeof(Block), "Data"), StringComparer.OrdinalIgnoreCase);
+				Dictionary<string, int> itemIdMapping = new Dictionary<string, int>(ResourceUtil.ReadResource<Dictionary<string, int>>("item_id_map.json", typeof(Item), "Data"), StringComparer.OrdinalIgnoreCase);
 
 				int runtimeId = 0;
 				BlockPalette = new BlockPalette();
@@ -188,9 +189,10 @@ namespace MiNET.Blocks
 							BlockPalette[match].Id = id;
 							BlockPalette[match].Data = data;
 
+							// Blocks whose item form has its own id (doors, beds, ...) must pick as the item, not the block
 							BlockPalette[match].ItemInstance = new ItemPickInstance()
 							{
-								Id = (short) id,
+								Id = (short) (itemIdMapping.TryGetValue(networkState.Name, out int pickItemId) ? pickItemId : id),
 								Metadata = data,
 								WantNbt = false
 							};
@@ -199,6 +201,28 @@ namespace MiNET.Blocks
 
 							break;
 						}
+					}
+				}
+
+				// Blocks added after the R12 legacy map (chain, blackstone, candles, ...) never match above.
+				// Fall back to name-based lookups so GetBlockById() and block picking still work for them.
+				foreach (var state in BlockPalette)
+				{
+					if (state.Id != 0 || state.Name == "minecraft:air") continue;
+
+					if (idMapping.TryGetValue(state.Name, out int legacyId))
+					{
+						state.Id = legacyId;
+					}
+
+					if (state.ItemInstance == null && itemIdMapping.TryGetValue(state.Name, out int itemId))
+					{
+						state.ItemInstance = new ItemPickInstance()
+						{
+							Id = (short) itemId,
+							Metadata = 0,
+							WantNbt = false
+						};
 					}
 				}
 
