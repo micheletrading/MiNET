@@ -264,7 +264,7 @@ namespace MiNET.Net
 			Write(enableNewInventorySystem);
 			Write(serverVersion);
 
-			var pd = propertyData ?? new Nbt {NbtFile = new NbtFile(new NbtCompound()) {BigEndian = false, UseVarInt = true}};
+			var pd = propertyData ?? new Nbt {NbtFile = new NbtFile(new NbtCompound("")) {BigEndian = false, UseVarInt = true}};
 			pd.NbtFile.UseVarInt = true;
 			Write(pd);
 

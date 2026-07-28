@@ -232,6 +232,10 @@ namespace MiNET.Net
 					handler.HandleMcpeFilterTextPacket(msg);
 					break;
 
+				case McpeRequestNetworkSettings msg:
+					handler.HandleMcpeRequestNetworkSettings(msg);
+					break;
+
 				default:
 				{
 					Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.EndPoint.Address}");

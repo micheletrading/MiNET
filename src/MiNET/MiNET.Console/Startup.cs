@@ -76,7 +76,11 @@ namespace MiNET.Console
 			service.StartServer();
 
 			System.Console.WriteLine("MiNET running. Press <enter> to stop service.");
-			System.Console.ReadLine();
+			if (System.Console.ReadLine() == null)
+			{
+				// Non-interactive host (redirected stdin); stay alive until killed.
+				Thread.Sleep(Timeout.Infinite);
+			}
 			service.StopServer();
 		}
 	}

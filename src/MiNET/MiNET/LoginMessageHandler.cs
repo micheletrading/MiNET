@@ -302,12 +302,39 @@ namespace MiNET
 
 					if (Log.IsDebugEnabled) Log.Debug($"Certificate JSON:\n{json}");
 
+					// Protocol 1.21.90+ wraps the login identity in an authentication
+					// envelope: {Certificate, AuthenticationType, Token}. The real cert
+					// chain (online auth) lives in Certificate; offline identity is in the
+					// self-signed OIDC Token (protocol 944+), with an empty chain.
+					string multiplayerToken = null;
+					if (json["AuthenticationType"] != null)
+					{
+						multiplayerToken = (string) json["Token"];
+						json = JObject.Parse((string) json["Certificate"]);
+					}
+
 					JArray chain = json.chain;
 					//var chainArray = chain.ToArray();
 
 					string validationKey = null;
 					string identityPublicKey = null;
 
+					bool offlineChain = chain == null || chain.Count == 0 || string.IsNullOrEmpty((string) chain[0]);
+					if (offlineChain && !string.IsNullOrEmpty(multiplayerToken))
+					{
+						dynamic tokenPayload = JObject.Parse(JWT.Payload(multiplayerToken));
+						_playerInfo.CertificateData = new CertificateData
+						{
+							IdentityPublicKey = (string) tokenPayload.cpk,
+							ExtraData = new ExtraData
+							{
+								DisplayName = (string) tokenPayload.xname,
+								Identity = (string) tokenPayload.identity,
+								Xuid = null
+							}
+						};
+					}
+					else
 					foreach (JToken token in chain)
 					{
 						IDictionary<string, dynamic> headers = JWT.Headers(token.ToString());
