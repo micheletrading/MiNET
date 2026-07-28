@@ -5880,6 +5880,7 @@ namespace MiNET.Net
 	{
 
 		public int chunkRadius; // = null;
+		public byte maxRadius; // = null;
 
 		public McpeRequestChunkRadius()
 		{
@@ -5894,6 +5895,7 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			WriteSignedVarInt(chunkRadius);
+			Write(maxRadius);
 
 			AfterEncode();
 		}
@@ -5908,6 +5910,7 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			chunkRadius = ReadSignedVarInt();
+			maxRadius = ReadByte();
 
 			AfterDecode();
 		}
@@ -5920,6 +5923,7 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			chunkRadius=default(int);
+			maxRadius=default(byte);
 		}
 
 	}

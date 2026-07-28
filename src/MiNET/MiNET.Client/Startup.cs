@@ -92,7 +92,9 @@ namespace MiNET.Client
 			Action<Task, string> doSendCommand = BotHelpers.DoSendCommand(client);
 
 			Task.Run(BotHelpers.DoWaitForSpawn(client))
-				.ContinueWith(t => doSendCommand(t, $"/me says \"I spawned at {client.CurrentLocation}\""))
+				// Bot commands disabled: McpeCommandRequest is not updated to the current
+				// protocol yet, so keep un-modernized packets off the wire.
+				//.ContinueWith(t => doSendCommand(t, $"/me says \"I spawned at {client.CurrentLocation}\""))
 				//.ContinueWith(task =>
 				//{
 				//	var request = new McpeCommandRequest();
@@ -115,7 +117,7 @@ namespace MiNET.Client
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(0, 5.62, 0, 180 + 45, 180 + 45, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(22, 5.62, 40, 180 + 45, 180 + 45, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(50, 5.62f, 17, 180, 180, 180)))
-				.ContinueWith(t => doSendCommand(t, "/me says \"Hi guys! It is I!!\""))
+				//.ContinueWith(t => doSendCommand(t, "/me says \"Hi guys! It is I!!\""))
 				//.ContinueWith(t => Task.Delay(500).Wait())
 				//.ContinueWith(t => doSendCommand(t, "/summon sheep"))
 				//.ContinueWith(t => Task.Delay(500).Wait())

@@ -166,7 +166,6 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | byte [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-byte) |
 | byte[] [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-byte[]) |
 | ByteArray [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-ByteArray) |
-| CreativeItemStacks [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-CreativeItemStacks) |
 | DimensionDefinitions [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-DimensionDefinitions) |
 | EnchantOptions [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-EnchantOptions) |
 | EntityAttributes [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-EntityAttributes) |
@@ -174,7 +173,6 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Experiments [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-Experiments) |
 | FixedString [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-FixedString) |
 | float [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-float) |
-| GameRules [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-GameRules) |
 | int [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-int) |
 | IPEndPoint [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-IPEndPoint) |
 | IPEndPoint[] [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-IPEndPoint[]) |
@@ -1253,7 +1251,6 @@ Wiki: [Inventory Slot](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-In
 |:-----|:-----|:-----|
 |Inventory Id | UnsignedVarInt |  |
 |Slot | UnsignedVarInt |  |
-|Item | Item |  |
 -----------------------------------------------------------------------
 ### Container Set Data (0x33)
 Wiki: [Container Set Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ContainerSetData)
@@ -1578,6 +1575,7 @@ Wiki: [Request Chunk Radius](https://github.com/NiclasOlofsson/MiNET/wiki//Proto
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Chunk Radius | SignedVarInt |  |
+|Max Radius | byte |  |
 -----------------------------------------------------------------------
 ### Chunk Radius Update (0x46)
 Wiki: [Chunk Radius Update](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ChunkRadiusUpdate)
@@ -1622,7 +1620,6 @@ Wiki: [Game Rules Changed](https://github.com/NiclasOlofsson/MiNET/wiki//Protoco
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Rules | GameRules |  |
 -----------------------------------------------------------------------
 ### Camera (0x49)
 Wiki: [Camera](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Camera)
@@ -2465,7 +2462,6 @@ Wiki: [Biome Definition List](https://github.com/NiclasOlofsson/MiNET/wiki//Prot
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|NamedTag | Nbt |  |
 -----------------------------------------------------------------------
 ### Level Sound Event (0x7b)
 Wiki: [Level Sound Event](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-LevelSoundEvent)
@@ -2703,7 +2699,6 @@ Wiki: [Creative Content](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Input | CreativeItemStacks |  |
 -----------------------------------------------------------------------
 ### Player Enchant Options (0x92)
 Wiki: [Player Enchant Options](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-PlayerEnchantOptions)

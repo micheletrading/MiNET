@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -8,16 +8,16 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
+//
 // All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
 // All Rights Reserved.
 
@@ -25,6 +25,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using log4net;
 using MiNET.Plugins;
@@ -42,206 +43,169 @@ namespace MiNET.Net
 			Values = values;
 		}
 	}
+
 	public partial class McpeAvailableCommands
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(McpeAvailableCommands));
 
+		// Parameter enum_type discriminators (lu16 on the wire).
+		private const ushort EnumTypeValid = 16;
+		private const ushort EnumTypeEnum = 48;
+		private const ushort EnumTypeSuffixed = 256;
+		private const ushort EnumTypeSoftEnum = 1040;
+
 		public CommandSet CommandSet { get; set; }
+
+		// A misread earlier in the stream shows up as an absurd count; fail loudly
+		// instead of spinning for seconds and stalling the session thread.
+		private static uint GuardCount(uint count, string what)
+		{
+			if (count > 1_000_000) throw new InvalidDataException($"Unreasonable {what} count: {count}");
+			return count;
+		}
 
 		partial void AfterDecode()
 		{
 			CommandSet = new CommandSet();
-			var stringValues = new List<string>();
-			{
-				uint count = ReadUnsignedVarInt();
-				Log.Debug($"String values {count}");
-				for (int i = 0; i < count; i++)
-				{
-					string str = ReadString();
-					Log.Debug($"{i} - {str}");
-					stringValues.Add(str);
-				}
-			}
-			int stringValuesCount = stringValues.Count();
 
+			var enumValues = new List<string>();
+			uint valueCount = GuardCount(ReadUnsignedVarInt(), "enum value");
+			for (int i = 0; i < valueCount; i++)
 			{
-				uint count = ReadUnsignedVarInt();
-				Log.Debug($"Postfix values {count}");
-				for (int i = 0; i < count; i++)
-				{
-					string s = ReadString();
-					Log.Debug(s);
-				}
+				enumValues.Add(ReadString());
 			}
 
-			EnumData[] enums;
+			uint chainedValueCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand value");
+			for (int i = 0; i < chainedValueCount; i++)
 			{
-				uint count = ReadUnsignedVarInt();
-				enums = new EnumData[count];
-				Log.Debug($"Enum indexes {count}");
+				ReadString();
+			}
 
-				for (int i = 0; i < count; i++)
+			uint suffixCount = GuardCount(ReadUnsignedVarInt(), "suffix");
+			for (int i = 0; i < suffixCount; i++)
+			{
+				ReadString();
+			}
+
+			uint enumCount = GuardCount(ReadUnsignedVarInt(), "enum");
+			var enums = new EnumData[enumCount];
+			for (int i = 0; i < enumCount; i++)
+			{
+				string enumName = ReadString();
+				uint enumValueCount = GuardCount(ReadUnsignedVarInt(), "enum member");
+				string[] values = new string[enumValueCount];
+				for (int j = 0; j < enumValueCount; j++)
 				{
-					string enumName = ReadString();
-					uint enumValueCount = ReadUnsignedVarInt();
-					string[] enumValues = new string[enumValueCount];
-					
-					Log.Debug($"{i} - {enumName}:{enumValueCount}");
-					for (int j = 0; j < enumValueCount; j++)
+					uint idx = ReadUint(); // always lu32 in current protocol
+					values[j] = idx < enumValues.Count ? enumValues[(int) idx] : null;
+				}
+
+				enums[i] = new EnumData(enumName, values);
+			}
+
+			uint chainedSubcommandCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand");
+			for (int i = 0; i < chainedSubcommandCount; i++)
+			{
+				ReadString(); // name
+				uint valuesCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand entry");
+				for (int j = 0; j < valuesCount; j++)
+				{
+					ReadUnsignedVarInt(); // index
+					ReadUnsignedVarInt(); // value
+				}
+			}
+
+			uint commandCount = GuardCount(ReadUnsignedVarInt(), "command");
+			for (int i = 0; i < commandCount; i++)
+			{
+				var command = new Command();
+				command.Versions = new Version[1];
+
+				string commandName = ReadString();
+				string description = ReadString();
+				ushort flags = ReadUshort();
+				string permissionLevel = ReadString();
+				int aliasEnumIndex = ReadInt();
+
+				uint offsetCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand offset");
+				for (int j = 0; j < offsetCount; j++)
+				{
+					ReadUint();
+				}
+
+				command.Name = commandName;
+
+				var version = new Version();
+				version.Description = description;
+				version.Overloads = new Dictionary<string, Overload>();
+
+				uint overloadCount = GuardCount(ReadUnsignedVarInt(), "overload");
+				for (int j = 0; j < overloadCount; j++)
+				{
+					var overload = new Overload();
+					overload.Input = new Input();
+
+					ReadBool(); // is chaining
+
+					uint parameterCount = GuardCount(ReadUnsignedVarInt(), "parameter");
+					overload.Input.Parameters = new Parameter[parameterCount];
+					for (int k = 0; k < parameterCount; k++)
 					{
-						int idx;
-						if (stringValuesCount <= byte.MaxValue)
+						string parameterName = ReadString();
+						ushort valueType = ReadUshort();
+						ushort enumType = ReadUshort();
+						bool optional = ReadBool();
+						ReadByte(); // options bitfield
+
+						var parameter = new Parameter()
 						{
-							idx = ReadByte();
+							Name = parameterName,
+							Optional = optional,
+							Type = GetParameterTypeName(valueType)
+						};
+
+						if (enumType == EnumTypeEnum && valueType < enums.Length)
+						{
+							EnumData paramEnum = enums[valueType];
+							parameter.EnumValues = paramEnum.Values;
+							parameter.EnumType = paramEnum.Name;
+							parameter.Type = "stringenum";
 						}
-						else if (stringValuesCount <= short.MaxValue)
+						else if (enumType == EnumTypeSoftEnum)
 						{
-							idx = ReadShort();
-						}
-						else
-						{
-							idx = ReadInt();
+							parameter.Type = "softenum";
 						}
 
-						enumValues[j] = stringValues[idx];
-						Log.Debug($"{enumName}, {idx} - {stringValues[idx]}");
+						overload.Input.Parameters[k] = parameter;
 					}
 
-					enums[i] = new EnumData(enumName, enumValues);
+					version.Overloads.Add(j.ToString(), overload);
+				}
+
+				command.Versions[0] = version;
+				if (!CommandSet.ContainsKey(commandName)) CommandSet.Add(commandName, command);
+			}
+
+			uint dynamicEnumCount = GuardCount(ReadUnsignedVarInt(), "dynamic enum");
+			for (int i = 0; i < dynamicEnumCount; i++)
+			{
+				ReadString(); // name
+				uint dynamicValueCount = GuardCount(ReadUnsignedVarInt(), "dynamic enum value");
+				for (int j = 0; j < dynamicValueCount; j++)
+				{
+					ReadString();
 				}
 			}
 
+			uint constraintCount = GuardCount(ReadUnsignedVarInt(), "enum constraint");
+			for (int i = 0; i < constraintCount; i++)
 			{
-				uint count = ReadUnsignedVarInt();
-				Log.Debug($"Commands definitions {count}");
-				for (int i = 0; i < count; i++)
+				ReadInt(); // value index
+				ReadInt(); // enum index
+				uint subCount = GuardCount(ReadUnsignedVarInt(), "constraint entry");
+				for (int j = 0; j < subCount; j++)
 				{
-					Command command = new Command();
-					command.Versions = new Version[1];
-					string commandName = ReadString();
-					string description = ReadString();
-					int flags = ReadShort();
-					int permissions = ReadByte();
-
-					command.Name = commandName;
-
-					Version version = new Version();
-					version.Description = description;
-
-					int aliasEnumIndex = ReadInt();
-
-					uint overloadCount = ReadUnsignedVarInt();
-					version.Overloads = new Dictionary<string, Overload>();
-					for (int j = 0; j < overloadCount; j++)
-					{
-						Overload overload = new Overload();
-						overload.Input = new Input();
-						
-						uint parameterCount = ReadUnsignedVarInt();
-						overload.Input.Parameters = new Parameter[parameterCount];
-						Log.Debug($"{commandName}, {description}, flags={flags}, {((CommandPermission) permissions)}, alias={aliasEnumIndex}, overloads={overloadCount}, params={parameterCount}");
-						for (int k = 0; k < parameterCount; k++)
-						{
-							string commandParamName = ReadString();
-							var paramType = ReadInt();
-							var optional = ReadBool();
-							var paramFlags = ReadByte();
-							/*int tmp = ReadShort();
-							int tmp1 = ReadShort();
-							bool isEnum = (tmp1 & 0x30) == 0x30;
-							bool isSoftEnum = (tmp1 & 0x0410) == 0x0410;
-							int commandParamType = -1;
-							int commandParamEnumIndex = -1;
-							int commandParamSoftEnumIndex = -1;
-							int commandParamPostfixIndex = -1;
-							if ((tmp1 & 0x0030) == 0x0030)
-							{
-								commandParamEnumIndex = tmp & 0xffff;
-							}
-							else if ((tmp1 & 0x0410) == 0x0410)
-							{
-								commandParamType = tmp & 0xffff;
-								commandParamSoftEnumIndex = tmp & 0xffff;
-							}
-							else if ((tmp1 & 0x100) == 0x100)
-							{
-								commandParamPostfixIndex = tmp & 0xffff;
-							}
-							else if ((tmp1 & 0x10) == 0x10)
-							{
-								commandParamType = tmp & 0xffff;
-							}
-							else
-							{
-								Log.Warn("No parameter style read (enum, valid, postfix)");
-							}*/
-
-							//bool optional = ReadBool();
-							//byte unknown = ReadByte();
-
-							Parameter parameter = new Parameter()
-							{
-								Name = commandParamName,
-								Optional = optional,
-								Type = GetParameterTypeName((paramType & 0xffff))
-							};
-
-							overload.Input.Parameters[k] = parameter;
-
-							if ((paramType & 0x200000) != 0) //Enum
-							{
-								var paramEnum = enums[paramType & 0xffff];
-								parameter.EnumValues = paramEnum.Values;
-								parameter.EnumType = paramEnum.Name;
-								parameter.Type = "stringenum";
-							}
-							else if ((paramType & 0x1000000) != 0) //Postfix
-							{
-								var paramEnum = enums[paramType & 0xffff];
-								parameter.EnumValues = paramEnum.Values;
-								parameter.EnumType = paramEnum.Name;
-								parameter.Type = "stringenum";
-							}
-							
-							//Log.Debug($"\t{commandParamName}, 0x{tmp:X4}, 0x{tmp1:X4}, {isEnum}, {isSoftEnum}, {(GetParameterTypeName(commandParamType))}, {commandParamEnumIndex}, {commandParamSoftEnumIndex}, {commandParamPostfixIndex}, {optional}, {unknown}");
-						}
-						
-						version.Overloads.Add(j.ToString(), overload);
-					}
-					
-					command.Versions[0] = version;
-					CommandSet.Add(commandName, command);
-				}
-			}
-			{
-				// Soft enums?
-
-				uint count = ReadUnsignedVarInt();
-				Log.Debug($"Soft enums {count}");
-				for (int i = 0; i < count; i++)
-				{
-					string enumName = ReadString();
-					Log.Debug($"Soft Enum {enumName}");
-					uint valCount = ReadUnsignedVarInt();
-					for (int j = 0; j < valCount; j++)
-					{
-						Log.Debug($"\t{enumName} value:{ReadString()}");
-					}
-				}
-			}
-
-			{
-				// constraints
-				uint count = ReadUnsignedVarInt();
-				Log.Debug($"Constraints {count}");
-				for (int i = 0; i < count; i++)
-				{
-					Log.Debug($"Constraint: {ReadInt()} _ {ReadInt()}");
-					uint someCount = ReadUnsignedVarInt();
-					for (int j = 0; j < someCount; j++)
-					{
-						Log.Debug($"\tUnknown byte: {ReadByte()}");
-					}
+					ReadByte();
 				}
 			}
 		}
@@ -253,236 +217,184 @@ namespace MiNET.Net
 				if (CommandSet == null || CommandSet.Count == 0)
 				{
 					Log.Warn("No commands to send");
-					WriteUnsignedVarInt(0);
-					WriteUnsignedVarInt(0);
-					WriteUnsignedVarInt(0);
-					WriteUnsignedVarInt(0);
-					WriteUnsignedVarInt(0);
-					WriteUnsignedVarInt(0);
+					WriteUnsignedVarInt(0); // enum values
+					WriteUnsignedVarInt(0); // chained subcommand values
+					WriteUnsignedVarInt(0); // suffixes
+					WriteUnsignedVarInt(0); // enums
+					WriteUnsignedVarInt(0); // chained subcommands
+					WriteUnsignedVarInt(0); // commands
+					WriteUnsignedVarInt(0); // dynamic enums
+					WriteUnsignedVarInt(0); // constraints
 					return;
 				}
 
 				var commands = CommandSet;
 
-				List<string> stringList = new List<string>();
+				var stringList = new List<string>();
+				foreach (Command command in commands.Values)
 				{
-					foreach (var command in commands.Values)
+					var aliases = command.Versions[0].Aliases.Concat(new[] {command.Name}).ToArray();
+					foreach (string alias in aliases)
 					{
-						var aliases = command.Versions[0].Aliases.Concat(new string[] {command.Name}).ToArray();
-						foreach (var alias in aliases)
-						{
-							if (!stringList.Contains(alias))
-							{
-								stringList.Add(alias);
-							}
-						}
-
-						var overloads = command.Versions[0].Overloads;
-						foreach (var overload in overloads.Values)
-						{
-							var parameters = overload.Input.Parameters;
-							if (parameters == null) continue;
-							foreach (var parameter in parameters)
-							{
-								if (parameter.Type == "stringenum")
-								{
-									if (parameter.EnumValues == null) continue;
-									foreach (var enumValue in parameter.EnumValues)
-									{
-										if (!stringList.Contains(enumValue))
-										{
-											stringList.Add(enumValue);
-										}
-									}
-								}
-							}
-						}
+						if (!stringList.Contains(alias)) stringList.Add(alias);
 					}
 
-					WriteUnsignedVarInt((uint) stringList.Count); // Enum values
-					foreach (var s in stringList)
+					foreach (Overload overload in command.Versions[0].Overloads.Values)
 					{
-						Write(s);
-						//Log.Debug($"String: {s}, {(short) stringList.IndexOf(s)} ");
+						Parameter[] parameters = overload.Input.Parameters;
+						if (parameters == null) continue;
+						foreach (Parameter parameter in parameters)
+						{
+							if (parameter.Type != "stringenum" || parameter.EnumValues == null) continue;
+							foreach (string enumValue in parameter.EnumValues)
+							{
+								if (!stringList.Contains(enumValue)) stringList.Add(enumValue);
+							}
+						}
 					}
 				}
 
-				WriteUnsignedVarInt(0); // Postfixes
+				WriteUnsignedVarInt((uint) stringList.Count); // enum values
+				foreach (string s in stringList)
+				{
+					Write(s);
+				}
 
-				List<string> enumList = new List<string>();
-				foreach (var command in commands.Values)
+				WriteUnsignedVarInt(0); // chained subcommand values
+				WriteUnsignedVarInt(0); // suffixes
+
+				var enumList = new List<string>();
+				foreach (Command command in commands.Values)
 				{
 					if (command.Versions[0].Aliases.Length > 0)
 					{
 						string aliasEnum = command.Name + "CommandAliases";
-						if (!enumList.Contains(aliasEnum))
-						{
-							enumList.Add(aliasEnum);
-						}
+						if (!enumList.Contains(aliasEnum)) enumList.Add(aliasEnum);
 					}
 
-					var overloads = command.Versions[0].Overloads;
-					foreach (var overload in overloads.Values)
+					foreach (Overload overload in command.Versions[0].Overloads.Values)
 					{
-						var parameters = overload.Input.Parameters;
+						Parameter[] parameters = overload.Input.Parameters;
 						if (parameters == null) continue;
-						foreach (var parameter in parameters)
+						foreach (Parameter parameter in parameters)
 						{
-							if (parameter.Type == "stringenum")
-							{
-								if (parameter.EnumValues == null) continue;
-
-								if (!enumList.Contains(parameter.EnumType))
-								{
-									enumList.Add(parameter.EnumType);
-								}
-							}
+							if (parameter.Type != "stringenum" || parameter.EnumValues == null) continue;
+							if (!enumList.Contains(parameter.EnumType)) enumList.Add(parameter.EnumType);
 						}
 					}
 				}
 
-				//WriteUnsignedVarInt(0); // Enum indexes
-				WriteUnsignedVarInt((uint) enumList.Count); // Enum indexes
-				List<string> writtenEnumList = new List<string>();
-				foreach (var command in commands.Values)
+				WriteUnsignedVarInt((uint) enumList.Count); // enums
+				var writtenEnumList = new List<string>();
+				foreach (Command command in commands.Values)
 				{
 					if (command.Versions[0].Aliases.Length > 0)
 					{
-						var aliases = command.Versions[0].Aliases.Concat(new string[] {command.Name}).ToArray();
+						var aliases = command.Versions[0].Aliases.Concat(new[] {command.Name}).ToArray();
 						string aliasEnum = command.Name + "CommandAliases";
 						if (!enumList.Contains(aliasEnum)) continue;
 						if (writtenEnumList.Contains(aliasEnum)) continue;
+						writtenEnumList.Add(aliasEnum);
 
 						Write(aliasEnum);
 						WriteUnsignedVarInt((uint) aliases.Length);
-						foreach (var enumValue in aliases)
+						foreach (string enumValue in aliases)
 						{
-							if (!stringList.Contains(enumValue)) Log.Error($"Expected enum value: {enumValue} in string list, but didn't find it.");
-							if (stringList.Count <= byte.MaxValue)
-							{
-								Write((byte) stringList.IndexOf(enumValue));
-							}
-							else if (stringList.Count <= short.MaxValue)
-							{
-								Write((short) stringList.IndexOf(enumValue));
-							}
-							else
-							{
-								Write((int) stringList.IndexOf(enumValue));
-							}
-
-							//Log.Debug($"EnumType: {aliasEnum}, {enumValue}, {stringList.IndexOf(enumValue)} ");
+							int idx = stringList.IndexOf(enumValue);
+							if (idx < 0) Log.Error($"Expected enum value: {enumValue} in string list, but didn't find it.");
+							Write((uint) idx); // always lu32 in current protocol
 						}
 					}
 
-					var overloads = command.Versions[0].Overloads;
-					foreach (var overload in overloads.Values)
+					foreach (Overload overload in command.Versions[0].Overloads.Values)
 					{
-						var parameters = overload.Input.Parameters;
+						Parameter[] parameters = overload.Input.Parameters;
 						if (parameters == null) continue;
-						foreach (var parameter in parameters)
+						foreach (Parameter parameter in parameters)
 						{
-							if (parameter.Type == "stringenum")
+							if (parameter.Type != "stringenum" || parameter.EnumValues == null) continue;
+							if (!enumList.Contains(parameter.EnumType)) continue;
+							if (writtenEnumList.Contains(parameter.EnumType)) continue;
+							writtenEnumList.Add(parameter.EnumType);
+
+							Write(parameter.EnumType);
+							WriteUnsignedVarInt((uint) parameter.EnumValues.Length);
+							foreach (string enumValue in parameter.EnumValues)
 							{
-								if (parameter.EnumValues == null) continue;
-
-								if (!enumList.Contains(parameter.EnumType)) continue;
-								if (writtenEnumList.Contains(parameter.EnumType)) continue;
-
-								writtenEnumList.Add(parameter.EnumType);
-
-								Write(parameter.EnumType);
-								WriteUnsignedVarInt((uint) parameter.EnumValues.Length);
-								foreach (var enumValue in parameter.EnumValues)
-								{
-									if (!stringList.Contains(enumValue)) Log.Error($"Expected enum value: {enumValue} in string list, but didn't find it.");
-									if (stringList.Count <= byte.MaxValue)
-									{
-										Write((byte) stringList.IndexOf(enumValue));
-									}
-									else if (stringList.Count <= short.MaxValue)
-									{
-										Write((short) stringList.IndexOf(enumValue));
-									}
-									else
-									{
-										Write((int) stringList.IndexOf(enumValue));
-									}
-
-									//Log.Debug($"EnumType: {parameter.EnumType}, {enumValue}, {stringList.IndexOf(enumValue)} ");
-								}
+								int idx = stringList.IndexOf(enumValue);
+								if (idx < 0) Log.Error($"Expected enum value: {enumValue} in string list, but didn't find it.");
+								Write((uint) idx);
 							}
 						}
 					}
 				}
 
+				WriteUnsignedVarInt(0); // chained subcommands
+
 				WriteUnsignedVarInt((uint) commands.Count);
-				foreach (var command in commands.Values)
+				foreach (Command command in commands.Values)
 				{
 					Write(command.Name);
 					Write(command.Versions[0].Description);
-					Write((short) 0); // flags
-					Write((byte) command.Versions[0].CommandPermission); // permissions
+					Write((ushort) 0); // flags
+					Write(GetPermissionLevelName((CommandPermission) command.Versions[0].CommandPermission));
 
 					if (command.Versions[0].Aliases.Length > 0)
 					{
 						string aliasEnum = command.Name + "CommandAliases";
-						Write((int) enumList.IndexOf(aliasEnum));
+						Write(enumList.IndexOf(aliasEnum));
 					}
 					else
 					{
-						Write((int) -1); // Enum index
+						Write(-1); // alias enum index
 					}
 
-
-					//Log.Warn($"Writing command {command.Name}");
+					WriteUnsignedVarInt(0); // chained subcommand offsets
 
 					var overloads = command.Versions[0].Overloads;
-					WriteUnsignedVarInt((uint) overloads.Count); // Overloads
-					foreach (var overload in overloads.Values)
+					WriteUnsignedVarInt((uint) overloads.Count);
+					foreach (Overload overload in overloads.Values)
 					{
-						//Log.Warn($"Writing command: {command.Name}");
+						Write(false); // is chaining
 
-						var parameters = overload.Input.Parameters;
+						Parameter[] parameters = overload.Input.Parameters;
 						if (parameters == null)
 						{
-							WriteUnsignedVarInt(0); // Parameter count
+							WriteUnsignedVarInt(0);
 							continue;
 						}
 
-						WriteUnsignedVarInt((uint) parameters.Length); // Parameter count
-						foreach (var parameter in parameters)
+						WriteUnsignedVarInt((uint) parameters.Length);
+						foreach (Parameter parameter in parameters)
 						{
-							//Log.Debug($"Writing command overload parameter {command.Name}, {parameter.Name}, {parameter.Type}");
-
-							Write(parameter.Name); // parameter name
+							Write(parameter.Name);
 							if (parameter.Type == "stringenum" && parameter.EnumValues != null)
 							{
-								Write((short) enumList.IndexOf(parameter.EnumType));
-								Write((short) 0x30);
+								Write((ushort) enumList.IndexOf(parameter.EnumType));
+								Write(EnumTypeEnum);
 							}
 							else if (parameter.Type == "softenum" && parameter.EnumValues != null)
 							{
-								Write((short) 0); // soft enum index below
-								Write((short) 0x0410);
+								Write((ushort) 0);
+								Write(EnumTypeSoftEnum);
 							}
 							else
 							{
-								Write((short) GetParameterTypeId(parameter.Type)); // param type
-								Write((short) 0x10);
+								Write((ushort) GetParameterTypeId(parameter.Type));
+								Write(EnumTypeValid);
 							}
 
-							Write(parameter.Optional); // optional
-							Write((byte) 0); // unknown
+							Write(parameter.Optional);
+							Write((byte) 0); // options bitfield
 						}
 					}
 				}
 
-				WriteUnsignedVarInt(1); //TODO: soft enums
+				WriteUnsignedVarInt(1); // dynamic (soft) enums
 				Write("CmdSoftEnumValues");
-				Write(false);
+				WriteUnsignedVarInt(0);
 
-				WriteUnsignedVarInt(0); //TODO: constraints
+				WriteUnsignedVarInt(0); // constraints
 			}
 			catch (Exception e)
 			{
@@ -491,54 +403,72 @@ namespace MiNET.Net
 			}
 		}
 
+		private static string GetPermissionLevelName(CommandPermission permission)
+		{
+			return permission switch
+			{
+				CommandPermission.Normal => "Any",
+				CommandPermission.Operator => "GameDirectors",
+				CommandPermission.Host => "Host",
+				CommandPermission.Automation => "Admin",
+				CommandPermission.Admin => "Owner",
+				_ => "Any"
+			};
+		}
+
 		private int GetParameterTypeId(string type)
 		{
 			return type switch
 			{
-				"enum" => -1,
 				"unknown" => 0,
-				"int" => 0x01,
-				"float" => 0x03,
-				"mixed" => 0x04,
-				"wildcardint" => 0x05,
-				"operator" => 0x06,
-				"target" => 0x07,
-				"filename" => 0x10,
-				"string" => 0x20,
-				"blockpos" => 0x25,
-				"entitypos" => 0x26,
-				"xyz" => 0x28,
-				"message" => 0x2c,
-				"rawtext" => 0x2e,
-				"json" => 0x32,
-				"command" => 0x3f,
+				"int" => 1,
+				"float" => 3,
+				"mixed" => 4,
+				"wildcardint" => 5,
+				"operator" => 6,
+				"commandoperator" => 7,
+				"target" => 8,
+				"wildcardtarget" => 10,
+				"filename" => 17,
+				"integerrange" => 23,
+				"equipmentslots" => 43,
+				"string" => 44,
+				"blockpos" => 52,
+				"entitypos" => 53,
+				"message" => 55,
+				"rawtext" => 58,
+				"json" => 62,
+				"blockstates" => 71,
+				"command" => 75,
 				_ => 0
 			};
 		}
 
 		private string GetParameterTypeName(int type)
 		{
-
 			return type switch
 			{
-				-1   => "enum",
-				0    => "unknown",
-				0x01 => "int",
-				0x03 => "float",
-				0x04 => "mixed",
-				0x05 => "wildcardint",
-				0x06 => "operator",
-				0x07 => "target",
-				0x10 => "filename",
-				0x20 => "string",
-				0x25   => "blockpos",
-				0x26   => "entitypos",
-				0x28 => "xyz",
-				0x2c => "message", // kick, me, etc
-				0x2e => "rawtext", // kick, me, etc
-				0x32 => "json", // give, replace
-				0x3f => "command",
-				_    => $"undefined({type})"
+				0 => "unknown",
+				1 => "int",
+				3 => "float",
+				4 => "mixed",
+				5 => "wildcardint",
+				6 => "operator",
+				7 => "commandoperator",
+				8 => "target",
+				10 => "wildcardtarget",
+				17 => "filename",
+				23 => "integerrange",
+				43 => "equipmentslots",
+				44 => "string",
+				52 => "blockpos",
+				53 => "entitypos",
+				55 => "message",
+				58 => "rawtext",
+				62 => "json",
+				71 => "blockstates",
+				75 => "command",
+				_ => "unknown"
 			};
 		}
 	}

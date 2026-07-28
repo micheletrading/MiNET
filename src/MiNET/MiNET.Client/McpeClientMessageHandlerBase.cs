@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -178,6 +178,7 @@ namespace MiNET.Client
 			var packet = McpeRequestChunkRadius.CreateObject();
 			client.ChunkRadius = 5;
 			packet.chunkRadius = client.ChunkRadius;
+			packet.maxRadius = 32;
 
 			if (Client.IsEmulator)
 			{
