@@ -264,9 +264,10 @@
 		<field name="Pitch" type="float" />
 		<field name="Yaw" type="float" />
 		<field name="Head Yaw" type="float" />
+		<field name="Body Yaw" type="float" />
 		<field name="Attributes" type="EntityAttributes" />
 		<field name="Metadata" type="MetadataDictionary" />
-		<field name="Links" type="EntityLinks" />
+		<!-- PropertySyncData and links handled in partial -->
 	</pdu>
 
 	<pdu id="0x0e" online="false" client="false" server="true" name="MCPE_REMOVE_ENTITY">
@@ -517,7 +518,7 @@
 	<pdu id="0x27" online="false" client="true" server="true" name="MCPE_SET_ENTITY_DATA">
 		<field name="Runtime Entity ID" type="UnsignedVarLong" />
 		<field name="Metadata" type="MetadataDictionary" />
-		<field name="Tick" type="UnsignedVarLong" />
+		<!-- PropertySyncData and tick handled in partial -->
 	</pdu>
 
 	<pdu id="0x28" online="false" client="true" server="true" name="MCPE_SET_ENTITY_MOTION">
@@ -693,6 +694,7 @@
 	<pdu id="0x3a" online="false" client="false" server="true" name="MCPE_LEVEL_CHUNK">
 		<field name="Chunk X" type="SignedVarInt" />
 		<field name="Chunk Z" type="SignedVarInt" />
+		<field name="Dimension" type="SignedVarInt" />
 		<!--<field name="Sub Chunk Count" type="UnsignedVarInt" />
 		<field name="Cache Enabled" type="bool" />-->
 		<!--<field name="Blob Hashes" type="ulong[]" />
@@ -1070,12 +1072,13 @@
 	</pdu>
 
 	<pdu id="0x7b" online="false" client="true" server="true" name="MCPE_LEVEL_SOUND_EVENT">
-		<field name="Sound ID" type="UnsignedVarInt" />
+		<field name="Sound ID" type="string" />
 		<field name="Position" type="Vector3" />
 		<field name="Block Id" type="SignedVarInt" />
 		<field name="Entity Type" type="string" />
 		<field name="Is baby mob" type="bool" />
 		<field name="Is global" type="bool" />
+		<!-- entity unique id and optional fire position handled in partial -->
 	</pdu>
 
 	<pdu id="0x7c" online="false" client="false" server="true" name="MCPE_LEVEL_EVENT_GENERIC">

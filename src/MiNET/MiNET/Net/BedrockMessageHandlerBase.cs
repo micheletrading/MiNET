@@ -199,8 +199,11 @@ namespace MiNET.Net
 								//if (Log.IsDebugEnabled)
 								//	Log.Debug($"0x{internalBuffer[0]:x2}\n{Packet.HexDump(internalBuffer)}");
 
-								messages.Add(PacketFactory.Create((byte) id, internalBuffer, "mcpe") ??
-											new UnknownPacket((byte) id, internalBuffer));
+								// Packet ids are varints and exceed 255 in modern protocols. The generated
+								// factory is byte-indexed, so anything above 255 stays an unknown packet.
+								Packet parsed = id <= byte.MaxValue ? PacketFactory.Create((byte) id, internalBuffer, "mcpe") : null;
+								if (parsed == null && id > byte.MaxValue && Log.IsDebugEnabled) Log.Debug($"Unknown packet with id {id} outside byte range");
+								messages.Add(parsed ?? new UnknownPacket((byte) (id & 0xff), internalBuffer));
 							}
 							catch (Exception e)
 							{

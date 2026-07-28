@@ -1725,7 +1725,9 @@ namespace MiNET.Worlds
 		{
 			var packet = McpeLevelSoundEvent.CreateObject();
 			packet.position = position;
-			packet.soundId = (uint) sound;
+			// TODO: Wire format is a sound name string since protocol 993; verify the
+			// name mapping against BDS traces when the server side is brought to 1001.
+			packet.soundId = sound.ToString();
 			packet.blockId = blockId;
 			RelayBroadcast(sender, packet);
 		}

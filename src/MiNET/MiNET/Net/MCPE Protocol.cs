@@ -2676,9 +2676,9 @@ namespace MiNET.Net
 		public float pitch; // = null;
 		public float yaw; // = null;
 		public float headYaw; // = null;
+		public float bodyYaw; // = null;
 		public EntityAttributes attributes; // = null;
 		public MetadataDictionary metadata; // = null;
-		public EntityLinks links; // = null;
 
 		public McpeAddEntity()
 		{
@@ -2704,9 +2704,9 @@ namespace MiNET.Net
 			Write(pitch);
 			Write(yaw);
 			Write(headYaw);
+			Write(bodyYaw);
 			Write(attributes);
 			Write(metadata);
-			Write(links);
 
 			AfterEncode();
 		}
@@ -2732,9 +2732,9 @@ namespace MiNET.Net
 			pitch = ReadFloat();
 			yaw = ReadFloat();
 			headYaw = ReadFloat();
+			bodyYaw = ReadFloat();
 			attributes = ReadEntityAttributes();
 			metadata = ReadMetadataDictionary();
-			links = ReadEntityLinks();
 
 			AfterDecode();
 		}
@@ -2758,9 +2758,9 @@ namespace MiNET.Net
 			pitch=default(float);
 			yaw=default(float);
 			headYaw=default(float);
+			bodyYaw=default(float);
 			attributes=default(EntityAttributes);
 			metadata=default(MetadataDictionary);
-			links=default(EntityLinks);
 		}
 
 	}
@@ -4230,7 +4230,6 @@ namespace MiNET.Net
 
 		public long runtimeEntityId; // = null;
 		public MetadataDictionary metadata; // = null;
-		public long tick; // = null;
 
 		public McpeSetEntityData()
 		{
@@ -4246,7 +4245,6 @@ namespace MiNET.Net
 
 			WriteUnsignedVarLong(runtimeEntityId);
 			Write(metadata);
-			WriteUnsignedVarLong(tick);
 
 			AfterEncode();
 		}
@@ -4262,7 +4260,6 @@ namespace MiNET.Net
 
 			runtimeEntityId = ReadUnsignedVarLong();
 			metadata = ReadMetadataDictionary();
-			tick = ReadUnsignedVarLong();
 
 			AfterDecode();
 		}
@@ -4276,7 +4273,6 @@ namespace MiNET.Net
 
 			runtimeEntityId=default(long);
 			metadata=default(MetadataDictionary);
-			tick=default(long);
 		}
 
 	}
@@ -5329,6 +5325,7 @@ namespace MiNET.Net
 
 		public int chunkX; // = null;
 		public int chunkZ; // = null;
+		public int dimension; // = null;
 
 		public McpeLevelChunk()
 		{
@@ -5344,6 +5341,7 @@ namespace MiNET.Net
 
 			WriteSignedVarInt(chunkX);
 			WriteSignedVarInt(chunkZ);
+			WriteSignedVarInt(dimension);
 
 			AfterEncode();
 		}
@@ -5359,6 +5357,7 @@ namespace MiNET.Net
 
 			chunkX = ReadSignedVarInt();
 			chunkZ = ReadSignedVarInt();
+			dimension = ReadSignedVarInt();
 
 			AfterDecode();
 		}
@@ -5372,6 +5371,7 @@ namespace MiNET.Net
 
 			chunkX=default(int);
 			chunkZ=default(int);
+			dimension=default(int);
 		}
 
 	}
@@ -8743,7 +8743,7 @@ namespace MiNET.Net
 	public partial class McpeLevelSoundEvent : Packet<McpeLevelSoundEvent>
 	{
 
-		public uint soundId; // = null;
+		public string soundId; // = null;
 		public Vector3 position; // = null;
 		public int blockId; // = null;
 		public string entityType; // = null;
@@ -8762,7 +8762,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			WriteUnsignedVarInt(soundId);
+			Write(soundId);
 			Write(position);
 			WriteSignedVarInt(blockId);
 			Write(entityType);
@@ -8781,7 +8781,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			soundId = ReadUnsignedVarInt();
+			soundId = ReadString();
 			position = ReadVector3();
 			blockId = ReadSignedVarInt();
 			entityType = ReadString();
@@ -8798,7 +8798,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			soundId=default(uint);
+			soundId=default(string);
 			position=default(Vector3);
 			blockId=default(int);
 			entityType=default(string);

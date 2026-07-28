@@ -516,9 +516,9 @@ val2 float
 |Pitch | float |  |
 |Yaw | float |  |
 |Head Yaw | float |  |
+|Body Yaw | float |  |
 |Attributes | EntityAttributes |  |
 |Metadata | MetadataDictionary |  |
-|Links | EntityLinks |  |
 -----------------------------------------------------------------------
 ### Remove Entity (0x0e)
 Wiki: [Remove Entity](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-RemoveEntity)
@@ -1052,7 +1052,6 @@ Wiki: [Set Entity Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-S
 |:-----|:-----|:-----|
 |Runtime Entity ID | UnsignedVarLong |  |
 |Metadata | MetadataDictionary |  |
-|Tick | UnsignedVarLong |  |
 -----------------------------------------------------------------------
 ### Set Entity Motion (0x28)
 Wiki: [Set Entity Motion](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SetEntityMotion)
@@ -1407,6 +1406,7 @@ Wiki: [Level Chunk](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Level
 |:-----|:-----|:-----|
 |Chunk X | SignedVarInt |  |
 |Chunk Z | SignedVarInt |  |
+|Dimension | SignedVarInt |  |
 -----------------------------------------------------------------------
 ### Set Commands Enabled (0x3b)
 Wiki: [Set Commands Enabled](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SetCommandsEnabled)
@@ -2480,7 +2480,7 @@ Wiki: [Level Sound Event](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Sound ID | UnsignedVarInt |  |
+|Sound ID | string |  |
 |Position | Vector3 |  |
 |Block Id | SignedVarInt |  |
 |Entity Type | string |  |
