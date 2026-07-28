@@ -1068,7 +1068,7 @@
 	</pdu>
 
 	<pdu id="0x7a" online="false" client="false" server="true" name="MCPE_BIOME_DEFINITION_LIST">
-		<field name="NamedTag" type="Nbt" />
+		<!-- Rewritten at protocol 800: flat string-interning list plus indexed biome data. Handled entirely in the McpeBiomeDefinitionList partial (AfterDecode/AfterEncode). -->
 	</pdu>
 
 	<pdu id="0x7b" online="false" client="true" server="true" name="MCPE_LEVEL_SOUND_EVENT">
@@ -1144,7 +1144,7 @@
 	</pdu>
 
 	<pdu id="0x91" online="false" client="false" server="true" name="MCPE_CREATIVE_CONTENT">
-		<field name="Input" type="CreativeItemStacks" />
+		<!-- Reworked at protocol 776: groups (category, name, icon item) and entries (net id, item, group index) as separate lists, using the legacy item encoding. Handled entirely in the McpeCreativeContent partial (AfterDecode/AfterEncode). -->
 	</pdu>
 
 	<!--

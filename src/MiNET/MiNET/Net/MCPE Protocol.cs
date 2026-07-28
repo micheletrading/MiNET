@@ -8687,7 +8687,6 @@ namespace MiNET.Net
 	public partial class McpeBiomeDefinitionList : Packet<McpeBiomeDefinitionList>
 	{
 
-		public Nbt namedtag; // = null;
 
 		public McpeBiomeDefinitionList()
 		{
@@ -8701,7 +8700,6 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(namedtag);
 
 			AfterEncode();
 		}
@@ -8715,7 +8713,6 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			namedtag = ReadNbt();
 
 			AfterDecode();
 		}
@@ -8727,7 +8724,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			namedtag=default(Nbt);
 		}
 
 	}
@@ -9433,7 +9429,6 @@ namespace MiNET.Net
 	public partial class McpeCreativeContent : Packet<McpeCreativeContent>
 	{
 
-		public CreativeItemStacks input; // = null;
 
 		public McpeCreativeContent()
 		{
@@ -9447,7 +9442,6 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(input);
 
 			AfterEncode();
 		}
@@ -9461,7 +9455,6 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			input = ReadCreativeItemStacks();
 
 			AfterDecode();
 		}
@@ -9473,7 +9466,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			input=default(CreativeItemStacks);
 		}
 
 	}

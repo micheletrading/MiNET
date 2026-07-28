@@ -969,18 +969,31 @@ namespace MiNET
 
 		public virtual void SendBiomeDefinitionList()
 		{
-			var nbt = new Nbt
-			{
-				NbtFile = new NbtFile
-				{
-					BigEndian = false,
-					UseVarInt = true,
-					RootTag = BiomeUtils.GenerateDefinitionList(),
-				}
-			};
-
 			var pk = McpeBiomeDefinitionList.CreateObject();
-			pk.namedtag = nbt;
+
+			var strings = new List<string>();
+			foreach (Biome biome in BiomeUtils.Biomes)
+			{
+				if (string.IsNullOrEmpty(biome.DefinitionName)) continue;
+
+				int nameIndex = strings.IndexOf(biome.DefinitionName);
+				if (nameIndex < 0)
+				{
+					nameIndex = strings.Count;
+					strings.Add(biome.DefinitionName);
+				}
+
+				pk.Definitions.Add(new BiomeDefinitionEntry
+				{
+					NameIndex = (short) nameIndex,
+					BiomeId = (ushort) biome.Id,
+					Temperature = biome.Temperature,
+					Downfall = biome.Downfall,
+					Rain = biome.Downfall > 0,
+				});
+			}
+			pk.Strings = strings;
+
 			SendPacket(pk);
 		}
 
@@ -1783,7 +1796,27 @@ namespace MiNET
 			if (!UseCreativeInventory) return;
 
 			var creativeContent = McpeCreativeContent.CreateObject();
-			creativeContent.input = InventoryUtils.GetCreativeMetadataSlots();
+
+			// MiNET doesn't model creative tab/group categorization, so everything goes in a single
+			// catch-all group (matches vanilla's "items" category used for ungrouped entries).
+			creativeContent.Groups.Add(new CreativeItemGroup
+			{
+				Category = 4, // items
+				Name = "itemGroup.name.items",
+				Icon = InventoryUtils.CreativeInventoryItems.Count > 0 ? InventoryUtils.CreativeInventoryItems[0] : null,
+			});
+
+			var items = InventoryUtils.GetCreativeMetadataSlots();
+			for (int i = 0; i < items.Count; i++)
+			{
+				creativeContent.Entries.Add(new CreativeContentEntry
+				{
+					EntryId = i + 1,
+					Item = items[i],
+					GroupIndex = 0,
+				});
+			}
+
 			SendPacket(creativeContent);
 		}
 

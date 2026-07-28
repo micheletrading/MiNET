@@ -176,10 +176,16 @@ namespace MiNET.Client
 
 		public override void HandleMcpeCreativeContent(McpeCreativeContent message)
 		{
-			ItemStacks slots = message.input;
+			ItemStacks slots = new ItemStacks();
+			foreach (var entry in message.Entries)
+			{
+				slots.Add(entry.Item);
+			}
 
+			// Off the session thread; blocking here for seconds makes the server
+			// drop the connection during the join sequence.
 			string fileName = Path.GetTempPath() + "Inventory_0x79_" + Guid.NewGuid() + ".txt";
-			Client.WriteInventoryToFile(fileName, slots);
+			Task.Run(() => Client.WriteInventoryToFile(fileName, slots));
 		}
 
 		public override void HandleMcpeAddItemEntity(McpeAddItemEntity message)
@@ -622,6 +628,14 @@ namespace MiNET.Client
 		{
 			if (Client.IsEmulator) return;
 
+			// Off the session thread; synchronously dumping thousands of recipes stalls
+			// the join sequence long enough for the server to drop the connection.
+			Recipes recipes = message.recipes;
+			Task.Run(() => DumpRecipes(recipes));
+		}
+
+		private static void DumpRecipes(Recipes recipes)
+		{
 			string fileName = Path.GetTempPath() + "Recipes_" + Guid.NewGuid() + ".txt";
 			Log.Info("Writing recipes to filename: " + fileName);
 			FileStream file = File.OpenWrite(fileName);
@@ -639,7 +653,7 @@ namespace MiNET.Client
 			writer.WriteLine("{");
 			writer.Indent++;
 
-			foreach (Recipe recipe in message.recipes)
+			foreach (Recipe recipe in recipes)
 			{
 				var shapelessRecipe = recipe as ShapelessRecipe;
 				if (shapelessRecipe != null)
@@ -890,9 +904,13 @@ namespace MiNET.Client
 			//	);
 			//}
 
-			var root = message.namedtag.NbtFile.RootTag;
-			//Log.Debug($"\n{root}");
-			File.WriteAllText(Path.Combine(Path.GetTempPath(), "Biomes_" + Guid.NewGuid() + ".txt"), root.ToString());
+			var sb = new StringBuilder();
+			foreach (var entry in message.Definitions)
+			{
+				string name = entry.NameIndex >= 0 && entry.NameIndex < message.Strings.Count ? message.Strings[entry.NameIndex] : $"index={entry.NameIndex}";
+				sb.AppendLine($"{name}: biomeId={entry.BiomeId}, temperature={entry.Temperature}, downfall={entry.Downfall}, rain={entry.Rain}");
+			}
+			File.WriteAllText(Path.Combine(Path.GetTempPath(), "Biomes_" + Guid.NewGuid() + ".txt"), sb.ToString());
 		}
 
 		public override void HandleMcpeNetworkChunkPublisherUpdate(McpeNetworkChunkPublisherUpdate message)

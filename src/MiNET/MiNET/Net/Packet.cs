@@ -1805,6 +1805,73 @@ namespace MiNET.Net
 
 			int blockRuntimeId = ReadVarInt(); // block_runtime_id
 
+			NbtCompound extraData = ReadItemExtraData(networkId == ShieldId);
+
+			if (networkId == 0)
+			{
+				return new ItemAir();
+			}
+
+			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
+
+			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+
+			if (readUniqueId && hasStackId) stack.UniqueId = uniqueId;
+
+			stack.RuntimeId = blockRuntimeId;
+			stack.NetworkId = networkId;
+			stack.ExtraData = extraData;
+
+			return stack;
+		}
+
+		// Item stack descriptor, "ItemLegacy" shape (still used by McpeCreativeContent's groups and
+		// entries): network_id is a zigzag varint that short-circuits the rest of the fields when 0,
+		// there's no item-stack (unique) id, and block_runtime_id is zigzag rather than plain varint.
+		public Item ReadItemLegacy()
+		{
+			int networkId = ReadSignedVarInt(); // network_id
+			if (networkId == 0) return new ItemAir();
+
+			ushort count = ReadUshort(); // count
+			var metadata = ReadVarInt(); // metadata
+			int blockRuntimeId = ReadSignedVarInt(); // block_runtime_id
+
+			// Catalog/recipe item descriptors (creative content, crafting data) never carry the
+			// shield's live "blocking_tick" state - that's per-instance inventory state, not
+			// something a static catalog entry has - so it's never included here.
+			NbtCompound extraData = ReadItemExtraData(includeBlockingTick: false);
+
+			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
+
+			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+			stack.RuntimeId = blockRuntimeId;
+			stack.NetworkId = networkId;
+			stack.ExtraData = extraData;
+
+			return stack;
+		}
+
+		public void WriteItemLegacy(Item stack)
+		{
+			if (stack == null || stack.Id == 0 || !ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
+			{
+				WriteSignedVarInt(0); // network_id => void, no further fields
+				return;
+			}
+
+			WriteSignedVarInt(netData.Id); // network_id
+			Write((ushort) stack.Count); // count
+			WriteVarInt(netData.Meta); // metadata
+			WriteSignedVarInt(stack.RuntimeId); // block_runtime_id
+
+			byte[] extraData = WriteItemExtraData(stack.ExtraData, includeBlockingTick: false);
+			WriteLength(extraData.Length);
+			Write(extraData);
+		}
+
+		private NbtCompound ReadItemExtraData(bool includeBlockingTick)
+		{
 			int length = ReadLength();
 			var data = ReadBytes(length);
 
@@ -1844,29 +1911,14 @@ namespace MiNET.Net
 						binaryReader.ReadBytes(l);
 					}
 
-					if (networkId == ShieldId) // shield
+					if (includeBlockingTick) // shield, live inventory item only
 					{
 						binaryReader.ReadInt64(); // blocking_tick
 					}
 				}
 			}
 
-			if (networkId == 0)
-			{
-				return new ItemAir();
-			}
-
-			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
-
-			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
-
-			if (readUniqueId && hasStackId) stack.UniqueId = uniqueId;
-
-			stack.RuntimeId = blockRuntimeId;
-			stack.NetworkId = networkId;
-			stack.ExtraData = extraData;
-
-			return stack;
+			return extraData;
 		}
 
 
@@ -2631,15 +2683,21 @@ namespace MiNET.Net
 			return skin;
 		}
 
-		const byte Shapeless = 0;
-		const byte Shaped = 1;
-		const byte Furnace = 2;
-		const byte FurnaceData = 3;
-		const byte Multi = 4;
-		const byte ShulkerBox = 5;
-		const byte ShapelessChemistry = 6;
-		const byte ShapedChemistry = 7;
+		const int Shapeless = 0;
+		const int Shaped = 1;
+		const int Furnace = 2;
+		const int FurnaceData = 3;
+		const int Multi = 4;
+		const int ShulkerBox = 5;
+		const int ShapelessChemistry = 6;
+		const int ShapedChemistry = 7;
+		const int SmithingTransform = 8;
+		const int SmithingTrim = 9;
 
+		// Recipe wire shape, protocol 1001 (unlocking requirements added at 685, recipe network ids
+		// and smithing recipes added later; the type discriminator codes above are unchanged from
+		// protocol 503). Item stacks inside recipes use the "ItemLegacy" shape (see WriteItemLegacy/
+		// ReadItemLegacy), not the newer ItemNew shape used by inventory content packets.
 		public void Write(Recipes recipes)
 		{
 			WriteUnsignedVarInt((uint) recipes.Count);
@@ -2653,7 +2711,7 @@ namespace MiNET.Net
 						WriteSignedVarInt(Shapeless); // Type
 
 						var rec = shapelessRecipe;
-						Write(rec.Id.ToString());
+						WriteLatinString(rec.Id.ToString());
 						WriteVarInt(rec.Input.Count);
 						foreach (Item stack in rec.Input)
 						{
@@ -2662,12 +2720,13 @@ namespace MiNET.Net
 						WriteVarInt(rec.Result.Count);
 						foreach (Item item in rec.Result)
 						{
-							Write(item);
+							WriteItemLegacy(item);
 						}
 						Write(rec.Id);
 						Write(rec.Block);
 						WriteSignedVarInt(0); // priority
-						WriteVarInt(shapelessRecipe.UniqueId); // unique id
+						WriteUnlockingRequirement();
+						WriteVarInt(shapelessRecipe.UniqueId); // network id
 						break;
 					}
 					case ShapedRecipe shapedRecipe:
@@ -2675,7 +2734,7 @@ namespace MiNET.Net
 						WriteSignedVarInt(Shaped); // Type
 
 						var rec = shapedRecipe;
-						Write(rec.Id.ToString());
+						WriteLatinString(rec.Id.ToString());
 						WriteSignedVarInt(rec.Width);
 						WriteSignedVarInt(rec.Height);
 
@@ -2689,12 +2748,14 @@ namespace MiNET.Net
 						WriteVarInt(rec.Result.Count);
 						foreach (Item item in rec.Result)
 						{
-							Write(item);
+							WriteItemLegacy(item);
 						}
 						Write(rec.Id);
 						Write(rec.Block);
 						WriteSignedVarInt(0); // priority
-						WriteVarInt(shapedRecipe.UniqueId); // unique id
+						Write(false); // assume_symmetry
+						WriteUnlockingRequirement();
+						WriteVarInt(shapedRecipe.UniqueId); // network id
 						break;
 					}
 					case SmeltingRecipe smeltingRecipe:
@@ -2706,7 +2767,7 @@ namespace MiNET.Net
 						{
 							WriteSignedVarInt(rec.Input.Metadata);
 						}
-						Write(rec.Result);
+						WriteItemLegacy(rec.Result);
 						Write(rec.Block);
 						break;
 					}
@@ -2714,9 +2775,33 @@ namespace MiNET.Net
 					{
 						WriteSignedVarInt(Multi); // Type
 						Write(recipe.Id);
-						WriteVarInt(multiRecipe.UniqueId); // unique id
+						WriteVarInt(multiRecipe.UniqueId); // network id
 						break;
 					}
+				}
+			}
+		}
+
+		// Always-unlocked is the only sensible default for recipes MiNET builds itself: it has no
+		// notion of which items should unlock a recipe, and "none" (context 0) is the one context
+		// value that requires writing an ingredients array.
+		private void WriteUnlockingRequirement()
+		{
+			Write((byte) 1); // context = always_unlocked
+		}
+
+		// context 0 ("none") is the only unlocking-requirement context that carries an ingredients
+		// array; every other context (always_unlocked, player_in_water, player_has_many_items) has
+		// no further data.
+		private void SkipUnlockingRequirement()
+		{
+			byte context = ReadByte();
+			if (context == 0)
+			{
+				uint count = ReadUnsignedVarInt();
+				for (int i = 0; i < count; i++)
+				{
+					ReadRecipeIngredient();
 				}
 			}
 		}
@@ -2744,147 +2829,77 @@ namespace MiNET.Net
 				{
 					case Shapeless:
 					case ShulkerBox:
+					case ShapelessChemistry:
 					{
-						var recipe = new ShapelessRecipe();
-						ReadString(); // some unique id
-						var ingrediensCount = ReadUnsignedVarInt(); // 
-						for (int j = 0; j < ingrediensCount; j++)
-						{
-							recipe.Input.Add(ReadRecipeIngredient());
-						}
-						var resultCount = ReadUnsignedVarInt(); // 1?
-						for (int j = 0; j < resultCount; j++)
-						{
-							recipe.Result.Add(ReadItem(false));
-						}
-						recipe.Id = ReadUUID(); // Id
-						recipe.Block = ReadString(); // block?
-						ReadVarInt(); // priority
-						recipe.UniqueId = ReadVarInt(); // unique id
-						recipes.Add(recipe);
-						//Log.Error("Read shapeless recipe");
+						var recipe = ReadShapelessLikeRecipe();
+						// MiNET doesn't model the chemistry-table variant as a first-class recipe,
+						// matching the pre-existing behavior for this type.
+						if (recipeType != ShapelessChemistry) recipes.Add(recipe);
 						break;
 					}
 					case Shaped:
+					case ShapedChemistry:
 					{
-						ReadString(); // some unique id
-						int width = ReadSignedVarInt(); // Width
-						int height = ReadSignedVarInt(); // Height
-						var recipe = new ShapedRecipe(width, height);
-						if (width > 3 || height > 3) 
-							throw new Exception("Wrong number of ingredients, Width=" + width + ", height=" + height);
-						for (int w = 0; w < width; w++)
-						{
-							for (int h = 0; h < height; h++)
-							{
-								recipe.Input[(h * width) + w] = ReadRecipeIngredient();
-							}
-						}
-
-						var resultCount = ReadUnsignedVarInt(); // 1?
-						for (int j = 0; j < resultCount; j++)
-						{
-							recipe.Result.Add(ReadItem(false));
-						}
-						recipe.Id = ReadUUID(); // Id
-						recipe.Block = ReadString(); // block?
-						ReadVarInt(); // priority
-						recipe.UniqueId = ReadVarInt(); // unique id
-						recipes.Add(recipe);
-						//Log.Error("Read shaped recipe");
+						var recipe = ReadShapedLikeRecipe();
+						if (recipeType != ShapedChemistry) recipes.Add(recipe);
 						break;
 					}
 					case Furnace:
 					{
 						var recipe = new SmeltingRecipe();
-						short id = (short) ReadVarInt(); // input (with metadata) 
-						Item result = ReadItem(false); // Result
+						short id = (short) ReadSignedVarInt(); // input_id
+						Item result = ReadItemLegacy(); // Result
 						recipe.Block = ReadString(); // block?
 						recipe.Input = ItemFactory.GetItem(id, 0);
 						recipe.Result = result;
 						recipes.Add(recipe);
-						//Log.Error("Read furnace recipe");
-						//Log.Error($"Input={id}, meta={""} Item={result.Id}, Meta={result.Metadata}");
 						break;
 					}
 					case FurnaceData:
 					{
-						//const ENTRY_FURNACE_DATA = 3;
 						var recipe = new SmeltingRecipe();
-						short id = (short) ReadVarInt(); // input (with metadata) 
-						short meta = (short) ReadVarInt(); // input (with metadata) 
-						Item result = ReadItem(false); // Result
+						short id = (short) ReadSignedVarInt(); // input_id
+						short meta = (short) ReadSignedVarInt(); // input_meta
+						Item result = ReadItemLegacy(); // Result
 						recipe.Block = ReadString(); // block?
 						recipe.Input = ItemFactory.GetItem(id, meta);
 						recipe.Result = result;
 						recipes.Add(recipe);
-						//Log.Error("Read smelting recipe");
-						//Log.Error($"Input={id}, meta={meta} Item={result.Id}, Meta={result.Metadata}");
 						break;
 					}
 					case Multi:
 					{
-						//Log.Error("Reading MULTI");
-
 						var recipe = new MultiRecipe();
 						recipe.Id = ReadUUID();
-						recipe.UniqueId = ReadVarInt(); // unique id
+						recipe.UniqueId = ReadVarInt(); // network id
 						recipes.Add(recipe);
 						break;
 					}
-					case ShapelessChemistry:
+					case SmithingTransform:
 					{
-						var recipe = new ShapelessRecipe();
-						ReadString(); // some unique id
-						int ingrediensCount = ReadVarInt(); // 
-						for (int j = 0; j < ingrediensCount; j++)
-						{
-							recipe.Input.Add(ReadRecipeIngredient());
-						}
-						int resultCount = ReadVarInt(); // 1?
-						for (int j = 0; j < resultCount; j++)
-						{
-							recipe.Result.Add(ReadItem(false));
-						}
-						recipe.Id = ReadUUID(); // Id
-						recipe.Block = ReadString(); // block?
-						ReadSignedVarInt(); // priority
-						recipe.UniqueId = ReadVarInt(); // unique id
-						//recipes.Add(recipe);
-						//Log.Error("Read shapeless recipe");
+						// Not modeled by MiNET (no smithing-table recipe type yet) - parsed and
+						// discarded, same treatment as the chemistry-table variants above.
+						ReadLatinString(); // recipe id
+						ReadRecipeIngredient(); // template
+						ReadRecipeIngredient(); // base
+						ReadRecipeIngredient(); // addition
+						ReadItemLegacy(); // result
+						ReadString(); // tag
+						ReadVarInt(); // network id
 						break;
 					}
-					case ShapedChemistry:
+					case SmithingTrim:
 					{
-						ReadString(); // some unique id
-						int width = ReadSignedVarInt(); // Width
-						int height = ReadSignedVarInt(); // Height
-						var recipe = new ShapedRecipe(width, height);
-						if (width > 3 || height > 3) throw new Exception("Wrong number of ingredients. Width=" + width + ", height=" + height);
-						for (int w = 0; w < width; w++)
-						{
-							for (int h = 0; h < height; h++)
-							{
-								recipe.Input[(h * width) + w] = ReadRecipeIngredient();
-							}
-						}
-
-						int resultCount = ReadVarInt(); // 1?
-						for (int j = 0; j < resultCount; j++)
-						{
-							recipe.Result.Add(ReadItem(false));
-						}
-						recipe.Id = ReadUUID(); // Id
-						recipe.Block = ReadString(); // block?
-						ReadSignedVarInt(); // priority
-						recipe.UniqueId = ReadVarInt(); // unique id
-						//recipes.Add(recipe);
-						//Log.Error("Read shaped recipe");
+						ReadLatinString(); // recipe id
+						ReadRecipeIngredient(); // template
+						ReadRecipeIngredient(); // input
+						ReadRecipeIngredient(); // addition
+						ReadString(); // block
+						ReadVarInt(); // network id
 						break;
 					}
 					default:
 						Log.Error($"Read unknown recipe type: {recipeType}");
-						//ReadBytes(len);
 						break;
 				}
 			}
@@ -2894,37 +2909,149 @@ namespace MiNET.Net
 			return recipes;
 		}
 
+		private ShapelessRecipe ReadShapelessLikeRecipe()
+		{
+			var recipe = new ShapelessRecipe();
+			ReadLatinString(); // recipe id
+			var ingredientCount = ReadUnsignedVarInt();
+			for (int j = 0; j < ingredientCount; j++)
+			{
+				recipe.Input.Add(ReadRecipeIngredient());
+			}
+			var resultCount = ReadUnsignedVarInt();
+			for (int j = 0; j < resultCount; j++)
+			{
+				recipe.Result.Add(ReadItemLegacy());
+			}
+			recipe.Id = ReadUUID();
+			recipe.Block = ReadString();
+			ReadSignedVarInt(); // priority
+			SkipUnlockingRequirement();
+			recipe.UniqueId = ReadVarInt(); // network id
+			return recipe;
+		}
+
+		private ShapedRecipe ReadShapedLikeRecipe()
+		{
+			ReadLatinString(); // recipe id
+			int width = ReadSignedVarInt();
+			int height = ReadSignedVarInt();
+			var recipe = new ShapedRecipe(width, height);
+			if (width > 3 || height > 3)
+				throw new Exception("Wrong number of ingredients, Width=" + width + ", height=" + height);
+			for (int w = 0; w < width; w++)
+			{
+				for (int h = 0; h < height; h++)
+				{
+					recipe.Input[(h * width) + w] = ReadRecipeIngredient();
+				}
+			}
+
+			var resultCount = ReadUnsignedVarInt();
+			for (int j = 0; j < resultCount; j++)
+			{
+				recipe.Result.Add(ReadItemLegacy());
+			}
+			recipe.Id = ReadUUID();
+			recipe.Block = ReadString();
+			ReadSignedVarInt(); // priority
+			ReadBool(); // assume_symmetry
+			SkipUnlockingRequirement();
+			recipe.UniqueId = ReadVarInt(); // network id
+			return recipe;
+		}
+
+		// RecipeIngredient: a type-discriminated union (int id+meta / molang / item tag / string
+		// id+meta / complex alias) followed by a zigzag32 stack count. MiNET only ever produces the
+		// int-id-meta variant; the others are decoded (using air as a harmless stand-in) so a
+		// server-authored recipe using them still consumes the right number of bytes.
 		public void WriteRecipeIngredient(Item stack)
 		{
 			if (stack == null || stack.Id == 0)
 			{
-				WriteVarInt(0);
+				Write((byte) 0); // type = invalid
+				WriteSignedVarInt(0); // count
 				return;
 			}
 
-			WriteVarInt(stack.Id);
-			WriteVarInt(stack.Metadata);
-			WriteVarInt(stack.Count);
+			Write((byte) 1); // type = int_id_meta
+			Write((short) stack.Id);
+			if (stack.Id != 0) Write((short) stack.Metadata);
+			WriteSignedVarInt(stack.Count == 0 ? 1 : stack.Count);
 		}
 
 		public Item ReadRecipeIngredient()
 		{
-			short id = (short) ReadVarInt();
-			if (id == 0)
+			byte type = ReadByte();
+
+			Item item;
+			switch (type)
 			{
-				return new ItemAir();
+				case 1: // int_id_meta
+				{
+					short id = ReadShort();
+					short metadata = id == 0 ? (short) 0 : ReadShort();
+					item = id == 0 ? new ItemAir() : ItemFactory.GetItem(id, metadata);
+					break;
+				}
+				case 2: // molang
+					ReadString(); // expression
+					ReadByte(); // version
+					item = new ItemAir();
+					break;
+				case 3: // item_tag
+					ReadString(); // tag
+					item = new ItemAir();
+					break;
+				case 4: // string_id_meta
+					ReadString(); // name
+					ReadShort(); // metadata
+					item = new ItemAir();
+					break;
+				case 5: // complex_alias
+					ReadString(); // name
+					item = new ItemAir();
+					break;
+				default: // invalid
+					item = new ItemAir();
+					break;
 			}
 
-			short metadata = (short) ReadVarInt();
-			int count = ReadVarInt();
+			int count = ReadSignedVarInt();
+			item.Count = (byte) count;
 
-			return ItemFactory.GetItem(id, metadata, count);
+			return item;
 		}
 
+		private void WriteLatinString(string value)
+		{
+			if (string.IsNullOrEmpty(value))
+			{
+				WriteLength(0);
+				return;
+			}
+
+			byte[] bytes = Encoding.Latin1.GetBytes(value);
+			WriteLength(bytes.Length);
+			Write(bytes);
+		}
+
+		private string ReadLatinString()
+		{
+			int len = ReadLength();
+			if (len <= 0) return string.Empty;
+			return Encoding.Latin1.GetString(ReadBytes(len));
+		}
 
 		public void Write(PotionContainerChangeRecipe[] recipes)
 		{
-			WriteSignedVarInt(0);
+			WriteUnsignedVarInt((uint) recipes.Length);
+			foreach (var recipe in recipes)
+			{
+				WriteSignedVarInt(recipe.Input);
+				WriteSignedVarInt(recipe.Ingredient);
+				WriteSignedVarInt(recipe.Output);
+			}
 		}
 
 		public PotionContainerChangeRecipe[] ReadPotionContainerChangeRecipes()
@@ -2934,9 +3061,9 @@ namespace MiNET.Net
 			for (int i = 0; i < recipes.Length; i++)
 			{
 				var recipe = new PotionContainerChangeRecipe();
-				recipe.Input = ReadVarInt();
-				recipe.Ingredient = ReadVarInt();
-				recipe.Output = ReadVarInt();
+				recipe.Input = ReadSignedVarInt();
+				recipe.Ingredient = ReadSignedVarInt();
+				recipe.Output = ReadSignedVarInt();
 
 				recipes[i] = recipe;
 			}
@@ -2944,6 +3071,11 @@ namespace MiNET.Net
 			return recipes;
 		}
 
+		// MaterialReducer's wire container only documents a single (network_id, count) output pair,
+		// but MiNET's MaterialReducerRecipe models multiple outputs per input (matching how the
+		// feature actually behaves in-game), so outputs are read/written as an array. No vanilla
+		// capture with real material reducer recipes was available to confirm the exact framing;
+		// this is the best-supported reading given MiNET's existing model.
 		public void Write(MaterialReducerRecipe[] reducerRecipes)
 		{
 			WriteUnsignedVarInt((uint) reducerRecipes.Length);
@@ -2951,16 +3083,16 @@ namespace MiNET.Net
 			for (int i = 0; i < reducerRecipes.Length; i++)
 			{
 				var recipe = reducerRecipes[i];
-				WriteVarInt((recipe.Input << 16) | recipe.InputMeta);
+				WriteSignedVarInt((recipe.Input << 16) | recipe.InputMeta);
 				WriteUnsignedVarInt((uint) recipe.Output.Length);
 
 				foreach (var output in recipe.Output)
 				{
-					WriteVarInt(output.ItemId);
-					WriteVarInt(output.ItemCount);
+					WriteSignedVarInt(output.ItemId);
+					WriteSignedVarInt(output.ItemCount);
 				}
 			}
-		} 
+		}
 
 		public MaterialReducerRecipe[] ReadMaterialReducerRecipes()
 		{
@@ -2968,21 +3100,21 @@ namespace MiNET.Net
 			var recipes = new MaterialReducerRecipe[count];
 			for (int i = 0; i < recipes.Length; i++)
 			{
-				var inputIdAndMeta = ReadVarInt();
-				var inputId = inputIdAndMeta >> 16;
-				var inputMeta = inputIdAndMeta & 0x7fff;
+				var mix = ReadSignedVarInt();
+				var inputId = mix >> 16;
+				var inputMeta = mix & 0x7fff;
 
 				var outputCount = (int) ReadUnsignedVarInt();
 				MaterialReducerRecipe.MaterialReducerRecipeOutput[] outputs = new MaterialReducerRecipe.MaterialReducerRecipeOutput[outputCount];
 
 				for (int o = 0; o < outputs.Length; o++)
 				{
-					var itemId = ReadVarInt();
-					var itemCount = ReadVarInt();
+					var itemId = ReadSignedVarInt();
+					var itemCount = ReadSignedVarInt();
 
 					outputs[o] = new MaterialReducerRecipe.MaterialReducerRecipeOutput(itemId, itemCount);
 				}
-				
+
 				var recipe = new MaterialReducerRecipe(inputId, inputMeta, outputs);
 
 				recipes[i] = recipe;
@@ -2993,7 +3125,16 @@ namespace MiNET.Net
 
 		public void Write(PotionTypeRecipe[] recipes)
 		{
-			WriteSignedVarInt(0);
+			WriteUnsignedVarInt((uint) recipes.Length);
+			foreach (var recipe in recipes)
+			{
+				WriteSignedVarInt(recipe.Input);
+				WriteSignedVarInt(recipe.InputMeta);
+				WriteSignedVarInt(recipe.Ingredient);
+				WriteSignedVarInt(recipe.IngredientMeta);
+				WriteSignedVarInt(recipe.Output);
+				WriteSignedVarInt(recipe.OutputMeta);
+			}
 		}
 
 		public PotionTypeRecipe[] ReadPotionTypeRecipes()
@@ -3003,12 +3144,12 @@ namespace MiNET.Net
 			for (int i = 0; i < recipes.Length; i++)
 			{
 				var recipe = new PotionTypeRecipe();
-				recipe.Input = ReadVarInt();
-				recipe.InputMeta = ReadVarInt();
-				recipe.Ingredient = ReadVarInt();
-				recipe.IngredientMeta = ReadVarInt();
-				recipe.Output = ReadVarInt();
-				recipe.OutputMeta = ReadVarInt();
+				recipe.Input = ReadSignedVarInt();
+				recipe.InputMeta = ReadSignedVarInt();
+				recipe.Ingredient = ReadSignedVarInt();
+				recipe.IngredientMeta = ReadSignedVarInt();
+				recipe.Output = ReadSignedVarInt();
+				recipe.OutputMeta = ReadSignedVarInt();
 
 				recipes[i] = recipe;
 			}
