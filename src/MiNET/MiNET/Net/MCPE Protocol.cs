@@ -4850,7 +4850,6 @@ namespace MiNET.Net
 
 		public uint inventoryId; // = null;
 		public uint slot; // = null;
-		public Item item; // = null;
 
 		public McpeInventorySlot()
 		{
@@ -4866,7 +4865,6 @@ namespace MiNET.Net
 
 			WriteUnsignedVarInt(inventoryId);
 			WriteUnsignedVarInt(slot);
-			Write(item);
 
 			AfterEncode();
 		}
@@ -4882,7 +4880,6 @@ namespace MiNET.Net
 
 			inventoryId = ReadUnsignedVarInt();
 			slot = ReadUnsignedVarInt();
-			item = ReadItem();
 
 			AfterDecode();
 		}
@@ -4896,7 +4893,6 @@ namespace MiNET.Net
 
 			inventoryId=default(uint);
 			slot=default(uint);
-			item=default(Item);
 		}
 
 	}
@@ -6027,7 +6023,6 @@ namespace MiNET.Net
 	public partial class McpeGameRulesChanged : Packet<McpeGameRulesChanged>
 	{
 
-		public GameRules rules; // = null;
 
 		public McpeGameRulesChanged()
 		{
@@ -6041,7 +6036,6 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(rules);
 
 			AfterEncode();
 		}
@@ -6055,7 +6049,6 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			rules = ReadGameRules();
 
 			AfterDecode();
 		}
@@ -6067,7 +6060,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			rules=default(GameRules);
 		}
 
 	}

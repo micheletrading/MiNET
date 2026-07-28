@@ -1809,6 +1809,7 @@ namespace MiNET.Net
 			var data = ReadBytes(length);
 
 			NbtCompound extraData = null;
+			if (data.Length > 0)
 			using (MemoryStream ms = new MemoryStream(data))
 			{
 				using (BinaryReader binaryReader = new BinaryReader(ms))
