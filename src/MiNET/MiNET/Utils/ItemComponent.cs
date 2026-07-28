@@ -29,6 +29,9 @@ namespace MiNET.Utils
 	public class ItemComponent
 	{
 		public string      Name { get; set; }
+		public short       RuntimeId { get; set; }
+		public bool        ComponentBased { get; set; }
+		public int         Version { get; set; }
 		public Nbt.Nbt Nbt  { get; set; }
 	}
 

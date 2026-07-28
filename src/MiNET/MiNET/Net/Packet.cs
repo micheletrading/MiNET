@@ -1564,6 +1564,8 @@ namespace MiNET.Net
 			return responses;
 		}
 
+		// Item registry entry, protocol 1001+ (packet id 162, "item_registry"; reuses the "Itemstates" shape):
+		//   name: string, runtime_id: li16, component_based: bool, version: zigzag32, nbt: nbt
 		public void Write(ItemComponentList list)
 		{
 			WriteUnsignedVarInt((uint) list.Count);
@@ -1571,10 +1573,13 @@ namespace MiNET.Net
 			foreach (var item in list)
 			{
 				Write(item.Name);
+				Write(item.RuntimeId);
+				Write(item.ComponentBased);
+				WriteSignedVarInt(item.Version);
 				Write(item.Nbt);
 			}
 		}
-		
+
 		public ItemComponentList ReadItemComponentList()
 		{
 			var               count = ReadUnsignedVarInt();
@@ -1582,13 +1587,19 @@ namespace MiNET.Net
 
 			for (int i = 0; i < count; i++)
 			{
-				string        name      = ReadString();
-				var           nbt       = ReadNbt();
-				
+				string        name           = ReadString();
+				short         runtimeId      = ReadShort();
+				bool          componentBased = ReadBool();
+				int           version        = ReadSignedVarInt();
+				var           nbt            = ReadNbt();
+
 				ItemComponent component = new ItemComponent();
 				component.Name = name;
+				component.RuntimeId = runtimeId;
+				component.ComponentBased = componentBased;
+				component.Version = version;
 				component.Nbt = nbt;
-				
+
 				l.Add(component);
 			}
 
@@ -1705,93 +1716,99 @@ namespace MiNET.Net
 		}
 
 		private const int ShieldId = 355;
+
+		// Item stack descriptor, protocol 1001+ ("ItemNew" / NetworkItemStackDescriptor):
+		//   network_id: li16, count: lu16, metadata: varint,
+		//   has_stack_id: bool [+ empty: varint, id: zigzag32],
+		//   block_runtime_id: varint,
+		//   extra: varint-length-prefixed blob { has_nbt: lu16 (0xffff/0), [version: u8, nbt: lnbt],
+		//                                        can_place_on: li32-count of ShortString, can_destroy: same,
+		//                                        [blocking_tick: li64, shield only] }
+		// Unlike the old zigzag32 Item/ItemLegacy shapes, network_id==0 does NOT short-circuit the rest of the fields.
 		public void Write(Item stack, bool writeUniqueId = true)
 		{
 			if (stack == null || stack.Id == 0 || !ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
 			{
-				WriteSignedVarInt(0);
+				Write((short) 0); // network_id
+				Write((ushort) 0); // count
+				WriteVarInt(0); // metadata
+				Write(false); // has_stack_id
+				WriteVarInt(0); // block_runtime_id
+
+				byte[] emptyExtraData = WriteItemExtraData(null, false);
+				WriteLength(emptyExtraData.Length);
+				Write(emptyExtraData);
 				return;
 			}
 
-			//var netId = ItemFactory.Translator.ToNetworkId(stack.Id, stack.Metadata);
-			WriteSignedVarInt(netData.Id);
-			
-			//WriteSignedVarInt(id);
+			Write((short) netData.Id); // network_id
+			Write((ushort) stack.Count); // count
+			WriteVarInt(netData.Meta); // metadata
 
-			Write((short) stack.Count);
-			WriteUnsignedVarInt((uint)netData.Meta);
-
-			if (writeUniqueId)
+			bool hasStackId = writeUniqueId && stack.UniqueId != 0;
+			Write(hasStackId); // has_stack_id
+			if (hasStackId)
 			{
-				Write(stack.UniqueId != 0);
-
-				if (stack.UniqueId != 0)
-				{
-					WriteVarInt(stack.UniqueId);
-				}
+				WriteVarInt(0); // empty
+				WriteSignedVarInt(stack.UniqueId); // id
 			}
-			
-			WriteSignedVarInt(stack.RuntimeId);
 
-			byte[] extraData = null;
-			//Write extra data
-			using (var ms = new MemoryStream())
-			{
-				using (BinaryWriter binaryWriter = new BinaryWriter(ms, Encoding.UTF8, true))
-				{
-					if (stack.ExtraData != null)
-					{
-						binaryWriter.Write((ushort) 0xffff);
-						binaryWriter.Write((byte)1);
-						var nbtData = GetNbtData(stack.ExtraData, false);
-						binaryWriter.Write(nbtData);
-					}
-					else
-					{
-						binaryWriter.Write((short) 0);
-					}
+			WriteVarInt(stack.RuntimeId); // block_runtime_id
 
-					binaryWriter.Write(0); //Write Int
-					binaryWriter.Write(0); //Write Int
-
-					if (stack.Id == 513)
-					{
-						binaryWriter.Write((long) 0);
-					}
-				}
-
-				extraData = ms.ToArray();
-			}
-			
+			byte[] extraData = WriteItemExtraData(stack.ExtraData, netData.Id == ShieldId);
 			WriteLength(extraData.Length);
 			Write(extraData);
 		}
 
+		private static byte[] WriteItemExtraData(NbtCompound extraData, bool includeBlockingTick)
+		{
+			using var ms = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(ms, Encoding.UTF8, true))
+			{
+				if (extraData != null)
+				{
+					binaryWriter.Write((ushort) 0xffff);
+					binaryWriter.Write((byte) 1);
+					var nbtData = GetNbtData(extraData, false);
+					binaryWriter.Write(nbtData);
+				}
+				else
+				{
+					binaryWriter.Write((ushort) 0);
+				}
+
+				binaryWriter.Write(0); // can_place_on count
+				binaryWriter.Write(0); // can_destroy count
+
+				if (includeBlockingTick)
+				{
+					binaryWriter.Write((long) 0); // blocking_tick
+				}
+			}
+
+			return ms.ToArray();
+		}
+
 		public Item ReadItem(bool readUniqueId = true)
 		{
-			int id = ReadSignedVarInt();
-			if (id == 0)
+			short networkId = ReadShort(); // network_id
+			ushort count = ReadUshort(); // count
+			var metadata = ReadVarInt(); // metadata
+
+			bool hasStackId = ReadBool(); // has_stack_id
+			int uniqueId = 0;
+			if (hasStackId)
 			{
-				return new ItemAir();
+				ReadVarInt(); // empty
+				uniqueId = ReadSignedVarInt(); // id
 			}
 
-			short count = (short) ReadShort();
-			var metadata = ReadUnsignedVarInt();
-
-			var translated = ItemFactory.Translator.FromNetworkId(id, (short)metadata);
-
-			Item stack = ItemFactory.GetItem((short)translated.Id, translated.Meta, count);
-
-			if (readUniqueId)
-			{
-				if (ReadBool()) stack.UniqueId = ReadVarInt();
-			}
-
-			stack.RuntimeId = ReadSignedVarInt();
+			int blockRuntimeId = ReadVarInt(); // block_runtime_id
 
 			int length = ReadLength();
 			var data = ReadBytes(length);
 
+			NbtCompound extraData = null;
 			using (MemoryStream ms = new MemoryStream(data))
 			{
 				using (BinaryReader binaryReader = new BinaryReader(ms))
@@ -1806,16 +1823,13 @@ namespace MiNET.Net
 							throw new Exception($"Fringe nbt version when reading item extra NBT: {version}");
 						}
 
-						var beforeRead = ms.Position;
-						stack.ExtraData = ReadNbtCompound(ms, false);
-						var afterRead = ms.Position;
-						var nbtCompoundLength = afterRead - beforeRead;
+						extraData = ReadNbtCompound(ms, false);
 					}
 					else if (nbtLen > 0)
 					{
 						throw new Exception($"Fringe nbt length when reading item extra NBT: {nbtLen}");
 					}
-					
+
 					int canPlace = binaryReader.ReadInt32();
 					for (int i = 0; i < canPlace; i++)
 					{
@@ -1829,12 +1843,28 @@ namespace MiNET.Net
 						binaryReader.ReadBytes(l);
 					}
 
-					if (stack.RuntimeId == ShieldId) // shield
+					if (networkId == ShieldId) // shield
 					{
-						binaryReader.ReadInt64(); // something about tick, crap code
+						binaryReader.ReadInt64(); // blocking_tick
 					}
 				}
 			}
+
+			if (networkId == 0)
+			{
+				return new ItemAir();
+			}
+
+			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
+
+			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+
+			if (readUniqueId && hasStackId) stack.UniqueId = uniqueId;
+
+			stack.RuntimeId = blockRuntimeId;
+			stack.NetworkId = networkId;
+			stack.ExtraData = extraData;
+
 			return stack;
 		}
 
