@@ -555,6 +555,8 @@ namespace MiNET.Net
 						player.Skin = ReadSkin();
 						ReadBool(); // is teacher
 						ReadBool(); // is host
+						ReadBool(); // is subclient (649+)
+						ReadInt(); // player color ARGB (800+)
 
 						player.PlayerInfo = new PlayerInfo()
 						{
@@ -570,6 +572,10 @@ namespace MiNET.Net
 						};
 						records.Add(player);
 						//Log.Debug($"Reading {player.ClientUuid}, {player.EntityId}, '{player.DisplayName}', {platformChatId}");
+					}
+					for (int i = 0; i < count; i++)
+					{
+						ReadBool(); // trusted skin verified flag, one per add record
 					}
 					break;
 				case 1:

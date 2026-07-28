@@ -2500,6 +2500,7 @@ Wiki: [Level Event Generic](https://github.com/NiclasOlofsson/MiNET/wiki//Protoc
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
+|Event ID | UnsignedVarInt |  |
 -----------------------------------------------------------------------
 ### Lectern Update (0x7d)
 Wiki: [Lectern Update](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-LecternUpdate)

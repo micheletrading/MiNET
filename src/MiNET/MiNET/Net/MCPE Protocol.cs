@@ -8811,6 +8811,7 @@ namespace MiNET.Net
 	public partial class McpeLevelEventGeneric : Packet<McpeLevelEventGeneric>
 	{
 
+		public uint eventId; // = null;
 
 		public McpeLevelEventGeneric()
 		{
@@ -8824,6 +8825,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			WriteUnsignedVarInt(eventId);
 
 			AfterEncode();
 		}
@@ -8837,6 +8839,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			eventId = ReadUnsignedVarInt();
 
 			AfterDecode();
 		}
@@ -8848,6 +8851,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			eventId=default(uint);
 		}
 
 	}
