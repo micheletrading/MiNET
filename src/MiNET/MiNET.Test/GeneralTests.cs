@@ -130,7 +130,7 @@ namespace MiNET.Test
 				bool foundNonZero = false;
 				if (IntPtr.Size == sizeof(long))
 				{
-					Span<long> longBuffer = MemoryMarshal.Cast<byte, long>(buffer);
+					Span<long> longBuffer = MemoryMarshal.Cast<byte, long>(buffer.AsSpan());
 					remainingStart = longBuffer.Length * sizeof(long);
 
 					for (int i = 0; i < longBuffer.Length; i++)
