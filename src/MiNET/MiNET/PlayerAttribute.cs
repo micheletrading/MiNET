@@ -31,6 +31,8 @@ namespace MiNET
 		public float MinValue { get; set; }
 		public float MaxValue { get; set; }
 		public float Value { get; set; }
+		public float DefaultMinValue { get; set; }
+		public float DefaultMaxValue { get; set; }
 		public float Default { get; set; }
 
 		public override string ToString()

@@ -208,8 +208,8 @@ namespace MiNET.Net
 							catch (Exception e)
 							{
 								if (Log.IsDebugEnabled) Log.Warn($"Error parsing bedrock message #{count} id={id}\n{Packet.HexDump(internalBuffer)}", e);
-								//throw;
-								return; // Exit, but don't crash.
+								// Packets are length-framed, so realign and keep processing the
+								// rest of the batch instead of dropping it.
 							}
 
 							s.Position = pos + len;

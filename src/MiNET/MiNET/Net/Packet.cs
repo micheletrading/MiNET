@@ -1907,9 +1907,23 @@ namespace MiNET.Net
 					MinValue = ReadFloat(),
 					MaxValue = ReadFloat(),
 					Value = ReadFloat(),
+					DefaultMinValue = ReadFloat(),
+					DefaultMaxValue = ReadFloat(),
 					Default = ReadFloat(),
 					Name = ReadString(),
 				};
+
+				// Attribute modifiers (protocol 544+), parsed and discarded.
+				uint modifierCount = ReadUnsignedVarInt();
+				for (uint m = 0; m < modifierCount; m++)
+				{
+					ReadString(); // id
+					ReadString(); // name
+					ReadFloat(); // amount
+					ReadInt(); // operation
+					ReadInt(); // operand
+					ReadBool(); // serializable
+				}
 
 				attributes[attribute.Name] = attribute;
 			}
@@ -1925,8 +1939,11 @@ namespace MiNET.Net
 				Write(attribute.MinValue);
 				Write(attribute.MaxValue);
 				Write(attribute.Value);
-				Write(attribute.Default); // unknown
+				Write(attribute.DefaultMinValue);
+				Write(attribute.DefaultMaxValue);
+				Write(attribute.Default);
 				Write(attribute.Name);
+				WriteUnsignedVarInt(0); // modifiers
 			}
 		}
 
