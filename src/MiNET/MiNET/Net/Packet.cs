@@ -2264,14 +2264,16 @@ namespace MiNET.Net
 			//WriteVarInt(packInfos.Count);
 			foreach (var info in packInfos)
 			{
-				Write(info.UUID);
+				Write(new UUID(info.UUID ?? Guid.Empty.ToString()));
 				Write(info.Version);
 				Write(info.Size);
 				Write(info.ContentKey);
 				Write(info.SubPackName);
 				Write(info.ContentIdentity);
 				Write(info.HasScripts);
+				Write(info.AddonPack);
 				Write(info.RtxEnabled);
+				Write(info.CdnUrl);
 			}
 		}
 
@@ -2284,24 +2286,28 @@ namespace MiNET.Net
 			for (int i = 0; i < count; i++)
 			{
 				var info            = new TexturePackInfo();
-				var id              = ReadString();
+				var id              = ReadUUID();
 				var version         = ReadString();
 				var size            = ReadUlong();
 				var encryptionKey   = ReadString();
 				var subpackName     = ReadString();
 				var contentIdentity = ReadString();
 				var hasScripts      = ReadBool();
+				var addonPack       = ReadBool();
 				var rtxEnabled      = ReadBool();
-				
-				info.UUID = id;
+				var cdnUrl          = ReadString();
+
+				info.UUID = ((Guid) id).ToString();
 				info.Version = version;
 				info.Size = size;
 				info.HasScripts = hasScripts;
 				info.ContentKey = encryptionKey;
 				info.SubPackName = subpackName;
 				info.ContentIdentity = contentIdentity;
+				info.AddonPack = addonPack;
 				info.RtxEnabled = rtxEnabled;
-				
+				info.CdnUrl = cdnUrl;
+
 				packInfos.Add(info);
 			}
 

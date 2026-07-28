@@ -152,19 +152,21 @@
 
 	<pdu id="0x06" online="false" client="false" server="true" name="MCPE_RESOURCE_PACKS_INFO">
 		<field name="Must accept" type="bool" />
+		<field name="Has addon packs" type="bool" />
 		<field name="Has scripts" type="bool" />
-		<field name="Force Server Packs" type="bool" />
-		<field name="BehahaviorPackInfos" type="ResourcePackInfos" />
+		<field name="Disable vibrant visuals" type="bool" />
+		<field name="World template id" type="UUID" />
+		<field name="World template version" type="string" />
 		<field name="TexturePacks" type="TexturePackInfos" />
 	</pdu>
 
 	<pdu id="0x07" online="false" client="false" server="true" name="MCPE_RESOURCE_PACK_STACK">
 		<field name="Must accept" type="bool" />
-		<field name="BehaviorPackIdVersions" type="ResourcePackIdVersions" />
 		<field name="ResourcePackIdVersions" type="ResourcePackIdVersions" />
 		<field name="Game Version" type="string" />
 		<field name="Experiments" type="Experiments" />
 		<field name="Experiments Previously Toggled" type="bool" />
+		<field name="Has editor packs" type="bool" />
 	</pdu>
 
 	<pdu id="0x08" online="false" client="true" server="false" name="MCPE_RESOURCE_PACK_CLIENT_RESPONSE">

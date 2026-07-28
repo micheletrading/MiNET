@@ -2164,9 +2164,11 @@ namespace MiNET.Net
 	{
 
 		public bool mustAccept; // = null;
+		public bool hasAddonPacks; // = null;
 		public bool hasScripts; // = null;
-		public bool forceServerPacks; // = null;
-		public ResourcePackInfos behahaviorpackinfos; // = null;
+		public bool disableVibrantVisuals; // = null;
+		public UUID worldTemplateId; // = null;
+		public string worldTemplateVersion; // = null;
 		public TexturePackInfos texturepacks; // = null;
 
 		public McpeResourcePacksInfo()
@@ -2182,9 +2184,11 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			Write(mustAccept);
+			Write(hasAddonPacks);
 			Write(hasScripts);
-			Write(forceServerPacks);
-			Write(behahaviorpackinfos);
+			Write(disableVibrantVisuals);
+			Write(worldTemplateId);
+			Write(worldTemplateVersion);
 			Write(texturepacks);
 
 			AfterEncode();
@@ -2200,9 +2204,11 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			mustAccept = ReadBool();
+			hasAddonPacks = ReadBool();
 			hasScripts = ReadBool();
-			forceServerPacks = ReadBool();
-			behahaviorpackinfos = ReadResourcePackInfos();
+			disableVibrantVisuals = ReadBool();
+			worldTemplateId = ReadUUID();
+			worldTemplateVersion = ReadString();
 			texturepacks = ReadTexturePackInfos();
 
 			AfterDecode();
@@ -2216,9 +2222,11 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			mustAccept=default(bool);
+			hasAddonPacks=default(bool);
 			hasScripts=default(bool);
-			forceServerPacks=default(bool);
-			behahaviorpackinfos=default(ResourcePackInfos);
+			disableVibrantVisuals=default(bool);
+			worldTemplateId=default(UUID);
+			worldTemplateVersion=default(string);
 			texturepacks=default(TexturePackInfos);
 		}
 
@@ -2228,11 +2236,11 @@ namespace MiNET.Net
 	{
 
 		public bool mustAccept; // = null;
-		public ResourcePackIdVersions behaviorpackidversions; // = null;
 		public ResourcePackIdVersions resourcepackidversions; // = null;
 		public string gameVersion; // = null;
 		public Experiments experiments; // = null;
 		public bool experimentsPreviouslyToggled; // = null;
+		public bool hasEditorPacks; // = null;
 
 		public McpeResourcePackStack()
 		{
@@ -2247,11 +2255,11 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			Write(mustAccept);
-			Write(behaviorpackidversions);
 			Write(resourcepackidversions);
 			Write(gameVersion);
 			Write(experiments);
 			Write(experimentsPreviouslyToggled);
+			Write(hasEditorPacks);
 
 			AfterEncode();
 		}
@@ -2266,11 +2274,11 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			mustAccept = ReadBool();
-			behaviorpackidversions = ReadResourcePackIdVersions();
 			resourcepackidversions = ReadResourcePackIdVersions();
 			gameVersion = ReadString();
 			experiments = ReadExperiments();
 			experimentsPreviouslyToggled = ReadBool();
+			hasEditorPacks = ReadBool();
 
 			AfterDecode();
 		}
@@ -2283,11 +2291,11 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			mustAccept=default(bool);
-			behaviorpackidversions=default(ResourcePackIdVersions);
 			resourcepackidversions=default(ResourcePackIdVersions);
 			gameVersion=default(string);
 			experiments=default(Experiments);
 			experimentsPreviouslyToggled=default(bool);
+			hasEditorPacks=default(bool);
 		}
 
 	}

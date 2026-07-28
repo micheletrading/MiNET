@@ -336,12 +336,13 @@ namespace MiNET
 		public virtual void SendResourcePacksInfo()
 		{
 			McpeResourcePacksInfo packInfo = McpeResourcePacksInfo.CreateObject();
+			packInfo.worldTemplateId = (UUID) Guid.Empty;
 			if (_serverHaveResources)
 			{
 				packInfo.mustAccept = false;
-				packInfo.behahaviorpackinfos = new ResourcePackInfos
+				packInfo.texturepacks = new TexturePackInfos
 				{
-					new ResourcePackInfo()
+					new TexturePackInfo()
 					{
 						UUID = "5abdb963-4f3f-4d97-8482-88e2049ab149",
 						Version = "0.0.1",

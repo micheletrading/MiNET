@@ -82,12 +82,6 @@ namespace MiNET.Client
 				sb.AppendLine($"ID={info.UUID}, Version={info.Version}, Unknown={info.Size}");
 			}
 
-			sb.AppendLine("Behavior packs:");
-			foreach (ResourcePackInfo info in message.behahaviorpackinfos)
-			{
-				sb.AppendLine($"ID={info.UUID}, Version={info.Version}");
-			}
-
 			Log.Debug(sb.ToString());
 
 			base.HandleMcpeResourcePacksInfo(message);
@@ -102,12 +96,6 @@ namespace MiNET.Client
 
 			sb.AppendLine("Resource pack stacks:");
 			foreach (var info in message.resourcepackidversions)
-			{
-				sb.AppendLine($"ID={info.Id}, Version={info.Version}, Subpackname={info.SubPackName}");
-			}
-
-			sb.AppendLine("Behavior pack stacks:");
-			foreach (var info in message.behaviorpackidversions)
 			{
 				sb.AppendLine($"ID={info.Id}, Version={info.Version}, Subpackname={info.SubPackName}");
 			}

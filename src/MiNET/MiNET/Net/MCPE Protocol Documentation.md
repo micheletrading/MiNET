@@ -197,7 +197,6 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Recipes [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-Recipes) |
 | ResourcePackIds [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-ResourcePackIds) |
 | ResourcePackIdVersions [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-ResourcePackIdVersions) |
-| ResourcePackInfos [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-ResourcePackInfos) |
 | ScoreboardIdentityEntries [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-ScoreboardIdentityEntries) |
 | ScoreEntries [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-ScoreEntries) |
 | short [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-short) |
@@ -328,9 +327,11 @@ Wiki: [Resource Packs Info](https://github.com/NiclasOlofsson/MiNET/wiki//Protoc
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Must accept | bool |  |
+|Has addon packs | bool |  |
 |Has scripts | bool |  |
-|Force Server Packs | bool |  |
-|BehahaviorPackInfos | ResourcePackInfos |  |
+|Disable vibrant visuals | bool |  |
+|World template id | UUID |  |
+|World template version | string |  |
 |TexturePacks | TexturePackInfos |  |
 -----------------------------------------------------------------------
 ### Resource Pack Stack (0x07)
@@ -347,11 +348,11 @@ Wiki: [Resource Pack Stack](https://github.com/NiclasOlofsson/MiNET/wiki//Protoc
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Must accept | bool |  |
-|BehaviorPackIdVersions | ResourcePackIdVersions |  |
 |ResourcePackIdVersions | ResourcePackIdVersions |  |
 |Game Version | string |  |
 |Experiments | Experiments |  |
 |Experiments Previously Toggled | bool |  |
+|Has editor packs | bool |  |
 -----------------------------------------------------------------------
 ### Resource Pack Client Response (0x08)
 Wiki: [Resource Pack Client Response](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ResourcePackClientResponse)
