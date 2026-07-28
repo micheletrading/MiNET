@@ -133,8 +133,28 @@ namespace MiNET.Client
 			_clientGuid = BitConverter.ToInt64(buffer, 0);
 		}
 
+		private static bool _cryptoWarmedUp;
+
+		private static void WarmUpCrypto()
+		{
+			if (_cryptoWarmedUp) return;
+			_cryptoWarmedUp = true;
+
+			// First use of the crypto stack costs more than a second in JIT and
+			// static initialization; pay that before connecting instead of inside
+			// the join sequence, where the server drops sessions that stall.
+			var keyPair = CryptoUtils.GenerateClientKey();
+			var agreement = new ECDHBasicAgreement();
+			agreement.Init(keyPair.Private);
+			agreement.CalculateAgreement((ECPublicKeyParameters) keyPair.Public);
+			using var sha = SHA256.Create();
+			sha.ComputeHash(new byte[] {0});
+		}
+
 		public void StartClient()
 		{
+			WarmUpCrypto();
+
 			var greyListManager = new GreyListManager();
 			var motdProvider = new MotdProvider();
 
@@ -243,7 +263,6 @@ namespace MiNET.Client
 					Key = secret
 				};
 
-				Thread.Sleep(1250);
 				McpeClientToServerHandshake magic = new McpeClientToServerHandshake();
 				SendPacket(magic);
 			}
