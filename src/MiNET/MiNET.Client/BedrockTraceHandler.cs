@@ -64,7 +64,7 @@ namespace MiNET.Client
 
 		public override void HandleMcpeDisconnect(McpeDisconnect message)
 		{
-			Log.InfoFormat("Disconnect {1}: {0}", message.message, Client.Username);
+			Log.Warn($"Disconnect {Client.Username}: reason={message.reason} message={message.message}");
 
 			base.HandleMcpeDisconnect(message);
 		}

@@ -56,6 +56,7 @@ using MiNET.Utils.IO;
 using MiNET.Utils.Metadata;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
+using Newtonsoft.Json;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Agreement;
 using Org.BouncyCastle.Crypto.Engines;
@@ -139,7 +140,7 @@ namespace MiNET.Client
 
 			Connection = new RakConnection(ClientEndpoint, greyListManager, motdProvider, _threadPool);
 			var handlerFactory = new BedrockClientMessageHandler(Session, MessageHandler ?? new DefaultMessageHandler(this));
-			handlerFactory.ConnectionAction = () => SendLogin(Username);
+			handlerFactory.ConnectionAction = () => SendRequestNetworkSettings();
 			Connection.CustomMessageHandlerFactory = session => handlerFactory;
 
 			//TODO: This is bad design, need to refactor this later.
@@ -157,12 +158,30 @@ namespace MiNET.Client
 			return true;
 		}
 
+		public void SendRequestNetworkSettings()
+		{
+			var packet = McpeRequestNetworkSettings.CreateObject();
+			packet.protocolVersion = McpeProtocolInfo.ProtocolVersion;
+			SendPacket(packet);
+		}
+
 		public void SendLogin(string username)
 		{
 			JWT.JsonMapper = new NewtonsoftMapper();
 
 			var clientKey = CryptoUtils.GenerateClientKey();
-			byte[] data = CryptoUtils.CompressJwtBytes(CryptoUtils.EncodeJwt(username, clientKey, IsEmulator), CryptoUtils.EncodeSkinJwt(clientKey, username), CompressionLevel.Fastest);
+
+			// 1.21.90+ wraps login identity in an authentication envelope; since protocol 944 the
+			// offline identity is an OIDC-style JWT in Token, and the certificate chain is empty.
+			// AuthenticationType: 0 = full auth, 1 = self-signed, 2 = offline.
+			string identityJson = JsonConvert.SerializeObject(new
+			{
+				Certificate = JsonConvert.SerializeObject(new {chain = new[] {""}}),
+				AuthenticationType = 2,
+				Token = CryptoUtils.EncodeOfflineMultiplayerToken(username, clientKey)
+			});
+
+			byte[] data = CryptoUtils.CompressJwtBytes(Encoding.UTF8.GetBytes(identityJson), CryptoUtils.EncodeSkinJwt(clientKey, username), CompressionLevel.Fastest);
 
 			McpeLogin loginPacket = new McpeLogin
 			{

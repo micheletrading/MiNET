@@ -84,6 +84,52 @@ namespace MiNET.Utils.IO
 			}
 		}
 
+		// Post-1.19.30 wrapper payload: before NetworkSettings the payload is raw packets, no
+		// compressor id. After, a leading compressor id byte selects 0x00=zlib, 0x01=snappy, 0xff=none;
+		// compression only kicks in at the negotiated threshold (0 = never).
+		public static byte[] CompressPacketsForWrapper(List<Packet> packets, bool compressionEnabled, int compressionThreshold, CompressionLevel compressionLevel = CompressionLevel.Fastest)
+		{
+			byte[] rawBytes;
+			using (MemoryStream raw = MiNetServer.MemoryStreamManager.GetStream())
+			{
+				foreach (Packet packet in packets)
+				{
+					byte[] bs = packet.Encode();
+					if (bs != null && bs.Length > 0)
+					{
+						BatchUtils.WriteLength(raw, bs.Length);
+						raw.Write(bs, 0, bs.Length);
+					}
+					packet.PutPool();
+				}
+
+				rawBytes = raw.ToArray();
+			}
+
+			if (!compressionEnabled) return rawBytes;
+
+			if (compressionThreshold == 0 || rawBytes.Length < compressionThreshold)
+			{
+				var result = new byte[rawBytes.Length + 1];
+				result[0] = 0xff;
+				rawBytes.CopyTo(result, 1);
+				return result;
+			}
+
+			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
+			{
+				stream.WriteByte(0x00);
+				using (var compressStream = new DeflateStream(stream, compressionLevel, true))
+				{
+					compressStream.Write(rawBytes, 0, rawBytes.Length);
+					compressStream.Flush();
+				}
+
+				byte[] bytes = stream.ToArray();
+				return bytes;
+			}
+		}
+
 
 		public static void WriteLength(Stream stream, int lenght)
 		{

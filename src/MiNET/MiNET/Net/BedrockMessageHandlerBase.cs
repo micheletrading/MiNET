@@ -43,6 +43,11 @@ namespace MiNET.Net
 
 		public CryptoContext CryptoContext { get; set; }
 
+		// Compression is off until the NetworkSettings exchange completes, then every wrapper
+		// payload carries a leading compressor id byte (0x00=zlib, 0x01=snappy, 0xff=none).
+		public bool CompressionEnabled { get; set; }
+		public ushort CompressionThreshold { get; set; } = 1;
+
 		protected BedrockMessageHandlerBase(RakSession session)
 		{
 			_session = session;
@@ -67,7 +72,7 @@ namespace MiNET.Net
 					var wrapper = McpeWrapper.CreateObject();
 					wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 					wrapper.ForceClear = true;
-					wrapper.payload = Compression.CompressPacketsForWrapper(new List<Packet> {packet});
+					wrapper.payload = Compression.CompressPacketsForWrapper(new List<Packet> {packet}, CompressionEnabled, CompressionThreshold);
 					wrapper.Encode(); // prepare
 					packet.PutPool();
 					sendList.Add(wrapper);
@@ -97,7 +102,7 @@ namespace MiNET.Net
 			{
 				var batch = McpeWrapper.CreateObject();
 				batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				batch.payload = Compression.CompressPacketsForWrapper(sendInBatch);
+				batch.payload = Compression.CompressPacketsForWrapper(sendInBatch, CompressionEnabled, CompressionThreshold);
 				batch.Encode(); // prepare
 				sendList.Add(batch);
 			}
@@ -153,10 +158,30 @@ namespace MiNET.Net
 				var stream = new MemoryStreamReader(payload);
 				try
 				{
-					using (var deflateStream = new DeflateStream(stream, CompressionMode.Decompress, false))
 					{
 						using var s = new MemoryStream();
-						deflateStream.CopyTo(s);
+						if (CompressionEnabled)
+						{
+							int compressorId = stream.ReadByte();
+							switch (compressorId)
+							{
+								case 0x00:
+									using (var deflateStream = new DeflateStream(stream, CompressionMode.Decompress, false))
+									{
+										deflateStream.CopyTo(s);
+									}
+									break;
+								case 0xff:
+									stream.CopyTo(s);
+									break;
+								default:
+									throw new InvalidDataException($"Unsupported compressor id 0x{compressorId:x2}");
+							}
+						}
+						else
+						{
+							stream.CopyTo(s);
+						}
 						s.Position = 0;
 
 						int count = 0;

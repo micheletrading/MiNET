@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution// The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -46,8 +46,8 @@ namespace MiNET.Net
 {
 	public class McpeProtocolInfo
 	{
-		public const int ProtocolVersion = 503;
-		public const string GameVersion = "1.18.30";
+		public const int ProtocolVersion = 1001;
+		public const string GameVersion = "1.26.34";
 	}
 
 	public interface IMcpeMessageHandler
@@ -103,7 +103,6 @@ namespace MiNET.Net
 		void HandleMcpeLevelSoundEventV2(McpeLevelSoundEventV2 message);
 		void HandleMcpeLevelSoundEvent(McpeLevelSoundEvent message);
 		void HandleMcpeClientCacheStatus(McpeClientCacheStatus message);
-		void HandleMcpeNetworkSettings(McpeNetworkSettings message);
 		void HandleMcpePlayerAuthInput(McpePlayerAuthInput message);
 		void HandleMcpeItemStackRequest(McpeItemStackRequest message);
 		void HandleMcpeUpdatePlayerGameType(McpeUpdatePlayerGameType message);
@@ -111,6 +110,7 @@ namespace MiNET.Net
 		void HandleMcpeFilterTextPacket(McpeFilterTextPacket message);
 		void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message);
 		void HandleMcpeSubChunkRequestPacket(McpeSubChunkRequestPacket message);
+		void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message);
 	}
 
 	public interface IMcpeClientMessageHandler
@@ -995,6 +995,8 @@ namespace MiNET.Net
 						return McpeSubChunkRequestPacket.CreateObject().Decode(buffer);
 					case 0xb4:
 						return McpeDimensionData.CreateObject().Decode(buffer);
+					case 0xc1:
+						return McpeRequestNetworkSettings.CreateObject().Decode(buffer);
 					case 0xe0:
 						return McpeAlexEntityAnimation.CreateObject().Decode(buffer);
 				}
@@ -2109,8 +2111,8 @@ namespace MiNET.Net
 	public partial class McpeDisconnect : Packet<McpeDisconnect>
 	{
 
+		public int reason; // = null;
 		public bool hideDisconnectReason; // = null;
-		public string message; // = null;
 
 		public McpeDisconnect()
 		{
@@ -2124,8 +2126,8 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			WriteSignedVarInt(reason);
 			Write(hideDisconnectReason);
-			Write(message);
 
 			AfterEncode();
 		}
@@ -2139,8 +2141,8 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			reason = ReadSignedVarInt();
 			hideDisconnectReason = ReadBool();
-			message = ReadString();
 
 			AfterDecode();
 		}
@@ -2152,8 +2154,8 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			reason=default(int);
 			hideDisconnectReason=default(bool);
-			message=default(string);
 		}
 
 	}
@@ -9312,14 +9314,18 @@ namespace MiNET.Net
 
 	public partial class McpeNetworkSettings : Packet<McpeNetworkSettings>
 	{
-		public enum Compression
+		public enum Compressionalgorithm
 		{
-			Nothing = 0,
-			Everything = 1,
+			Zlib = 0,
+			Snappy = 1,
+			None = 65535,
 		}
 
-		public byte unknown; // = null;
-		public byte compressionThreshold; // = null;
+		public ushort compressionThreshold; // = null;
+		public ushort compressionAlgorithm; // = null;
+		public bool clientThrottleEnabled; // = null;
+		public byte clientThrottleThreshold; // = null;
+		public float clientThrottleScalar; // = null;
 
 		public McpeNetworkSettings()
 		{
@@ -9333,8 +9339,11 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(unknown);
 			Write(compressionThreshold);
+			Write(compressionAlgorithm);
+			Write(clientThrottleEnabled);
+			Write(clientThrottleThreshold);
+			Write(clientThrottleScalar);
 
 			AfterEncode();
 		}
@@ -9348,8 +9357,11 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			unknown = ReadByte();
-			compressionThreshold = ReadByte();
+			compressionThreshold = ReadUshort();
+			compressionAlgorithm = ReadUshort();
+			clientThrottleEnabled = ReadBool();
+			clientThrottleThreshold = ReadByte();
+			clientThrottleScalar = ReadFloat();
 
 			AfterDecode();
 		}
@@ -9361,8 +9373,11 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			unknown=default(byte);
-			compressionThreshold=default(byte);
+			compressionThreshold=default(ushort);
+			compressionAlgorithm=default(ushort);
+			clientThrottleEnabled=default(bool);
+			clientThrottleThreshold=default(byte);
+			clientThrottleScalar=default(float);
 		}
 
 	}
@@ -10042,6 +10057,54 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			definitions=default(DimensionDefinitions);
+		}
+
+	}
+
+	public partial class McpeRequestNetworkSettings : Packet<McpeRequestNetworkSettings>
+	{
+
+		public int protocolVersion; // = null;
+
+		public McpeRequestNetworkSettings()
+		{
+			Id = 0xc1;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteBe(protocolVersion);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			protocolVersion = ReadIntBe();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			protocolVersion=default(int);
 		}
 
 	}

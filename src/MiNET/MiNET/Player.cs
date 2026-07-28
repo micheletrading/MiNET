@@ -838,6 +838,11 @@ namespace MiNET
 
 		private object _loginSyncLock = new object();
 
+		public virtual void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message)
+		{
+			// Do nothing. Handled by LoginMessageHandler before the Player exists.
+		}
+
 		public virtual void HandleMcpeLogin(McpeLogin message)
 		{
 			// Do nothing

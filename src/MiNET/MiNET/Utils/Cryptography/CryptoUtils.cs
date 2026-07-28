@@ -141,6 +141,32 @@ namespace MiNET.Utils.Cryptography
 			return generator.GenerateKeyPair();
 		}
 
+		// Protocol 944+ offline login: identity moves out of the certificate chain into the
+		// envelope's Token field, as a self-signed OIDC-style JWT.
+		public static string EncodeOfflineMultiplayerToken(string username, AsymmetricCipherKeyPair newKey)
+		{
+			long iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+			long exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
+
+			ECDsa signKey = ConvertToSingKeyFormat(newKey);
+			string b64Key = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(newKey.Public).GetEncoded().EncodeBase64();
+
+			var payload = new Dictionary<string, object>
+			{
+				["cpk"] = b64Key,
+				["xid"] = "0",
+				["xname"] = username,
+				["identity"] = Guid.NewGuid().ToString(),
+				["iat"] = iat,
+				["nbf"] = iat,
+				["exp"] = exp,
+				["iss"] = "self",
+				["aud"] = "api://auth-minecraft-services/multiplayer"
+			};
+
+			return JWT.Encode(payload, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64Key}});
+		}
+
 		public static byte[] EncodeJwt(string username, AsymmetricCipherKeyPair newKey, bool isEmulator)
 		{
 			long iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();

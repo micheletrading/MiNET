@@ -37,6 +37,7 @@ using MiNET.Net;
 using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
+using MiNET.Utils.IO;
 using MiNET.Utils.Skins;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Crypto.Agreement;
@@ -70,6 +71,29 @@ namespace MiNET
 
 		public void Disconnect(string reason, bool sendDisconnect = true)
 		{
+		}
+
+		public virtual void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message)
+		{
+			_playerInfo.ProtocolVersion = message.protocolVersion;
+
+			var settings = McpeNetworkSettings.CreateObject();
+			settings.compressionThreshold = 1;
+			settings.compressionAlgorithm = (ushort) McpeNetworkSettings.Compressionalgorithm.Zlib;
+			settings.clientThrottleEnabled = false;
+			settings.clientThrottleThreshold = 0;
+			settings.clientThrottleScalar = 0;
+
+			// Pre-wrap the reply so the async send queue can't compress it. Compression starts
+			// with the first packet after this one, in both directions.
+			var wrapper = McpeWrapper.CreateObject();
+			wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
+			wrapper.payload = Compression.CompressPacketsForWrapper(new List<Packet> {settings}, false, 0);
+			wrapper.Encode();
+			_session.SendPacket(wrapper);
+
+			_bedrockHandler.CompressionEnabled = true;
+			_bedrockHandler.CompressionThreshold = 1;
 		}
 
 		public virtual void HandleMcpeLogin(McpeLogin message)

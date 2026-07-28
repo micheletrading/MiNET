@@ -1,4 +1,4 @@
-﻿
+
 **WARNING: T4 GENERATED MARKUP - DO NOT EDIT**
 
 Read more about packets and this specification on the [Protocol Wiki](https://github.com/NiclasOlofsson/MiNET/wiki//ref-protocol)
@@ -152,6 +152,7 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Sub Chunk Packet | 0xae | 174 |   
 | Sub Chunk Request Packet | 0xaf | 175 |   
 | Dimension Data | 0xb4 | 180 |   
+| Request Network Settings | 0xc1 | 193 |   
 | Alex Entity Animation | 0xe0 | 224 |   
 
 
@@ -310,8 +311,8 @@ Wiki: [Disconnect](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Discon
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
+|Reason | SignedVarInt |  |
 |Hide disconnect reason | bool |  |
-|Message | string |  |
 -----------------------------------------------------------------------
 ### Resource Packs Info (0x06)
 Wiki: [Resource Packs Info](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ResourcePacksInfo)
@@ -2650,24 +2651,28 @@ Wiki: [Client Cache Miss Response](https://github.com/NiclasOlofsson/MiNET/wiki/
 Wiki: [Network Settings](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-NetworkSettings)
 
 **Sent from server:** true  
-**Sent from client:** true
+**Sent from client:** false
 
 
 
-#### Compression constants
+#### Compressionalgorithm constants
 
 | Name | Value |
 |:-----|:-----|
-|Nothing | 0 |
-|Everything | 1 |
+|Zlib | 0 |
+|Snappy | 1 |
+|None | 65535 |
 
 
 #### Fields
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Unknown | byte |  |
-|Compression threshold | byte |  |
+|Compression threshold | ushort |  |
+|Compression algorithm | ushort |  |
+|Client throttle enabled | bool |  |
+|Client throttle threshold | byte |  |
+|Client throttle scalar | float |  |
 -----------------------------------------------------------------------
 ### Player Auth Input (0x90)
 Wiki: [Player Auth Input](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-PlayerAuthInput)
@@ -2905,6 +2910,21 @@ Wiki: [Dimension Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Di
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Definitions | DimensionDefinitions |  |
+-----------------------------------------------------------------------
+### Request Network Settings (0xc1)
+Wiki: [Request Network Settings](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-RequestNetworkSettings)
+
+**Sent from server:** false  
+**Sent from client:** true
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Protocol Version | int |  |
 -----------------------------------------------------------------------
 ### Alex Entity Animation (0xe0)
 Wiki: [Alex Entity Animation](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AlexEntityAnimation)
