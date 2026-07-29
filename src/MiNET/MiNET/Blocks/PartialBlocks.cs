@@ -4141,7 +4141,6 @@ namespace MiNET.Blocks
             var record = new BlockStateContainer();
             record.Name = "minecraft:dirt";
             record.Id = 3;
-            record.States.Add(new BlockStateString {Name = "dirt_type", Value = DirtType});
             return record;
         } // method
     } // class
@@ -8190,7 +8189,7 @@ namespace MiNET.Blocks
 
     public partial class Grass // 2 typeof=Grass
     {
-        public override string Name => "minecraft:grass";
+        public override string Name => "minecraft:grass_block";
 
 
         public override void SetState(List<IBlockState> states)
@@ -8206,7 +8205,7 @@ namespace MiNET.Blocks
         public override BlockStateContainer GetState()
         {
             var record = new BlockStateContainer();
-            record.Name = "minecraft:grass";
+            record.Name = "minecraft:grass_block";
             record.Id = 2;
             return record;
         } // method
@@ -13764,7 +13763,6 @@ namespace MiNET.Blocks
             var record = new BlockStateContainer();
             record.Name = "minecraft:stone";
             record.Id = 1;
-            record.States.Add(new BlockStateString {Name = "stone_type", Value = StoneType});
             return record;
         } // method
     } // class
