@@ -240,6 +240,7 @@ namespace MiNET.Net
 		void HandleMcpePlayerEnchantOptions(McpePlayerEnchantOptions message);
 		void HandleMcpeItemStackResponse(McpeItemStackResponse message);
 		void HandleMcpePlayerFog(McpePlayerFog message);
+		void HandleMcpeCorrectPlayerMovePrediction(McpeCorrectPlayerMovePrediction message);
 		void HandleMcpeItemComponent(McpeItemComponent message);
 		void HandleMcpeFilterTextPacket(McpeFilterTextPacket message);
 		void HandleMcpeSyncEntityProperty(McpeSyncEntityProperty message);
@@ -637,6 +638,9 @@ namespace MiNET.Net
 					break;
 				case McpePlayerFog msg:
 					_messageHandler.HandleMcpePlayerFog(msg);
+					break;
+				case McpeCorrectPlayerMovePrediction msg:
+					_messageHandler.HandleMcpeCorrectPlayerMovePrediction(msg);
 					break;
 				case McpeItemComponent msg:
 					_messageHandler.HandleMcpeItemComponent(msg);
@@ -1045,6 +1049,8 @@ namespace MiNET.Net
 						return McpePacketViolationWarning.CreateObject().Decode(buffer);
 					case 0xa0:
 						return McpePlayerFog.CreateObject().Decode(buffer);
+					case 0xa1:
+						return McpeCorrectPlayerMovePrediction.CreateObject().Decode(buffer);
 					case 0xa2:
 						return McpeItemComponent.CreateObject().Decode(buffer);
 					case 0xa3:
@@ -9837,6 +9843,70 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+		}
+
+	}
+
+	public partial class McpeCorrectPlayerMovePrediction : Packet<McpeCorrectPlayerMovePrediction>
+	{
+
+		public byte predictionType; // = null;
+		public Vector3 position; // = null;
+		public Vector3 delta; // = null;
+		public float rotationPitch; // = null;
+		public float rotationYaw; // = null;
+
+		public McpeCorrectPlayerMovePrediction()
+		{
+			Id = 0xa1;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(predictionType);
+			Write(position);
+			Write(delta);
+			Write(rotationPitch);
+			Write(rotationYaw);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			predictionType = ReadByte();
+			position = ReadVector3();
+			delta = ReadVector3();
+			rotationPitch = ReadFloat();
+			rotationYaw = ReadFloat();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			predictionType=default(byte);
+			position=default(Vector3);
+			delta=default(Vector3);
+			rotationPitch=default(float);
+			rotationYaw=default(float);
 		}
 
 	}

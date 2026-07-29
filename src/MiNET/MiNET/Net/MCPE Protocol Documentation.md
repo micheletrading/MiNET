@@ -160,6 +160,7 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Update Player Game Type | 0x97 | 151 |   
 | Packet Violation Warning | 0x9c | 156 |   
 | Player Fog | 0xa0 | 160 |   
+| Correct Player Move Prediction | 0xa1 | 161 |   
 | Item Component | 0xa2 | 162 |   
 | Filter Text Packet | 0xa3 | 163 |   
 | Sync Entity Property | 0xa5 | 165 |   
@@ -2829,6 +2830,25 @@ Wiki: [Player Fog](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Player
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Correct Player Move Prediction (0xa1)
+Wiki: [Correct Player Move Prediction](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CorrectPlayerMovePrediction)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Prediction Type | byte |  |
+|Position | Vector3 |  |
+|Delta | Vector3 |  |
+|Rotation Pitch | float |  |
+|Rotation Yaw | float |  |
 -----------------------------------------------------------------------
 ### Item Component (0xa2)
 Wiki: [Item Component](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ItemComponent)

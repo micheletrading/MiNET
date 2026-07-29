@@ -510,8 +510,10 @@ namespace MiNET
 					if (_player._openInventory is Inventory inventory) item = inventory.GetSlot((byte) slot);
 					break;
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					// BDS answers a request against a container it can't resolve with an error
+					// response (and an inventory resync); silently no-op'ing here makes items
+					// vanish client-side instead.
+					throw new InvalidOperationException($"Unknown containerId: {containerId}");
 			}
 
 			return item;
@@ -561,8 +563,8 @@ namespace MiNET
 					if (_player._openInventory is Inventory inventory) inventory.SetSlot(_player, (byte) slot, item);
 					break;
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					// See GetContainerItem: unknown container = error response, never a silent drop.
+					throw new InvalidOperationException($"Unknown containerId: {containerId}");
 			}
 		}
 	}

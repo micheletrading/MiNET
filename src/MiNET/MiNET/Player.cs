@@ -2491,12 +2491,14 @@ namespace MiNET
 			}
 
 			SendPacket(response);
+			if (stackResponse.Result != StackResponseStatus.Ok) ResyncInventoryAfterFailedStackRequest();
 		}
 
 		public void HandleMcpeItemStackRequest(McpeItemStackRequest message)
 		{
 			var response = McpeItemStackResponse.CreateObject();
 			response.responses = new ItemStackResponses();
+			bool anyFailed = false;
 			foreach (ItemStackActionList request in message.requests)
 			{
 				var stackResponse = new ItemStackResponse()
@@ -2517,10 +2519,26 @@ namespace MiNET
 					Log.Warn($"Failed to process inventory actions", e);
 					stackResponse.Result = StackResponseStatus.Error;
 					stackResponse.ResponseContainerInfos.Clear();
+					anyFailed = true;
 				}
 			}
 
 			SendPacket(response);
+			if (anyFailed) ResyncInventoryAfterFailedStackRequest();
+		}
+
+		// After rejecting a stack request BDS repairs the client's view of the inventory:
+		// InventoryContent for windows 0/0x78/0x7c/0x77 followed by PlayerHotbar (observed
+		// live against BDS 1.26.34 answering an invalid CraftCreative request).
+		private void ResyncInventoryAfterFailedStackRequest()
+		{
+			SendPlayerInventory();
+
+			var hotbar = McpePlayerHotbar.CreateObject();
+			hotbar.selectedSlot = (uint) Inventory.InHandSlot;
+			hotbar.windowId = 0;
+			hotbar.selectSlot = true;
+			SendPacket(hotbar);
 		}
 
 		protected Item GetContainerItem(int containerId, int slot)
@@ -3217,6 +3235,7 @@ namespace MiNET
 
 					var closePacket = McpeContainerClose.CreateObject();
 					closePacket.windowId = inventory.WindowsId;
+					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
 					closePacket.server = message == null ? true : false;
 					SendPacket(closePacket);
 				}
@@ -3228,6 +3247,7 @@ namespace MiNET
 				{
 					var closePacket = McpeContainerClose.CreateObject();
 					closePacket.windowId = 0;
+					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
 					closePacket.server = message == null ? true : false;
 					SendPacket(closePacket);
 				}

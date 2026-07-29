@@ -797,17 +797,24 @@ namespace MiNET.Client
 
 			if (message.blobHashes != null)
 			{
-				var hits = new ulong[message.blobHashes.Length];
+				// Client.BlobCache isn't wired up to any actual blob storage yet, so every hash is
+				// reported as a miss (matches a real client's behaviour before it has anything
+				// cached). Previously this always reported every hash as a hit and left hashMisses
+				// null, which threw a NullReferenceException in McpeClientCacheBlobStatus.AfterEncode
+				// as soon as UseBlobCache was enabled.
+				var hits = new List<ulong>();
+				var misses = new List<ulong>();
 
-				for (int i = 0; i < message.blobHashes.Length; i++)
+				foreach (ulong hash in message.blobHashes)
 				{
-					ulong hash = message.blobHashes[i];
-					hits[i] = hash;
 					Log.Debug($"Got hashes for {message.chunkX}, {message.chunkZ}, {hash}");
+					if (Client.BlobCache.ContainsKey(hash)) hits.Add(hash);
+					else misses.Add(hash);
 				}
 
 				var status = McpeClientCacheBlobStatus.CreateObject();
-				status.hashHits = hits;
+				status.hashHits = hits.ToArray();
+				status.hashMisses = misses.ToArray();
 				Client.SendPacket(status);
 			}
 			else

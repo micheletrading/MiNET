@@ -1198,6 +1198,15 @@
 		<!-- all fields handled in partial: stack[] -->
 	</pdu>
 
+	<pdu id="0xa1" online="false" client="false" server="true" name="MCPE_CORRECT_PLAYER_MOVE_PREDICTION">
+		<field name="Prediction Type" type="byte" />
+		<field name="Position" type="Vector3" />
+		<field name="Delta" type="Vector3" />
+		<field name="Rotation Pitch" type="float" />
+		<field name="Rotation Yaw" type="float" />
+		<!-- optional vehicle angular velocity (bool + lf32), on ground bool and tick varlong handled in partial -->
+	</pdu>
+
 	<pdu id="0xa2" online="false" client="false" server="true" name="MCPE_ITEM_COMPONENT">
 		<field name="Entries" type="ItemComponentList" />
 	</pdu>

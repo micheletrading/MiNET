@@ -61,6 +61,7 @@ namespace MiNET.Client
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Loopback, 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 
 			client.MessageHandler = new BedrockTraceHandler(client);
+			client.UseBlobCache = true;
 
 			client.StartClient();
 			Log.Warn("Client listening for connecting on: " + client.ClientEndpoint);
@@ -86,6 +87,11 @@ namespace MiNET.Client
 			Console.WriteLine("... spawned");
 
 			client.HasSpawned = true;
+
+			if (Environment.GetEnvironmentVariable("MINET_EMULATE") == "1")
+			{
+				RealClientEmulator.Run(client);
+			}
 
 			Action<Task, PlayerLocation> doMoveTo = BotHelpers.DoMoveTo(client);
 

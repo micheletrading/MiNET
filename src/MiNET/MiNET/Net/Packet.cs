@@ -1139,6 +1139,7 @@ namespace MiNET.Net
 		public void Write(StackRequestSlotInfo slotInfo)
 		{
 			Write(slotInfo.ContainerId);
+			Write(false); // FullContainerName (protocol 1001): optional dynamic container id, none
 			Write(slotInfo.Slot);
 			WriteSignedVarInt(slotInfo.StackNetworkId);
 		}
@@ -1258,6 +1259,7 @@ namespace MiNET.Net
 						{
 							Write((byte) McpeItemStackRequest.ActionType.CraftCreative);
 							WriteUnsignedVarInt(ta.CreativeItemNetworkId);
+							Write((byte) 1); // repetitions (protocol 1001), mirrors ReadItemStackRequest's trailing ReadByte()
 							break;
 						}
 
@@ -1301,6 +1303,7 @@ namespace MiNET.Net
 				}
 				
 				WriteUnsignedVarInt(0); //FilterStrings
+				Write(0); // filter string cause (li32), mirrors ReadItemStackRequest's trailing ReadInt()
 			}
 		}
 
@@ -1577,16 +1580,23 @@ namespace MiNET.Net
 				var response = new ItemStackResponse();
 				response.Result = (StackResponseStatus) ReadByte();
 				response.RequestId = ReadSignedVarInt();
-				
+
 				if (response.Result != StackResponseStatus.Ok)
+				{
+					// Non-Ok responses carry no container data on the wire, but the response
+					// itself (and its status code) is still real and worth keeping - previously
+					// it was dropped entirely here, silently emptying the list.
+					responses.Add(response);
 					continue;
-				
+				}
+
 				response.ResponseContainerInfos = new List<StackResponseContainerInfo>();
 				var subCount = ReadUnsignedVarInt();
 				for (int sub = 0; sub < subCount; sub++)
 				{
 					var containerInfo = new StackResponseContainerInfo();
 					containerInfo.ContainerId = ReadByte();
+					if (ReadBool()) ReadUint(); // FullContainerName optional dynamic container id
 
 					var slotCount = ReadUnsignedVarInt();
 					containerInfo.Slots = new List<StackResponseSlotInfo>();
@@ -1599,6 +1609,7 @@ namespace MiNET.Net
 						slot.Count = ReadByte();
 						slot.StackNetworkId = ReadSignedVarInt();
 						slot.CustomName = ReadString();
+						slot.FilteredCustomName = ReadString(); // protocol 1001
 						slot.DurabilityCorrection = ReadSignedVarInt();
 						
 						containerInfo.Slots.Add(slot);

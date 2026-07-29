@@ -697,9 +697,14 @@ namespace MiNET.Client
 		}
 
 		/// <inheritdoc />
+		public virtual void HandleMcpeCorrectPlayerMovePrediction(McpeCorrectPlayerMovePrediction message)
+		{
+		}
+
+		/// <inheritdoc />
 		public virtual void HandleMcpeItemComponent(McpeItemComponent message)
 		{
-			
+
 		}
 
 		/// <inheritdoc />
