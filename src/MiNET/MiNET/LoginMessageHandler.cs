@@ -820,6 +820,10 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpeClientCameraAimAssist(McpeClientCameraAimAssist message)
+		{
+		}
+
 		public void HandleMcpeLevelSoundEventOld(McpeLevelSoundEventOld message)
 		{
 		}

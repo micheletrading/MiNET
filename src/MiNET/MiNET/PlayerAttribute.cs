@@ -25,6 +25,16 @@
 
 namespace MiNET
 {
+	public class PlayerAttributeModifier
+	{
+		public string Id { get; set; }
+		public string Name { get; set; }
+		public float Amount { get; set; }
+		public int Operation { get; set; }
+		public int Operand { get; set; }
+		public bool Serializable { get; set; }
+	}
+
 	public class PlayerAttribute
 	{
 		public string Name { get; set; }
@@ -34,6 +44,7 @@ namespace MiNET
 		public float DefaultMinValue { get; set; }
 		public float DefaultMaxValue { get; set; }
 		public float Default { get; set; }
+		public System.Collections.Generic.List<PlayerAttributeModifier> Modifiers { get; set; } = new System.Collections.Generic.List<PlayerAttributeModifier>();
 
 		public override string ToString()
 		{

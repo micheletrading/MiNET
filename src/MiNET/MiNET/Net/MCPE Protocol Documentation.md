@@ -26,10 +26,13 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Move Entity | 0x12 | 18 |   
 | Trim Data | 0x12e | 18 |   
 | Move Player | 0x13 | 19 |   
+| Server Bound Loading Screen | 0x138 | 19 |   
 | Jigsaw Structure Data | 0x139 | 19 |   
 | Current Structure Feature | 0x13a | 19 |   
+| Server Bound Diagnostics | 0x13b | 19 |   
 | Rider Jump | 0x14 | 20 |   
 | Camera Aim Assist Presets | 0x140 | 20 |   
+| Client Camera Aim Assist | 0x141 | 20 |   
 | Player Location | 0x146 | 20 |   
 | Update Block | 0x15 | 21 |   
 | Voxel Shapes | 0x151 | 21 |   
@@ -475,9 +478,6 @@ Wiki: [Add Player](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AddPla
 |Pitch | float |  |
 |Yaw | float |  |
 |Head Yaw | float |  |
-|Item | Item |  |
-|Gamemode | SignedVarInt |  |
-|Metadata | MetadataDictionary |  |
 -----------------------------------------------------------------------
 ### Add Entity (0x0d)
 Wiki: [Add Entity](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AddEntity)
@@ -1018,6 +1018,7 @@ Wiki: [Player Action](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Pla
 |Runtime Entity ID | UnsignedVarLong |  |
 |Action ID | SignedVarInt |  |
 |Coordinates | BlockCoordinates |  |
+|Result Coordinates | BlockCoordinates |  |
 |Face | SignedVarInt |  |
 -----------------------------------------------------------------------
 ### Hurt Armor (0x26)
@@ -1141,7 +1142,7 @@ Wiki: [Animate](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Animate)
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Action ID | SignedVarInt |  |
+|Action ID | byte |  |
 |Runtime Entity ID | UnsignedVarLong |  |
 -----------------------------------------------------------------------
 ### Respawn (0x2d)
@@ -1203,6 +1204,7 @@ Wiki: [Container Close](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-C
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Window ID | byte |  |
+|Window Type | byte |  |
 |Server | bool |  |
 -----------------------------------------------------------------------
 ### Player Hotbar (0x30)
@@ -3034,6 +3036,21 @@ Wiki: [Trim Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-TrimDat
 | Name | Type | Size |
 |:-----|:-----|:-----|
 -----------------------------------------------------------------------
+### Server Bound Loading Screen (0x138)
+Wiki: [Server Bound Loading Screen](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ServerBoundLoadingScreen)
+
+**Sent from server:** false  
+**Sent from client:** true
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Type | SignedVarInt |  |
+-----------------------------------------------------------------------
 ### Jigsaw Structure Data (0x139)
 Wiki: [Jigsaw Structure Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-JigsawStructureData)
 
@@ -3063,6 +3080,46 @@ Wiki: [Current Structure Feature](https://github.com/NiclasOlofsson/MiNET/wiki//
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Current Feature | string |  |
+-----------------------------------------------------------------------
+### Server Bound Diagnostics (0x13b)
+Wiki: [Server Bound Diagnostics](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ServerBoundDiagnostics)
+
+**Sent from server:** false  
+**Sent from client:** true
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Average Frames Per Second | float |  |
+|Average Server Sim Tick Time | float |  |
+|Average Client Sim Tick Time | float |  |
+|Average Begin Frame Time | float |  |
+|Average Input Time | float |  |
+|Average Render Time | float |  |
+|Average End Frame Time | float |  |
+|Average Remainder Time Percent | float |  |
+|Average Unaccounted Time Percent | float |  |
+-----------------------------------------------------------------------
+### Client Camera Aim Assist (0x141)
+Wiki: [Client Camera Aim Assist](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ClientCameraAimAssist)
+
+**Sent from server:** false  
+**Sent from client:** true
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Preset ID | string |  |
+|Action | byte |  |
+|Allow Aim Assist | bool |  |
 -----------------------------------------------------------------------
 ### Camera Aim Assist Presets (0x140)
 Wiki: [Camera Aim Assist Presets](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CameraAimAssistPresets)

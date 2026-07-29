@@ -30,12 +30,38 @@ using Newtonsoft.Json;
 
 namespace MiNET
 {
-	public class PlayerAttributes : Dictionary<string, PlayerAttribute>
+	// Wire shape is an ordered array (see PlayerAttributes/EntityAttributes ProtoDef), and vanilla
+	// BDS can legitimately repeat the same attribute name more than once in it - a Dictionary
+	// keyed by name silently collapses those repeats, losing data on decode and desyncing a
+	// decode->encode round trip. List-backed to preserve order and duplicates; the string indexer
+	// keeps the upsert-by-name call pattern used everywhere server code constructs an outbound set
+	// from scratch (those never contain duplicates, so upsert semantics are unaffected).
+	public class PlayerAttributes : List<PlayerAttribute>
 	{
+		public PlayerAttribute this[string name]
+		{
+			get => this.FirstOrDefault(a => a.Name == name);
+			set
+			{
+				int index = FindIndex(a => a.Name == name);
+				if (index >= 0) this[index] = value;
+				else Add(value);
+			}
+		}
 	}
 
-	public class EntityAttributes : Dictionary<string, EntityAttribute>
+	public class EntityAttributes : List<EntityAttribute>
 	{
+		public EntityAttribute this[string name]
+		{
+			get => this.FirstOrDefault(a => a.Name == name);
+			set
+			{
+				int index = FindIndex(a => a.Name == name);
+				if (index >= 0) this[index] = value;
+				else Add(value);
+			}
+		}
 	}
 
 	public class EntityLink

@@ -108,7 +108,7 @@ namespace MiNET.Net
 			WriteUnsignedVarInt((uint) rules.Count);
 			foreach (GameRule rule in rules)
 			{
-				Write(rule.Name.ToLower());
+				Write(rule.Name);
 				Write(rule.IsPlayerModifiable);
 				switch (rule)
 				{

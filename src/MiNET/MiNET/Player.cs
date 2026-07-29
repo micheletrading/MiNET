@@ -88,6 +88,10 @@ namespace MiNET
 		public string ServerAddress { get; set; }
 		public PlayerInfo PlayerInfo { get; set; }
 
+		// player_list add-record color ARGB (protocol 800+). Not currently derived from any
+		// server-side player state; defaults to 0 for locally-authored records.
+		public int PlayerListColor { get; set; }
+
 		public Skin Skin { get; set; }
 
 		public float MovementSpeed { get; set; } = 0.1f;
@@ -524,7 +528,8 @@ namespace MiNET
 			McpeAnimate msg = McpeAnimate.CreateObject();
 			msg.runtimeEntityId = EntityId;
 			msg.actionId = message.actionId;
-			msg.unknownFloat = message.unknownFloat;
+			msg.data = message.data;
+			msg.swingSource = message.swingSource;
 
 			Level.RelayBroadcast(this, msg);
 		}
@@ -2287,6 +2292,61 @@ namespace MiNET
 			{
 				HandleSingleItemStackRequest(message.ItemStackRequest);
 			}
+
+			if (message.BlockActions != null)
+			{
+				// Server-authoritative block breaking (StartGame flag): break progress and the
+				// actual destroy arrive as auth-input block actions instead of the old
+				// PlayerAction/InventoryTransaction path.
+				foreach (McpePlayerAuthInput.PlayerBlockAction action in message.BlockActions)
+				{
+					var coordinates = new BlockCoordinates(action.X, action.Y, action.Z);
+					switch (action.ActionType)
+					{
+						case 0: // start_break
+						{
+							if (GameMode == GameMode.Survival)
+							{
+								Block target = Level.GetBlock(coordinates);
+								var drops = target.GetDrops(Inventory.GetItemInHand());
+								float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
+								double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
+
+								McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
+								breakEvent.eventId = 3600;
+								breakEvent.position = coordinates;
+								breakEvent.data = (int) (65535 / breakTime);
+								Level.RelayBroadcast(breakEvent);
+							}
+							break;
+						}
+						case 1: // abort_break
+						{
+							McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
+							breakEvent.eventId = 3601;
+							breakEvent.position = coordinates;
+							Level.RelayBroadcast(breakEvent);
+							break;
+						}
+						case 18: // crack_break
+						case 27: // continue_break
+						{
+							Block target = Level.GetBlock(coordinates);
+							McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
+							breakEvent.eventId = 2014;
+							breakEvent.position = coordinates;
+							breakEvent.data = ((int) target.GetRuntimeId()) | ((byte) (action.Face << 24));
+							Level.RelayBroadcast(breakEvent);
+							break;
+						}
+						case 26: // predict_break: the client predicted the destroy; perform it
+						{
+							Level.BreakBlock(this, coordinates, (BlockFace) action.Face);
+							break;
+						}
+					}
+				}
+			}
 		}
 
 		public virtual void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message)
@@ -2297,6 +2357,11 @@ namespace MiNET
 		public virtual void HandleMcpeServerBoundDiagnostics(McpeServerBoundDiagnostics message)
 		{
 			// Client performance telemetry (creator diagnostics setting). Ignored.
+		}
+
+		public virtual void HandleMcpeClientCameraAimAssist(McpeClientCameraAimAssist message)
+		{
+			// Client-side aim assist state report. Ignored.
 		}
 
 

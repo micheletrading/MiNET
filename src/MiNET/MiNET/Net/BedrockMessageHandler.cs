@@ -137,6 +137,9 @@ namespace MiNET.Net
 				case McpeServerBoundDiagnostics msg:
 					handler.HandleMcpeServerBoundDiagnostics(msg);
 					break;
+				case McpeClientCameraAimAssist msg:
+					handler.HandleMcpeClientCameraAimAssist(msg);
+					break;
 				case McpeInteract msg:
 					handler.HandleMcpeInteract(msg);
 					break;

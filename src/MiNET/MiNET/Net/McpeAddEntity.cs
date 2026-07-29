@@ -23,37 +23,60 @@
 
 #endregion
 
+using System.Collections.Generic;
 using MiNET.Utils;
 
 namespace MiNET.Net
 {
 	public partial class McpeAddEntity : Packet<McpeAddEntity>
 	{
-		// PropertySyncData (protocol 557+) between metadata and links. Property values are
-		// parsed and discarded; MiNET does not use actor properties yet.
+		// PropertySyncData (protocol 557+) between metadata and links. MiNET does not use actor
+		// properties yet, but preserves them verbatim so a decode->encode round trip is byte-exact
+		// instead of silently dropping real data BDS sends.
+		public List<(uint index, int value)> intProperties = new List<(uint, int)>();
+		public List<(uint index, float value)> floatProperties = new List<(uint, float)>();
 		public EntityLinks links;
 
 		partial void AfterEncode()
 		{
-			WriteUnsignedVarInt(0); // int properties
-			WriteUnsignedVarInt(0); // float properties
+			WriteUnsignedVarInt((uint) intProperties.Count);
+			foreach (var (index, value) in intProperties)
+			{
+				WriteUnsignedVarInt(index);
+				WriteSignedVarInt(value);
+			}
+
+			WriteUnsignedVarInt((uint) floatProperties.Count);
+			foreach (var (index, value) in floatProperties)
+			{
+				WriteUnsignedVarInt(index);
+				Write(value);
+			}
+
 			Write(links);
 		}
 
 		partial void AfterDecode()
 		{
-			uint intProperties = ReadUnsignedVarInt();
-			for (uint i = 0; i < intProperties; i++)
+			// Fresh lists rather than appending to the field initializer's instance: packets are
+			// pooled and reused (see ObjectPool/CreateObject), and ResetPacket has no partial hook
+			// to clear these between checkouts.
+			intProperties = new List<(uint, int)>();
+			uint intPropertyCount = ReadUnsignedVarInt();
+			for (uint i = 0; i < intPropertyCount; i++)
 			{
-				ReadUnsignedVarInt(); // property index
-				ReadSignedVarInt(); // value
+				uint index = ReadUnsignedVarInt();
+				int value = ReadSignedVarInt();
+				intProperties.Add((index, value));
 			}
 
-			uint floatProperties = ReadUnsignedVarInt();
-			for (uint i = 0; i < floatProperties; i++)
+			floatProperties = new List<(uint, float)>();
+			uint floatPropertyCount = ReadUnsignedVarInt();
+			for (uint i = 0; i < floatPropertyCount; i++)
 			{
-				ReadUnsignedVarInt(); // property index
-				ReadFloat(); // value
+				uint index = ReadUnsignedVarInt();
+				float value = ReadFloat();
+				floatProperties.Add((index, value));
 			}
 
 			links = ReadEntityLinks();

@@ -496,6 +496,7 @@
 		<field name="Runtime Entity ID" type="UnsignedVarLong" />
 		<field name="Action ID" type="SignedVarInt" />
 		<field name="Coordinates" type="BlockCoordinates" />
+		<field name="Result Coordinates" type="BlockCoordinates" />
 		<field name="Face" type="SignedVarInt" />
 	</pdu>
 
@@ -540,8 +541,9 @@
 	</pdu>
 
 	<pdu id="0x2c" online="false" client="true" server="true" name="MCPE_ANIMATE">
-		<field name="Action ID" type="SignedVarInt" />
+		<field name="Action ID" type="byte" />
 		<field name="Runtime Entity ID" type="UnsignedVarLong" />
+		<!-- data float and optional swing source string handled in partial (McpeAnimate.cs) -->
 	</pdu>
 
 	<pdu id="0x2d" online="false" client="true" server="true" name="MCPE_RESPAWN">
@@ -566,6 +568,7 @@
 
 	<pdu id="0x2f" online="false" client="true" server="true" name="MCPE_CONTAINER_CLOSE">
 		<field name="Window ID" type="byte" />
+		<field name="Window Type" type="byte" />
 		<field name="Server" type="bool" />
 	</pdu>
 
@@ -1288,6 +1291,12 @@
 		<field name="Average Remainder Time Percent" type="float" />
 		<field name="Average Unaccounted Time Percent" type="float" />
 		<!-- memory_category_values array handled in partial -->
+	</pdu>
+
+	<pdu id="0x141" online="false" client="true" server="false" name="MCPE_CLIENT_CAMERA_AIM_ASSIST">
+		<field name="Preset ID" type="string" />
+		<field name="Action" type="byte" />
+		<field name="Allow Aim Assist" type="bool" />
 	</pdu>
 
 	<pdu id="0x140" online="false" client="false" server="true" name="MCPE_CAMERA_AIM_ASSIST_PRESETS">

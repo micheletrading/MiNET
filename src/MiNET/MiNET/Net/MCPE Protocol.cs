@@ -113,6 +113,7 @@ namespace MiNET.Net
 		void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message);
 		void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message);
 		void HandleMcpeServerBoundDiagnostics(McpeServerBoundDiagnostics message);
+		void HandleMcpeClientCameraAimAssist(McpeClientCameraAimAssist message);
 	}
 
 	public interface IMcpeClientMessageHandler
@@ -1077,6 +1078,8 @@ namespace MiNET.Net
 						return McpeCurrentStructureFeature.CreateObject().Decode(buffer);
 					case 0x13b:
 						return McpeServerBoundDiagnostics.CreateObject().Decode(buffer);
+					case 0x141:
+						return McpeClientCameraAimAssist.CreateObject().Decode(buffer);
 					case 0x140:
 						return McpeCameraAimAssistPresets.CreateObject().Decode(buffer);
 					case 0x146:
@@ -4153,6 +4156,7 @@ namespace MiNET.Net
 		public long runtimeEntityId; // = null;
 		public int actionId; // = null;
 		public BlockCoordinates coordinates; // = null;
+		public BlockCoordinates resultCoordinates; // = null;
 		public int face; // = null;
 
 		public McpePlayerAction()
@@ -4170,6 +4174,7 @@ namespace MiNET.Net
 			WriteUnsignedVarLong(runtimeEntityId);
 			WriteSignedVarInt(actionId);
 			Write(coordinates);
+			Write(resultCoordinates);
 			WriteSignedVarInt(face);
 
 			AfterEncode();
@@ -4187,6 +4192,7 @@ namespace MiNET.Net
 			runtimeEntityId = ReadUnsignedVarLong();
 			actionId = ReadSignedVarInt();
 			coordinates = ReadBlockCoordinates();
+			resultCoordinates = ReadBlockCoordinates();
 			face = ReadSignedVarInt();
 
 			AfterDecode();
@@ -4202,6 +4208,7 @@ namespace MiNET.Net
 			runtimeEntityId=default(long);
 			actionId=default(int);
 			coordinates=default(BlockCoordinates);
+			resultCoordinates=default(BlockCoordinates);
 			face=default(int);
 		}
 
@@ -4544,7 +4551,7 @@ namespace MiNET.Net
 	public partial class McpeAnimate : Packet<McpeAnimate>
 	{
 
-		public int actionId; // = null;
+		public byte actionId; // = null;
 		public long runtimeEntityId; // = null;
 
 		public McpeAnimate()
@@ -4559,7 +4566,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			WriteSignedVarInt(actionId);
+			Write(actionId);
 			WriteUnsignedVarLong(runtimeEntityId);
 
 			AfterEncode();
@@ -4574,7 +4581,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			actionId = ReadSignedVarInt();
+			actionId = ReadByte();
 			runtimeEntityId = ReadUnsignedVarLong();
 
 			AfterDecode();
@@ -4587,7 +4594,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			actionId=default(int);
+			actionId=default(byte);
 			runtimeEntityId=default(long);
 		}
 
@@ -4727,6 +4734,7 @@ namespace MiNET.Net
 	{
 
 		public byte windowId; // = null;
+		public byte windowType; // = null;
 		public bool server; // = null;
 
 		public McpeContainerClose()
@@ -4742,6 +4750,7 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			Write(windowId);
+			Write(windowType);
 			Write(server);
 
 			AfterEncode();
@@ -4757,6 +4766,7 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			windowId = ReadByte();
+			windowType = ReadByte();
 			server = ReadBool();
 
 			AfterDecode();
@@ -4770,6 +4780,7 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			windowId=default(byte);
+			windowType=default(byte);
 			server=default(bool);
 		}
 
@@ -10719,6 +10730,62 @@ namespace MiNET.Net
 			averageEndFrameTime=default(float);
 			averageRemainderTimePercent=default(float);
 			averageUnaccountedTimePercent=default(float);
+		}
+
+	}
+
+	public partial class McpeClientCameraAimAssist : Packet<McpeClientCameraAimAssist>
+	{
+
+		public string presetId; // = null;
+		public byte action; // = null;
+		public bool allowAimAssist; // = null;
+
+		public McpeClientCameraAimAssist()
+		{
+			Id = 0x141;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(presetId);
+			Write(action);
+			Write(allowAimAssist);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			presetId = ReadString();
+			action = ReadByte();
+			allowAimAssist = ReadBool();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			presetId=default(string);
+			action=default(byte);
+			allowAimAssist=default(bool);
 		}
 
 	}

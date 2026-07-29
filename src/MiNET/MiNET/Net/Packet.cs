@@ -512,7 +512,7 @@ namespace MiNET.Net
 					Write(false); // is teacher
 					Write(false); // is host
 					Write(false); // is subclient (649+)
-					Write(0); // player color ARGB (800+)
+					Write(record.PlayerListColor); // player color ARGB (800+)
 				}
 			}
 			else if (records is PlayerRemoveRecords)
@@ -558,7 +558,7 @@ namespace MiNET.Net
 						ReadBool(); // is teacher
 						ReadBool(); // is host
 						ReadBool(); // is subclient (649+)
-						ReadInt(); // player color ARGB (800+)
+						player.PlayerListColor = ReadInt(); // player color ARGB (800+)
 
 						player.PlayerInfo = new PlayerInfo()
 						{
@@ -889,7 +889,11 @@ namespace MiNET.Net
 		{
 			WriteSignedVarInt(transaction.RequestId);
 
-			if (transaction.RequestId != 0)
+			// Mirror of ReadTransaction: optional changed-slots list plus the two dummy
+			// optional bools around the transaction type (protocol 1001).
+			bool hasChangedSlots = transaction.RequestRecords.Count > 0;
+			Write(hasChangedSlots);
+			if (hasChangedSlots)
 			{
 				WriteUnsignedVarInt((uint) transaction.RequestRecords.Count);
 
@@ -904,7 +908,8 @@ namespace MiNET.Net
 					}
 				}
 			}
-			
+
+			Write(true); // dummy optional bool for transaction type
 			switch (transaction)
 			{
 				case InventoryMismatchTransaction _:
@@ -923,8 +928,8 @@ namespace MiNET.Net
 					WriteUnsignedVarInt((int) McpeInventoryTransaction.TransactionType.Normal);
 					break;
 			}
-			//Write(transaction.HasNetworkIds);
-			
+			Write(true); // dummy optional bool for transaction data
+
 			WriteUnsignedVarInt((uint) transaction.TransactionRecords.Count);
 			foreach (var record in transaction.TransactionRecords)
 			{
@@ -964,25 +969,28 @@ namespace MiNET.Net
 				case InventoryMismatchTransaction _:
 					break;
 				case ItemUseTransaction t:
-					WriteUnsignedVarInt((uint) t.ActionType);
+					WriteSignedVarInt((int) t.ActionType);
+					Write(t.TriggerType);
 					Write(t.Position);
-					WriteSignedVarInt(t.Face);
+					Write((byte) t.Face);
 					WriteSignedVarInt(t.Slot);
 					Write(t.Item);
 					Write(t.FromPosition);
 					Write(t.ClickPosition);
 					WriteUnsignedVarInt(t.BlockRuntimeId);
+					Write(t.ClientPrediction);
+					Write(t.ClientCooldownState);
 					break;
 				case ItemUseOnEntityTransaction t:
 					WriteUnsignedVarLong(t.EntityId);
-					WriteUnsignedVarInt((uint) t.ActionType);
+					WriteSignedVarInt((int) t.ActionType);
 					WriteSignedVarInt(t.Slot);
 					Write(t.Item);
 					Write(t.FromPosition);
 					Write(t.ClickPosition);
 					break;
 				case ItemReleaseTransaction t:
-					WriteUnsignedVarInt((uint) t.ActionType);
+					WriteSignedVarInt((int) t.ActionType);
 					WriteSignedVarInt(t.Slot);
 					Write(t.Item);
 					Write(t.FromPosition);
@@ -996,7 +1004,10 @@ namespace MiNET.Net
 		{
 			var requestId = ReadSignedVarInt(); // request id
 			var requestRecords = new List<RequestRecord>();
-			if (requestId != 0)
+			// Protocol 1001: the changed-slots list is a plain optional (present bool + array),
+			// no longer gated on request id, and the transaction type and data are each preceded
+			// by a dummy optional bool that vanilla always sets to 1.
+			if (ReadBool())
 			{
 				var c1 = ReadUnsignedVarInt();
 				for (int i = 0; i < c1; i++)
@@ -1008,15 +1019,14 @@ namespace MiNET.Net
 					{
 						byte slot = ReadByte();
 						rr.Slots.Add(slot);
-						Log.Debug($"RequestId:{requestId}, containerId:{rr.ContainerId}, slot:{slot}");
 					}
 					requestRecords.Add(rr);
 				}
 			}
 
+			ReadBool(); // dummy optional bool for transaction type, always 1
 			var transactionType = (McpeInventoryTransaction.TransactionType) ReadVarInt();
-			//bool hasItemStacks = ReadBool();
-			//if(hasItemStacks) Log.Warn($"Got item stacks in old transaction");
+			ReadBool(); // dummy optional bool for transaction data, always 1
 
 			var transactions = new List<TransactionRecord>();
 			uint count = ReadUnsignedVarInt();
@@ -1068,21 +1078,24 @@ namespace MiNET.Net
 				case McpeInventoryTransaction.TransactionType.ItemUse:
 					transaction = new ItemUseTransaction()
 					{
-						ActionType = (McpeInventoryTransaction.ItemUseAction) ReadVarInt(),
+						ActionType = (McpeInventoryTransaction.ItemUseAction) ReadSignedVarInt(),
+						TriggerType = ReadByte(),
 						Position = ReadBlockCoordinates(),
-						Face = ReadSignedVarInt(),
+						Face = ReadByte(),
 						Slot = ReadSignedVarInt(),
 						Item = ReadItem(),
 						FromPosition = ReadVector3(),
 						ClickPosition = ReadVector3(),
-						BlockRuntimeId = ReadUnsignedVarInt()
+						BlockRuntimeId = ReadUnsignedVarInt(),
+						ClientPrediction = ReadByte(),
+						ClientCooldownState = ReadByte()
 					};
 					break;
 				case McpeInventoryTransaction.TransactionType.ItemUseOnEntity:
 					transaction = new ItemUseOnEntityTransaction()
 					{
 						EntityId = ReadVarLong(),
-						ActionType = (McpeInventoryTransaction.ItemUseOnEntityAction) ReadVarInt(),
+						ActionType = (McpeInventoryTransaction.ItemUseOnEntityAction) ReadSignedVarInt(),
 						Slot = ReadSignedVarInt(),
 						Item = ReadItem(),
 						FromPosition = ReadVector3(),
@@ -1092,7 +1105,7 @@ namespace MiNET.Net
 				case McpeInventoryTransaction.TransactionType.ItemRelease:
 					transaction = new ItemReleaseTransaction()
 					{
-						ActionType = (McpeInventoryTransaction.ItemReleaseAction) ReadVarInt(),
+						ActionType = (McpeInventoryTransaction.ItemReleaseAction) ReadSignedVarInt(),
 						Slot = ReadSignedVarInt(),
 						Item = ReadItem(),
 						FromPosition = ReadVector3()
@@ -1768,10 +1781,7 @@ namespace MiNET.Net
 				WriteVarInt(0); // metadata
 				Write(false); // has_stack_id
 				WriteVarInt(0); // block_runtime_id
-
-				byte[] emptyExtraData = WriteItemExtraData(null, false);
-				WriteLength(emptyExtraData.Length);
-				Write(emptyExtraData);
+				WriteLength(0); // extra_data: nothing to say, wire omits the blob entirely
 				return;
 			}
 
@@ -1789,9 +1799,20 @@ namespace MiNET.Net
 
 			WriteVarInt(stack.RuntimeId); // block_runtime_id
 
-			byte[] extraData = WriteItemExtraData(stack.ExtraData, netData.Id == ShieldId);
-			WriteLength(extraData.Length);
-			Write(extraData);
+			// The extra_data blob (nbt marker + canPlaceOn/canDestroy counts) is only present on
+			// the wire when there's actually something to say; an item with no NBT that isn't a
+			// shield (blocking_tick trailer) writes a zero-length blob, not the empty skeleton.
+			bool isShield = netData.Id == ShieldId;
+			if (stack.ExtraData == null && !isShield)
+			{
+				WriteLength(0); // extra_data
+			}
+			else
+			{
+				byte[] extraData = WriteItemExtraData(stack.ExtraData, isShield);
+				WriteLength(extraData.Length);
+				Write(extraData);
+			}
 		}
 
 		private static byte[] WriteItemExtraData(NbtCompound extraData, bool includeBlockingTick)
@@ -2116,19 +2137,22 @@ namespace MiNET.Net
 					Name = ReadString(),
 				};
 
-				// Attribute modifiers (protocol 544+), parsed and discarded.
+				// Attribute modifiers (protocol 544+).
 				uint modifierCount = ReadUnsignedVarInt();
 				for (uint m = 0; m < modifierCount; m++)
 				{
-					ReadString(); // id
-					ReadString(); // name
-					ReadFloat(); // amount
-					ReadInt(); // operation
-					ReadInt(); // operand
-					ReadBool(); // serializable
+					attribute.Modifiers.Add(new PlayerAttributeModifier
+					{
+						Id = ReadString(),
+						Name = ReadString(),
+						Amount = ReadFloat(),
+						Operation = ReadInt(),
+						Operand = ReadInt(),
+						Serializable = ReadBool()
+					});
 				}
 
-				attributes[attribute.Name] = attribute;
+				attributes.Add(attribute);
 			}
 
 			return attributes;
@@ -2137,7 +2161,7 @@ namespace MiNET.Net
 		public void Write(PlayerAttributes attributes)
 		{
 			WriteUnsignedVarInt((uint) attributes.Count);
-			foreach (PlayerAttribute attribute in attributes.Values)
+			foreach (PlayerAttribute attribute in attributes)
 			{
 				Write(attribute.MinValue);
 				Write(attribute.MaxValue);
@@ -2146,7 +2170,17 @@ namespace MiNET.Net
 				Write(attribute.DefaultMaxValue);
 				Write(attribute.Default);
 				Write(attribute.Name);
-				WriteUnsignedVarInt(0); // modifiers
+
+				WriteUnsignedVarInt((uint) attribute.Modifiers.Count);
+				foreach (PlayerAttributeModifier modifier in attribute.Modifiers)
+				{
+					Write(modifier.Id);
+					Write(modifier.Name);
+					Write(modifier.Amount);
+					Write(modifier.Operation);
+					Write(modifier.Operand);
+					Write(modifier.Serializable);
+				}
 			}
 		}
 
@@ -2239,7 +2273,7 @@ namespace MiNET.Net
 			}
 
 			WriteUnsignedVarInt((uint) attributes.Count);
-			foreach (EntityAttribute attribute in attributes.Values)
+			foreach (EntityAttribute attribute in attributes)
 			{
 				Write(attribute.Name);
 				Write(attribute.MinValue);
@@ -2262,7 +2296,7 @@ namespace MiNET.Net
 					MaxValue = ReadFloat(),
 				};
 
-				attributes[attribute.Name] = attribute;
+				attributes.Add(attribute);
 			}
 
 			return attributes;
@@ -2729,7 +2763,7 @@ namespace MiNET.Net
 			Write(skin.AnimationData);
 
 			Write(skin.Cape.Id);
-			Write(skin.SkinId + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); // some unique skin id
+			Write(skin.FullSkinId ?? skin.SkinId + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); // unique skin id; re-emit the decoded one verbatim if we have it
 			Write(skin.ArmSize);
 			Write(skin.SkinColor);
 			Write(skin.PersonaPieces.Count);
@@ -2794,7 +2828,7 @@ namespace MiNET.Net
 			skin.AnimationData = ReadString();
 
 			skin.Cape.Id = ReadString();
-			ReadString(); // fullSkinId
+			skin.FullSkinId = ReadString();
 			skin.ArmSize = ReadString();
 			skin.SkinColor = ReadString();
 			int personaPieceCount = ReadInt();
@@ -3818,21 +3852,9 @@ namespace MiNET.Net
 				return;
 			}
 
-			if (data.IsAllTooHigh)
-			{
-				Write((byte) SubChunkPacketHeightMapType.AllTooHigh);
+			Write((byte) data.Type);
 
-				return;
-			}
-
-			if (data.IsAllTooLow)
-			{
-				Write((byte) SubChunkPacketHeightMapType.AllTooLow);
-
-				return;
-			}
-			
-			Write((byte) SubChunkPacketHeightMapType.Data);
+			if (data.Type != SubChunkPacketHeightMapType.Data) return;
 
 			for (int i = 0; i < data.Heights.Length; i++)
 			{
@@ -3844,8 +3866,9 @@ namespace MiNET.Net
 		{
 			SubChunkPacketHeightMapType type = (SubChunkPacketHeightMapType) ReadByte();
 
-			if (type != SubChunkPacketHeightMapType.Data)
-				return null;
+			if (type == SubChunkPacketHeightMapType.NoData) return null;
+
+			if (type != SubChunkPacketHeightMapType.Data) return new HeightMapData(type);
 
 			short[] heights = new short[256];
 

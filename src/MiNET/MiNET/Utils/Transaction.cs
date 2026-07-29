@@ -220,6 +220,9 @@ namespace MiNET.Utils
 	public class ItemUseTransaction : Transaction
 	{
 		public McpeInventoryTransaction.ItemUseAction ActionType { get; set; }
+		// Protocol 1001 additions: client trigger source (0 unknown, 1 player input,
+		// 2 simulation tick) and the client's predicted result + cooldown state.
+		public byte TriggerType { get; set; }
 		public BlockCoordinates Position { get; set; }
 		public int Face { get; set; }
 		public int Slot { get; set; }
@@ -227,6 +230,8 @@ namespace MiNET.Utils
 		public Vector3 FromPosition { get; set; }
 		public Vector3 ClickPosition { get; set; }
 		public uint BlockRuntimeId { get; set; }
+		public byte ClientPrediction { get; set; }
+		public byte ClientCooldownState { get; set; }
 	}
 	public class ItemUseOnEntityTransaction : Transaction
 	{
