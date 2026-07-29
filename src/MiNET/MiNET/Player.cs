@@ -2247,7 +2247,46 @@ namespace MiNET
 		/// <inheritdoc />
 		public void HandleMcpePlayerAuthInput(McpePlayerAuthInput message)
 		{
+			// The 1.26 client sends PlayerAuthInput every tick as its only movement packet
+			// (MovePlayer is server->client only now). Position is at eye height, like
+			// MovePlayer's was.
+			if (!IsSpawned || HealthManager.IsDead) return;
 
+			if (Server.ServerRole != ServerRole.Node)
+			{
+				lock (_moveSyncLock)
+				{
+					if (_lastOrderingIndex > message.ReliabilityHeader.OrderingIndex) return;
+					_lastOrderingIndex = message.ReliabilityHeader.OrderingIndex;
+				}
+			}
+
+			var newPosition = new PlayerLocation
+			{
+				X = message.Position.X,
+				Y = message.Position.Y - 1.62f,
+				Z = message.Position.Z,
+				Pitch = message.Pitch,
+				Yaw = message.Yaw,
+				HeadYaw = message.HeadYaw
+			};
+
+			double distanceTo = Vector3.Distance(KnownPosition.ToVector3(), newPosition.ToVector3());
+			CurrentSpeed = distanceTo / ((double) (DateTime.UtcNow - LastUpdatedTime).Ticks / TimeSpan.TicksPerSecond);
+
+			// The input flags carry collision state directly; vertical collision while not
+			// jumping is standing on ground.
+			IsOnGround = (message.InputFlags & AuthInputFlags.VerticalCollision) != 0;
+
+			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(newPosition.X, 0, newPosition.Z)));
+
+			KnownPosition = newPosition;
+			LastUpdatedTime = DateTime.UtcNow;
+
+			if (message.ItemStackRequest != null)
+			{
+				HandleSingleItemStackRequest(message.ItemStackRequest);
+			}
 		}
 
 		public virtual void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message)
@@ -2262,6 +2301,35 @@ namespace MiNET
 
 
 		public bool UsingAnvil { get; set; }
+
+		// Single request embedded in McpePlayerAuthInput (item_stack_request input flag); same
+		// processing and response flow as the standalone McpeItemStackRequest packet.
+		private void HandleSingleItemStackRequest(ItemStackActionList request)
+		{
+			var response = McpeItemStackResponse.CreateObject();
+			response.responses = new ItemStackResponses();
+
+			var stackResponse = new ItemStackResponse
+			{
+				Result = StackResponseStatus.Ok,
+				RequestId = request.RequestId,
+				ResponseContainerInfos = new List<StackResponseContainerInfo>()
+			};
+			response.responses.Add(stackResponse);
+
+			try
+			{
+				stackResponse.ResponseContainerInfos.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+			}
+			catch (Exception e)
+			{
+				Log.Warn($"Failed to process inventory actions", e);
+				stackResponse.Result = StackResponseStatus.Error;
+				stackResponse.ResponseContainerInfos.Clear();
+			}
+
+			SendPacket(response);
+		}
 
 		public void HandleMcpeItemStackRequest(McpeItemStackRequest message)
 		{

@@ -384,6 +384,9 @@ namespace MiNET.Entities
 			ChargeAttack,
 			WasdControlled,
 			CanPowerJump,
+			CanDash, // bit 46 since ~1.20; without it every later flag is off by one and the
+			         // client reads our AffectedByGravity (48) as HasCollision, leaving its real
+			         // gravity bit (49) unset: no gravity, no jump.
 			Linger,
 			HasCollision,
 			AffectedByGravity,
