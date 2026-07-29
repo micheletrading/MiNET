@@ -111,6 +111,8 @@ namespace MiNET.Net
 		void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message);
 		void HandleMcpeSubChunkRequestPacket(McpeSubChunkRequestPacket message);
 		void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message);
+		void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message);
+		void HandleMcpeServerBoundDiagnostics(McpeServerBoundDiagnostics message);
 	}
 
 	public interface IMcpeClientMessageHandler
@@ -235,12 +237,26 @@ namespace MiNET.Net
 		void HandleMcpeCreativeContent(McpeCreativeContent message);
 		void HandleMcpePlayerEnchantOptions(McpePlayerEnchantOptions message);
 		void HandleMcpeItemStackResponse(McpeItemStackResponse message);
+		void HandleMcpePlayerFog(McpePlayerFog message);
 		void HandleMcpeItemComponent(McpeItemComponent message);
 		void HandleMcpeFilterTextPacket(McpeFilterTextPacket message);
+		void HandleMcpeSyncEntityProperty(McpeSyncEntityProperty message);
 		void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message);
 		void HandleMcpeSubChunkPacket(McpeSubChunkPacket message);
 		void HandleMcpeDimensionData(McpeDimensionData message);
+		void HandleMcpeUpdateAbilities(McpeUpdateAbilities message);
+		void HandleMcpeUpdateAdventureSettings(McpeUpdateAdventureSettings message);
+		void HandleMcpeCameraPresets(McpeCameraPresets message);
 		void HandleMcpeAlexEntityAnimation(McpeAlexEntityAnimation message);
+		void HandleMcpeTrimData(McpeTrimData message);
+		void HandleMcpeJigsawStructureData(McpeJigsawStructureData message);
+		void HandleMcpeCurrentStructureFeature(McpeCurrentStructureFeature message);
+		void HandleMcpeCameraAimAssistPresets(McpeCameraAimAssistPresets message);
+		void HandleMcpePlayerLocation(McpePlayerLocation message);
+		void HandleMcpeVoxelShapes(McpeVoxelShapes message);
+		void HandleMcpeCameraSpline(McpeCameraSpline message);
+		void HandleMcpeLocatorBar(McpeLocatorBar message);
+		void HandleMcpeSyncWorldClocks(McpeSyncWorldClocks message);
 		void HandleFtlCreatePlayer(FtlCreatePlayer message);
 	}
 
@@ -617,11 +633,17 @@ namespace MiNET.Net
 				case McpeItemStackResponse msg:
 					_messageHandler.HandleMcpeItemStackResponse(msg);
 					break;
+				case McpePlayerFog msg:
+					_messageHandler.HandleMcpePlayerFog(msg);
+					break;
 				case McpeItemComponent msg:
 					_messageHandler.HandleMcpeItemComponent(msg);
 					break;
 				case McpeFilterTextPacket msg:
 					_messageHandler.HandleMcpeFilterTextPacket(msg);
+					break;
+				case McpeSyncEntityProperty msg:
+					_messageHandler.HandleMcpeSyncEntityProperty(msg);
 					break;
 				case McpeUpdateSubChunkBlocksPacket msg:
 					_messageHandler.HandleMcpeUpdateSubChunkBlocksPacket(msg);
@@ -632,8 +654,44 @@ namespace MiNET.Net
 				case McpeDimensionData msg:
 					_messageHandler.HandleMcpeDimensionData(msg);
 					break;
+				case McpeUpdateAbilities msg:
+					_messageHandler.HandleMcpeUpdateAbilities(msg);
+					break;
+				case McpeUpdateAdventureSettings msg:
+					_messageHandler.HandleMcpeUpdateAdventureSettings(msg);
+					break;
+				case McpeCameraPresets msg:
+					_messageHandler.HandleMcpeCameraPresets(msg);
+					break;
 				case McpeAlexEntityAnimation msg:
 					_messageHandler.HandleMcpeAlexEntityAnimation(msg);
+					break;
+				case McpeTrimData msg:
+					_messageHandler.HandleMcpeTrimData(msg);
+					break;
+				case McpeJigsawStructureData msg:
+					_messageHandler.HandleMcpeJigsawStructureData(msg);
+					break;
+				case McpeCurrentStructureFeature msg:
+					_messageHandler.HandleMcpeCurrentStructureFeature(msg);
+					break;
+				case McpeCameraAimAssistPresets msg:
+					_messageHandler.HandleMcpeCameraAimAssistPresets(msg);
+					break;
+				case McpePlayerLocation msg:
+					_messageHandler.HandleMcpePlayerLocation(msg);
+					break;
+				case McpeVoxelShapes msg:
+					_messageHandler.HandleMcpeVoxelShapes(msg);
+					break;
+				case McpeCameraSpline msg:
+					_messageHandler.HandleMcpeCameraSpline(msg);
+					break;
+				case McpeLocatorBar msg:
+					_messageHandler.HandleMcpeLocatorBar(msg);
+					break;
+				case McpeSyncWorldClocks msg:
+					_messageHandler.HandleMcpeSyncWorldClocks(msg);
 					break;
 				case FtlCreatePlayer msg:
 					_messageHandler.HandleFtlCreatePlayer(msg);
@@ -650,7 +708,7 @@ namespace MiNET.Net
 	{
 		public static ICustomPacketFactory CustomPacketFactory { get; set; } = null;
 
-		public static Packet Create(byte messageId, ReadOnlyMemory<byte> buffer, string ns)
+		public static Packet Create(int messageId, ReadOnlyMemory<byte> buffer, string ns)
 		{
 			Packet packet = CustomPacketFactory?.Create(messageId, buffer, ns);
 			if (packet != null) return packet;
@@ -983,10 +1041,14 @@ namespace MiNET.Net
 						return McpeUpdatePlayerGameType.CreateObject().Decode(buffer);
 					case 0x9c:
 						return McpePacketViolationWarning.CreateObject().Decode(buffer);
+					case 0xa0:
+						return McpePlayerFog.CreateObject().Decode(buffer);
 					case 0xa2:
 						return McpeItemComponent.CreateObject().Decode(buffer);
 					case 0xa3:
 						return McpeFilterTextPacket.CreateObject().Decode(buffer);
+					case 0xa5:
+						return McpeSyncEntityProperty.CreateObject().Decode(buffer);
 					case 0xac:
 						return McpeUpdateSubChunkBlocksPacket.CreateObject().Decode(buffer);
 					case 0xae:
@@ -995,10 +1057,38 @@ namespace MiNET.Net
 						return McpeSubChunkRequestPacket.CreateObject().Decode(buffer);
 					case 0xb4:
 						return McpeDimensionData.CreateObject().Decode(buffer);
+					case 0xbb:
+						return McpeUpdateAbilities.CreateObject().Decode(buffer);
+					case 0xbc:
+						return McpeUpdateAdventureSettings.CreateObject().Decode(buffer);
 					case 0xc1:
 						return McpeRequestNetworkSettings.CreateObject().Decode(buffer);
+					case 0xc6:
+						return McpeCameraPresets.CreateObject().Decode(buffer);
 					case 0xe0:
 						return McpeAlexEntityAnimation.CreateObject().Decode(buffer);
+					case 0x12e:
+						return McpeTrimData.CreateObject().Decode(buffer);
+					case 0x138:
+						return McpeServerBoundLoadingScreen.CreateObject().Decode(buffer);
+					case 0x139:
+						return McpeJigsawStructureData.CreateObject().Decode(buffer);
+					case 0x13a:
+						return McpeCurrentStructureFeature.CreateObject().Decode(buffer);
+					case 0x13b:
+						return McpeServerBoundDiagnostics.CreateObject().Decode(buffer);
+					case 0x140:
+						return McpeCameraAimAssistPresets.CreateObject().Decode(buffer);
+					case 0x146:
+						return McpePlayerLocation.CreateObject().Decode(buffer);
+					case 0x151:
+						return McpeVoxelShapes.CreateObject().Decode(buffer);
+					case 0x152:
+						return McpeCameraSpline.CreateObject().Decode(buffer);
+					case 0x155:
+						return McpeLocatorBar.CreateObject().Decode(buffer);
+					case 0x158:
+						return McpeSyncWorldClocks.CreateObject().Decode(buffer);
 				}
 			}
 
@@ -2518,7 +2608,6 @@ namespace MiNET.Net
 
 		public UUID uuid; // = null;
 		public string username; // = null;
-		public long entityIdSelf; // = null;
 		public long runtimeEntityId; // = null;
 		public string platformChatId; // = null;
 		public float x; // = null;
@@ -2530,18 +2619,6 @@ namespace MiNET.Net
 		public float pitch; // = null;
 		public float yaw; // = null;
 		public float headYaw; // = null;
-		public Item item; // = null;
-		public uint gameType; // = null;
-		public MetadataDictionary metadata; // = null;
-		public uint flags; // = null;
-		public uint commandPermission; // = null;
-		public uint actionPermissions; // = null;
-		public uint permissionLevel; // = null;
-		public uint customStoredPermissions; // = null;
-		public long userId; // = null;
-		public EntityLinks links; // = null;
-		public string deviceId; // = null;
-		public int deviceOs; // = null;
 
 		public McpeAddPlayer()
 		{
@@ -2557,7 +2634,6 @@ namespace MiNET.Net
 
 			Write(uuid);
 			Write(username);
-			WriteSignedVarLong(entityIdSelf);
 			WriteUnsignedVarLong(runtimeEntityId);
 			Write(platformChatId);
 			Write(x);
@@ -2569,18 +2645,6 @@ namespace MiNET.Net
 			Write(pitch);
 			Write(yaw);
 			Write(headYaw);
-			Write(item);
-			WriteUnsignedVarInt(gameType);
-			Write(metadata);
-			WriteUnsignedVarInt(flags);
-			WriteUnsignedVarInt(commandPermission);
-			WriteUnsignedVarInt(actionPermissions);
-			WriteUnsignedVarInt(permissionLevel);
-			WriteUnsignedVarInt(customStoredPermissions);
-			Write(userId);
-			Write(links);
-			Write(deviceId);
-			Write(deviceOs);
 
 			AfterEncode();
 		}
@@ -2596,7 +2660,6 @@ namespace MiNET.Net
 
 			uuid = ReadUUID();
 			username = ReadString();
-			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
 			platformChatId = ReadString();
 			x = ReadFloat();
@@ -2608,18 +2671,6 @@ namespace MiNET.Net
 			pitch = ReadFloat();
 			yaw = ReadFloat();
 			headYaw = ReadFloat();
-			item = ReadItem();
-			gameType = ReadUnsignedVarInt();
-			metadata = ReadMetadataDictionary();
-			flags = ReadUnsignedVarInt();
-			commandPermission = ReadUnsignedVarInt();
-			actionPermissions = ReadUnsignedVarInt();
-			permissionLevel = ReadUnsignedVarInt();
-			customStoredPermissions = ReadUnsignedVarInt();
-			userId = ReadLong();
-			links = ReadEntityLinks();
-			deviceId = ReadString();
-			deviceOs = ReadInt();
 
 			AfterDecode();
 		}
@@ -2633,7 +2684,6 @@ namespace MiNET.Net
 
 			uuid=default(UUID);
 			username=default(string);
-			entityIdSelf=default(long);
 			runtimeEntityId=default(long);
 			platformChatId=default(string);
 			x=default(float);
@@ -2645,18 +2695,6 @@ namespace MiNET.Net
 			pitch=default(float);
 			yaw=default(float);
 			headYaw=default(float);
-			item=default(Item);
-			gameType=default(uint);
-			metadata=default(MetadataDictionary);
-			flags=default(uint);
-			commandPermission=default(uint);
-			actionPermissions=default(uint);
-			permissionLevel=default(uint);
-			customStoredPermissions=default(uint);
-			userId=default(long);
-			links=default(EntityLinks);
-			deviceId=default(string);
-			deviceOs=default(int);
 		}
 
 	}
@@ -9745,6 +9783,50 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpePlayerFog : Packet<McpePlayerFog>
+	{
+
+
+		public McpePlayerFog()
+		{
+			Id = 0xa0;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+		}
+
+	}
+
 	public partial class McpeItemComponent : Packet<McpeItemComponent>
 	{
 
@@ -9841,6 +9923,54 @@ namespace MiNET.Net
 
 			text=default(string);
 			fromServer=default(bool);
+		}
+
+	}
+
+	public partial class McpeSyncEntityProperty : Packet<McpeSyncEntityProperty>
+	{
+
+		public Nbt namedtag; // = null;
+
+		public McpeSyncEntityProperty()
+		{
+			Id = 0xa5;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(namedtag);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			namedtag = ReadNbt();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			namedtag=default(Nbt);
 		}
 
 	}
@@ -10057,6 +10187,126 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeUpdateAbilities : Packet<McpeUpdateAbilities>
+	{
+
+		public long entityUniqueId; // = null;
+		public byte permissionLevel; // = null;
+		public byte commandPermission; // = null;
+
+		public McpeUpdateAbilities()
+		{
+			Id = 0xbb;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(entityUniqueId);
+			Write(permissionLevel);
+			Write(commandPermission);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			entityUniqueId = ReadLong();
+			permissionLevel = ReadByte();
+			commandPermission = ReadByte();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			entityUniqueId=default(long);
+			permissionLevel=default(byte);
+			commandPermission=default(byte);
+		}
+
+	}
+
+	public partial class McpeUpdateAdventureSettings : Packet<McpeUpdateAdventureSettings>
+	{
+
+		public bool noPvm; // = null;
+		public bool noMvp; // = null;
+		public bool immutableWorld; // = null;
+		public bool showNameTags; // = null;
+		public bool autoJump; // = null;
+
+		public McpeUpdateAdventureSettings()
+		{
+			Id = 0xbc;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(noPvm);
+			Write(noMvp);
+			Write(immutableWorld);
+			Write(showNameTags);
+			Write(autoJump);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			noPvm = ReadBool();
+			noMvp = ReadBool();
+			immutableWorld = ReadBool();
+			showNameTags = ReadBool();
+			autoJump = ReadBool();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			noPvm=default(bool);
+			noMvp=default(bool);
+			immutableWorld=default(bool);
+			showNameTags=default(bool);
+			autoJump=default(bool);
+		}
+
+	}
+
 	public partial class McpeRequestNetworkSettings : Packet<McpeRequestNetworkSettings>
 	{
 
@@ -10101,6 +10351,50 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			protocolVersion=default(int);
+		}
+
+	}
+
+	public partial class McpeCameraPresets : Packet<McpeCameraPresets>
+	{
+
+
+		public McpeCameraPresets()
+		{
+			Id = 0xc6;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
 		}
 
 	}
@@ -10157,6 +10451,550 @@ namespace MiNET.Net
 			runtimeEntityId=default(long);
 			boneId=default(string);
 			keys=default(AnimationKey[]);
+		}
+
+	}
+
+	public partial class McpeTrimData : Packet<McpeTrimData>
+	{
+
+
+		public McpeTrimData()
+		{
+			Id = 0x12e;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+		}
+
+	}
+
+	public partial class McpeServerBoundLoadingScreen : Packet<McpeServerBoundLoadingScreen>
+	{
+
+		public int type; // = null;
+
+		public McpeServerBoundLoadingScreen()
+		{
+			Id = 0x138;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarInt(type);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			type = ReadSignedVarInt();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			type=default(int);
+		}
+
+	}
+
+	public partial class McpeJigsawStructureData : Packet<McpeJigsawStructureData>
+	{
+
+		public Nbt structureData; // = null;
+
+		public McpeJigsawStructureData()
+		{
+			Id = 0x139;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(structureData);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			structureData = ReadNbt();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			structureData=default(Nbt);
+		}
+
+	}
+
+	public partial class McpeCurrentStructureFeature : Packet<McpeCurrentStructureFeature>
+	{
+
+		public string currentFeature; // = null;
+
+		public McpeCurrentStructureFeature()
+		{
+			Id = 0x13a;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(currentFeature);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			currentFeature = ReadString();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			currentFeature=default(string);
+		}
+
+	}
+
+	public partial class McpeServerBoundDiagnostics : Packet<McpeServerBoundDiagnostics>
+	{
+
+		public float averageFramesPerSecond; // = null;
+		public float averageServerSimTickTime; // = null;
+		public float averageClientSimTickTime; // = null;
+		public float averageBeginFrameTime; // = null;
+		public float averageInputTime; // = null;
+		public float averageRenderTime; // = null;
+		public float averageEndFrameTime; // = null;
+		public float averageRemainderTimePercent; // = null;
+		public float averageUnaccountedTimePercent; // = null;
+
+		public McpeServerBoundDiagnostics()
+		{
+			Id = 0x13b;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(averageFramesPerSecond);
+			Write(averageServerSimTickTime);
+			Write(averageClientSimTickTime);
+			Write(averageBeginFrameTime);
+			Write(averageInputTime);
+			Write(averageRenderTime);
+			Write(averageEndFrameTime);
+			Write(averageRemainderTimePercent);
+			Write(averageUnaccountedTimePercent);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			averageFramesPerSecond = ReadFloat();
+			averageServerSimTickTime = ReadFloat();
+			averageClientSimTickTime = ReadFloat();
+			averageBeginFrameTime = ReadFloat();
+			averageInputTime = ReadFloat();
+			averageRenderTime = ReadFloat();
+			averageEndFrameTime = ReadFloat();
+			averageRemainderTimePercent = ReadFloat();
+			averageUnaccountedTimePercent = ReadFloat();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			averageFramesPerSecond=default(float);
+			averageServerSimTickTime=default(float);
+			averageClientSimTickTime=default(float);
+			averageBeginFrameTime=default(float);
+			averageInputTime=default(float);
+			averageRenderTime=default(float);
+			averageEndFrameTime=default(float);
+			averageRemainderTimePercent=default(float);
+			averageUnaccountedTimePercent=default(float);
+		}
+
+	}
+
+	public partial class McpeCameraAimAssistPresets : Packet<McpeCameraAimAssistPresets>
+	{
+
+
+		public McpeCameraAimAssistPresets()
+		{
+			Id = 0x140;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+		}
+
+	}
+
+	public partial class McpePlayerLocation : Packet<McpePlayerLocation>
+	{
+
+		public int type; // = null;
+		public long entityUniqueId; // = null;
+
+		public McpePlayerLocation()
+		{
+			Id = 0x146;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(type);
+			WriteSignedVarLong(entityUniqueId);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			type = ReadInt();
+			entityUniqueId = ReadSignedVarLong();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			type=default(int);
+			entityUniqueId=default(long);
+		}
+
+	}
+
+	public partial class McpeVoxelShapes : Packet<McpeVoxelShapes>
+	{
+
+
+		public McpeVoxelShapes()
+		{
+			Id = 0x151;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+		}
+
+	}
+
+	public partial class McpeCameraSpline : Packet<McpeCameraSpline>
+	{
+
+
+		public McpeCameraSpline()
+		{
+			Id = 0x152;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+		}
+
+	}
+
+	public partial class McpeLocatorBar : Packet<McpeLocatorBar>
+	{
+
+
+		public McpeLocatorBar()
+		{
+			Id = 0x155;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+		}
+
+	}
+
+	public partial class McpeSyncWorldClocks : Packet<McpeSyncWorldClocks>
+	{
+
+		public uint payloadType; // = null;
+
+		public McpeSyncWorldClocks()
+		{
+			Id = 0x158;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarInt(payloadType);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			payloadType = ReadUnsignedVarInt();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			payloadType=default(uint);
 		}
 
 	}

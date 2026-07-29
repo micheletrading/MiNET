@@ -120,5 +120,36 @@ public enum AuthInputFlags : long
 	
 	PerformItemInteraction = 1L <<34,
 	PerformBlockActions = 1L <<35,
-	PerformItemStackRequest = 1L <<36
+	PerformItemStackRequest = 1L <<36,
+
+	// Flags 37+ per protocol 1001 (verified against minecraft-data 1001 InputFlag and PMMP
+	// PlayerAuthInputFlags; both list 65 flags total). Flag 64 (SneakCurrentRaw) does not fit
+	// in a 64-bit enum and is exposed separately on McpePlayerAuthInput.
+	HandledTeleport = 1L <<37,
+	Emoting = 1L <<38,
+	MissedSwing = 1L <<39,
+	StartCrawling = 1L <<40,
+	StopCrawling = 1L <<41,
+	StartFlying = 1L <<42,
+	StopFlying = 1L <<43,
+	ReceivedServerData = 1L <<44,
+	ClientPredictedVehicle = 1L <<45,
+	PaddlingLeft = 1L <<46,
+	PaddlingRight = 1L <<47,
+	BlockBreakingDelayEnabled = 1L <<48,
+	HorizontalCollision = 1L <<49,
+	VerticalCollision = 1L <<50,
+	DownLeft = 1L <<51,
+	DownRight = 1L <<52,
+	StartUsingItem = 1L <<53,
+	CameraRelativeMovementEnabled = 1L <<54,
+	RotControlledByMoveDirection = 1L <<55,
+	StartSpinAttack = 1L <<56,
+	StopSpinAttack = 1L <<57,
+	HotbarOnlyTouch = 1L <<58,
+	JumpReleasedRaw = 1L <<59,
+	JumpPressedRaw = 1L <<60,
+	JumpCurrentRaw = 1L <<61,
+	SneakReleasedRaw = 1L <<62,
+	SneakPressedRaw = 1L <<63
 }

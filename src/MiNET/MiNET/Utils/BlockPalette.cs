@@ -138,8 +138,10 @@ namespace MiNET.Utils
 
 		public override int GetHashCode()
 		{
+			// Must mirror Equals, which matches on Name + States only (not Id). Including
+			// Id here put equal containers in different buckets, so name-only palette
+			// lookups (e.g. a renamed block whose legacy Id wasn't remapped) missed.
 			var hash = new HashCode();
-			hash.Add(Id);
 			hash.Add(Name);
 			foreach (var state in States)
 			{

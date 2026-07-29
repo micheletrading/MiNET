@@ -771,7 +771,7 @@ namespace TestPlugin.NiceLobby
 		[PacketHandler, Send]
 		public Packet AddPlayerHandler(McpeAddPlayer packet, Player player)
 		{
-			if (_playerEntities.Keys.FirstOrDefault(p => p.EntityId == packet.entityIdSelf) != null)
+			if (_playerEntities.Keys.FirstOrDefault(p => p.EntityId == packet.runtimeEntityId) != null)
 			{
 				return null;
 			}

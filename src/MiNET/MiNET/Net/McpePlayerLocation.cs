@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -8,32 +8,48 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
 
-using System;
-
-namespace MiNET.Net.RakNet
+namespace MiNET.Net
 {
-	/// <summary>
-	/// A custom packet factory that can be used to override default parsing by MiNET.
-	/// Used only in advanced scenarios where MiNET doesn't yet implement parsing, or
-	/// have faulty parsing.
-	/// </summary>
-	public interface ICustomPacketFactory
+	public partial class McpePlayerLocation : Packet<McpePlayerLocation>
 	{
-		public Packet Create(int messageId, ReadOnlyMemory<byte> buffer, string ns);
+		// type: 0 = coordinates, 1 = type_hide. Position is only present for "coordinates".
+		public float x;
+		public float y;
+		public float z;
+
+		partial void AfterDecode()
+		{
+			if (type == 0)
+			{
+				x = ReadFloat();
+				y = ReadFloat();
+				z = ReadFloat();
+			}
+		}
+
+		partial void AfterEncode()
+		{
+			if (type == 0)
+			{
+				Write(x);
+				Write(y);
+				Write(z);
+			}
+		}
 	}
 }

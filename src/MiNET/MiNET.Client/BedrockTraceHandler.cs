@@ -488,7 +488,7 @@ namespace MiNET.Client
 		{
 			if (Client.IsEmulator) return;
 
-			Log.DebugFormat("McpeAddPlayer Entity ID: {0}", message.entityIdSelf);
+			Log.DebugFormat("McpeAddPlayer Unique ID: {0}", message.uniqueId);
 			Log.DebugFormat("McpeAddPlayer Runtime Entity ID: {0}", message.runtimeEntityId);
 			Log.DebugFormat("X: {0}", message.x);
 			Log.DebugFormat("Y: {0}", message.y);

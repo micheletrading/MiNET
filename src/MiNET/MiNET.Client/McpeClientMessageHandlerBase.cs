@@ -733,6 +733,62 @@ namespace MiNET.Client
 		public virtual void HandleFtlCreatePlayer(FtlCreatePlayer message)
 		{
 		}
+
+		public virtual void HandleMcpeTrimData(McpeTrimData message)
+		{
+		}
+
+		public virtual void HandleMcpeJigsawStructureData(McpeJigsawStructureData message)
+		{
+		}
+
+		public virtual void HandleMcpeCurrentStructureFeature(McpeCurrentStructureFeature message)
+		{
+		}
+
+		public virtual void HandleMcpeCameraAimAssistPresets(McpeCameraAimAssistPresets message)
+		{
+		}
+
+		public virtual void HandleMcpeVoxelShapes(McpeVoxelShapes message)
+		{
+		}
+
+		public virtual void HandleMcpeCameraSpline(McpeCameraSpline message)
+		{
+		}
+
+		public virtual void HandleMcpeSyncWorldClocks(McpeSyncWorldClocks message)
+		{
+		}
+
+		public virtual void HandleMcpePlayerFog(McpePlayerFog message)
+		{
+		}
+
+		public virtual void HandleMcpeSyncEntityProperty(McpeSyncEntityProperty message)
+		{
+		}
+
+		public virtual void HandleMcpeUpdateAbilities(McpeUpdateAbilities message)
+		{
+		}
+
+		public virtual void HandleMcpeUpdateAdventureSettings(McpeUpdateAdventureSettings message)
+		{
+		}
+
+		public virtual void HandleMcpeCameraPresets(McpeCameraPresets message)
+		{
+		}
+
+		public virtual void HandleMcpePlayerLocation(McpePlayerLocation message)
+		{
+		}
+
+		public virtual void HandleMcpeLocatorBar(McpeLocatorBar message)
+		{
+		}
 	}
 
 	public class DefaultMessageHandler : McpeClientMessageHandlerBase

@@ -44,6 +44,77 @@ namespace MiNET.Net
 		}
 	}
 
+	/// <summary>
+	///     The full wire structure of MCPE_AVAILABLE_COMMANDS, captured field-for-field on decode so a
+	///     decoded packet can be re-encoded byte-identical. MiNET's own command-authoring path (building
+	///     a packet from <see cref="CommandSet" />, e.g. Player.SendAvailableCommands) doesn't populate
+	///     this - see McpeAvailableCommands.AfterEncode, which falls back to deriving the wire structure
+	///     from CommandSet when Raw is null.
+	/// </summary>
+	public class RawCommandData
+	{
+		public List<string> EnumValues { get; set; } = new List<string>();
+		public List<string> ChainedSubcommandValues { get; set; } = new List<string>();
+		public List<string> Suffixes { get; set; } = new List<string>();
+		public List<RawEnumData> Enums { get; set; } = new List<RawEnumData>();
+		public List<RawChainedSubcommand> ChainedSubcommands { get; set; } = new List<RawChainedSubcommand>();
+		public List<RawCommandEntry> Commands { get; set; } = new List<RawCommandEntry>();
+		public List<RawDynamicEnum> DynamicEnums { get; set; } = new List<RawDynamicEnum>();
+		public List<RawConstraint> Constraints { get; set; } = new List<RawConstraint>();
+	}
+
+	/// <summary>An "enums" table entry: a name plus raw indices into RawCommandData.EnumValues (kept as indices, not resolved strings, so an out-of-range or duplicate index round-trips exactly).</summary>
+	public class RawEnumData
+	{
+		public string Name { get; set; }
+		public List<uint> ValueIndices { get; set; } = new List<uint>();
+	}
+
+	public class RawChainedSubcommand
+	{
+		public string Name { get; set; }
+		public List<(uint Index, uint Value)> Entries { get; set; } = new List<(uint, uint)>();
+	}
+
+	public class RawCommandEntry
+	{
+		public string Name { get; set; }
+		public string Description { get; set; }
+		public ushort Flags { get; set; }
+		public string PermissionLevel { get; set; }
+		public int AliasEnumIndex { get; set; }
+		public List<uint> ChainedSubcommandOffsets { get; set; } = new List<uint>();
+		public List<RawOverload> Overloads { get; set; } = new List<RawOverload>();
+	}
+
+	public class RawOverload
+	{
+		public bool IsChaining { get; set; }
+		public List<RawParameter> Parameters { get; set; } = new List<RawParameter>();
+	}
+
+	public class RawParameter
+	{
+		public string Name { get; set; }
+		public ushort ValueType { get; set; }
+		public ushort EnumType { get; set; }
+		public bool Optional { get; set; }
+		public byte OptionsBitfield { get; set; }
+	}
+
+	public class RawDynamicEnum
+	{
+		public string Name { get; set; }
+		public List<string> Values { get; set; } = new List<string>();
+	}
+
+	public class RawConstraint
+	{
+		public int ValueIndex { get; set; }
+		public int EnumIndex { get; set; }
+		public List<byte> SubConstraints { get; set; } = new List<byte>();
+	}
+
 	public partial class McpeAvailableCommands
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(McpeAvailableCommands));
@@ -56,6 +127,9 @@ namespace MiNET.Net
 
 		public CommandSet CommandSet { get; set; }
 
+		/// <summary>Full wire structure, populated on decode. Null for packets MiNET builds itself from <see cref="CommandSet" /> - see AfterEncode.</summary>
+		public RawCommandData Raw { get; set; }
+
 		// A misread earlier in the stream shows up as an absurd count; fail loudly
 		// instead of spinning for seconds and stalling the session thread.
 		private static uint GuardCount(uint count, string what)
@@ -67,24 +141,28 @@ namespace MiNET.Net
 		partial void AfterDecode()
 		{
 			CommandSet = new CommandSet();
+			var raw = new RawCommandData();
+			Raw = raw;
 
 			var enumValues = new List<string>();
 			uint valueCount = GuardCount(ReadUnsignedVarInt(), "enum value");
 			for (int i = 0; i < valueCount; i++)
 			{
-				enumValues.Add(ReadString());
+				string value = ReadString();
+				enumValues.Add(value);
+				raw.EnumValues.Add(value);
 			}
 
 			uint chainedValueCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand value");
 			for (int i = 0; i < chainedValueCount; i++)
 			{
-				ReadString();
+				raw.ChainedSubcommandValues.Add(ReadString());
 			}
 
 			uint suffixCount = GuardCount(ReadUnsignedVarInt(), "suffix");
 			for (int i = 0; i < suffixCount; i++)
 			{
-				ReadString();
+				raw.Suffixes.Add(ReadString());
 			}
 
 			uint enumCount = GuardCount(ReadUnsignedVarInt(), "enum");
@@ -94,25 +172,30 @@ namespace MiNET.Net
 				string enumName = ReadString();
 				uint enumValueCount = GuardCount(ReadUnsignedVarInt(), "enum member");
 				string[] values = new string[enumValueCount];
+				var rawEnum = new RawEnumData {Name = enumName};
 				for (int j = 0; j < enumValueCount; j++)
 				{
 					uint idx = ReadUint(); // always lu32 in current protocol
 					values[j] = idx < enumValues.Count ? enumValues[(int) idx] : null;
+					rawEnum.ValueIndices.Add(idx);
 				}
 
 				enums[i] = new EnumData(enumName, values);
+				raw.Enums.Add(rawEnum);
 			}
 
 			uint chainedSubcommandCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand");
 			for (int i = 0; i < chainedSubcommandCount; i++)
 			{
-				ReadString(); // name
+				var rawChained = new RawChainedSubcommand {Name = ReadString()};
 				uint valuesCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand entry");
 				for (int j = 0; j < valuesCount; j++)
 				{
-					ReadUnsignedVarInt(); // index
-					ReadUnsignedVarInt(); // value
+					uint index = ReadUnsignedVarInt();
+					uint value = ReadUnsignedVarInt();
+					rawChained.Entries.Add((index, value));
 				}
+				raw.ChainedSubcommands.Add(rawChained);
 			}
 
 			uint commandCount = GuardCount(ReadUnsignedVarInt(), "command");
@@ -127,10 +210,20 @@ namespace MiNET.Net
 				string permissionLevel = ReadString();
 				int aliasEnumIndex = ReadInt();
 
+				var rawCommand = new RawCommandEntry
+				{
+					Name = commandName,
+					Description = description,
+					Flags = flags,
+					PermissionLevel = permissionLevel,
+					AliasEnumIndex = aliasEnumIndex
+				};
+				raw.Commands.Add(rawCommand);
+
 				uint offsetCount = GuardCount(ReadUnsignedVarInt(), "chained subcommand offset");
 				for (int j = 0; j < offsetCount; j++)
 				{
-					ReadUint();
+					rawCommand.ChainedSubcommandOffsets.Add(ReadUint());
 				}
 
 				command.Name = commandName;
@@ -145,7 +238,9 @@ namespace MiNET.Net
 					var overload = new Overload();
 					overload.Input = new Input();
 
-					ReadBool(); // is chaining
+					bool isChaining = ReadBool();
+					var rawOverload = new RawOverload {IsChaining = isChaining};
+					rawCommand.Overloads.Add(rawOverload);
 
 					uint parameterCount = GuardCount(ReadUnsignedVarInt(), "parameter");
 					overload.Input.Parameters = new Parameter[parameterCount];
@@ -155,7 +250,16 @@ namespace MiNET.Net
 						ushort valueType = ReadUshort();
 						ushort enumType = ReadUshort();
 						bool optional = ReadBool();
-						ReadByte(); // options bitfield
+						byte optionsBitfield = ReadByte();
+
+						rawOverload.Parameters.Add(new RawParameter
+						{
+							Name = parameterName,
+							ValueType = valueType,
+							EnumType = enumType,
+							Optional = optional,
+							OptionsBitfield = optionsBitfield
+						});
 
 						var parameter = new Parameter()
 						{
@@ -189,24 +293,29 @@ namespace MiNET.Net
 			uint dynamicEnumCount = GuardCount(ReadUnsignedVarInt(), "dynamic enum");
 			for (int i = 0; i < dynamicEnumCount; i++)
 			{
-				ReadString(); // name
+				var rawDynamicEnum = new RawDynamicEnum {Name = ReadString()};
 				uint dynamicValueCount = GuardCount(ReadUnsignedVarInt(), "dynamic enum value");
 				for (int j = 0; j < dynamicValueCount; j++)
 				{
-					ReadString();
+					rawDynamicEnum.Values.Add(ReadString());
 				}
+				raw.DynamicEnums.Add(rawDynamicEnum);
 			}
 
 			uint constraintCount = GuardCount(ReadUnsignedVarInt(), "enum constraint");
 			for (int i = 0; i < constraintCount; i++)
 			{
-				ReadInt(); // value index
-				ReadInt(); // enum index
+				var rawConstraint = new RawConstraint
+				{
+					ValueIndex = ReadInt(),
+					EnumIndex = ReadInt()
+				};
 				uint subCount = GuardCount(ReadUnsignedVarInt(), "constraint entry");
 				for (int j = 0; j < subCount; j++)
 				{
-					ReadByte();
+					rawConstraint.SubConstraints.Add(ReadByte());
 				}
+				raw.Constraints.Add(rawConstraint);
 			}
 		}
 
@@ -214,6 +323,12 @@ namespace MiNET.Net
 		{
 			try
 			{
+				if (Raw != null)
+				{
+					WriteRaw(Raw);
+					return;
+				}
+
 				if (CommandSet == null || CommandSet.Count == 0)
 				{
 					Log.Warn("No commands to send");
@@ -400,6 +515,108 @@ namespace MiNET.Net
 			{
 				Log.Error("Sending commands", e);
 				//throw;
+			}
+		}
+
+		// Mirrors AfterDecode field-for-field, in read order, from the raw structure captured there -
+		// used for packets that came off the wire, so they re-encode byte-identical. See AfterEncode's
+		// CommandSet-based path below for packets MiNET builds itself.
+		private void WriteRaw(RawCommandData raw)
+		{
+			WriteUnsignedVarInt((uint) raw.EnumValues.Count);
+			foreach (string value in raw.EnumValues)
+			{
+				Write(value);
+			}
+
+			WriteUnsignedVarInt((uint) raw.ChainedSubcommandValues.Count);
+			foreach (string value in raw.ChainedSubcommandValues)
+			{
+				Write(value);
+			}
+
+			WriteUnsignedVarInt((uint) raw.Suffixes.Count);
+			foreach (string value in raw.Suffixes)
+			{
+				Write(value);
+			}
+
+			WriteUnsignedVarInt((uint) raw.Enums.Count);
+			foreach (RawEnumData rawEnum in raw.Enums)
+			{
+				Write(rawEnum.Name);
+				WriteUnsignedVarInt((uint) rawEnum.ValueIndices.Count);
+				foreach (uint idx in rawEnum.ValueIndices)
+				{
+					Write(idx); // always lu32 in current protocol
+				}
+			}
+
+			WriteUnsignedVarInt((uint) raw.ChainedSubcommands.Count);
+			foreach (RawChainedSubcommand chained in raw.ChainedSubcommands)
+			{
+				Write(chained.Name);
+				WriteUnsignedVarInt((uint) chained.Entries.Count);
+				foreach ((uint index, uint value) in chained.Entries)
+				{
+					WriteUnsignedVarInt(index);
+					WriteUnsignedVarInt(value);
+				}
+			}
+
+			WriteUnsignedVarInt((uint) raw.Commands.Count);
+			foreach (RawCommandEntry command in raw.Commands)
+			{
+				Write(command.Name);
+				Write(command.Description);
+				Write(command.Flags);
+				Write(command.PermissionLevel);
+				Write(command.AliasEnumIndex);
+
+				WriteUnsignedVarInt((uint) command.ChainedSubcommandOffsets.Count);
+				foreach (uint offset in command.ChainedSubcommandOffsets)
+				{
+					Write(offset);
+				}
+
+				WriteUnsignedVarInt((uint) command.Overloads.Count);
+				foreach (RawOverload overload in command.Overloads)
+				{
+					Write(overload.IsChaining);
+
+					WriteUnsignedVarInt((uint) overload.Parameters.Count);
+					foreach (RawParameter parameter in overload.Parameters)
+					{
+						Write(parameter.Name);
+						Write(parameter.ValueType);
+						Write(parameter.EnumType);
+						Write(parameter.Optional);
+						Write(parameter.OptionsBitfield);
+					}
+				}
+			}
+
+			WriteUnsignedVarInt((uint) raw.DynamicEnums.Count);
+			foreach (RawDynamicEnum dynamicEnum in raw.DynamicEnums)
+			{
+				Write(dynamicEnum.Name);
+				WriteUnsignedVarInt((uint) dynamicEnum.Values.Count);
+				foreach (string value in dynamicEnum.Values)
+				{
+					Write(value);
+				}
+			}
+
+			WriteUnsignedVarInt((uint) raw.Constraints.Count);
+			foreach (RawConstraint constraint in raw.Constraints)
+			{
+				Write(constraint.ValueIndex);
+				Write(constraint.EnumIndex);
+				WriteUnsignedVarInt((uint) constraint.SubConstraints.Count);
+				foreach (byte b in constraint.SubConstraints)
+				{
+					Write(b);
+				}
 			}
 		}
 

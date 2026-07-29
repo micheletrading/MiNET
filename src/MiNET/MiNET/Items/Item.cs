@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using fNbt;
@@ -53,10 +54,42 @@ namespace MiNET.Items
 		public string Name { get; protected set; } = string.Empty;
 		public short Id { get; protected set; }
 		public int NetworkId { get; set; } = -1;
+
+		/// <summary>
+		///     The raw "metadata" varint as read off the wire alongside <see cref="NetworkId" /> (ReadItemLegacy/
+		///     ReadItem/ReadItemInstance). -1 means unknown (item was constructed server-side, not decoded), so
+		///     the writer must not assume it's 0 and instead re-derive it via <see cref="MiNET.Net.Items.ItemTranslator" />.
+		///     Only set together with NetworkId, and only from a decode path, so the two stay in sync as the
+		///     "we know the exact wire encoding" marker.
+		/// </summary>
+		public int NetworkMetadata { get; set; } = -1;
+
 		public int RuntimeId { get; set; }
 		public short Metadata { get; set; }
 		public byte Count { get; set; }
 		public virtual NbtCompound ExtraData { get; set; }
+
+		/// <summary>
+		///     Block names this item can be placed on / can destroy while in adventure mode ("extra data"
+		///     of the item stack descriptor). Null when the wire didn't carry the corresponding list.
+		/// </summary>
+		public List<string> CanPlaceOn { get; set; }
+
+		public List<string> CanDestroy { get; set; }
+
+		/// <summary>
+		///     The shield's "blocking_tick" trailer in the item extra-data blob. Only present when this
+		///     item is a shield (see ReadItemExtraData/WriteItemExtraData's includeBlockingTick).
+		/// </summary>
+		public long BlockingTick { get; set; }
+
+		/// <summary>
+		///     Set only when this Item stands in for a recipe ingredient descriptor variant that isn't a
+		///     plain (id, meta) item - molang expression, item tag, string id+meta, or complex alias (see
+		///     Packet.ReadRecipeIngredient/WriteRecipeIngredient). Null for every ordinary item, including
+		///     ordinary recipe ingredients (the common "int_id_meta" wire variant).
+		/// </summary>
+		public RecipeIngredientDescriptor IngredientDescriptor { get; set; }
 
 		[JsonIgnore] public ItemMaterial ItemMaterial { get; set; } = ItemMaterial.None;
 
@@ -311,5 +344,25 @@ namespace MiNET.Items
 		EntityAttack,
 		EntityInteract,
 		ItemUse,
+	}
+
+	/// <summary>
+	///     The non-item variants of the RecipeIngredient wire union (Packet.ReadRecipeIngredient): a
+	///     molang expression, an item tag, a string id+meta pair, or a complex alias name. See
+	///     <see cref="Item.IngredientDescriptor" />.
+	/// </summary>
+	public class RecipeIngredientDescriptor
+	{
+		/// <summary>2 = molang, 3 = item_tag, 4 = string_id_meta, 5 = complex_alias.</summary>
+		public byte Type { get; set; }
+
+		/// <summary>Molang expression (type 2) / tag (type 3) / item name (type 4) / alias name (type 5).</summary>
+		public string Text { get; set; }
+
+		/// <summary>Molang version byte (type 2 only).</summary>
+		public byte MolangVersion { get; set; }
+
+		/// <summary>Metadata (type 4 only).</summary>
+		public short Metadata { get; set; }
 	}
 }

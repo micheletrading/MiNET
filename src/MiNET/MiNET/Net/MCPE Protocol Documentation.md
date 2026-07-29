@@ -24,9 +24,18 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Add Item Entity | 0x0f | 15 |   
 | Take Item Entity | 0x11 | 17 |   
 | Move Entity | 0x12 | 18 |   
+| Trim Data | 0x12e | 18 |   
 | Move Player | 0x13 | 19 |   
+| Jigsaw Structure Data | 0x139 | 19 |   
+| Current Structure Feature | 0x13a | 19 |   
 | Rider Jump | 0x14 | 20 |   
+| Camera Aim Assist Presets | 0x140 | 20 |   
+| Player Location | 0x146 | 20 |   
 | Update Block | 0x15 | 21 |   
+| Voxel Shapes | 0x151 | 21 |   
+| Camera Spline | 0x152 | 21 |   
+| Locator Bar | 0x155 | 21 |   
+| Sync World Clocks | 0x158 | 21 |   
 | Add Painting | 0x16 | 22 |   
 | Tick Sync | 0x17 | 23 |   
 | Level Sound Event Old | 0x18 | 24 |   
@@ -146,13 +155,18 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Item Stack Response | 0x94 | 148 |   
 | Update Player Game Type | 0x97 | 151 |   
 | Packet Violation Warning | 0x9c | 156 |   
+| Player Fog | 0xa0 | 160 |   
 | Item Component | 0xa2 | 162 |   
 | Filter Text Packet | 0xa3 | 163 |   
+| Sync Entity Property | 0xa5 | 165 |   
 | Update Sub Chunk Blocks Packet | 0xac | 172 |   
 | Sub Chunk Packet | 0xae | 174 |   
 | Sub Chunk Request Packet | 0xaf | 175 |   
 | Dimension Data | 0xb4 | 180 |   
+| Update Abilities | 0xbb | 187 |   
+| Update Adventure Settings | 0xbc | 188 |   
 | Request Network Settings | 0xc1 | 193 |   
+| Camera Presets | 0xc6 | 198 |   
 | Alex Entity Animation | 0xe0 | 224 |   
 
 
@@ -169,7 +183,6 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | DimensionDefinitions [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-DimensionDefinitions) |
 | EnchantOptions [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-EnchantOptions) |
 | EntityAttributes [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-EntityAttributes) |
-| EntityLinks [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-EntityLinks) |
 | Experiments [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-Experiments) |
 | FixedString [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-FixedString) |
 | float [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-float) |
@@ -202,7 +215,6 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | SignedVarLong [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-SignedVarLong) |
 | Skin [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-Skin) |
 | string [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-string) |
-| SubChunkPositionOffset[] [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-SubChunkPositionOffset[]) |
 | TexturePackInfos [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-TexturePackInfos) |
 | Transaction [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-Transaction) |
 | uint [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-uint) |
@@ -452,7 +464,6 @@ Wiki: [Add Player](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AddPla
 |:-----|:-----|:-----|
 |UUID | UUID |  |
 |Username | string |  |
-|Entity ID Self | SignedVarLong |  |
 |Runtime Entity ID | UnsignedVarLong |  |
 |Platform Chat ID | string |  |
 |X | float |  |
@@ -465,17 +476,8 @@ Wiki: [Add Player](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AddPla
 |Yaw | float |  |
 |Head Yaw | float |  |
 |Item | Item |  |
-|Game Type | UnsignedVarInt |  |
+|Gamemode | SignedVarInt |  |
 |Metadata | MetadataDictionary |  |
-|Flags | UnsignedVarInt |  |
-|Command permission | UnsignedVarInt |  |
-|Action Permissions | UnsignedVarInt |  |
-|Permission Level | UnsignedVarInt |  |
-|Custom stored permissions | UnsignedVarInt |  |
-|User Id | long |  |
-|Links | EntityLinks |  |
-|Device ID | string |  |
-|Device OS | int |  |
 -----------------------------------------------------------------------
 ### Add Entity (0x0d)
 Wiki: [Add Entity](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AddEntity)
@@ -2811,6 +2813,20 @@ Wiki: [Packet Violation Warning](https://github.com/NiclasOlofsson/MiNET/wiki//P
 |Packet Id | SignedVarInt |  |
 |Reason | string |  |
 -----------------------------------------------------------------------
+### Player Fog (0xa0)
+Wiki: [Player Fog](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-PlayerFog)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+-----------------------------------------------------------------------
 ### Item Component (0xa2)
 Wiki: [Item Component](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ItemComponent)
 
@@ -2841,6 +2857,21 @@ Wiki: [Filter Text Packet](https://github.com/NiclasOlofsson/MiNET/wiki//Protoco
 |:-----|:-----|:-----|
 |Text | string |  |
 |From server | bool |  |
+-----------------------------------------------------------------------
+### Sync Entity Property (0xa5)
+Wiki: [Sync Entity Property](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SyncEntityProperty)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|NamedTag | Nbt |  |
 -----------------------------------------------------------------------
 ### Update Sub Chunk Blocks Packet (0xac)
 Wiki: [Update Sub Chunk Blocks Packet](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-UpdateSubChunkBlocksPacket)
@@ -2873,8 +2904,10 @@ Wiki: [Sub Chunk Packet](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Cache enabled | bool |  |
-|Dimension | VarInt |  |
-|Subchunk coordinates | BlockCoordinates |  |
+|Dimension | SignedVarInt |  |
+|Origin X | SignedVarInt |  |
+|Origin Y | SignedVarInt |  |
+|Origin Z | SignedVarInt |  |
 -----------------------------------------------------------------------
 ### Sub Chunk Request Packet (0xaf)
 Wiki: [Sub Chunk Request Packet](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SubChunkRequestPacket)
@@ -2889,9 +2922,6 @@ Wiki: [Sub Chunk Request Packet](https://github.com/NiclasOlofsson/MiNET/wiki//P
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Dimension | VarInt |  |
-|Base Position | BlockCoordinates |  |
-|Offsets | SubChunkPositionOffset[] |  |
 -----------------------------------------------------------------------
 ### Dimension Data (0xb4)
 Wiki: [Dimension Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-DimensionData)
@@ -2908,6 +2938,42 @@ Wiki: [Dimension Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Di
 |:-----|:-----|:-----|
 |Definitions | DimensionDefinitions |  |
 -----------------------------------------------------------------------
+### Update Abilities (0xbb)
+Wiki: [Update Abilities](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-UpdateAbilities)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Entity Unique ID | long |  |
+|Permission Level | byte |  |
+|Command Permission | byte |  |
+-----------------------------------------------------------------------
+### Update Adventure Settings (0xbc)
+Wiki: [Update Adventure Settings](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-UpdateAdventureSettings)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|No PvM | bool |  |
+|No MvP | bool |  |
+|Immutable World | bool |  |
+|Show Name Tags | bool |  |
+|Auto Jump | bool |  |
+-----------------------------------------------------------------------
 ### Request Network Settings (0xc1)
 Wiki: [Request Network Settings](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-RequestNetworkSettings)
 
@@ -2922,6 +2988,20 @@ Wiki: [Request Network Settings](https://github.com/NiclasOlofsson/MiNET/wiki//P
 | Name | Type | Size |
 |:-----|:-----|:-----|
 |Protocol Version | int |  |
+-----------------------------------------------------------------------
+### Camera Presets (0xc6)
+Wiki: [Camera Presets](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CameraPresets)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
 -----------------------------------------------------------------------
 ### Alex Entity Animation (0xe0)
 Wiki: [Alex Entity Animation](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AlexEntityAnimation)
@@ -2939,6 +3019,137 @@ Wiki: [Alex Entity Animation](https://github.com/NiclasOlofsson/MiNET/wiki//Prot
 |Runtime Entity ID | UnsignedVarLong |  |
 |Bone Id | string |  |
 |Keys | AnimationKey[] |  |
+-----------------------------------------------------------------------
+### Trim Data (0x12e)
+Wiki: [Trim Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-TrimData)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Jigsaw Structure Data (0x139)
+Wiki: [Jigsaw Structure Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-JigsawStructureData)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Structure Data | Nbt |  |
+-----------------------------------------------------------------------
+### Current Structure Feature (0x13a)
+Wiki: [Current Structure Feature](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CurrentStructureFeature)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Current Feature | string |  |
+-----------------------------------------------------------------------
+### Camera Aim Assist Presets (0x140)
+Wiki: [Camera Aim Assist Presets](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CameraAimAssistPresets)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Player Location (0x146)
+Wiki: [Player Location](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-PlayerLocation)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Type | int |  |
+|Entity Unique ID | SignedVarLong |  |
+-----------------------------------------------------------------------
+### Voxel Shapes (0x151)
+Wiki: [Voxel Shapes](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-VoxelShapes)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Camera Spline (0x152)
+Wiki: [Camera Spline](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CameraSpline)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Locator Bar (0x155)
+Wiki: [Locator Bar](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-LocatorBar)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Sync World Clocks (0x158)
+Wiki: [Sync World Clocks](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SyncWorldClocks)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Payload Type | UnsignedVarInt |  |
 -----------------------------------------------------------------------
 
 

@@ -47,7 +47,7 @@ namespace MiNET.Items
 
 	public class ItemGoldenHorseArmor : Item
 	{
-		public ItemGoldenHorseArmor() : base("minecraft:golden_horse_armor", 417)
+		public ItemGoldenHorseArmor() : base("minecraft:golden_horse_armor", 418)
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Chestplate;

@@ -63,7 +63,7 @@ namespace MiNET.Net
 		[JsonIgnore] public bool ForceClear;
 		[JsonIgnore] public bool NoBatch { get; set; }
 
-		[JsonIgnore] public byte Id;
+		[JsonIgnore] public int Id;
 		[JsonIgnore] public bool IsMcpe;
 
 		protected MemoryStreamReader _reader; // new construct for reading
@@ -511,6 +511,8 @@ namespace MiNET.Net
 					Write(record.Skin);
 					Write(false); // is teacher
 					Write(false); // is host
+					Write(false); // is subclient (649+)
+					Write(0); // player color ARGB (800+)
 				}
 			}
 			else if (records is PlayerRemoveRecords)
@@ -572,10 +574,6 @@ namespace MiNET.Net
 						};
 						records.Add(player);
 						//Log.Debug($"Reading {player.ClientUuid}, {player.EntityId}, '{player.DisplayName}', {platformChatId}");
-					}
-					for (int i = 0; i < count; i++)
-					{
-						ReadBool(); // trusted skin verified flag, one per add record
 					}
 					break;
 				case 1:
@@ -1315,6 +1313,18 @@ namespace MiNET.Net
 			Log.Debug($"Count: {c}");
 			for (int i = 0; i < c; i++)
 			{
+				requests.Add(ReadItemStackRequest());
+			}
+
+			return requests;
+		}
+
+		// Single request body, shared by McpeItemStackRequest (list) and the item_stack_request
+		// conditional embedded in McpePlayerAuthInput. Verified vs PMMP ItemStackRequest::read
+		// and minecraft-data 1001.
+		public ItemStackActionList ReadItemStackRequest()
+		{
+			{
 				var actions = new ItemStackActionList();
 				actions.RequestId = ReadSignedVarInt();
 				Log.Debug($"Request ID: {actions.RequestId}");
@@ -1477,17 +1487,20 @@ namespace MiNET.Net
 					}
 				}
 				
-				requests.Add(actions);
-
 				var filterStringCount = ReadUnsignedVarInt();
 
 				for (int fi = 0; fi < filterStringCount; fi++)
 				{
 					ReadString();
 				}
-			}
 
-			return requests;
+				// filter string cause (li32). Was missing entirely, leaving 4 unread bytes per
+				// request. Verified vs PMMP ItemStackRequest::read and minecraft-data 1001
+				// ("cause": li32 mapper).
+				ReadInt();
+
+				return actions;
+			}
 		}
 
 		public void Write(ItemStackResponses responses)
@@ -1717,14 +1730,35 @@ namespace MiNET.Net
 
 		private const int ShieldId = 355;
 
-		// Item stack descriptor, protocol 1001+ ("ItemNew" / NetworkItemStackDescriptor):
+		// The shield's network id (itemstates.json "minecraft:shield" runtime_id, 387 as of protocol
+		// 1001). Resolved by name rather than via the ShieldId constant above: that constant (355) is
+		// the shield's *legacy Java numeric* id, not ItemShield's actual internal Id (513) - comparing
+		// a translated network id against it would never match, and translating a decoded network id
+		// back to an internal id and checking against 355 risks a false positive (FromNetworkId leaves
+		// unmapped network ids untouched, so an unrelated item id that happens to equal 355 - e.g.
+		// ItemWrittenBook's network id 387 coincides with unrelated internal ids elsewhere - could be
+		// misidentified). Comparing the raw wire network id directly against the shield's own resolved
+		// network id avoids both problems.
+		private static readonly Lazy<int> ShieldNetworkId = new(() =>
+			ItemFactory.Translator.TryGetNetworkId(ItemFactory.GetItemIdByName("minecraft:shield"), 0, out var shieldNetworkId) ? shieldNetworkId.Id : int.MinValue);
+
+		private static bool IsShieldNetworkId(int networkId)
+		{
+			return networkId == ShieldNetworkId.Value;
+		}
+
+		// Full inventory item stack ("ItemNew" / ItemV4), protocol 1001+, used by inventory_content,
+		// inventory_slot, mob_equipment, and other container packets:
 		//   network_id: li16, count: lu16, metadata: varint,
 		//   has_stack_id: bool [+ empty: varint, id: zigzag32],
 		//   block_runtime_id: varint,
 		//   extra: varint-length-prefixed blob { has_nbt: lu16 (0xffff/0), [version: u8, nbt: lnbt],
 		//                                        can_place_on: li32-count of ShortString, can_destroy: same,
 		//                                        [blocking_tick: li64, shield only] }
-		// Unlike the old zigzag32 Item/ItemLegacy shapes, network_id==0 does NOT short-circuit the rest of the fields.
+		// network_id==0 (air) does NOT short-circuit; air is a full ~8-byte encoding. Confirmed against
+		// live BDS 1.26.34 inventory_content/mob_equipment bytes. The zigzag short-circuit "Item" shape
+		// (add_player held item, ReadItemInstance) and the "ItemLegacy" catalog shape (creative content,
+		// ReadItemLegacy) are separate readers - do not conflate them.
 		public void Write(Item stack, bool writeUniqueId = true)
 		{
 			if (stack == null || stack.Id == 0 || !ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
@@ -1762,6 +1796,11 @@ namespace MiNET.Net
 
 		private static byte[] WriteItemExtraData(NbtCompound extraData, bool includeBlockingTick)
 		{
+			return WriteItemExtraData(extraData, includeBlockingTick, null, null, 0);
+		}
+
+		private static byte[] WriteItemExtraData(NbtCompound extraData, bool includeBlockingTick, List<string> canPlaceOn, List<string> canDestroy, long blockingTick)
+		{
 			using var ms = new MemoryStream();
 			using (BinaryWriter binaryWriter = new BinaryWriter(ms, Encoding.UTF8, true))
 			{
@@ -1777,12 +1816,31 @@ namespace MiNET.Net
 					binaryWriter.Write((ushort) 0);
 				}
 
-				binaryWriter.Write(0); // can_place_on count
-				binaryWriter.Write(0); // can_destroy count
+				binaryWriter.Write(canPlaceOn?.Count ?? 0); // can_place_on count
+				if (canPlaceOn != null)
+				{
+					foreach (string name in canPlaceOn)
+					{
+						byte[] bytes = Encoding.UTF8.GetBytes(name);
+						binaryWriter.Write((short) bytes.Length);
+						binaryWriter.Write(bytes);
+					}
+				}
+
+				binaryWriter.Write(canDestroy?.Count ?? 0); // can_destroy count
+				if (canDestroy != null)
+				{
+					foreach (string name in canDestroy)
+					{
+						byte[] bytes = Encoding.UTF8.GetBytes(name);
+						binaryWriter.Write((short) bytes.Length);
+						binaryWriter.Write(bytes);
+					}
+				}
 
 				if (includeBlockingTick)
 				{
-					binaryWriter.Write((long) 0); // blocking_tick
+					binaryWriter.Write(blockingTick); // blocking_tick
 				}
 			}
 
@@ -1837,14 +1895,88 @@ namespace MiNET.Net
 			var metadata = ReadVarInt(); // metadata
 			int blockRuntimeId = ReadSignedVarInt(); // block_runtime_id
 
-			// Catalog/recipe item descriptors (creative content, crafting data) never carry the
-			// shield's live "blocking_tick" state - that's per-instance inventory state, not
-			// something a static catalog entry has - so it's never included here.
-			NbtCompound extraData = ReadItemExtraData(includeBlockingTick: false);
-
 			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
 
+			// Catalog/recipe item descriptors (creative content, crafting data) are static and don't carry
+			// live inventory state - except the shield, which BDS includes a "blocking_tick" trailer for
+			// even here (confirmed against live BDS 1.26.34 creative_content bytes).
+			NbtCompound extraData = ReadItemExtraData(includeBlockingTick: IsShieldNetworkId(networkId), out var canPlaceOn, out var canDestroy, out var blockingTick);
+
 			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+			stack.RuntimeId = blockRuntimeId;
+			stack.NetworkId = networkId;
+			stack.NetworkMetadata = metadata;
+			stack.ExtraData = extraData;
+			stack.CanPlaceOn = canPlaceOn;
+			stack.CanDestroy = canDestroy;
+			stack.BlockingTick = blockingTick;
+
+			return stack;
+		}
+
+		public void WriteItemLegacy(Item stack)
+		{
+			int networkId;
+			int metadata;
+			if (stack != null && stack.NetworkMetadata >= 0)
+			{
+				// Item came from a decode (ReadItemLegacy) - re-emit the exact wire values instead of
+				// re-deriving through ItemTranslator, which isn't guaranteed to invert to the same
+				// network_id/metadata pair (simple mappings can collapse many network ids onto one
+				// internal id, and the translator has no way to pick the original one back out). This
+				// also matters for items whose translated internal Id happens to be 0 (an unmapped
+				// block/item falls back to Id 0 in ItemFactory/BlockFactory) but that are not actually
+				// air on the wire - checking stack.Id == 0 alone would wrongly collapse those to air.
+				networkId = stack.NetworkId;
+				metadata = stack.NetworkMetadata;
+			}
+			else if (stack != null && stack.Id != 0 && ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
+			{
+				networkId = netData.Id;
+				metadata = netData.Meta;
+			}
+			else
+			{
+				WriteSignedVarInt(0); // network_id => void, no further fields
+				return;
+			}
+
+			WriteSignedVarInt(networkId); // network_id
+			Write((ushort) stack.Count); // count
+			WriteVarInt(metadata); // metadata
+			WriteSignedVarInt(stack.RuntimeId); // block_runtime_id
+
+			byte[] extraData = WriteItemExtraData(stack.ExtraData, includeBlockingTick: IsShieldNetworkId(networkId), stack.CanPlaceOn, stack.CanDestroy, stack.BlockingTick);
+			WriteLength(extraData.Length);
+			Write(extraData);
+		}
+
+		// Item stack with wrapper stack-id ("Item" / getItemStackWrapper), protocol 1001+, used by the
+		// add_player held item. Like ItemLegacy (zigzag network_id that short-circuits to air on 0,
+		// zigzag block_runtime_id) but with a has_net_id bool and optional stack id between metadata and
+		// block_runtime_id. Distinct from the li16 inventory descriptor (ReadItem). Confirmed against
+		// PMMP CommonTypes::getItemStackWrapper and live BDS 1.26.34.
+		public Item ReadItemInstance()
+		{
+			int networkId = ReadSignedVarInt(); // network_id
+			if (networkId == 0) return new ItemAir();
+
+			ushort count = ReadUshort(); // count
+			var metadata = ReadVarInt(); // metadata
+
+			bool hasNetId = ReadBool(); // has_net_id
+			int uniqueId = 0;
+			if (hasNetId)
+			{
+				uniqueId = ReadSignedVarInt(); // stack_id
+			}
+
+			int blockRuntimeId = ReadSignedVarInt(); // block_runtime_id
+			NbtCompound extraData = ReadItemExtraData(networkId == ShieldId);
+
+			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
+			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+			if (hasNetId) stack.UniqueId = uniqueId;
 			stack.RuntimeId = blockRuntimeId;
 			stack.NetworkId = networkId;
 			stack.ExtraData = extraData;
@@ -1852,30 +1984,46 @@ namespace MiNET.Net
 			return stack;
 		}
 
-		public void WriteItemLegacy(Item stack)
+		public void WriteItemInstance(Item stack)
 		{
 			if (stack == null || stack.Id == 0 || !ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
 			{
-				WriteSignedVarInt(0); // network_id => void, no further fields
+				WriteSignedVarInt(0); // network_id => air, no further fields
 				return;
 			}
 
 			WriteSignedVarInt(netData.Id); // network_id
 			Write((ushort) stack.Count); // count
 			WriteVarInt(netData.Meta); // metadata
+
+			bool hasNetId = stack.UniqueId != 0;
+			Write(hasNetId); // has_net_id
+			if (hasNetId)
+			{
+				WriteSignedVarInt(stack.UniqueId); // stack_id
+			}
+
 			WriteSignedVarInt(stack.RuntimeId); // block_runtime_id
 
-			byte[] extraData = WriteItemExtraData(stack.ExtraData, includeBlockingTick: false);
+			byte[] extraData = WriteItemExtraData(stack.ExtraData, netData.Id == ShieldId);
 			WriteLength(extraData.Length);
 			Write(extraData);
 		}
 
 		private NbtCompound ReadItemExtraData(bool includeBlockingTick)
 		{
+			return ReadItemExtraData(includeBlockingTick, out _, out _, out _);
+		}
+
+		private NbtCompound ReadItemExtraData(bool includeBlockingTick, out List<string> canPlaceOn, out List<string> canDestroy, out long blockingTick)
+		{
 			int length = ReadLength();
 			var data = ReadBytes(length);
 
 			NbtCompound extraData = null;
+			canPlaceOn = null;
+			canDestroy = null;
+			blockingTick = 0;
 			if (data.Length > 0)
 			using (MemoryStream ms = new MemoryStream(data))
 			{
@@ -1899,21 +2047,23 @@ namespace MiNET.Net
 					}
 
 					int canPlace = binaryReader.ReadInt32();
+					if (canPlace > 0) canPlaceOn = new List<string>(canPlace);
 					for (int i = 0; i < canPlace; i++)
 					{
 						var l = binaryReader.ReadInt16();
-						binaryReader.ReadBytes(l);
+						canPlaceOn.Add(Encoding.UTF8.GetString(binaryReader.ReadBytes(l)));
 					}
 					int canBreak = binaryReader.ReadInt32();
+					if (canBreak > 0) canDestroy = new List<string>(canBreak);
 					for (int i = 0; i < canBreak; i++)
 					{
 						var l = binaryReader.ReadInt16();
-						binaryReader.ReadBytes(l);
+						canDestroy.Add(Encoding.UTF8.GetString(binaryReader.ReadBytes(l)));
 					}
 
-					if (includeBlockingTick) // shield, live inventory item only
+					if (includeBlockingTick) // shield only
 					{
-						binaryReader.ReadInt64(); // blocking_tick
+						blockingTick = binaryReader.ReadInt64(); // blocking_tick
 					}
 				}
 			}
@@ -2057,7 +2207,9 @@ namespace MiNET.Net
 			WriteVarInt(gameRules.Count);
 			foreach (var rule in gameRules)
 			{
-				Write(rule.Name.ToLower());
+				// Rule names go out exactly as defined; BDS 1.26.34 sends camelCase
+				// ("doDayLightCycle"), and lowercasing does not match the vanilla wire data.
+				Write(rule.Name);
 				Write(rule.IsPlayerModifiable); // bool isPlayerModifiable
 
 				if (rule is GameRule<bool>)
@@ -2604,6 +2756,7 @@ namespace MiNET.Net
 			Write(skin.IsPersonaSkin);
 			Write(skin.Cape.OnClassicSkin);
 			Write(skin.IsPrimaryUser);
+			Write(skin.OverrideAppearance); // overriding_player_appearance (protocol 1001+)
 		}
 
 		public Skin ReadSkin()
@@ -2673,6 +2826,7 @@ namespace MiNET.Net
 			skin.IsPersonaSkin = ReadBool();
 			skin.Cape.OnClassicSkin = ReadBool();
 			skin.IsPrimaryUser = ReadBool();
+			skin.OverrideAppearance = ReadBool(); // overriding_player_appearance (protocol 1001+)
 			//Log.Debug($"SkinId={skin.SkinId}");
 			//Log.Debug($"SkinData lenght={skin.Data.Length}");
 			//Log.Debug($"CapeData lenght={skin.Cape.Data.Length}");
@@ -2708,10 +2862,9 @@ namespace MiNET.Net
 				{
 					case ShapelessRecipe shapelessRecipe:
 					{
-						WriteSignedVarInt(Shapeless); // Type
-
 						var rec = shapelessRecipe;
-						WriteLatinString(rec.Id.ToString());
+						WriteSignedVarInt(rec.RecipeType); // Type (Shapeless/ShulkerBox/ShapelessChemistry)
+						WriteLatinString(rec.RecipeId);
 						WriteVarInt(rec.Input.Count);
 						foreach (Item stack in rec.Input)
 						{
@@ -2724,17 +2877,16 @@ namespace MiNET.Net
 						}
 						Write(rec.Id);
 						Write(rec.Block);
-						WriteSignedVarInt(0); // priority
-						WriteUnlockingRequirement();
-						WriteVarInt(shapelessRecipe.UniqueId); // network id
+						WriteSignedVarInt(rec.Priority);
+						WriteUnlockingRequirement(rec.Unlocking);
+						WriteVarInt(rec.UniqueId); // network id
 						break;
 					}
 					case ShapedRecipe shapedRecipe:
 					{
-						WriteSignedVarInt(Shaped); // Type
-
 						var rec = shapedRecipe;
-						WriteLatinString(rec.Id.ToString());
+						WriteSignedVarInt(rec.RecipeType); // Type (Shaped/ShapedChemistry)
+						WriteLatinString(rec.RecipeId);
 						WriteSignedVarInt(rec.Width);
 						WriteSignedVarInt(rec.Height);
 
@@ -2752,10 +2904,10 @@ namespace MiNET.Net
 						}
 						Write(rec.Id);
 						Write(rec.Block);
-						WriteSignedVarInt(0); // priority
-						Write(false); // assume_symmetry
-						WriteUnlockingRequirement();
-						WriteVarInt(shapedRecipe.UniqueId); // network id
+						WriteSignedVarInt(rec.Priority);
+						Write(rec.AssumeSymmetry);
+						WriteUnlockingRequirement(rec.Unlocking);
+						WriteVarInt(rec.UniqueId); // network id
 						break;
 					}
 					case SmeltingRecipe smeltingRecipe:
@@ -2778,32 +2930,65 @@ namespace MiNET.Net
 						WriteVarInt(multiRecipe.UniqueId); // network id
 						break;
 					}
+					case SmithingTransformRecipe transformRecipe:
+					{
+						WriteSignedVarInt(SmithingTransform); // Type
+						WriteLatinString(transformRecipe.RecipeId);
+						WriteRecipeIngredient(transformRecipe.Template);
+						WriteRecipeIngredient(transformRecipe.Base);
+						WriteRecipeIngredient(transformRecipe.Addition);
+						WriteItemLegacy(transformRecipe.Result);
+						Write(transformRecipe.Tag);
+						WriteVarInt(transformRecipe.UniqueId); // network id
+						break;
+					}
+					case SmithingTrimRecipe trimRecipe:
+					{
+						WriteSignedVarInt(SmithingTrim); // Type
+						WriteLatinString(trimRecipe.RecipeId);
+						WriteRecipeIngredient(trimRecipe.Template);
+						WriteRecipeIngredient(trimRecipe.Input);
+						WriteRecipeIngredient(trimRecipe.Addition);
+						Write(trimRecipe.Block);
+						WriteVarInt(trimRecipe.UniqueId); // network id
+						break;
+					}
 				}
 			}
-		}
-
-		// Always-unlocked is the only sensible default for recipes MiNET builds itself: it has no
-		// notion of which items should unlock a recipe, and "none" (context 0) is the one context
-		// value that requires writing an ingredients array.
-		private void WriteUnlockingRequirement()
-		{
-			Write((byte) 1); // context = always_unlocked
 		}
 
 		// context 0 ("none") is the only unlocking-requirement context that carries an ingredients
 		// array; every other context (always_unlocked, player_in_water, player_has_many_items) has
-		// no further data.
-		private void SkipUnlockingRequirement()
+		// no further data. Always-unlocked (context 1) is the only sensible default for recipes MiNET
+		// builds itself: it has no notion of which items should unlock a recipe.
+		private void WriteUnlockingRequirement(UnlockingRequirement requirement)
 		{
-			byte context = ReadByte();
-			if (context == 0)
+			requirement ??= new UnlockingRequirement();
+			Write(requirement.Context);
+			if (requirement.Context == 0)
 			{
-				uint count = ReadUnsignedVarInt();
-				for (int i = 0; i < count; i++)
+				var ingredients = requirement.Ingredients ?? new List<Item>();
+				WriteUnsignedVarInt((uint) ingredients.Count);
+				foreach (Item item in ingredients)
 				{
-					ReadRecipeIngredient();
+					WriteRecipeIngredient(item);
 				}
 			}
+		}
+
+		private UnlockingRequirement ReadUnlockingRequirement()
+		{
+			var requirement = new UnlockingRequirement {Context = ReadByte()};
+			if (requirement.Context == 0)
+			{
+				uint count = ReadUnsignedVarInt();
+				requirement.Ingredients = new List<Item>((int) count);
+				for (int i = 0; i < count; i++)
+				{
+					requirement.Ingredients.Add(ReadRecipeIngredient());
+				}
+			}
+			return requirement;
 		}
 
 		public Recipes ReadRecipes()
@@ -2832,16 +3017,16 @@ namespace MiNET.Net
 					case ShapelessChemistry:
 					{
 						var recipe = ReadShapelessLikeRecipe();
-						// MiNET doesn't model the chemistry-table variant as a first-class recipe,
-						// matching the pre-existing behavior for this type.
-						if (recipeType != ShapelessChemistry) recipes.Add(recipe);
+						recipe.RecipeType = recipeType;
+						recipes.Add(recipe);
 						break;
 					}
 					case Shaped:
 					case ShapedChemistry:
 					{
 						var recipe = ReadShapedLikeRecipe();
-						if (recipeType != ShapedChemistry) recipes.Add(recipe);
+						recipe.RecipeType = recipeType;
+						recipes.Add(recipe);
 						break;
 					}
 					case Furnace:
@@ -2877,25 +3062,27 @@ namespace MiNET.Net
 					}
 					case SmithingTransform:
 					{
-						// Not modeled by MiNET (no smithing-table recipe type yet) - parsed and
-						// discarded, same treatment as the chemistry-table variants above.
-						ReadLatinString(); // recipe id
-						ReadRecipeIngredient(); // template
-						ReadRecipeIngredient(); // base
-						ReadRecipeIngredient(); // addition
-						ReadItemLegacy(); // result
-						ReadString(); // tag
-						ReadVarInt(); // network id
+						var recipe = new SmithingTransformRecipe();
+						recipe.RecipeId = ReadLatinString(); // recipe id
+						recipe.Template = ReadRecipeIngredient();
+						recipe.Base = ReadRecipeIngredient();
+						recipe.Addition = ReadRecipeIngredient();
+						recipe.Result = ReadItemLegacy();
+						recipe.Tag = ReadString();
+						recipe.UniqueId = ReadVarInt(); // network id
+						recipes.Add(recipe);
 						break;
 					}
 					case SmithingTrim:
 					{
-						ReadLatinString(); // recipe id
-						ReadRecipeIngredient(); // template
-						ReadRecipeIngredient(); // input
-						ReadRecipeIngredient(); // addition
-						ReadString(); // block
-						ReadVarInt(); // network id
+						var recipe = new SmithingTrimRecipe();
+						recipe.RecipeId = ReadLatinString(); // recipe id
+						recipe.Template = ReadRecipeIngredient();
+						recipe.Input = ReadRecipeIngredient();
+						recipe.Addition = ReadRecipeIngredient();
+						recipe.Block = ReadString();
+						recipe.UniqueId = ReadVarInt(); // network id
+						recipes.Add(recipe);
 						break;
 					}
 					default:
@@ -2912,7 +3099,7 @@ namespace MiNET.Net
 		private ShapelessRecipe ReadShapelessLikeRecipe()
 		{
 			var recipe = new ShapelessRecipe();
-			ReadLatinString(); // recipe id
+			recipe.RecipeId = ReadLatinString(); // recipe id
 			var ingredientCount = ReadUnsignedVarInt();
 			for (int j = 0; j < ingredientCount; j++)
 			{
@@ -2925,18 +3112,19 @@ namespace MiNET.Net
 			}
 			recipe.Id = ReadUUID();
 			recipe.Block = ReadString();
-			ReadSignedVarInt(); // priority
-			SkipUnlockingRequirement();
+			recipe.Priority = ReadSignedVarInt();
+			recipe.Unlocking = ReadUnlockingRequirement();
 			recipe.UniqueId = ReadVarInt(); // network id
 			return recipe;
 		}
 
 		private ShapedRecipe ReadShapedLikeRecipe()
 		{
-			ReadLatinString(); // recipe id
+			string recipeId = ReadLatinString(); // recipe id
 			int width = ReadSignedVarInt();
 			int height = ReadSignedVarInt();
 			var recipe = new ShapedRecipe(width, height);
+			recipe.RecipeId = recipeId;
 			if (width > 3 || height > 3)
 				throw new Exception("Wrong number of ingredients, Width=" + width + ", height=" + height);
 			for (int w = 0; w < width; w++)
@@ -2954,9 +3142,9 @@ namespace MiNET.Net
 			}
 			recipe.Id = ReadUUID();
 			recipe.Block = ReadString();
-			ReadSignedVarInt(); // priority
-			ReadBool(); // assume_symmetry
-			SkipUnlockingRequirement();
+			recipe.Priority = ReadSignedVarInt();
+			recipe.AssumeSymmetry = ReadBool();
+			recipe.Unlocking = ReadUnlockingRequirement();
 			recipe.UniqueId = ReadVarInt(); // network id
 			return recipe;
 		}
@@ -2967,10 +3155,35 @@ namespace MiNET.Net
 		// server-authored recipe using them still consumes the right number of bytes.
 		public void WriteRecipeIngredient(Item stack)
 		{
+			if (stack?.IngredientDescriptor != null)
+			{
+				var descriptor = stack.IngredientDescriptor;
+				Write(descriptor.Type);
+				switch (descriptor.Type)
+				{
+					case 2: // molang
+						Write(descriptor.Text); // expression
+						Write(descriptor.MolangVersion); // version
+						break;
+					case 3: // item_tag
+						Write(descriptor.Text); // tag
+						break;
+					case 4: // string_id_meta
+						Write(descriptor.Text); // name
+						Write(descriptor.Metadata);
+						break;
+					case 5: // complex_alias
+						Write(descriptor.Text); // name
+						break;
+				}
+				WriteSignedVarInt(stack.Count);
+				return;
+			}
+
 			if (stack == null || stack.Id == 0)
 			{
 				Write((byte) 0); // type = invalid
-				WriteSignedVarInt(0); // count
+				WriteSignedVarInt(stack?.Count ?? 0); // count
 				return;
 			}
 
@@ -2995,23 +3208,31 @@ namespace MiNET.Net
 					break;
 				}
 				case 2: // molang
-					ReadString(); // expression
-					ReadByte(); // version
-					item = new ItemAir();
+				{
+					string expression = ReadString();
+					byte version = ReadByte();
+					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = expression, MolangVersion = version}};
 					break;
+				}
 				case 3: // item_tag
-					ReadString(); // tag
-					item = new ItemAir();
+				{
+					string tag = ReadString();
+					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = tag}};
 					break;
+				}
 				case 4: // string_id_meta
-					ReadString(); // name
-					ReadShort(); // metadata
-					item = new ItemAir();
+				{
+					string name = ReadString();
+					short metadata = ReadShort();
+					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = name, Metadata = metadata}};
 					break;
+				}
 				case 5: // complex_alias
-					ReadString(); // name
-					item = new ItemAir();
+				{
+					string name = ReadString();
+					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = name}};
 					break;
+				}
 				default: // invalid
 					item = new ItemAir();
 					break;
@@ -3802,7 +4023,7 @@ namespace MiNET.Net
 		{
 			_buffer.Position = 0;
 			if (IsMcpe) WriteVarInt(Id);
-			else Write(Id);
+			else Write((byte) Id);
 		}
 
 		[Obsolete("Use decode with ReadOnlyMemory<byte> instead.")]
@@ -3831,7 +4052,7 @@ namespace MiNET.Net
 
 		protected virtual void DecodePacket()
 		{
-			Id = IsMcpe ? (byte) ReadVarInt() : ReadByte();
+			Id = IsMcpe ? ReadVarInt() : ReadByte();
 		}
 
 		public abstract void PutPool();
