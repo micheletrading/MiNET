@@ -163,11 +163,15 @@ namespace MiNET.Worlds
 
 			if (Dimension == Dimension.Overworld)
 			{
-				if (Config.GetProperty("CheckForSafeSpawn", false))
+				if (Config.GetProperty("CheckForSafeSpawn", true))
 				{
+					// Clamp the spawn to ground level in both directions; level.dat frequently
+					// carries a bogus SpawnY (e.g. 255 on flat worlds), which drops the player
+					// from the sky at join.
 					var height = GetHeight((BlockCoordinates) SpawnPoint);
-					if (height > SpawnPoint.Y) SpawnPoint.Y = height;
-					Log.Debug("Checking for safe spawn");
+					// Spawn Y = ground height + 2 (player position is the head block).
+					if (height > 0 && Math.Abs(SpawnPoint.Y - (height + 2)) > 3) SpawnPoint.Y = height + 2;
+					Log.Debug($"Checking for safe spawn, ground height {height}, spawn Y {SpawnPoint.Y}");
 				}
 
 				if (LevelManager != null && WorldProvider.HaveNether())
@@ -1698,26 +1702,49 @@ namespace MiNET.Worlds
 
 		public virtual GameRules GetGameRules()
 		{
+			// The full rule set with exact names and defaults as sent by vanilla BDS 1.26.34
+			// (decoded from a wire capture). Names are camelCase on the wire; rules the level
+			// already models use its configurable values, the rest carry vanilla defaults.
 			GameRules rules = new GameRules();
-			rules.Add(new GameRule<bool>(GameRulesEnum.DrowningDamage, DrowningDamage));
-			rules.Add(new GameRule<bool>(GameRulesEnum.CommandblockOutput, CommandblockOutput));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoTiledrops, DoTiledrops));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoMobloot, DoMobloot));
-			rules.Add(new GameRule<bool>(GameRulesEnum.KeepInventory, KeepInventory));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoDaylightcycle, DoDaylightcycle));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoMobspawning, DoMobspawning));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoEntitydrops, DoEntitydrops));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoFiretick, DoFiretick));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoWeathercycle, DoWeathercycle));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Pvp, Pvp));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Falldamage, Falldamage));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Firedamage, Firedamage));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Mobgriefing, Mobgriefing));
-			rules.Add(new GameRule<bool>(GameRulesEnum.ShowCoordinates, ShowCoordinates));
-			rules.Add(new GameRule<bool>(GameRulesEnum.NaturalRegeneration, NaturalRegeneration));
-			rules.Add(new GameRule<bool>(GameRulesEnum.TntExplodes, TntExplodes));
-			rules.Add(new GameRule<bool>(GameRulesEnum.SendCommandfeedback, SendCommandfeedback));
-			rules.Add(new GameRule<bool>(GameRulesEnum.ExperimentalGameplay, true));
+			rules.Add(new GameRule<bool>("commandBlockOutput", CommandblockOutput));
+			rules.Add(new GameRule<bool>("doDayLightCycle", DoDaylightcycle));
+			rules.Add(new GameRule<bool>("doEntityDrops", DoEntitydrops));
+			rules.Add(new GameRule<bool>("doFireTick", DoFiretick));
+			rules.Add(new GameRule<bool>("recipesUnlock", true));
+			rules.Add(new GameRule<bool>("doLimitedCrafting", false));
+			rules.Add(new GameRule<bool>("doMobLoot", DoMobloot));
+			rules.Add(new GameRule<bool>("doMobSpawning", DoMobspawning));
+			rules.Add(new GameRule<bool>("doTileDrops", DoTiledrops));
+			rules.Add(new GameRule<bool>("doWeatherCycle", DoWeathercycle));
+			rules.Add(new GameRule<bool>("drowningDamage", DrowningDamage));
+			rules.Add(new GameRule<bool>("fallDamage", Falldamage));
+			rules.Add(new GameRule<bool>("fireDamage", Firedamage));
+			rules.Add(new GameRule<bool>("keepInventory", KeepInventory));
+			rules.Add(new GameRule<bool>("mobGriefing", Mobgriefing));
+			rules.Add(new GameRule<bool>("pvp", Pvp));
+			rules.Add(new GameRule<bool>("showCoordinates", ShowCoordinates));
+			rules.Add(new GameRule<int>("playerWaypoints", 1));
+			rules.Add(new GameRule<bool>("locatorbar", true));
+			rules.Add(new GameRule<bool>("showDaysPlayed", false));
+			rules.Add(new GameRule<bool>("naturalRegeneration", NaturalRegeneration));
+			rules.Add(new GameRule<bool>("tntExplodes", TntExplodes));
+			rules.Add(new GameRule<bool>("sendCommandFeedback", SendCommandfeedback));
+			rules.Add(new GameRule<int>("maxCommandChainLength", 65535));
+			rules.Add(new GameRule<bool>("doInsomnia", true));
+			rules.Add(new GameRule<bool>("commandBlocksEnabled", true));
+			rules.Add(new GameRule<int>("randomTickSpeed", 1));
+			rules.Add(new GameRule<bool>("doImmediateRespawn", false));
+			rules.Add(new GameRule<bool>("showDeathMessages", true));
+			rules.Add(new GameRule<int>("functionCommandLimit", 10000));
+			rules.Add(new GameRule<int>("spawnRadius", 10));
+			rules.Add(new GameRule<bool>("showTags", true));
+			rules.Add(new GameRule<bool>("freezeDamage", true));
+			rules.Add(new GameRule<bool>("respawnBlocksExplode", true));
+			rules.Add(new GameRule<bool>("showBorderEffect", true));
+			rules.Add(new GameRule<bool>("showRecipeMessages", true));
+			rules.Add(new GameRule<int>("playersSleepingPercentage", 100));
+			rules.Add(new GameRule<bool>("projectilesCanBreakBlocks", true));
+			rules.Add(new GameRule<bool>("tntExplosionDropDecay", false));
 			return rules;
 		}
 

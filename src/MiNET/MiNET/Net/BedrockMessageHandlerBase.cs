@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
 using log4net;
 using MiNET.Net.RakNet;
 using MiNET.Utils;
@@ -38,6 +39,12 @@ namespace MiNET.Net
 	public abstract class BedrockMessageHandlerBase : ICustomMessageHandler
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(BedrockMessageHandlerBase));
+
+		// Wire-content tracing: when MINET_PACKET_DUMP is set to a directory, every received
+		// packet's raw payload is written there as <seq>-<name>.bin. Used to capture what BDS
+		// sends our client vs what MiNET sends the same client, and diff the two byte-for-byte.
+		private static readonly string PacketDumpDir = Environment.GetEnvironmentVariable("MINET_PACKET_DUMP");
+		private static int _packetDumpSeq;
 
 		private protected readonly RakSession _session;
 
@@ -199,11 +206,20 @@ namespace MiNET.Net
 								//if (Log.IsDebugEnabled)
 								//	Log.Debug($"0x{internalBuffer[0]:x2}\n{Packet.HexDump(internalBuffer)}");
 
-								// Packet ids are varints and exceed 255 in modern protocols. The generated
-								// factory is byte-indexed, so anything above 255 stays an unknown packet.
-								Packet parsed = id <= byte.MaxValue ? PacketFactory.Create((byte) id, internalBuffer, "mcpe") : null;
-								if (parsed == null && id > byte.MaxValue && Log.IsDebugEnabled) Log.Debug($"Unknown packet with id {id} outside byte range");
-								messages.Add(parsed ?? new UnknownPacket((byte) (id & 0xff), internalBuffer));
+								// Packet ids are varints and can exceed 255 in modern protocols; the factory
+								// and UnknownPacket now carry the full id instead of truncating to a byte.
+								Packet parsed = PacketFactory.Create(id, internalBuffer, "mcpe");
+								if (parsed == null && Log.IsDebugEnabled) Log.Debug($"Unknown packet with id {id}");
+
+								if (PacketDumpDir != null)
+								{
+									int seq = Interlocked.Increment(ref _packetDumpSeq);
+									string name = parsed?.GetType().Name ?? $"Unknown_{id}";
+									Directory.CreateDirectory(PacketDumpDir);
+									File.WriteAllBytes(Path.Combine(PacketDumpDir, $"{seq:D4}-{name}.bin"), internalBuffer.ToArray());
+								}
+
+								messages.Add(parsed ?? new UnknownPacket(id, internalBuffer));
 							}
 							catch (Exception e)
 							{

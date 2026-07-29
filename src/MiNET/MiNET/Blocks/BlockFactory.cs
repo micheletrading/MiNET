@@ -26,6 +26,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -69,6 +70,75 @@ namespace MiNET.Blocks
 		public static Dictionary<string, int> NameToId { get; private set; }
 		public static BlockPalette BlockPalette { get; set; } = null;
 		public static HashSet<BlockStateContainer> BlockStates { get; set; } = null;
+
+		// runtime id -> FNV-1a 32 network hash of the block state. This is the order-independent
+		// block id form used on the wire when StartGame.blockNetworkIdsAreHashes is true (the
+		// vanilla BDS default since 1.19.80); hashing over {name, states} makes chunk block ids
+		// immune to palette-order differences between server and client. minecraft:unknown is
+		// hardcoded to -2 by the vanilla implementation.
+		private static readonly Lazy<uint[]> _networkHashes = new Lazy<uint[]>(() =>
+		{
+			var hashes = new uint[BlockPalette.Count];
+			for (int i = 0; i < BlockPalette.Count; i++)
+			{
+				hashes[i] = ComputeNetworkHash(BlockPalette[i]);
+			}
+			return hashes;
+		});
+
+		public static uint GetNetworkHash(int runtimeId)
+		{
+			return _networkHashes.Value[runtimeId];
+		}
+
+		// FNV-1a 32 over the standard little-endian (non-varint) NBT of {name, states}, states
+		// sorted alphabetically by name. Mirrors MiNET.Client NetworkBlockPalette.ComputeNetworkHash,
+		// which is verified against live BDS 1.26.34 chunk data.
+		public static uint ComputeNetworkHash(BlockStateContainer container)
+		{
+			if (container.Name == "minecraft:unknown") return unchecked((uint) -2);
+
+			var statesCompound = new NbtCompound("states");
+			foreach (IBlockState state in container.States.OrderBy(s => s.Name, StringComparer.Ordinal))
+			{
+				switch (state)
+				{
+					case BlockStateByte b:
+						statesCompound.Add(new NbtByte(b.Name, b.Value));
+						break;
+					case BlockStateInt i:
+						statesCompound.Add(new NbtInt(i.Name, i.Value));
+						break;
+					case BlockStateString s:
+						statesCompound.Add(new NbtString(s.Name, s.Value));
+						break;
+				}
+			}
+
+			var root = new NbtCompound("")
+			{
+				new NbtString("name", container.Name),
+				statesCompound
+			};
+
+			var file = new NbtFile
+			{
+				BigEndian = false,
+				UseVarInt = false,
+				RootTag = root
+			};
+
+			byte[] bytes = file.SaveToBuffer(NbtCompression.None);
+
+			uint hash = 0x811c9dc5;
+			foreach (byte b in bytes)
+			{
+				hash ^= b;
+				hash *= 0x01000193;
+			}
+
+			return hash;
+		}
 
 		public static int[] LegacyToRuntimeId = new int[65536];
 

@@ -120,6 +120,16 @@ namespace MiNET
 			////Skin.SaveTextureToFile(fileName, Skin.Texture);
 		}
 
+		// Deterministic GUID from a seed (XUID/MID), so a player keeps a stable identity
+		// across joins when the login token carries no explicit identity GUID.
+		private static Guid DeriveStableUuid(string seed)
+		{
+			if (string.IsNullOrEmpty(seed)) return Guid.NewGuid();
+			using var md5 = System.Security.Cryptography.MD5.Create();
+			byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes("minet:" + seed));
+			return new Guid(hash);
+		}
+
 		public void DecodeCert(McpeLogin message)
 		{
 			byte[] buffer = message.payload;
@@ -309,8 +319,12 @@ namespace MiNET
 					string multiplayerToken = null;
 					if (json["AuthenticationType"] != null)
 					{
+						// 1.21.90+ authentication envelope: {AuthenticationType, Token[, Certificate]}.
+						// Online auth (type 0) omits the cert chain entirely; identity is in the Token.
+						// Offline (type 2) carries an empty chain and our self-signed OIDC Token.
 						multiplayerToken = (string) json["Token"];
-						json = JObject.Parse((string) json["Certificate"]);
+						string certificate = (string) json["Certificate"];
+						if (!string.IsNullOrEmpty(certificate)) json = JObject.Parse(certificate);
 					}
 
 					JArray chain = json.chain;
@@ -322,15 +336,29 @@ namespace MiNET
 					bool offlineChain = chain == null || chain.Count == 0 || string.IsNullOrEmpty((string) chain[0]);
 					if (offlineChain && !string.IsNullOrEmpty(multiplayerToken))
 					{
+						// Identity comes from the Token. Two shapes: our offline OIDC token has
+						// {cpk, xname, identity}; the real client's online token (Full auth) has
+						// {cpk, xname, xid, mid, sub} with no identity GUID.
+						// NOTE: a public server MUST validate this token's signature against the
+						// franchise JWKS (authorization.franchise.minecraft-services.net). We trust
+						// it here for local play.
 						dynamic tokenPayload = JObject.Parse(JWT.Payload(multiplayerToken));
+						string xuid = (string) tokenPayload.xid;
+						string identity = (string) tokenPayload.identity;
+						if (string.IsNullOrEmpty(identity))
+						{
+							string seed = !string.IsNullOrEmpty(xuid) ? xuid : (string) tokenPayload.mid ?? (string) tokenPayload.sub;
+							identity = DeriveStableUuid(seed).ToString();
+						}
+
 						_playerInfo.CertificateData = new CertificateData
 						{
 							IdentityPublicKey = (string) tokenPayload.cpk,
 							ExtraData = new ExtraData
 							{
 								DisplayName = (string) tokenPayload.xname,
-								Identity = (string) tokenPayload.identity,
-								Xuid = null
+								Identity = identity,
+								Xuid = string.IsNullOrEmpty(xuid) ? null : xuid
 							}
 						};
 					}
@@ -781,6 +809,14 @@ namespace MiNET
 		}
 
 		public void HandleMcpeSetLocalPlayerAsInitialized(McpeSetLocalPlayerAsInitialized message)
+		{
+		}
+
+		public void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message)
+		{
+		}
+
+		public void HandleMcpeServerBoundDiagnostics(McpeServerBoundDiagnostics message)
 		{
 		}
 

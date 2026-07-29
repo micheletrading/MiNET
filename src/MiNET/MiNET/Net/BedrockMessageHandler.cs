@@ -126,6 +126,17 @@ namespace MiNET.Net
 				case McpeMovePlayer msg:
 					handler.HandleMcpeMovePlayer(msg);
 					break;
+				case McpePlayerAuthInput msg:
+					// The 1.26 client uses PlayerAuthInput (0x90) for all movement/input instead of
+					// MovePlayer. Not dispatching it is what the client reports as "InitialConnection-90".
+					handler.HandleMcpePlayerAuthInput(msg);
+					break;
+				case McpeServerBoundLoadingScreen msg:
+					handler.HandleMcpeServerBoundLoadingScreen(msg);
+					break;
+				case McpeServerBoundDiagnostics msg:
+					handler.HandleMcpeServerBoundDiagnostics(msg);
+					break;
 				case McpeInteract msg:
 					handler.HandleMcpeInteract(msg);
 					break;

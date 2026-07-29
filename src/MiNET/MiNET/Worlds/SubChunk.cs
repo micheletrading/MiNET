@@ -384,7 +384,10 @@ namespace MiNET.Worlds
 			VarInt.WriteSInt32(stream, palette.Count); // count
 			foreach (var val in palette)
 			{
-				VarInt.WriteSInt32(stream, val);
+				// Palette entries go out as network hashes, matching
+				// StartGame.blockNetworkIdsAreHashes = true (the vanilla default). Hashes are
+				// order-independent, so the client does not need to share our palette order.
+				VarInt.WriteSInt32(stream, (int) BlockFactory.GetNetworkHash(val));
 			}
 
 			return true;
