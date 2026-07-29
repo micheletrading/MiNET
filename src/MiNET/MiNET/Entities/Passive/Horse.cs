@@ -83,8 +83,8 @@ namespace MiNET.Entities.Passive
 			metadata[(int) MetadataFlags.EatingHaystack] = new MetadataInt(EatingHaystack);
 			if (IsTamed)
 			{
-				metadata[45] = new MetadataByte(12);
-				metadata[46] = new MetadataInt(2);
+				metadata[44] = new MetadataByte(12);
+				metadata[45] = new MetadataInt(2);
 			}
 
 			Log.Debug($"Horse: {metadata}");

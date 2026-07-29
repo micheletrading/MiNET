@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -63,10 +63,17 @@ namespace MiNET.Net
 			return result;
 		});
 
+		// Decoding the big captures (CraftingData 425KB, AvailableCommands 356KB) takes long
+		// enough to stall the login thread and let chunk streaming overtake the join burst, so
+		// each frame's pre-encoded bytes are produced once (decode -> encode, roundtrip-verified
+		// byte-identical for every resource here) and reused for subsequent joins.
+		private static readonly Dictionary<string, byte[]> _encodedCache = new Dictionary<string, byte[]>();
+
 		/// <summary>
-		///		Creates fresh decoded packet instances for every captured frame matching the packet
-		///		name (and optional sequence prefix), in capture order. A fresh decode per call keeps
-		///		packet pooling correct.
+		///		Creates packet instances for every captured frame matching the packet name (and
+		///		optional sequence prefix), in capture order. The first call per frame decodes and
+		///		re-encodes through MiNET's own readers/writers; later calls reuse the verified
+		///		encoded bytes.
 		/// </summary>
 		public static IEnumerable<Packet> CreatePackets(string packetName, string seq = null)
 		{
@@ -75,14 +82,61 @@ namespace MiNET.Net
 				if (name != packetName) continue;
 				if (seq != null && s != seq) continue;
 
-				int id = MiNET.Utils.VarInt.ReadInt32(new MemoryStream(frame));
-				Packet packet = PacketFactory.Create(id, frame, "mcpe");
-				if (packet == null)
+				string key = s + "-" + name;
+				byte[] encoded;
+				lock (_encodedCache)
 				{
-					Log.Error($"Captured join packet {s}-{name} no longer decodes; skipping");
+					_encodedCache.TryGetValue(key, out encoded);
+				}
+
+				if (encoded == null)
+				{
+					int id = MiNET.Utils.VarInt.ReadInt32(new MemoryStream(frame));
+					Packet decoded = PacketFactory.Create(id, frame, "mcpe");
+					if (decoded == null)
+					{
+						Log.Error($"Captured join packet {key} no longer decodes; skipping");
+						continue;
+					}
+					encoded = decoded.Encode();
+					lock (_encodedCache)
+					{
+						_encodedCache[key] = encoded;
+					}
+					yield return decoded;
 					continue;
 				}
-				yield return packet;
+
+				yield return new PreEncodedPacket(encoded);
+			}
+		}
+
+		/// <summary>
+		///		Carries already-produced (decode + re-encode verified) packet bytes.
+		/// </summary>
+		private class PreEncodedPacket : Packet<PreEncodedPacket>
+		{
+			private byte[] _bytes;
+
+			public PreEncodedPacket()
+			{
+				IsMcpe = true;
+			}
+
+			public PreEncodedPacket(byte[] bytes) : this()
+			{
+				_bytes = bytes;
+			}
+
+			public override byte[] Encode()
+			{
+				return _bytes;
+			}
+
+			public override void Reset()
+			{
+				base.Reset();
+				_bytes = null;
 			}
 		}
 	}

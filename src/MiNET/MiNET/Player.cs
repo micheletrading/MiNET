@@ -341,6 +341,7 @@ namespace MiNET
 		{
 			McpeResourcePacksInfo packInfo = McpeResourcePacksInfo.CreateObject();
 			packInfo.worldTemplateId = (UUID) Guid.Empty;
+			packInfo.worldTemplateVersion = "0.0.0"; // vanilla sends this, not an empty string
 			if (_serverHaveResources)
 			{
 				packInfo.mustAccept = false;
@@ -361,7 +362,8 @@ namespace MiNET
 		public virtual void SendResourcePackStack()
 		{
 			McpeResourcePackStack packStack = McpeResourcePackStack.CreateObject();
-			packStack.gameVersion = McpeProtocolInfo.GameVersion;
+			// Vanilla sends "*" here, not the concrete game version.
+			packStack.gameVersion = "*";
 			
 			if (_serverHaveResources)
 			{
@@ -1291,7 +1293,10 @@ namespace MiNET
 
 				SendSetTime();
 
-				MiNetServer.FastThreadPool.QueueUserWorkItem(() => ForcedSendChunks());
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() =>
+				{
+					if (_loginSequenceCompleted.Wait(15000)) ForcedSendChunks();
+				});
 
 				//SendPlayerStatus(3);
 
@@ -1917,19 +1922,29 @@ namespace MiNET
 			//strangeContent.input = new ItemStacks();
 			//SendPacket(strangeContent);
 
+			// 1.26 container sizes (verified against BDS): main inventory 36 slots (hotbar is
+			// slots 0-8 of it, not appended), armor 5 (the body/harness slot was added), ui 54.
+			// MiNET's internal lists still use the old sizes; slice/pad at the wire.
+			static ItemStacks Resize(ItemStacks src, int size)
+			{
+				var result = new ItemStacks();
+				for (int i = 0; i < size; i++) result.Add(i < src.Count ? src[i] : new ItemAir());
+				return result;
+			}
+
 			var inventoryContent = McpeInventoryContent.CreateObject();
 			inventoryContent.inventoryId = (byte) 0x00;
-			inventoryContent.input = Inventory.GetSlots();
+			inventoryContent.input = Resize(Inventory.GetSlots(), 36);
 			SendPacket(inventoryContent);
 
 			var armorContent = McpeInventoryContent.CreateObject();
 			armorContent.inventoryId = 0x78;
-			armorContent.input = Inventory.GetArmor();
+			armorContent.input = Resize(Inventory.GetArmor(), 5);
 			SendPacket(armorContent);
 
 			var uiContent = McpeInventoryContent.CreateObject();
 			uiContent.inventoryId = 0x7c;
-			uiContent.input = Inventory.GetUiSlots();
+			uiContent.input = Resize(Inventory.GetUiSlots(), 54);
 			SendPacket(uiContent);
 
 			var offHandContent = McpeInventoryContent.CreateObject();
@@ -1937,12 +1952,9 @@ namespace MiNET
 			offHandContent.input = Inventory.GetOffHand();
 			SendPacket(offHandContent);
 
-			var mobEquipment = McpeMobEquipment.CreateObject();
-			mobEquipment.runtimeEntityId = EntityManager.EntityIdSelf;
-			mobEquipment.item = Inventory.GetItemInHand();
-			mobEquipment.slot = (byte) Inventory.InHandSlot;
-			mobEquipment.selectedSlot = (byte) Inventory.InHandSlot;
-			SendPacket(mobEquipment);
+			// No self-targeted MobEquipment here: the client owns its hotbar selection and
+			// vanilla never sends this at join (server->client MobEquipment is for OTHER
+			// entities' visible held items).
 		}
 
 		public virtual void SendCraftingRecipes()
@@ -3411,12 +3423,14 @@ namespace MiNET
 			startGame.levelSettings = levelSettings;
 			startGame.entityIdSelf = EntityId;
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
-			startGame.playerGamemode = (int) GameMode;
+			startGame.playerGamemode = 5; // fallback: use the level's game mode, like vanilla
 			startGame.spawn = SpawnPosition;
 			startGame.rotation = new Vector2(KnownPosition.HeadYaw, KnownPosition.Pitch);
 			
-			startGame.levelId = "1m0AAMIFIgA=";
-			startGame.worldName = Level.LevelName;
+			// A stable but non-legacy level id: the client keys local caches on world identity,
+			// and the old constant id may pin poisoned cache entries from early broken sessions.
+			startGame.levelId = "minet-" + (Level.LevelName ?? "world");
+			startGame.worldName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
 			startGame.premiumWorldTemplateId = "";
 			startGame.isTrial = false;
 			// Chunk palettes are written as network hashes (see SubChunk.WriteStore), matching
@@ -3821,6 +3835,12 @@ namespace MiNET
 			metadata[(int) MetadataFlags.ButtonText] = new MetadataString(ButtonText ?? string.Empty);
 			metadata[(int) MetadataFlags.PlayerFlags] = new MetadataByte((byte) (IsSleeping ? 0b10 : 0));
 			metadata[(int) MetadataFlags.BedPosition] = new MetadataIntCoordinates((int) SpawnPosition.X, (int) SpawnPosition.Y, (int) SpawnPosition.Z);
+
+			// Players report their bounding box as a single CollisionBox vector3 (width, height, 0)
+			// instead of the generic CollisionBoxWidth/Height floats used by mobs.
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxWidth);
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxHeight);
+			metadata[(int) MetadataFlags.CollisionBox] = new MetadataVector3((float) Width, (float) Height, 0);
 
 			return metadata;
 		}

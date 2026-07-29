@@ -106,6 +106,12 @@ namespace MiNET.Entities
 		{
 			var metadata = base.GetMetadata();
 
+			// Players (and player-like mobs, eg. NPC bots) report their bounding box as a single
+			// CollisionBox vector3 (width, height, 0) instead of the generic width/height floats.
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxWidth);
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxHeight);
+			metadata[(int) MetadataFlags.CollisionBox] = new MetadataVector3((float) Width, (float) Height, 0);
+
 			return metadata;
 		}
 

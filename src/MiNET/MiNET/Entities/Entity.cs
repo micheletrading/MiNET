@@ -141,9 +141,13 @@ namespace MiNET.Entities
 			RiderMinRotation = 59,
 			AlwaysShowNameTag = 81,
 
-			EntityFlags2 = 91, // same treatment as 0 flags, perhaps
+			EntityFlags2 = 92, // same treatment as 0 flags, perhaps
 
-			ButtonText = 99,
+			ButtonText = 100,
+
+			// Players (and player-like mobs) report their bounding box as a single vector3
+			// (width, height, 0) here instead of the generic CollisionBoxWidth/Height floats.
+			CollisionBox = 130,
 		}
 
 		public virtual MetadataDictionary GetMetadata()
