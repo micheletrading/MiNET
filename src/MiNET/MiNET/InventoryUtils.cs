@@ -23,6 +23,7 @@
 
 #endregion
 
+using System;
 using System.Collections.Generic;
 using fNbt;
 using MiNET.Items;
@@ -31,8 +32,48 @@ using MiNET.Utils;
 namespace MiNET
 {
 	// ReSharper disable RedundantArgumentDefaultValue
+	// Creative tab groups captured from vanilla BDS 1.26.34 (Items/Data/creative_groups.json):
+	// the group list (category, translation name, icon item name) and, per creative entry, the
+	// index of the group it belongs to (aligned with CreativeInventoryItems order).
+	public class CreativeGroupData
+	{
+		public List<CreativeGroupDef> Groups { get; set; }
+		public List<CreativeEntryDef> Entries { get; set; }
+		public List<int> EntryGroups { get; set; }
+	}
+
+	// A creative entry's exact wire identity from the vanilla capture. The catalog packet is
+	// built from these verbatim; InventoryUtils.CreativeInventoryItems (same order, same
+	// indexes) is only used server-side to resolve craft-creative requests into real items.
+	public class CreativeEntryDef
+	{
+		public int GroupIndex { get; set; }
+		public int NetworkId { get; set; }
+		public short Metadata { get; set; }
+		public int RuntimeId { get; set; }
+		public string NbtB64 { get; set; }
+	}
+
+	public class CreativeGroupDef
+	{
+		public int Category { get; set; }
+		public string Name { get; set; }
+		public string Icon { get; set; }
+		// The icon's exact wire identity from the vanilla capture; sent verbatim rather than
+		// re-derived through the item factory (which cannot reconstruct it for every icon).
+		public int IconNetworkId { get; set; }
+		public short IconMetadata { get; set; }
+		public int IconRuntimeId { get; set; }
+		// Icon extra-data NBT (network little-endian varint bytes, base64), e.g. the enchanted
+		// book group icon's stored enchantment. Null for plain icons.
+		public string IconNbtB64 { get; set; }
+	}
+
 	public static class InventoryUtils
 	{
+		public static readonly Lazy<CreativeGroupData> CreativeGroups = new Lazy<CreativeGroupData>(() =>
+			ResourceUtil.ReadResource<CreativeGroupData>("creative_groups.json", typeof(Items.Item), "Data"));
+
 		public static CreativeItemStacks GetCreativeMetadataSlots()
 		{
 			CreativeItemStacks slotData = new CreativeItemStacks();

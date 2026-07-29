@@ -111,6 +111,7 @@ namespace MiNET.Net
 		void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message);
 		void HandleMcpeSubChunkRequestPacket(McpeSubChunkRequestPacket message);
 		void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message);
+		void HandleMcpeSetPlayerInventoryOptions(McpeSetPlayerInventoryOptions message);
 		void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message);
 		void HandleMcpeServerBoundDiagnostics(McpeServerBoundDiagnostics message);
 		void HandleMcpeClientCameraAimAssist(McpeClientCameraAimAssist message);
@@ -1070,6 +1071,8 @@ namespace MiNET.Net
 						return McpeAlexEntityAnimation.CreateObject().Decode(buffer);
 					case 0x12e:
 						return McpeTrimData.CreateObject().Decode(buffer);
+					case 0x133:
+						return McpeSetPlayerInventoryOptions.CreateObject().Decode(buffer);
 					case 0x138:
 						return McpeServerBoundLoadingScreen.CreateObject().Decode(buffer);
 					case 0x139:
@@ -10506,6 +10509,70 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+		}
+
+	}
+
+	public partial class McpeSetPlayerInventoryOptions : Packet<McpeSetPlayerInventoryOptions>
+	{
+
+		public int leftTab; // = null;
+		public int rightTab; // = null;
+		public bool filtering; // = null;
+		public int layout; // = null;
+		public int craftingLayout; // = null;
+
+		public McpeSetPlayerInventoryOptions()
+		{
+			Id = 0x133;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarInt(leftTab);
+			WriteSignedVarInt(rightTab);
+			Write(filtering);
+			WriteSignedVarInt(layout);
+			WriteSignedVarInt(craftingLayout);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			leftTab = ReadSignedVarInt();
+			rightTab = ReadSignedVarInt();
+			filtering = ReadBool();
+			layout = ReadSignedVarInt();
+			craftingLayout = ReadSignedVarInt();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			leftTab=default(int);
+			rightTab=default(int);
+			filtering=default(bool);
+			layout=default(int);
+			craftingLayout=default(int);
 		}
 
 	}

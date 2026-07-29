@@ -140,6 +140,9 @@ namespace MiNET.Net
 				case McpeClientCameraAimAssist msg:
 					handler.HandleMcpeClientCameraAimAssist(msg);
 					break;
+				case McpeSetPlayerInventoryOptions msg:
+					handler.HandleMcpeSetPlayerInventoryOptions(msg);
+					break;
 				case McpeInteract msg:
 					handler.HandleMcpeInteract(msg);
 					break;

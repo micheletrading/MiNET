@@ -91,6 +91,18 @@ namespace MiNET.Blocks
 			return _networkHashes.Value[runtimeId];
 		}
 
+		private static readonly Lazy<HashSet<uint>> _validHashes = new Lazy<HashSet<uint>>(() => new HashSet<uint>(_networkHashes.Value));
+
+		public static bool IsValidNetworkHash(uint hash) => _validHashes.Value.Contains(hash);
+
+		// Network hash of a block name's default (first palette) state; 0 if the name is unknown.
+		public static uint GetDefaultStateHash(string name)
+		{
+			if (string.IsNullOrEmpty(name)) return 0;
+			if (!name.StartsWith("minecraft:")) name = "minecraft:" + name;
+			return _defaultStateByName.Value.TryGetValue(name, out var state) ? GetNetworkHash(state.RuntimeId) : 0;
+		}
+
 		// FNV-1a 32 over the standard little-endian (non-varint) NBT of {name, states}, states
 		// sorted alphabetically by name. Mirrors MiNET.Client NetworkBlockPalette.ComputeNetworkHash,
 		// which is verified against live BDS 1.26.34 chunk data.

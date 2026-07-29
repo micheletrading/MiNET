@@ -46,6 +46,7 @@
     <EmbeddedResource Include="Items\Data\item_id_map.json" />
     <EmbeddedResource Include="Items\Data\r16_to_current_item_map.json" />
     <EmbeddedResource Include="Items\Data\block_item_name_map.json" />
+    <EmbeddedResource Include="Items\Data\creative_groups.json" />
     <EmbeddedResource Include="Net\Data\JoinCapture\*.bin" />
     <None Remove="Blocks\canonical_block_states.nbt" />
     <None Remove="Blocks\block_id_map.json" />

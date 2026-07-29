@@ -824,6 +824,10 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpeSetPlayerInventoryOptions(McpeSetPlayerInventoryOptions message)
+		{
+		}
+
 		public void HandleMcpeLevelSoundEventOld(McpeLevelSoundEventOld message)
 		{
 		}

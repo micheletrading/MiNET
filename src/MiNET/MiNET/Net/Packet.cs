@@ -1752,13 +1752,17 @@ namespace MiNET.Net
 
 		private ItemStacks ReadItems()
 		{
+			// Used by the deprecated crafting-results stack request action; its items are the
+			// legacy zigzag stacks without stack ids (PMMP getItemStackWithoutStackId), not the
+			// li16 inventory descriptors. Reading them as li16 corrupts every field after the
+			// action in the request.
 			var items = new ItemStacks();
 
 			var count = ReadUnsignedVarInt();
 
 			for (int i = 0; i < count; i++)
 			{
-				items.Add(ReadItem(false));
+				items.Add(ReadItemLegacy());
 			}
 
 			return items;

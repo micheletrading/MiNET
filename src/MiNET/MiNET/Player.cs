@@ -1966,23 +1966,63 @@ namespace MiNET
 
 			var creativeContent = McpeCreativeContent.CreateObject();
 
-			// MiNET doesn't model creative tab/group categorization, so everything goes in a single
-			// catch-all group (matches vanilla's "items" category used for ungrouped entries).
-			creativeContent.Groups.Add(new CreativeItemGroup
+			// Vanilla tab groups (captured 1.26.34 data): groups with category/name/icon, and each
+			// entry referencing its group by index. Without correct groups the client shows empty
+			// creative tabs.
+			CreativeGroupData groupData = InventoryUtils.CreativeGroups.Value;
+			foreach (CreativeGroupDef def in groupData.Groups)
 			{
-				Category = 4, // items
-				Name = "itemGroup.name.items",
-				Icon = InventoryUtils.CreativeInventoryItems.Count > 0 ? InventoryUtils.CreativeInventoryItems[0] : null,
-			});
+				Item icon = null;
+				if (def.IconNetworkId != 0)
+				{
+					// Emit the captured wire identity verbatim (see WriteItemLegacy's wire-ready
+					// branch); the factory cannot reconstruct every icon and unresolved icons
+					// (network id -1) crash the client when it rebuilds the creative UI.
+					icon = new Item(0, def.IconMetadata)
+					{
+						NetworkId = def.IconNetworkId,
+						NetworkMetadata = def.IconMetadata,
+						RuntimeId = def.IconRuntimeId
+					};
+					if (def.IconNbtB64 != null)
+					{
+						byte[] nbtBytes = Convert.FromBase64String(def.IconNbtB64);
+						var nbtFile = new NbtFile {BigEndian = false, UseVarInt = true};
+						nbtFile.LoadFromBuffer(nbtBytes, 0, nbtBytes.Length, NbtCompression.None);
+						icon.ExtraData = (NbtCompound) nbtFile.RootTag;
+					}
+				}
 
-			var items = InventoryUtils.GetCreativeMetadataSlots();
-			for (int i = 0; i < items.Count; i++)
+				creativeContent.Groups.Add(new CreativeItemGroup
+				{
+					Category = def.Category,
+					Name = def.Name ?? string.Empty,
+					Icon = icon,
+				});
+			}
+
+			for (int i = 0; i < groupData.Entries.Count; i++)
 			{
+				CreativeEntryDef def = groupData.Entries[i];
+				var item = new Item(0, def.Metadata)
+				{
+					NetworkId = def.NetworkId,
+					NetworkMetadata = def.Metadata,
+					RuntimeId = def.RuntimeId
+				};
+				if (def.NbtB64 != null)
+				{
+					byte[] nbtBytes = Convert.FromBase64String(def.NbtB64);
+					var nbtFile = new NbtFile {BigEndian = false, UseVarInt = true};
+					nbtFile.LoadFromBuffer(nbtBytes, 0, nbtBytes.Length, NbtCompression.None);
+					item.ExtraData = (NbtCompound) nbtFile.RootTag;
+				}
+
 				creativeContent.Entries.Add(new CreativeContentEntry
 				{
+					GroupIndex = def.GroupIndex,
 					EntryId = i + 1,
-					Item = items[i],
-					GroupIndex = 0,
+					Item = item,
 				});
 			}
 
@@ -2293,6 +2333,41 @@ namespace MiNET
 			// (lock + same-chunk early-out), so a per-tick call is cheap.
 			MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
 
+			// Movement state transitions arrive as input flags now (the old PlayerAction
+			// start/stop sprint/sneak/glide packets are gone in 1.26). Route them to the same
+			// behaviors; without this the server keeps broadcasting stale entity state against
+			// the client's prediction and sprint/sneak stutter and cancel.
+			AuthInputFlags flags = message.InputFlags;
+			if ((flags & (AuthInputFlags.StartSprinting | AuthInputFlags.StopSprinting | AuthInputFlags.StartSneaking | AuthInputFlags.StopSneaking | AuthInputFlags.StartGliding | AuthInputFlags.StopGliding)) != 0)
+			{
+				if ((flags & AuthInputFlags.StartSprinting) != 0) SetSprinting(true);
+				if ((flags & AuthInputFlags.StopSprinting) != 0) SetSprinting(false);
+
+				if ((flags & AuthInputFlags.StartSneaking) != 0)
+				{
+					SetSprinting(false);
+					IsSneaking = true;
+				}
+				if ((flags & AuthInputFlags.StopSneaking) != 0)
+				{
+					SetSprinting(false);
+					IsSneaking = false;
+				}
+
+				if ((flags & AuthInputFlags.StartGliding) != 0)
+				{
+					IsGliding = true;
+					Height = 0.6;
+				}
+				if ((flags & AuthInputFlags.StopGliding) != 0)
+				{
+					IsGliding = false;
+					Height = 1.8;
+				}
+
+				BroadcastSetEntityData();
+			}
+
 			if (message.ItemStackRequest != null)
 			{
 				HandleSingleItemStackRequest(message.ItemStackRequest);
@@ -2367,6 +2442,11 @@ namespace MiNET
 		public virtual void HandleMcpeClientCameraAimAssist(McpeClientCameraAimAssist message)
 		{
 			// Client-side aim assist state report. Ignored.
+		}
+
+		public virtual void HandleMcpeSetPlayerInventoryOptions(McpeSetPlayerInventoryOptions message)
+		{
+			// Client UI preferences (tabs, filtering, layout). Nothing to do server-side.
 		}
 
 

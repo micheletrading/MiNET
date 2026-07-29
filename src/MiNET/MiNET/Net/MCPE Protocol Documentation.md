@@ -26,6 +26,7 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Move Entity | 0x12 | 18 |   
 | Trim Data | 0x12e | 18 |   
 | Move Player | 0x13 | 19 |   
+| Set Player Inventory Options | 0x133 | 19 |   
 | Server Bound Loading Screen | 0x138 | 19 |   
 | Jigsaw Structure Data | 0x139 | 19 |   
 | Current Structure Feature | 0x13a | 19 |   
@@ -3035,6 +3036,25 @@ Wiki: [Trim Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-TrimDat
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Set Player Inventory Options (0x133)
+Wiki: [Set Player Inventory Options](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SetPlayerInventoryOptions)
+
+**Sent from server:** false  
+**Sent from client:** true
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Left Tab | SignedVarInt |  |
+|Right Tab | SignedVarInt |  |
+|Filtering | bool |  |
+|Layout | SignedVarInt |  |
+|Crafting Layout | SignedVarInt |  |
 -----------------------------------------------------------------------
 ### Server Bound Loading Screen (0x138)
 Wiki: [Server Bound Loading Screen](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ServerBoundLoadingScreen)

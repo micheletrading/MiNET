@@ -474,22 +474,26 @@ namespace MiNET
 			if (_player.UsingAnvil && containerId < 3) containerId = 13;
 
 			Item item = null;
+			// Container ids per the 1.26 ContainerSlotType table (several shifted since 1.18:
+			// cursor 58->59, creative output 59->60, hotbar 27->28, inventory 28->29,
+			// offhand 33->34, enchanting 21/22->22/23).
 			switch (containerId)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
+				case 13: // crafting input
+				case 14: // crafting output
+				case 22: // enchanting input
+				case 23: // enchanting lapis
+				case 41: // loom input
+				case 59: // cursor
+				case 60: // creative output
 					item = _player.Inventory.UiInventory.Slots[slot];
 					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
+				case 12: // hotbar and inventory
+				case 28: // hotbar
+				case 29: // player inventory
 					item = _player.Inventory.Slots[slot];
 					break;
-				case 33: // off-hand
+				case 34: // off-hand
 					item = _player.Inventory.OffHand;
 					break;
 				case 6: // armor
@@ -519,20 +523,21 @@ namespace MiNET
 
 			switch (containerId)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
+				case 13: // crafting input
+				case 14: // crafting output
+				case 22: // enchanting input
+				case 23: // enchanting lapis
+				case 41: // loom input
+				case 59: // cursor
+				case 60: // creative output
 					_player.Inventory.UiInventory.Slots[slot] = item;
 					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
+				case 12: // hotbar and inventory
+				case 28: // hotbar
+				case 29: // player inventory
 					_player.Inventory.Slots[slot] = item;
 					break;
-				case 33: // off-hand
+				case 34: // off-hand
 					_player.Inventory.OffHand = item;
 					break;
 				case 6: // armor

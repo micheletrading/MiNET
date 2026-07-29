@@ -1267,6 +1267,14 @@
 		<!-- all fields handled in partial: patterns[] and materials[] -->
 	</pdu>
 
+	<pdu id="0x133" online="false" client="true" server="false" name="MCPE_SET_PLAYER_INVENTORY_OPTIONS">
+		<field name="Left Tab" type="SignedVarInt" />
+		<field name="Right Tab" type="SignedVarInt" />
+		<field name="Filtering" type="bool" />
+		<field name="Layout" type="SignedVarInt" />
+		<field name="Crafting Layout" type="SignedVarInt" />
+	</pdu>
+
 	<pdu id="0x138" online="false" client="true" server="false" name="MCPE_SERVER_BOUND_LOADING_SCREEN">
 		<field name="Type" type="SignedVarInt" />
 		<!-- optional loading_screen_id (bool + lu32) handled in partial -->
