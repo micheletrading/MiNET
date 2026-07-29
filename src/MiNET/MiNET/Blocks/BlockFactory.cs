@@ -422,6 +422,35 @@ namespace MiNET.Blocks
 			return 0;
 		}
 
+		// Palette-name resolution without legacy ids: the first palette state for a name is its
+		// default state (canonical palette order). Covers every current block, including the
+		// post-flattening ones that never had a legacy id.
+		private static readonly Lazy<Dictionary<string, BlockStateContainer>> _defaultStateByName = new Lazy<Dictionary<string, BlockStateContainer>>(() =>
+		{
+			var result = new Dictionary<string, BlockStateContainer>(StringComparer.OrdinalIgnoreCase);
+			foreach (BlockStateContainer state in BlockPalette)
+			{
+				result.TryAdd(state.Name, state);
+			}
+			return result;
+		});
+
+		public static Block GetBlockByPaletteName(string name)
+		{
+			if (string.IsNullOrEmpty(name)) return null;
+			if (!name.StartsWith("minecraft:")) name = "minecraft:" + name;
+
+			// Typed class when one exists (legacy-mapped blocks).
+			Block typed = GetBlockByName(name);
+			if (typed != null) return typed;
+
+			if (!_defaultStateByName.Value.TryGetValue(name, out BlockStateContainer defaultState)) return null;
+
+			var block = new Block(defaultState.Name, defaultState.Id);
+			block.SetState(defaultState);
+			return block;
+		}
+
 		public static Block GetBlockByName(string blockName)
 		{
 			if (string.IsNullOrEmpty(blockName)) return null;

@@ -79,8 +79,13 @@ namespace MiNET.Blocks
 		{
 		}
 
+		// Palette state carried by untyped (generic) block instances - blocks without a generated
+		// class, resolved by palette name. Typed classes override Get/SetState and ignore this.
+		private BlockStateContainer _genericState;
+
 		public virtual void SetState(BlockStateContainer blockstate)
 		{
+			_genericState = blockstate;
 			SetState(blockstate.States);
 		}
 
@@ -90,7 +95,7 @@ namespace MiNET.Blocks
 
 		public virtual BlockStateContainer GetState()
 		{
-			return null;
+			return _genericState;
 		}
 
 		public virtual BlockStateContainer GetGlobalState()

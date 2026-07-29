@@ -126,6 +126,10 @@ namespace MiNET.Utils
 		public int FilteredStringIndex { get; set; }
 	}
 
+	public class MineBlockAction : ItemStackAction
+	{
+	}
+
 	public class GrindstoneStackRequestAction : ItemStackAction
 	{
 		public uint RecipeNetworkId { get; set; }
@@ -188,6 +192,8 @@ namespace MiNET.Utils
 		public byte Count          { get; set; }
 		public int  StackNetworkId { get; set; }
 		public string  CustomName     { get; set; }
+		// Protocol 1001: a filtered (profanity-checked) variant follows the custom name.
+		public string  FilteredCustomName { get; set; }
 		public int DurabilityCorrection { get; set; }
 	}
 

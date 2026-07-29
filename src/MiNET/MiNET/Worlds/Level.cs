@@ -1191,7 +1191,7 @@ namespace MiNET.Worlds
 			if (broadcast)
 			{
 				var message = McpeUpdateBlock.CreateObject();
-				message.blockRuntimeId = (uint) block.GetRuntimeId();
+				message.blockRuntimeId = BlockFactory.GetNetworkHash((int) block.GetRuntimeId()); // chunks speak hashed ids; block updates must too
 				message.coordinates = block.Coordinates;
 				message.blockPriority = 0xb;
 				RelayBroadcast(message);
@@ -1364,7 +1364,7 @@ namespace MiNET.Worlds
 					player.SendPlayerInventory();
 
 					var message = McpeUpdateBlock.CreateObject();
-					message.blockRuntimeId = (uint) block.GetRuntimeId();
+					message.blockRuntimeId = BlockFactory.GetNetworkHash((int) block.GetRuntimeId()); // chunks speak hashed ids; block updates must too
 					message.coordinates = block.Coordinates;
 					message.blockPriority = 0xb;
 					player.SendPacket(message);
@@ -1412,7 +1412,7 @@ namespace MiNET.Worlds
 		private static void RevertBlockAction(Player player, Block block, BlockEntity blockEntity)
 		{
 			var message = McpeUpdateBlock.CreateObject();
-			message.blockRuntimeId = (uint) block.GetRuntimeId();
+			message.blockRuntimeId = BlockFactory.GetNetworkHash((int) block.GetRuntimeId()); // chunks speak hashed ids; block updates must too
 			message.coordinates = block.Coordinates;
 			message.blockPriority = 0xb;
 			player.SendPacket(message);

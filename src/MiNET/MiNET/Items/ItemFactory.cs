@@ -137,9 +137,48 @@ namespace MiNET.Items
 			return (short) BlockFactory.GetBlockIdByName(itemName);
 		}
 
+		// Item name -> block name for the 17 legacy "minecraft:item.x" twins (data from PMMP
+		// BedrockData block_id_to_item_id_map, inverted). Everything else maps by identical name.
+		private static readonly Lazy<Dictionary<string, string>> _blockItemNameMap = new Lazy<Dictionary<string, string>>(() =>
+			new Dictionary<string, string>(ResourceUtil.ReadResource<Dictionary<string, string>>("block_item_name_map.json", typeof(Item), "Data"), StringComparer.OrdinalIgnoreCase));
+
 		public static Item GetItem(string name, short metadata = 0, int count = 1)
 		{
-			return GetItem(GetItemIdByName(name), metadata, count);
+			short id = GetItemIdByName(name);
+			if (id != 0) return GetItem(id, metadata, count);
+
+			return GetItemByName(name, metadata, count);
+		}
+
+		// Name-first resolution: registry string ids are the durable identity in modern Bedrock.
+		// Block-items resolve name -> block name (identity, or the exceptions map) -> palette
+		// default state -> ItemBlock; plain items resolve to a generic Item carrying the name and
+		// its registry network id. Legacy short ids are not involved.
+		public static Item GetItemByName(string name, short metadata = 0, int count = 1)
+		{
+			if (string.IsNullOrEmpty(name)) return new ItemAir();
+			if (!name.StartsWith("minecraft:")) name = "minecraft:" + name;
+
+			string blockName = _blockItemNameMap.Value.TryGetValue(name, out string mapped) ? mapped : name;
+			Block block = BlockFactory.GetBlockByPaletteName(blockName);
+
+			Item item;
+			if (block != null)
+			{
+				item = new ItemBlock(block, metadata);
+			}
+			else
+			{
+				item = new Item(name, 0, metadata);
+			}
+
+			item.Metadata = metadata;
+			item.Count = (byte) count;
+
+			Itemstate state = Itemstates.FirstOrDefault(x => x.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
+			if (state != null) item.NetworkId = state.Id;
+
+			return item;
 		}
 
 		public static Item GetItem(short id, short metadata = 0, int count = 1)

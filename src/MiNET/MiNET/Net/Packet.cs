@@ -1123,6 +1123,8 @@ namespace MiNET.Net
 		public StackRequestSlotInfo ReadStackRequestSlotInfo()
 		{
 			var containerId    = (byte) ReadByte();
+			// FullContainerName (protocol 1001): optional dynamic container id (bool + lu32).
+			if (ReadBool()) ReadUint();
 			var slot           = (byte) ReadByte();
 			var stackNetworkId = ReadSignedVarInt();
 
@@ -1422,6 +1424,15 @@ namespace MiNET.Net
 							actions.Add(action);
 							break;
 						}
+						case McpeItemStackRequest.ActionType.MineBlock:
+						{
+							// hotbar slot, predicted durability, stack net id (all zigzag).
+							ReadSignedVarInt();
+							ReadSignedVarInt();
+							ReadSignedVarInt();
+							actions.Add(new MineBlockAction());
+							break;
+						}
 						case McpeItemStackRequest.ActionType.LabTableCombine:
 						{
 							var action = new LabTableCombineAction();
@@ -1440,6 +1451,7 @@ namespace MiNET.Net
 						{
 							var action = new CraftAction();
 							action.RecipeNetworkId = ReadUnsignedVarInt();
+							ReadByte(); // repetitions (protocol 1001)
 							actions.Add(action);
 							break;
 						}
@@ -1447,6 +1459,13 @@ namespace MiNET.Net
 						{
 							var action = new CraftAutoAction();
 							action.RecipeNetworkId = ReadUnsignedVarInt();
+							ReadByte(); // repetitions (protocol 1001)
+							ReadByte(); // repetitions, sent twice by vanilla
+							byte ingredientCount = ReadByte();
+							for (int ii = 0; ii < ingredientCount; ii++)
+							{
+								ReadRecipeIngredient();
+							}
 							actions.Add(action);
 							break;
 						}
@@ -1454,6 +1473,7 @@ namespace MiNET.Net
 						{
 							var action = new CraftCreativeAction();
 							action.CreativeItemNetworkId = ReadUnsignedVarInt();
+							ReadByte(); // repetitions (protocol 1001)
 							actions.Add(action);
 							break;
 						}
@@ -1468,9 +1488,9 @@ namespace MiNET.Net
 						case McpeItemStackRequest.ActionType.CraftGrindstone:
 						{
 							var action = new GrindstoneStackRequestAction();
-							action.RecipeNetworkId = ReadUnsignedVarInt();
-							action.RepairCost = ReadVarInt();
-							
+							action.RepairCost = ReadSignedVarInt();
+							ReadByte(); // repetitions (protocol 1001)
+
 							actions.Add(action);
 							break;
 						}
@@ -1478,6 +1498,7 @@ namespace MiNET.Net
 						{
 							var action = new LoomStackRequestAction();
 							action.PatternId = ReadString();
+							ReadByte(); // repetitions (protocol 1001)
 							actions.Add(action);
 							break;
 						}
@@ -1529,6 +1550,7 @@ namespace MiNET.Net
 				foreach (StackResponseContainerInfo containerInfo in stackResponse.ResponseContainerInfos)
 				{
 					Write(containerInfo.ContainerId);
+					Write(false); // FullContainerName optional dynamic container id, none
 					WriteUnsignedVarInt((uint) containerInfo.Slots.Count);
 					foreach (StackResponseSlotInfo slot in containerInfo.Slots)
 					{
@@ -1537,6 +1559,7 @@ namespace MiNET.Net
 						Write(slot.Count);
 						WriteSignedVarInt(slot.StackNetworkId);
 						Write(slot.CustomName);
+						Write(slot.FilteredCustomName); // protocol 1001
 						WriteSignedVarInt(slot.DurabilityCorrection);
 					}
 				}

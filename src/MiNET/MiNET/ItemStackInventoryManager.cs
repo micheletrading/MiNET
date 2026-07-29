@@ -28,6 +28,7 @@ using System.Collections.Generic;
 using System.Linq;
 using log4net;
 using MiNET.Items;
+using MiNET.Net;
 using MiNET.Utils;
 
 namespace MiNET
@@ -450,7 +451,12 @@ namespace MiNET
 
 		protected virtual void ProcessCraftCreativeAction(CraftCreativeAction action)
 		{
-			Item creativeItem = InventoryUtils.CreativeInventoryItems.FirstOrDefault(i => i.NetworkId == (int) action.CreativeItemNetworkId);
+			// Creative entry ids are positional (index + 1), assigned by SendCreativeInventory
+			// over the same InventoryUtils list; sender and resolver share one source.
+			int index = (int) action.CreativeItemNetworkId - 1;
+			Item creativeItem = index >= 0 && index < InventoryUtils.CreativeInventoryItems.Count
+				? InventoryUtils.CreativeInventoryItems[index]
+				: null;
 			if (creativeItem == null) throw new Exception($"Failed to find inventory item with unique id: {action.CreativeItemNetworkId}");
 			creativeItem = ItemFactory.GetItem(creativeItem.Id, creativeItem.Metadata);
 			creativeItem.Count = (byte) creativeItem.MaxStackSize;

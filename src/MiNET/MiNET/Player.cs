@@ -991,7 +991,7 @@ namespace MiNET
 
 				SendUpdateAttributes();
 
-				if (!SendCaptured("McpeCreativeContent")) SendCreativeInventory();
+				SendCreativeInventory();
 
 				SendCaptured("McpeTrimData");
 
@@ -2287,6 +2287,11 @@ namespace MiNET
 
 			KnownPosition = newPosition;
 			LastUpdatedTime = DateTime.UtcNow;
+
+			// Keep chunk streaming following the player; this used to hang off MovePlayer,
+			// which the 1.26 client no longer sends. SendChunksForKnownPosition self-guards
+			// (lock + same-chunk early-out), so a per-tick call is cheap.
+			MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
 
 			if (message.ItemStackRequest != null)
 			{

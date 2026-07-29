@@ -987,18 +987,21 @@ namespace MiNET.Worlds
 			NbtList sectionsTag = new NbtList("Sections", NbtTagType.Compound);
 			levelTag.Add(sectionsTag);
 
-			for (int i = 0; i < 16; i++)
+			// Mirror of ReadSection's "chunkColumn[4 + sectionIndex]": internal index 4 is anvil
+			// section Y 0 (1.18 world update offset). Writing Y without the -4 lifted every
+			// saved column by 64 blocks on the next load. Internal sections 0-3 (negative world
+			// Y) cannot be represented in this legacy region format and are skipped.
+			for (int i = 4; i < 20; i++)
 			{
 				SubChunk subChunk = chunk[i];
 				if (subChunk.IsAllAir())
 				{
-					if(i == 0) Log.Debug($"All air bottom chunk? {subChunk.GetBlockId(0,0,0)}");
 					continue;
 				}
 
 				var sectionTag = new NbtCompound();
 				sectionsTag.Add(sectionTag);
-				sectionTag.Add(new NbtByte("Y", (byte) i));
+				sectionTag.Add(new NbtByte("Y", (byte) (i - 4)));
 
 				var blocks = new byte[4096];
 				var data = new byte[2048];
