@@ -94,6 +94,23 @@ namespace MiNET
 		DoImmediateRespawn,
 		ShowDeathmessages,
 		// int,
+		RecipesUnlock,
+		DoLimitedCrafting,
+		PlayerWaypoints, // int
+		Locatorbar,
+		ShowDaysPlayed,
+		MaxCommandChainLength, // int
+		RandomTickSpeed, // int
+		FunctionCommandLimit, // int
+		SpawnRadius, // int
+		ShowTags,
+		FreezeDamage,
+		RespawnBlocksExplode,
+		ShowBorderEffect,
+		ShowRecipeMessages,
+		PlayersSleepingPercentage, // int
+		ProjectilesCanBreakBlocks,
+		TntExplosionDropDecay,
 	}
 
 	public abstract class GameRule

@@ -1574,7 +1574,27 @@ namespace MiNET.Worlds
 		public bool NaturalRegeneration { get; set; } = true;
 		public bool TntExplodes { get; set; } = true;
 		public bool SendCommandfeedback { get; set; } = true;
-		public int RandomTickSpeed { get; set; } = 3;
+		public int RandomTickSpeed { get; set; } = 1; // Bedrock default (Java uses 3)
+		public bool RecipesUnlock { get; set; } = true;
+		public bool DoLimitedCrafting { get; set; } = false;
+		public int PlayerWaypoints { get; set; } = 1;
+		public bool Locatorbar { get; set; } = true;
+		public bool ShowDaysPlayed { get; set; } = false;
+		public int MaxCommandChainLength { get; set; } = 65535;
+		public bool DoInsomnia { get; set; } = true;
+		public bool CommandblocksEnabled { get; set; } = true;
+		public bool DoImmediateRespawn { get; set; } = false;
+		public bool ShowDeathMessages { get; set; } = true;
+		public int FunctionCommandLimit { get; set; } = 10000;
+		public int SpawnRadius { get; set; } = 10;
+		public bool ShowTags { get; set; } = true;
+		public bool FreezeDamage { get; set; } = true;
+		public bool RespawnBlocksExplode { get; set; } = true;
+		public bool ShowBorderEffect { get; set; } = true;
+		public bool ShowRecipeMessages { get; set; } = true;
+		public int PlayersSleepingPercentage { get; set; } = 100;
+		public bool ProjectilesCanBreakBlocks { get; set; } = true;
+		public bool TntExplosionDropDecay { get; set; } = false;
 
 		public virtual void BroadcastGameRules()
 		{
@@ -1641,6 +1661,51 @@ namespace MiNET.Worlds
 				case GameRulesEnum.SendCommandfeedback:
 					SendCommandfeedback = value;
 					break;
+				case GameRulesEnum.RecipesUnlock:
+					RecipesUnlock = value;
+					break;
+				case GameRulesEnum.DoLimitedCrafting:
+					DoLimitedCrafting = value;
+					break;
+				case GameRulesEnum.Locatorbar:
+					Locatorbar = value;
+					break;
+				case GameRulesEnum.ShowDaysPlayed:
+					ShowDaysPlayed = value;
+					break;
+				case GameRulesEnum.DoInsomnia:
+					DoInsomnia = value;
+					break;
+				case GameRulesEnum.CommandblocksEnabled:
+					CommandblocksEnabled = value;
+					break;
+				case GameRulesEnum.DoImmediateRespawn:
+					DoImmediateRespawn = value;
+					break;
+				case GameRulesEnum.ShowDeathmessages:
+					ShowDeathMessages = value;
+					break;
+				case GameRulesEnum.ShowTags:
+					ShowTags = value;
+					break;
+				case GameRulesEnum.FreezeDamage:
+					FreezeDamage = value;
+					break;
+				case GameRulesEnum.RespawnBlocksExplode:
+					RespawnBlocksExplode = value;
+					break;
+				case GameRulesEnum.ShowBorderEffect:
+					ShowBorderEffect = value;
+					break;
+				case GameRulesEnum.ShowRecipeMessages:
+					ShowRecipeMessages = value;
+					break;
+				case GameRulesEnum.ProjectilesCanBreakBlocks:
+					ProjectilesCanBreakBlocks = value;
+					break;
+				case GameRulesEnum.TntExplosionDropDecay:
+					TntExplosionDropDecay = value;
+					break;
 			}
 		}
 
@@ -1648,8 +1713,23 @@ namespace MiNET.Worlds
 		{
 			switch (rule)
 			{
-				case GameRulesEnum.DrowningDamage:
+				case GameRulesEnum.RandomTickSpeed:
 					RandomTickSpeed = value;
+					break;
+				case GameRulesEnum.PlayerWaypoints:
+					PlayerWaypoints = value;
+					break;
+				case GameRulesEnum.MaxCommandChainLength:
+					MaxCommandChainLength = value;
+					break;
+				case GameRulesEnum.FunctionCommandLimit:
+					FunctionCommandLimit = value;
+					break;
+				case GameRulesEnum.SpawnRadius:
+					SpawnRadius = value;
+					break;
+				case GameRulesEnum.PlayersSleepingPercentage:
+					PlayersSleepingPercentage = value;
 					break;
 			}
 		}
@@ -1695,6 +1775,36 @@ namespace MiNET.Worlds
 					return TntExplodes;
 				case GameRulesEnum.SendCommandfeedback:
 					return SendCommandfeedback;
+				case GameRulesEnum.RecipesUnlock:
+					return RecipesUnlock;
+				case GameRulesEnum.DoLimitedCrafting:
+					return DoLimitedCrafting;
+				case GameRulesEnum.Locatorbar:
+					return Locatorbar;
+				case GameRulesEnum.ShowDaysPlayed:
+					return ShowDaysPlayed;
+				case GameRulesEnum.DoInsomnia:
+					return DoInsomnia;
+				case GameRulesEnum.CommandblocksEnabled:
+					return CommandblocksEnabled;
+				case GameRulesEnum.DoImmediateRespawn:
+					return DoImmediateRespawn;
+				case GameRulesEnum.ShowDeathmessages:
+					return ShowDeathMessages;
+				case GameRulesEnum.ShowTags:
+					return ShowTags;
+				case GameRulesEnum.FreezeDamage:
+					return FreezeDamage;
+				case GameRulesEnum.RespawnBlocksExplode:
+					return RespawnBlocksExplode;
+				case GameRulesEnum.ShowBorderEffect:
+					return ShowBorderEffect;
+				case GameRulesEnum.ShowRecipeMessages:
+					return ShowRecipeMessages;
+				case GameRulesEnum.ProjectilesCanBreakBlocks:
+					return ProjectilesCanBreakBlocks;
+				case GameRulesEnum.TntExplosionDropDecay:
+					return TntExplosionDropDecay;
 			}
 
 			return false;
@@ -1702,16 +1812,15 @@ namespace MiNET.Worlds
 
 		public virtual GameRules GetGameRules()
 		{
-			// The full rule set with exact names and defaults as sent by vanilla BDS 1.26.34
-			// (decoded from a wire capture). Names are camelCase on the wire; rules the level
-			// already models use its configurable values, the rest carry vanilla defaults.
+			// The full 1.26.34 rule set, exact wire names (camelCase) and order. Every value
+			// comes from the level's properties (defaults match vanilla); no literals here.
 			GameRules rules = new GameRules();
 			rules.Add(new GameRule<bool>("commandBlockOutput", CommandblockOutput));
 			rules.Add(new GameRule<bool>("doDayLightCycle", DoDaylightcycle));
 			rules.Add(new GameRule<bool>("doEntityDrops", DoEntitydrops));
 			rules.Add(new GameRule<bool>("doFireTick", DoFiretick));
-			rules.Add(new GameRule<bool>("recipesUnlock", true));
-			rules.Add(new GameRule<bool>("doLimitedCrafting", false));
+			rules.Add(new GameRule<bool>("recipesUnlock", RecipesUnlock));
+			rules.Add(new GameRule<bool>("doLimitedCrafting", DoLimitedCrafting));
 			rules.Add(new GameRule<bool>("doMobLoot", DoMobloot));
 			rules.Add(new GameRule<bool>("doMobSpawning", DoMobspawning));
 			rules.Add(new GameRule<bool>("doTileDrops", DoTiledrops));
@@ -1723,28 +1832,28 @@ namespace MiNET.Worlds
 			rules.Add(new GameRule<bool>("mobGriefing", Mobgriefing));
 			rules.Add(new GameRule<bool>("pvp", Pvp));
 			rules.Add(new GameRule<bool>("showCoordinates", ShowCoordinates));
-			rules.Add(new GameRule<int>("playerWaypoints", 1));
-			rules.Add(new GameRule<bool>("locatorbar", true));
-			rules.Add(new GameRule<bool>("showDaysPlayed", false));
+			rules.Add(new GameRule<int>("playerWaypoints", PlayerWaypoints));
+			rules.Add(new GameRule<bool>("locatorbar", Locatorbar));
+			rules.Add(new GameRule<bool>("showDaysPlayed", ShowDaysPlayed));
 			rules.Add(new GameRule<bool>("naturalRegeneration", NaturalRegeneration));
 			rules.Add(new GameRule<bool>("tntExplodes", TntExplodes));
 			rules.Add(new GameRule<bool>("sendCommandFeedback", SendCommandfeedback));
-			rules.Add(new GameRule<int>("maxCommandChainLength", 65535));
-			rules.Add(new GameRule<bool>("doInsomnia", true));
-			rules.Add(new GameRule<bool>("commandBlocksEnabled", true));
-			rules.Add(new GameRule<int>("randomTickSpeed", 1));
-			rules.Add(new GameRule<bool>("doImmediateRespawn", false));
-			rules.Add(new GameRule<bool>("showDeathMessages", true));
-			rules.Add(new GameRule<int>("functionCommandLimit", 10000));
-			rules.Add(new GameRule<int>("spawnRadius", 10));
-			rules.Add(new GameRule<bool>("showTags", true));
-			rules.Add(new GameRule<bool>("freezeDamage", true));
-			rules.Add(new GameRule<bool>("respawnBlocksExplode", true));
-			rules.Add(new GameRule<bool>("showBorderEffect", true));
-			rules.Add(new GameRule<bool>("showRecipeMessages", true));
-			rules.Add(new GameRule<int>("playersSleepingPercentage", 100));
-			rules.Add(new GameRule<bool>("projectilesCanBreakBlocks", true));
-			rules.Add(new GameRule<bool>("tntExplosionDropDecay", false));
+			rules.Add(new GameRule<int>("maxCommandChainLength", MaxCommandChainLength));
+			rules.Add(new GameRule<bool>("doInsomnia", DoInsomnia));
+			rules.Add(new GameRule<bool>("commandBlocksEnabled", CommandblocksEnabled));
+			rules.Add(new GameRule<int>("randomTickSpeed", RandomTickSpeed));
+			rules.Add(new GameRule<bool>("doImmediateRespawn", DoImmediateRespawn));
+			rules.Add(new GameRule<bool>("showDeathMessages", ShowDeathMessages));
+			rules.Add(new GameRule<int>("functionCommandLimit", FunctionCommandLimit));
+			rules.Add(new GameRule<int>("spawnRadius", SpawnRadius));
+			rules.Add(new GameRule<bool>("showTags", ShowTags));
+			rules.Add(new GameRule<bool>("freezeDamage", FreezeDamage));
+			rules.Add(new GameRule<bool>("respawnBlocksExplode", RespawnBlocksExplode));
+			rules.Add(new GameRule<bool>("showBorderEffect", ShowBorderEffect));
+			rules.Add(new GameRule<bool>("showRecipeMessages", ShowRecipeMessages));
+			rules.Add(new GameRule<int>("playersSleepingPercentage", PlayersSleepingPercentage));
+			rules.Add(new GameRule<bool>("projectilesCanBreakBlocks", ProjectilesCanBreakBlocks));
+			rules.Add(new GameRule<bool>("tntExplosionDropDecay", TntExplosionDropDecay));
 			return rules;
 		}
 
