@@ -57,7 +57,6 @@
     <EmbeddedResource Include="Data\camera_aim_assist_presets.json" />
     <EmbeddedResource Include="Data\camera_spline.json" />
     <EmbeddedResource Include="Data\trim_data.json" />
-    <EmbeddedResource Include="Data\recipes.json" />
     <None Remove="Blocks\canonical_block_states.nbt" />
     <None Remove="Blocks\block_id_map.json" />
     <None Remove="Blocks\item_id_map.json" />
