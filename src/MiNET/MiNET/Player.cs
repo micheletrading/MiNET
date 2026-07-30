@@ -32,6 +32,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Numerics;
+using System.Text;
 using System.Threading;
 using fNbt;
 using log4net;
@@ -945,14 +946,14 @@ namespace MiNET
 				//Level.AddPlayer(this, false);
 
 				// Join sequence mirrors vanilla BDS 1.26.34 (wire capture in temp_auto/trace-bds):
-				// same packet set, same order. Static definition content MiNET has no generator
-				// for comes from JoinCapture (decoded vanilla data, re-encoded per send); dynamic
-				// packets stay fully generated.
-				SendCaptured("McpeLevelEventGeneric");
+				// same packet set, same order. State packets are generated from real level/player
+				// state; static definition content MiNET has no generator for yet still comes from
+				// JoinCapture (being replaced packet by packet with native builders).
+				SendSleepStatus();
 
 				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
 
-				SendCaptured("McpeSyncWorldClocks", "0008");
+				SendWorldClockState();
 				SendCaptured("McpeJigsawStructureData");
 				SendCaptured("McpeVoxelShapes");
 
@@ -962,9 +963,9 @@ namespace MiNET
 
 				SendItemRegistry();
 
-				SendCaptured("McpeSetSpawnPosition"); // vanilla sends undefined-position sentinels at join
+				SendPlayerSpawnPosition(); // undefined-position sentinel: no personal (bed) spawn at join
 
-				SendCaptured("McpeSyncWorldClocks", "0027");
+				SendWorldClockRegistry();
 
 				SendSetDificulty();
 
@@ -999,11 +1000,11 @@ namespace MiNET
 
 				SendPlayerInventory();
 
-				SendCaptured("McpePlayerHotbar");
+				SendPlayerHotbar();
 
 				if (!SendCaptured("McpeCraftingData")) SendCraftingRecipes();
 
-				if (!SendCaptured("McpeAvailableCommands")) SendAvailableCommands(); // Don't send this before StartGame!
+				SendAvailableCommands(); // The server's REAL command registry - never the captured vanilla list. Don't send before StartGame!
 
 				// Vanilla sends two searching-state respawns before chunk streaming.
 				SendRespawn();
@@ -1013,7 +1014,7 @@ namespace MiNET
 
 				BroadcastSetEntityData();
 
-				SendCaptured("McpeCurrentStructureFeature");
+				SendCurrentStructureFeature();
 			}
 			catch (Exception e)
 			{
@@ -1048,6 +1049,130 @@ namespace MiNET
 			var playerList = McpePlayerList.CreateObject();
 			playerList.records = new PlayerAddRecords {self};
 			SendPacket(playerList);
+		}
+
+		// Level event 19602: sleep status. Payload is an unframed network-NBT compound body:
+		// ableToSleep, overworldPlayerCount, sleepingPlayerCount (varint-NBT int tags, no root
+		// compound header). MiNET does not model sleeping yet, so sleeping count is 0.
+		public virtual void SendSleepStatus()
+		{
+			int players = Math.Max(1, Level.PlayerCount);
+
+			using var stream = new MemoryStream();
+			void WriteIntTag(string name, int value)
+			{
+				stream.WriteByte(3); // TAG_Int
+				byte[] nameBytes = Encoding.UTF8.GetBytes(name);
+				MiNET.Utils.VarInt.WriteUInt32(stream, (uint) nameBytes.Length);
+				stream.Write(nameBytes, 0, nameBytes.Length);
+				MiNET.Utils.VarInt.WriteSInt32(stream, value);
+			}
+			WriteIntTag("ableToSleep", 1);
+			WriteIntTag("overworldPlayerCount", players);
+			WriteIntTag("sleepingPlayerCount", 0);
+			stream.WriteByte(0); // TAG_End
+
+			var packet = McpeLevelEventGeneric.CreateObject();
+			packet.eventId = 19602;
+			packet.eventData = stream.ToArray();
+			SendPacket(packet);
+		}
+
+		// FNV-1 64 (multiply then xor) of a name; vanilla derives world clock and time marker
+		// ids from their names with exactly this hash (verified against a BDS 1.26.34 capture).
+		private static long Fnv1_64(string name)
+		{
+			ulong hash = 14695981039346656037;
+			foreach (byte b in Encoding.UTF8.GetBytes(name))
+			{
+				hash = unchecked(hash * 1099511628211);
+				hash ^= b;
+			}
+			return unchecked((long) hash);
+		}
+
+		// The vanilla overworld day-cycle markers (time within the 24000-tick day).
+		private static readonly (string Name, int Time)[] DayCycleMarkers =
+		{
+			("minecraft:sunrise", 23000),
+			("minecraft:night", 13000),
+			("minecraft:noon", 6000),
+			("minecraft:midnight", 18000),
+			("minecraft:day", 1000),
+			("minecraft:sunset", 12000),
+		};
+
+		// sync_state payload: the overworld clock's current time, from the level.
+		public virtual void SendWorldClockState()
+		{
+			var packet = McpeSyncWorldClocks.CreateObject();
+			packet.payloadType = 0;
+			packet.SyncStates.Add(new SyncWorldClockStateData
+			{
+				ClockId = Fnv1_64("minecraft:overworld"),
+				Time = (int) Level.WorldTime,
+				Paused = !Level.DoDaylightcycle
+			});
+			SendPacket(packet);
+		}
+
+		// initialize_registry payload: the overworld clock and its day-cycle markers.
+		public virtual void SendWorldClockRegistry()
+		{
+			var clock = new WorldClockData
+			{
+				Id = Fnv1_64("minecraft:overworld"),
+				Name = "minecraft:overworld",
+				Time = (int) Level.WorldTime,
+				Paused = !Level.DoDaylightcycle
+			};
+			foreach ((string name, int time) in DayCycleMarkers)
+			{
+				clock.TimeMarkers.Add(new TimeMarkerData
+				{
+					Id = Fnv1_64(name),
+					Name = name,
+					Time = time,
+					Period = 24000
+				});
+			}
+
+			var packet = McpeSyncWorldClocks.CreateObject();
+			packet.payloadType = 1;
+			packet.Clocks.Add(clock);
+			SendPacket(packet);
+		}
+
+		// The player's personal (bed/anchor) spawn. MiNET does not track one yet, so this is
+		// vanilla's undefined-position sentinel (INT32_MIN, -1, INT32_MIN in dimension 3).
+		// Distinct from SendSetSpawnPosition, which announces the WORLD spawn (type 1).
+		public virtual void SendPlayerSpawnPosition()
+		{
+			var undefined = new BlockCoordinates(int.MinValue, -1, int.MinValue);
+
+			var packet = McpeSetSpawnPosition.CreateObject();
+			packet.spawnType = 0; // player spawn
+			packet.coordinates = undefined;
+			packet.dimension = 3; // undefined
+			packet.unknownCoordinates = undefined;
+			SendPacket(packet);
+		}
+
+		public virtual void SendPlayerHotbar()
+		{
+			var packet = McpePlayerHotbar.CreateObject();
+			packet.selectedSlot = (uint) Inventory.InHandSlot;
+			packet.windowId = 0;
+			packet.selectSlot = true;
+			SendPacket(packet);
+		}
+
+		// MiNET does not generate structures, so the player is never inside one.
+		public virtual void SendCurrentStructureFeature()
+		{
+			var packet = McpeCurrentStructureFeature.CreateObject();
+			packet.currentFeature = "";
+			SendPacket(packet);
 		}
 
 		// Sends captured vanilla join content (see JoinCapture): fresh decode + re-encode of BDS
@@ -2533,12 +2658,7 @@ namespace MiNET
 		private void ResyncInventoryAfterFailedStackRequest()
 		{
 			SendPlayerInventory();
-
-			var hotbar = McpePlayerHotbar.CreateObject();
-			hotbar.selectedSlot = (uint) Inventory.InHandSlot;
-			hotbar.windowId = 0;
-			hotbar.selectSlot = true;
-			SendPacket(hotbar);
+			SendPlayerHotbar();
 		}
 
 		protected Item GetContainerItem(int containerId, int slot)
@@ -3245,8 +3365,10 @@ namespace MiNET
 				}
 				else
 				{
+					// Echo the id the client closed (vanilla answers with the allocated window id,
+					// e.g. 2 for the self-inventory pseudo window), never a hardcoded 0.
 					var closePacket = McpeContainerClose.CreateObject();
-					closePacket.windowId = 0;
+					closePacket.windowId = message?.windowId ?? 0;
 					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
 					closePacket.server = message == null ? true : false;
 					SendPacket(closePacket);
@@ -3309,10 +3431,16 @@ namespace MiNET
 				{
 					if (target == this)
 					{
+						// Mirrors vanilla's answer to a self open-inventory request (captured live
+						// from BDS 1.26.34): an ALLOCATED window id (2, never the reserved
+						// inventory id 0), type 255 (none), the player's block position and
+						// runtime entity id -1. Sending window id 0 here corrupts the client's
+						// own-inventory screen state.
 						var containerOpen = McpeContainerOpen.CreateObject();
-						containerOpen.windowId = 0;
+						containerOpen.windowId = 2;
 						containerOpen.type = 255;
-						containerOpen.runtimeEntityId = EntityManager.EntityIdSelf;
+						containerOpen.coordinates = (BlockCoordinates) KnownPosition;
+						containerOpen.runtimeEntityId = -1;
 						SendPacket(containerOpen);
 					}
 					else if (IsRiding) // Riding; Open inventory

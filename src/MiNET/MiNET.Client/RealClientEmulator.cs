@@ -118,6 +118,7 @@ namespace MiNET.Client
 				if (i == 30) SendPlayerAction(client, PlayerAction.AbortBreak, spawnBlock, BlockFace.Up);
 				if (i == 31) SendAnimate(client, null);
 				if (i == 40) SendInteractMouseOver(client);
+				if (i == 45) SendInteractOpenInventory(client);
 				if (i == 50) SendMobEquipment(client);
 				if (i == 55) SendBlockPickRequest(client, spawnBlock);
 				if (i == 60) SendItemStackRequest(client);
@@ -192,6 +193,18 @@ namespace MiNET.Client
 			var packet = McpeInteract.CreateObject();
 			packet.actionId = (byte) McpeInteract.Actions.MouseOver;
 			packet.targetRuntimeEntityId = 0;
+			packet.Position = null;
+			client.SendPacket(packet);
+		}
+
+		// What a real client sends when the player opens their own inventory/creative screen
+		// (observed live: actionId 6, target = own runtime id). Used to probe what the server
+		// answers - vanilla's reply (or silence) is the reference for MiNET's handler.
+		private static void SendInteractOpenInventory(MiNetClient client)
+		{
+			var packet = McpeInteract.CreateObject();
+			packet.actionId = (byte) McpeInteract.Actions.OpenInventory;
+			packet.targetRuntimeEntityId = client.EntityId;
 			packet.Position = null;
 			client.SendPacket(packet);
 		}
