@@ -954,12 +954,12 @@ namespace MiNET
 				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
 
 				SendWorldClockState();
-				SendCaptured("McpeJigsawStructureData");
-				SendCaptured("McpeVoxelShapes");
+				SendJigsawStructureData();
+				SendVoxelShapes();
 
 				SendStartGame();
 
-				SendCaptured("McpeSyncEntityProperty");
+				SendSyncEntityProperty();
 
 				SendItemRegistry();
 
@@ -981,14 +981,14 @@ namespace MiNET
 
 				SendUpdateAbilitiesPacket(); // vanilla sends abilities again after the 2nd player list
 
-				if (!SendCaptured("McpeBiomeDefinitionList")) SendBiomeDefinitionList();
+				SendBiomeDefinitionList();
 
-				if (!SendCaptured("McpeAvailableEntityIdentifiers")) SendAvailableEntityIdentifiers();
+				SendAvailableEntityIdentifiers();
 
-				SendCaptured("McpePlayerFog");
-				SendCaptured("McpeCameraPresets");
-				SendCaptured("McpeCameraAimAssistPresets");
-				SendCaptured("McpeCameraSpline");
+				SendPlayerFog();
+				SendCameraPresets();
+				SendCameraAimAssistPresets();
+				SendCameraSpline();
 
 				if (ChunkRadius == -1) ChunkRadius = 5;
 
@@ -996,7 +996,7 @@ namespace MiNET
 
 				SendCreativeInventory();
 
-				SendCaptured("McpeTrimData");
+				SendTrimData();
 
 				SendPlayerInventory();
 
@@ -1230,50 +1230,165 @@ namespace MiNET
 			SendPacket(packet);
 		}
 
+		// Entity identifier registry, byte-identical to vanilla BDS 1.26.34 (Data/entity_identifiers.json,
+		// exported from a decoded wire capture; see JoinSequenceData). MiNET does not generate this
+		// registry itself, so the captured document is sent verbatim rather than through EntityHelpers.
 		public virtual void SendAvailableEntityIdentifiers()
 		{
-			var nbt = new Nbt
-			{
-				NbtFile = new NbtFile
-				{
-					BigEndian = false,
-					UseVarInt = true,
-					RootTag = new NbtCompound("") {EntityHelpers.GenerateEntityIdentifiers()}
-				}
-			};
-
 			var pk = McpeAvailableEntityIdentifiers.CreateObject();
-			pk.namedtag = nbt;
+			pk.namedtag = JoinSequenceData.NbtFromBase64(JoinSequenceData.EntityIdentifiers.Value.NbtB64);
 			SendPacket(pk);
 		}
 
+		// Biome definitions, byte-identical to vanilla BDS 1.26.34 (Data/biome_definitions.json,
+		// exported from a decoded wire capture; see JoinSequenceData). MiNET's own Biome data
+		// (BiomeUtils) does not carry every wire field (snow/foliage colour, depth, scale, map
+		// water colour, tags), so the captured definitions are sent verbatim.
 		public virtual void SendBiomeDefinitionList()
 		{
 			var pk = McpeBiomeDefinitionList.CreateObject();
+			pk.Definitions = JoinSequenceData.BiomeDefinitions.Value.Definitions;
+			pk.Strings = JoinSequenceData.BiomeDefinitions.Value.Strings;
+			SendPacket(pk);
+		}
 
-			var strings = new List<string>();
-			foreach (Biome biome in BiomeUtils.Biomes)
+		// Jigsaw structure sync data, byte-identical to vanilla BDS 1.26.34 (Data/jigsaw_structures.json).
+		// MiNET does not generate structures, so this is the captured document sent verbatim.
+		public virtual void SendJigsawStructureData()
+		{
+			var pk = McpeJigsawStructureData.CreateObject();
+			pk.structureData = JoinSequenceData.NbtFromBase64(JoinSequenceData.JigsawStructureData.Value.NbtB64);
+			SendPacket(pk);
+		}
+
+		// Voxel collision shapes, byte-identical to vanilla BDS 1.26.34 (Data/voxel_shapes.json).
+		public virtual void SendVoxelShapes()
+		{
+			var data = JoinSequenceData.VoxelShapes.Value;
+			var pk = McpeVoxelShapes.CreateObject();
+			pk.Shapes = data.Shapes;
+			pk.NameMap = data.NameMap;
+			pk.CustomShapeCount = data.CustomShapeCount;
+			SendPacket(pk);
+		}
+
+		// One SyncEntityProperty frame per entity type, byte-identical to vanilla BDS 1.26.34
+		// (Data/entity_properties.json), sent in capture order (0012..0024).
+		public virtual void SendSyncEntityProperty()
+		{
+			foreach (var entry in JoinSequenceData.EntityProperties.Value.Entries)
 			{
-				if (string.IsNullOrEmpty(biome.DefinitionName)) continue;
+				var pk = McpeSyncEntityProperty.CreateObject();
+				pk.namedtag = JoinSequenceData.NbtFromBase64(entry.NbtB64);
+				SendPacket(pk);
+			}
+		}
 
-				int nameIndex = strings.IndexOf(biome.DefinitionName);
-				if (nameIndex < 0)
+		// Client fog stack, byte-identical to vanilla BDS 1.26.34 (Data/player_fog.json).
+		public virtual void SendPlayerFog()
+		{
+			var pk = McpePlayerFog.CreateObject();
+			pk.Stack = JoinSequenceData.PlayerFog.Value.Stack;
+			SendPacket(pk);
+		}
+
+		// Armor trim patterns/materials, byte-identical to vanilla BDS 1.26.34 (Data/trim_data.json).
+		public virtual void SendTrimData()
+		{
+			var data = JoinSequenceData.TrimData.Value;
+			var pk = McpeTrimData.CreateObject();
+			pk.Patterns = data.Patterns;
+			pk.Materials = data.Materials;
+			SendPacket(pk);
+		}
+
+		// Camera presets, byte-identical to vanilla BDS 1.26.34 (Data/camera_presets.json). Vector2/
+		// Vector3-valued fields are stored as plain x/y/z DTOs (JoinSequenceData.Vec2Dto/Vec3Dto)
+		// since System.Numerics vectors are not JSON-serializable properties, and converted here.
+		public virtual void SendCameraPresets()
+		{
+			var pk = McpeCameraPresets.CreateObject();
+			foreach (var dto in JoinSequenceData.CameraPresets.Value.Presets)
+			{
+				var preset = new CameraPreset
 				{
-					nameIndex = strings.Count;
-					strings.Add(biome.DefinitionName);
+					Name = dto.Name,
+					Parent = dto.Parent,
+					PositionX = dto.PositionX,
+					PositionY = dto.PositionY,
+					PositionZ = dto.PositionZ,
+					RotationX = dto.RotationX,
+					RotationY = dto.RotationY,
+					RotationSpeed = dto.RotationSpeed,
+					SnapToTarget = dto.SnapToTarget,
+					HorizontalRotationLimit = dto.HorizontalRotationLimit?.ToVector2(),
+					VerticalRotationLimit = dto.VerticalRotationLimit?.ToVector2(),
+					ContinueTargeting = dto.ContinueTargeting,
+					TrackingRadius = dto.TrackingRadius,
+					Offset = dto.Offset?.ToVector2(),
+					EntityOffset = dto.EntityOffset?.ToVector3(),
+					Radius = dto.Radius,
+					YawLimitMin = dto.YawLimitMin,
+					YawLimitMax = dto.YawLimitMax,
+					AudioListener = dto.AudioListener,
+					PlayerEffects = dto.PlayerEffects,
+					ControlScheme = dto.ControlScheme,
+				};
+
+				if (dto.AimAssist != null)
+				{
+					preset.AimAssist = new CameraPresetAimAssist
+					{
+						PresetId = dto.AimAssist.PresetId,
+						TargetMode = dto.AimAssist.TargetMode,
+						Angle = dto.AimAssist.Angle?.ToVector2(),
+						Distance = dto.AimAssist.Distance,
+					};
 				}
 
-				pk.Definitions.Add(new BiomeDefinitionEntry
-				{
-					NameIndex = (short) nameIndex,
-					BiomeId = (ushort) biome.Id,
-					Temperature = biome.Temperature,
-					Downfall = biome.Downfall,
-					Rain = biome.Downfall > 0,
-				});
+				pk.Presets.Add(preset);
 			}
-			pk.Strings = strings;
+			SendPacket(pk);
+		}
 
+		// Aim-assist categories/presets, byte-identical to vanilla BDS 1.26.34
+		// (Data/camera_aim_assist_presets.json).
+		public virtual void SendCameraAimAssistPresets()
+		{
+			var data = JoinSequenceData.CameraAimAssistPresets.Value;
+			var pk = McpeCameraAimAssistPresets.CreateObject();
+			pk.Categories = data.Categories;
+			pk.Presets = data.Presets;
+			pk.Operation = data.Operation;
+			SendPacket(pk);
+		}
+
+		// Camera splines, byte-identical to vanilla BDS 1.26.34 (Data/camera_spline.json). Vector3
+		// control/rotation points are stored as plain x/y/z DTOs, converted here (see SendCameraPresets).
+		public virtual void SendCameraSpline()
+		{
+			var pk = McpeCameraSpline.CreateObject();
+			foreach (var dto in JoinSequenceData.CameraSpline.Value.Splines)
+			{
+				var spline = new CameraSplineDefinition
+				{
+					Name = dto.Name,
+					TotalTime = dto.TotalTime,
+					SplineType = dto.SplineType,
+				};
+				foreach (var point in dto.ControlPoints) spline.ControlPoints.Add(point.ToVector3());
+				foreach (var option in dto.ProgressKeyFrames) spline.ProgressKeyFrames.Add(option);
+				foreach (var option in dto.RotationKeyFrames)
+				{
+					spline.RotationKeyFrames.Add(new CameraRotationOption
+					{
+						Value = option.Value.ToVector3(),
+						Time = option.Time,
+						Easing = option.Easing,
+					});
+				}
+				pk.Splines.Add(spline);
+			}
 			SendPacket(pk);
 		}
 

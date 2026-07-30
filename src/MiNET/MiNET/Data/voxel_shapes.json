@@ -1,0 +1,54 @@
+{
+  "shapes": [
+    {
+      "cells": {
+        "xSize": 0,
+        "ySize": 0,
+        "zSize": 0,
+        "storage": []
+      },
+      "xCoordinates": [
+        0
+      ],
+      "yCoordinates": [
+        0
+      ],
+      "zCoordinates": [
+        0
+      ]
+    },
+    {
+      "cells": {
+        "xSize": 1,
+        "ySize": 1,
+        "zSize": 1,
+        "storage": [
+          1
+        ]
+      },
+      "xCoordinates": [
+        0,
+        1
+      ],
+      "yCoordinates": [
+        0,
+        1
+      ],
+      "zCoordinates": [
+        0,
+        1
+      ]
+    }
+  ],
+  "nameMap": [
+    {
+      "name": "minecraft:empty",
+      "id": 0
+    },
+    {
+      "name": "minecraft:unit_cube",
+      "id": 1
+    }
+  ],
+  "customShapeCount": 0
+}
