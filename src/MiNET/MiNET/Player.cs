@@ -3579,7 +3579,7 @@ namespace MiNET
 			// and the old constant id may pin poisoned cache entries from early broken sessions.
 			startGame.levelId = "minet-" + (Level.LevelName ?? "world");
 			startGame.worldName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
-			startGame.premiumWorldTemplateId = "";
+			startGame.premiumWorldTemplateId = "00000000-0000-0000-0000-000000000000"; // vanilla sends the zero uuid as a string, not empty
 			startGame.isTrial = false;
 			// Chunk palettes are written as network hashes (see SubChunk.WriteStore), matching
 			// vanilla BDS. The flag and the chunk encoding must always agree.
@@ -3594,9 +3594,15 @@ namespace MiNET
 			//startGame.blockPalette = BlockFactory.BlockPalette;
 
 			startGame.enableNewInventorySystem = true;
-			startGame.blockPaletteChecksum = 0;
+			// TODO(1001): compute from our block palette instead of mirroring. Valid today because
+			// our palette IS the vanilla 1.26.34 palette, so vanilla's checksum is our checksum.
+			startGame.blockPaletteChecksum = 17428865979533043624;
 			startGame.serverVersion = McpeProtocolInfo.GameVersion;
 			startGame.worldTemplateId = new UUID(new byte[16]);
+			// Session correlation id in vanilla's "<raknet>xxxx-xxxx-xxxx-xxxx" shape.
+			startGame.multiplayerCorrelationId = "<raknet>" + Guid.NewGuid().ToString("N").Substring(0, 16).Insert(4, "-").Insert(9, "-").Insert(14, "-");
+			// Vanilla sends the join-info block with all three optional sub-blocks absent.
+			startGame.hasServerJoinInfo = true;
 
 			SendPacket(startGame);
 		}

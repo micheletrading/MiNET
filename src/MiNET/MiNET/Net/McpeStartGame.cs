@@ -344,8 +344,9 @@ namespace MiNET.Net
 
 		/// <summary>
 		///     Reads the (currently unused by MiNET) server_join_info container so the remainder of the
-		///     packet stays in sync. This is only sent when has_server_join_info is true (Realms gathering
-		///     features), which a vanilla dedicated server never does.
+		///     packet stays in sync. Vanilla BDS 1.26.34 DOES send it with all three optional
+		///     sub-blocks absent (verified live 2026-07-30); the sub-block content is Realms
+		///     gathering features.
 		/// </summary>
 		private void ReadServerJoinInfo()
 		{
