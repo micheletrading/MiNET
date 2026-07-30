@@ -167,6 +167,42 @@ namespace MiNET.Items
 		private static readonly Lazy<Dictionary<string, string>> _blockItemNameMap = new Lazy<Dictionary<string, string>>(() =>
 			new Dictionary<string, string>(ResourceUtil.ReadResource<Dictionary<string, string>>("block_item_name_map.json", typeof(Item), "Data"), StringComparer.OrdinalIgnoreCase));
 
+		private static string NormalizeItemKey(string name)
+		{
+			return name.ToLowerInvariant().Replace("_", "").Replace("minecraft:", "");
+		}
+
+		// Typed classes for plain (non-block) items, keyed by the class name minus its "Item"
+		// prefix, normalized the same way GetItemIdByName() normalizes a lookup name. Discovered
+		// by reflection so newly generated classes need no hand-maintained id switch entry.
+		//
+		// Also carries the registry's renames (r16_to_current_item_map.json "simple" section):
+		// when the registry renamed an identity (e.g. "minecraft:melon" -> "minecraft:melon_slice"),
+		// the class written for the old name is aliased under the new, current name too. The old
+		// name stays the key that resolves - the alias only adds the current name as a second way
+		// in; it never replaces or renumbers anything.
+		private static readonly Lazy<Dictionary<string, Type>> _typedItemTypeByClassName = new Lazy<Dictionary<string, Type>>(() =>
+		{
+			var map = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+			foreach (Type t in typeof(Item).Assembly.GetTypes())
+			{
+				if (t == typeof(Item) || t == typeof(ItemBlock) || !typeof(Item).IsAssignableFrom(t) || t.IsAbstract) continue;
+				if (t.GetConstructor(Type.EmptyTypes) == null) continue;
+				if (!t.Name.StartsWith("Item", StringComparison.Ordinal)) continue;
+				map.TryAdd(NormalizeItemKey(t.Name.Substring(4)), t);
+			}
+
+			var r16 = ResourceUtil.ReadResource<R16ToCurrentMap>("r16_to_current_item_map.json", typeof(Item), "Data");
+			foreach (KeyValuePair<string, string> rename in r16.Simple)
+			{
+				string oldKey = NormalizeItemKey(rename.Key);
+				string newKey = NormalizeItemKey(rename.Value);
+				if (map.TryGetValue(oldKey, out Type existing)) map.TryAdd(newKey, existing);
+			}
+
+			return map;
+		});
+
 		public static Item GetItem(string name, short metadata = 0, int count = 1)
 		{
 			short id = GetItemIdByName(name);
@@ -177,8 +213,9 @@ namespace MiNET.Items
 
 		// Name-first resolution: registry string ids are the durable identity in modern Bedrock.
 		// Block-items resolve name -> block name (identity, or the exceptions map) -> palette
-		// default state -> ItemBlock; plain items resolve to a generic Item carrying the name and
-		// its registry network id. Legacy short ids are not involved.
+		// default state -> ItemBlock; plain items resolve to a typed class when the registry
+		// name (or a rename of it) has one, else a generic Item carrying the name and its
+		// registry network id. Legacy short ids are not involved.
 		public static Item GetItemByName(string name, short metadata = 0, int count = 1)
 		{
 			if (string.IsNullOrEmpty(name)) return new ItemAir();
@@ -191,6 +228,10 @@ namespace MiNET.Items
 			if (block != null)
 			{
 				item = new ItemBlock(block, metadata);
+			}
+			else if (_typedItemTypeByClassName.Value.TryGetValue(NormalizeItemKey(name), out Type itemType))
+			{
+				item = (Item) Activator.CreateInstance(itemType);
 			}
 			else
 			{

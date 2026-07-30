@@ -447,6 +447,41 @@ namespace MiNET.Blocks
 			return result;
 		});
 
+		// Typed classes for blocks that never had a legacy numeric id (everything the palette
+		// gained after the 1.16 flattening: GetBlockById()'s switch stops at 559). These are
+		// discovered by reflection instead of a hand-maintained id switch, keyed by the class
+		// name the generator derives from the palette name (see GenerateBlocksTests.CodeName):
+		// PascalCase with underscores removed, e.g. "minecraft:amethyst_block" -> "AmethystBlock".
+		private static readonly Lazy<Dictionary<string, Type>> _typedBlockTypeByClassName = new Lazy<Dictionary<string, Type>>(() =>
+		{
+			var map = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+			foreach (Type t in typeof(Block).Assembly.GetTypes())
+			{
+				if (t == typeof(Block) || !typeof(Block).IsAssignableFrom(t) || t.IsAbstract) continue;
+				if (t.GetConstructor(Type.EmptyTypes) == null) continue;
+				map.TryAdd(t.Name, t);
+			}
+			return map;
+		});
+
+		private static string PaletteNameToClassName(string name)
+		{
+			string bare = name.Replace("minecraft:", "");
+			var sb = new StringBuilder();
+			bool upper = true;
+			foreach (char c in bare)
+			{
+				if (c == '_')
+				{
+					upper = true;
+					continue;
+				}
+				sb.Append(upper ? char.ToUpperInvariant(c) : c);
+				upper = false;
+			}
+			return sb.ToString();
+		}
+
 		public static Block GetBlockByPaletteName(string name)
 		{
 			if (string.IsNullOrEmpty(name)) return null;
@@ -457,6 +492,14 @@ namespace MiNET.Blocks
 			if (typed != null) return typed;
 
 			if (!_defaultStateByName.Value.TryGetValue(name, out BlockStateContainer defaultState)) return null;
+
+			// Typed class discovered by reflection, for blocks generated without a legacy id.
+			if (_typedBlockTypeByClassName.Value.TryGetValue(PaletteNameToClassName(name), out Type blockType))
+			{
+				var typedBlock = (Block) Activator.CreateInstance(blockType);
+				typedBlock.SetState(defaultState);
+				return typedBlock;
+			}
 
 			var block = new Block(defaultState.Name, defaultState.Id);
 			block.SetState(defaultState);

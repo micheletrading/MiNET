@@ -372,6 +372,278 @@ namespace MiNET.Test
 			}
 		}
 
+		/// <summary>
+		///     Writes MiNET/Blocks/BlockData.generated.cs: a partial <see cref="Block" /> subclass for every
+		///     distinct block palette name that still resolves to the generic <see cref="Block" /> class (no
+		///     legacy id, no hand-written class). Discovered and instantiated by
+		///     <see cref="BlockFactory.GetBlockByPaletteName" />'s reflection lookup, so re-running this after
+		///     a fresh build only emits whatever is still missing (hand-written and previously generated
+		///     classes are skipped). Run manually (un-Ignore, run, re-Ignore) after updating the block palette.
+		/// </summary>
+		[TestMethod]
+		public void GenerateBlockDataClasses()
+		{
+			string repoRoot = FindRepoRoot();
+			string outputPath = Path.Combine(repoRoot, "src", "MiNET", "MiNET", "Blocks", "BlockData.generated.cs");
+
+			var blockPalette = BlockFactory.BlockPalette;
+			var seenClassNames = new HashSet<string>();
+			int emitted = 0;
+
+			using FileStream file = File.Create(outputPath);
+			var writer = new IndentedTextWriter(new StreamWriter(file, new System.Text.UTF8Encoding(true)), "\t");
+
+			WriteGeneratedHeader(writer);
+			writer.WriteLine("using System;");
+			writer.WriteLine("using System.Collections.Generic;");
+			writer.WriteLine("using MiNET.Utils;");
+			writer.WriteLineNoTabs("");
+			writer.WriteLine("namespace MiNET.Blocks");
+			writer.WriteLine("{");
+			writer.Indent++;
+
+			foreach (IGrouping<string, BlockStateContainer> blockstateGrouping in blockPalette.OrderBy(record => record.Name).ThenBy(record => record.Data).GroupBy(record => record.Name))
+			{
+				var currentBlockState = blockstateGrouping.First();
+				var defaultBlockState = blockstateGrouping.FirstOrDefault(bs => bs.Data == 0) ?? currentBlockState;
+
+				Block existingBlock = BlockFactory.GetBlockByPaletteName(currentBlockState.Name);
+				if (existingBlock.GetType() != typeof(Block)) continue; // already typed: hand-written, previously generated, or discovered by reflection
+
+				string blockClassName = CodeName(currentBlockState.Name.Replace("minecraft:", ""), true);
+				if (!seenClassNames.Add(blockClassName))
+				{
+					Log.Warn($"GenerateBlockDataClasses: skipping duplicate class name {blockClassName} for {currentBlockState.Name}");
+					continue;
+				}
+
+				emitted++;
+
+				writer.WriteLineNoTabs("");
+				writer.WriteLine($"public partial class {blockClassName} : Block // {currentBlockState.Name}");
+				writer.WriteLine("{");
+				writer.Indent++;
+
+				var bits = new List<BlockStateByte>();
+				foreach (var state in blockstateGrouping.First().States)
+				{
+					var q = blockstateGrouping.SelectMany(c => c.States);
+
+					switch (state)
+					{
+						case BlockStateByte blockStateByte:
+						{
+							var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateByte) d).Value).Distinct().OrderBy(s => s).ToList();
+							byte defaultVal = ((BlockStateByte) defaultBlockState.States.First(s => s.Name == state.Name)).Value;
+							if (values.Min() == 0 && values.Max() == 1)
+							{
+								bits.Add(blockStateByte);
+								writer.WriteLine($"[StateBit] public bool {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {(defaultVal == 1 ? "true" : "false")};");
+							}
+							else
+							{
+								writer.WriteLine($"[StateRange({values.Min()}, {values.Max()})] public byte {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {defaultVal};");
+							}
+							break;
+						}
+						case BlockStateInt blockStateInt:
+						{
+							var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateInt) d).Value).Distinct().OrderBy(s => s).ToList();
+							int defaultVal = ((BlockStateInt) defaultBlockState.States.First(s => s.Name == state.Name)).Value;
+							writer.WriteLine($"[StateRange({values.Min()}, {values.Max()})] public int {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {defaultVal};");
+							break;
+						}
+						case BlockStateString blockStateString:
+						{
+							var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateString) d).Value).Distinct().ToList();
+							string defaultVal = ((BlockStateString) defaultBlockState.States.First(s => s.Name == state.Name)).Value;
+							if (values.Count > 1)
+							{
+								writer.WriteLine($"[StateEnum({string.Join(',', values.Select(v => $"\"{v}\""))})]");
+							}
+							writer.WriteLine($"public string {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = \"{defaultVal}\";");
+							break;
+						}
+						default:
+							throw new ArgumentOutOfRangeException(nameof(state));
+					}
+				}
+
+				writer.WriteLineNoTabs("");
+				writer.WriteLine($"public {blockClassName}() : base({currentBlockState.Id})");
+				writer.WriteLine("{");
+				writer.Indent++;
+				writer.WriteLine("IsGenerated = true;");
+				writer.Indent--;
+				writer.WriteLine("}");
+
+				writer.WriteLineNoTabs("");
+				writer.WriteLine("public override void SetState(List<IBlockState> states)");
+				writer.WriteLine("{");
+				writer.Indent++;
+				writer.WriteLine("foreach (var state in states)");
+				writer.WriteLine("{");
+				writer.Indent++;
+				writer.WriteLine("switch(state)");
+				writer.WriteLine("{");
+				writer.Indent++;
+
+				foreach (var state in blockstateGrouping.First().States)
+				{
+					writer.WriteLine($"case {state.GetType().Name} s when s.Name == \"{state.Name}\":");
+					writer.Indent++;
+					writer.WriteLine($"{CodeName(state.Name.Replace("minecraft:", ""), true)} = {(bits.Contains(state) ? "Convert.ToBoolean(s.Value)" : "s.Value")};");
+					writer.WriteLine("break;");
+					writer.Indent--;
+				}
+
+				writer.Indent--;
+				writer.WriteLine("} // switch");
+				writer.Indent--;
+				writer.WriteLine("} // foreach");
+				writer.Indent--;
+				writer.WriteLine("} // method");
+
+				writer.WriteLineNoTabs("");
+				writer.WriteLine("public override BlockStateContainer GetState()");
+				writer.WriteLine("{");
+				writer.Indent++;
+				writer.WriteLine("var record = new BlockStateContainer();");
+				writer.WriteLine($"record.Name = \"{blockstateGrouping.First().Name}\";");
+				writer.WriteLine($"record.Id = {blockstateGrouping.First().Id};");
+				foreach (var state in blockstateGrouping.First().States)
+				{
+					string propName = CodeName(state.Name.Replace("minecraft:", ""), true);
+					writer.WriteLine($"record.States.Add(new {state.GetType().Name} {{Name = \"{state.Name}\", Value = {(bits.Contains(state) ? $"Convert.ToByte({propName})" : propName)}}});");
+				}
+				writer.WriteLine("return record;");
+				writer.Indent--;
+				writer.WriteLine("} // method");
+
+				writer.Indent--;
+				writer.WriteLine("} // class");
+			}
+
+			writer.Indent--;
+			writer.WriteLine("}");
+			writer.Flush();
+
+			Log.Info($"GenerateBlockDataClasses: emitted {emitted} block classes to {outputPath}");
+		}
+
+		/// <summary>
+		///     Writes MiNET/Items/ItemData.generated.cs: a plain (or tool/armor-base) <see cref="Item" /> subclass
+		///     for every itemstates.json entry that isn't a block-item and still resolves to the generic
+		///     <see cref="Item" /> class. Renamed identities (r16_to_current_item_map.json's "simple" section)
+		///     are already picked up as aliases by <see cref="ItemFactory" />'s reflection lookup and so are
+		///     skipped here automatically - only genuinely new identities get a fresh class. Run manually
+		///     (un-Ignore, run, re-Ignore) after updating itemstates.json, ideally after
+		///     <see cref="GenerateBlockDataClasses" /> (that one starves this one of the block-item names).
+		/// </summary>
+		[TestMethod]
+		public void GenerateItemDataClasses()
+		{
+			string repoRoot = FindRepoRoot();
+			string outputPath = Path.Combine(repoRoot, "src", "MiNET", "MiNET", "Items", "ItemData.generated.cs");
+
+			var seenClassNames = new HashSet<string>();
+			int emitted = 0;
+
+			using FileStream file = File.Create(outputPath);
+			var writer = new IndentedTextWriter(new StreamWriter(file, new System.Text.UTF8Encoding(true)), "\t");
+
+			WriteGeneratedHeader(writer);
+			writer.WriteLine("namespace MiNET.Items");
+			writer.WriteLine("{");
+			writer.Indent++;
+
+			foreach (Itemstate state in ItemFactory.Itemstates.OrderBy(s => s.Name))
+			{
+				Item item = ItemFactory.GetItem(state.Name);
+				if (item is ItemBlock) continue; // covered by GenerateBlockDataClasses via the block palette name
+				if (item.GetType() != typeof(Item)) continue; // already typed: hand-written or a rename alias
+
+				string clazzName = CodeName(state.Name.Replace("minecraft:", ""), true);
+				string className = "Item" + clazzName;
+				if (!seenClassNames.Add(className))
+				{
+					Log.Warn($"GenerateItemDataClasses: skipping duplicate class name {className} for {state.Name}");
+					continue;
+				}
+
+				string baseClazz = "Item";
+				baseClazz = clazzName.EndsWith("Axe") ? "ItemAxe" : baseClazz;
+				baseClazz = clazzName.EndsWith("Shovel") ? "ItemShovel" : baseClazz;
+				baseClazz = clazzName.EndsWith("Pickaxe") ? "ItemPickaxe" : baseClazz;
+				baseClazz = clazzName.EndsWith("Hoe") ? "ItemHoe" : baseClazz;
+				baseClazz = clazzName.EndsWith("Sword") ? "ItemSword" : baseClazz;
+				baseClazz = clazzName.EndsWith("Helmet") ? "ArmorHelmetBase" : baseClazz;
+				baseClazz = clazzName.EndsWith("Chestplate") ? "ArmorChestplateBase" : baseClazz;
+				baseClazz = clazzName.EndsWith("Leggings") ? "ArmorLeggingsBase" : baseClazz;
+				baseClazz = clazzName.EndsWith("Boots") ? "ArmorBootsBase" : baseClazz;
+
+				emitted++;
+
+				writer.WriteLineNoTabs("");
+				writer.WriteLine($"public partial class {className} : {baseClazz} // {state.Name}");
+				writer.WriteLine("{");
+				writer.Indent++;
+				writer.WriteLine($"public {className}() : base(\"{state.Name}\", {state.Id}) {{ }}");
+				writer.Indent--;
+				writer.WriteLine("}");
+			}
+
+			writer.Indent--;
+			writer.WriteLine("}");
+			writer.Flush();
+
+			Log.Info($"GenerateItemDataClasses: emitted {emitted} item classes to {outputPath}");
+		}
+
+		private static string FindRepoRoot()
+		{
+			DirectoryInfo dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+			while (dir != null && !File.Exists(Path.Combine(dir.FullName, "src", "MiNET", "MiNET.sln")))
+			{
+				dir = dir.Parent;
+			}
+
+			if (dir == null) throw new DirectoryNotFoundException("Could not locate MiNET.sln above " + AppDomain.CurrentDomain.BaseDirectory);
+
+			return dir.FullName;
+		}
+
+		private static void WriteGeneratedHeader(IndentedTextWriter writer)
+		{
+			writer.WriteLine("#region LICENSE");
+			writer.WriteLineNoTabs("");
+			writer.WriteLine("// The contents of this file are subject to the Common Public Attribution");
+			writer.WriteLine("// License Version 1.0. (the \"License\"); you may not use this file except in");
+			writer.WriteLine("// compliance with the License. You may obtain a copy of the License at");
+			writer.WriteLine("// https://github.com/NiclasOlofsson/MiNET/blob/master/LICENSE.");
+			writer.WriteLine("// The License is based on the Mozilla Public License Version 1.1, but Sections 14");
+			writer.WriteLine("// and 15 have been added to cover use of software over a computer network and");
+			writer.WriteLine("// provide for limited attribution for the Original Developer. In addition, Exhibit A has");
+			writer.WriteLine("// been modified to be consistent with Exhibit B.");
+			writer.WriteLine("//");
+			writer.WriteLine("// Software distributed under the License is distributed on an \"AS IS\" basis,");
+			writer.WriteLine("// WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for");
+			writer.WriteLine("// the specific language governing rights and limitations under the License.");
+			writer.WriteLine("//");
+			writer.WriteLine("// The Original Code is MiNET.");
+			writer.WriteLine("//");
+			writer.WriteLine("// The Original Developer is the Initial Developer.  The Initial Developer of");
+			writer.WriteLine("// the Original Code is Niclas Olofsson.");
+			writer.WriteLine("//");
+			writer.WriteLine("// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.");
+			writer.WriteLine("// All Rights Reserved.");
+			writer.WriteLineNoTabs("");
+			writer.WriteLine("#endregion");
+			writer.WriteLineNoTabs("");
+			writer.WriteLine("// GENERATED CODE. DON'T EDIT BY HAND.");
+			writer.WriteLineNoTabs("");
+		}
+
 		public string CodeName(string name, bool firstUpper = false)
 		{
 			//name = name.ToLowerInvariant();
