@@ -40,6 +40,14 @@ namespace MiNET.Crafting
 	{
 		public UUID Id { get; set; } = new UUID(Guid.NewGuid().ToString());
 		public string Block { get; set; }
+
+		/// <summary>
+		///     The recipe's network id: the handle the client sends back in a CraftRecipe /
+		///     CraftRecipeAuto item-stack request action. Assigned by <see cref="RecipeManager" /> when the
+		///     recipe enters the registry (never stored in recipes.json - it is server-assigned identity,
+		///     not recipe data), and 0 for a recipe that isn't registered.
+		/// </summary>
+		public int NetworkId { get; set; }
 	}
 
 	/// <summary>
@@ -75,12 +83,14 @@ namespace MiNET.Crafting
 		//public const TYPE_FIREWORKS = "00000000-0000-0000-0000-000000000002";
 		//public const TYPE_MAP_LOCKING_CARTOGRAPHY = "602234E4-CAC1-4353-8BB7-B1EBFF70024B";
 
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 	}
 
 	public class ShapelessRecipe : Recipe
 	{
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 		public List<Item> Input { get; private set; }
 		public List<Item> Result { get; private set; }
 
@@ -121,7 +131,8 @@ namespace MiNET.Crafting
 
 	public class ShapedRecipe : Recipe
 	{
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 		public int Width { get; set; }
 		public int Height { get; set; }
 		public Item[] Input { get; set; }
@@ -191,7 +202,8 @@ namespace MiNET.Crafting
 		public Item Addition { get; set; }
 		public Item Result { get; set; }
 		public string Tag { get; set; }
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 	}
 
 	/// <summary>Smithing-table "trim" recipe (template + input + addition, no explicit result item). Not buildable by MiNET yet; modeled only so decoded instances round-trip.</summary>
@@ -201,7 +213,8 @@ namespace MiNET.Crafting
 		public Item Template { get; set; }
 		public Item Input { get; set; }
 		public Item Addition { get; set; }
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 	}
 
 	public class PotionContainerChangeRecipe

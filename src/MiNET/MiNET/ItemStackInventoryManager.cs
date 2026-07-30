@@ -26,7 +26,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using fNbt;
 using log4net;
+using MiNET.Crafting;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Utils;
@@ -47,14 +49,19 @@ namespace MiNET
 		public virtual List<StackResponseContainerInfo> HandleItemStackActions(int requestId, ItemStackActionList actions)
 		{
 			var stackResponses = new List<StackResponseContainerInfo>();
-			uint recipeNetworkId = 0;
+			_activeRecipe = null;
 			foreach (ItemStackAction stackAction in actions)
 			{
 				switch (stackAction)
 				{
 					case CraftAction craftAction:
 					{
-						recipeNetworkId = ProcessCraftAction(craftAction);
+						ProcessCraftAction(craftAction);
+						break;
+					}
+					case CraftAutoAction craftAutoAction:
+					{
+						ProcessCraftAutoAction(craftAutoAction);
 						break;
 					}
 					case CraftCreativeAction craftCreativeAction:
@@ -429,6 +436,10 @@ namespace MiNET
 
 		protected virtual void ProcessCraftResultDeprecatedAction(CraftResultDeprecatedAction action)
 		{
+			// The client's own claim about what it crafted. Whenever the request named a recipe, the
+			// registry already produced the output (ProcessCraftAction) and this claim is ignored.
+			if (_activeRecipe != null) return;
+
 			//BUG: Won't work proper with anvil anymore.
 			if (GetContainerItem(59, 50).UniqueId > 0) return;
 
@@ -444,9 +455,62 @@ namespace MiNET
 		{
 		}
 
-		protected virtual uint ProcessCraftAction(CraftAction action)
+		/// <summary>
+		///     The recipe resolved for the request currently being handled, or null when the request named
+		///     no recipe (creative pick, anvil merge, loom, ...).
+		/// </summary>
+		protected Recipe _activeRecipe;
+
+		protected virtual void ProcessCraftAction(CraftAction action)
 		{
-			return action.RecipeNetworkId;
+			_activeRecipe = SetRecipeResult(ResolveRecipe(action.RecipeNetworkId));
+		}
+
+		// Recipe-book "craft all/auto": same resolution, same server-produced output. The ingredients the
+		// client listed in the action are ignored; the Consume actions that follow do the consuming.
+		protected virtual void ProcessCraftAutoAction(CraftAutoAction action)
+		{
+			_activeRecipe = SetRecipeResult(ResolveRecipe(action.RecipeNetworkId));
+		}
+
+		// A recipe network id the server never published is a desync, or a crafting exploit attempt:
+		// throwing lands in Player's item-stack error path, which rejects the request and resyncs the
+		// client's inventory.
+		private Recipe ResolveRecipe(uint recipeNetworkId)
+		{
+			if (!RecipeManager.TryGetByNetworkId((int) recipeNetworkId, out Recipe recipe))
+			{
+				throw new Exception($"Unknown recipe network id: {recipeNetworkId}");
+			}
+
+			return recipe;
+		}
+
+		// Puts the recipe's own output in the crafting result slot; the client's CraftResultsDeprecated
+		// items are never the source of truth. Returns the recipe when the registry produced the output,
+		// or null for recipe kinds MiNET has no server-side output for yet (multi recipes: map cloning,
+		// banner patterns, firework assembly), which keep using the deprecated-result flow.
+		private Recipe SetRecipeResult(Recipe recipe)
+		{
+			Item result = recipe switch
+			{
+				ShapedRecipe shaped => shaped.Result.FirstOrDefault(),
+				ShapelessRecipe shapeless => shapeless.Result.FirstOrDefault(),
+				SmeltingRecipe smelting => smelting.Result,
+				SmithingTransformRecipe transform => transform.Result,
+				_ => null
+			};
+
+			if (result == null || result.Count == 0) return null;
+
+			// Item.Clone is a shallow copy, so the NBT has to be copied too - otherwise the item handed
+			// to the player shares its component NBT with the registry's recipe.
+			var craftingResult = (Item) result.Clone();
+			if (result.ExtraData != null) craftingResult.ExtraData = (NbtCompound) result.ExtraData.Clone();
+			craftingResult.UniqueId = Environment.TickCount;
+			SetContainerItem(59, 50, craftingResult);
+
+			return recipe;
 		}
 
 		protected virtual void ProcessCraftCreativeAction(CraftCreativeAction action)

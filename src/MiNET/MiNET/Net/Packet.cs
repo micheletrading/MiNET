@@ -2951,7 +2951,7 @@ namespace MiNET.Net
 						Write(rec.Block);
 						WriteSignedVarInt(rec.Priority);
 						WriteUnlockingRequirement(rec.Unlocking);
-						WriteVarInt(rec.UniqueId); // network id
+						WriteVarInt(rec.NetworkId); // network id
 						break;
 					}
 					case ShapedRecipe shapedRecipe:
@@ -2979,7 +2979,7 @@ namespace MiNET.Net
 						WriteSignedVarInt(rec.Priority);
 						Write(rec.AssumeSymmetry);
 						WriteUnlockingRequirement(rec.Unlocking);
-						WriteVarInt(rec.UniqueId); // network id
+						WriteVarInt(rec.NetworkId); // network id
 						break;
 					}
 					case SmeltingRecipe smeltingRecipe:
@@ -2999,7 +2999,7 @@ namespace MiNET.Net
 					{
 						WriteSignedVarInt(Multi); // Type
 						Write(recipe.Id);
-						WriteVarInt(multiRecipe.UniqueId); // network id
+						WriteVarInt(multiRecipe.NetworkId); // network id
 						break;
 					}
 					case SmithingTransformRecipe transformRecipe:
@@ -3011,7 +3011,7 @@ namespace MiNET.Net
 						WriteRecipeIngredient(transformRecipe.Addition);
 						WriteItemLegacy(transformRecipe.Result);
 						Write(transformRecipe.Tag);
-						WriteVarInt(transformRecipe.UniqueId); // network id
+						WriteVarInt(transformRecipe.NetworkId); // network id
 						break;
 					}
 					case SmithingTrimRecipe trimRecipe:
@@ -3022,7 +3022,7 @@ namespace MiNET.Net
 						WriteRecipeIngredient(trimRecipe.Input);
 						WriteRecipeIngredient(trimRecipe.Addition);
 						Write(trimRecipe.Block);
-						WriteVarInt(trimRecipe.UniqueId); // network id
+						WriteVarInt(trimRecipe.NetworkId); // network id
 						break;
 					}
 				}
@@ -3128,7 +3128,7 @@ namespace MiNET.Net
 					{
 						var recipe = new MultiRecipe();
 						recipe.Id = ReadUUID();
-						recipe.UniqueId = ReadVarInt(); // network id
+						recipe.NetworkId = ReadVarInt(); // network id
 						recipes.Add(recipe);
 						break;
 					}
@@ -3141,7 +3141,7 @@ namespace MiNET.Net
 						recipe.Addition = ReadRecipeIngredient();
 						recipe.Result = ReadItemLegacy();
 						recipe.Tag = ReadString();
-						recipe.UniqueId = ReadVarInt(); // network id
+						recipe.NetworkId = ReadVarInt(); // network id
 						recipes.Add(recipe);
 						break;
 					}
@@ -3153,7 +3153,7 @@ namespace MiNET.Net
 						recipe.Input = ReadRecipeIngredient();
 						recipe.Addition = ReadRecipeIngredient();
 						recipe.Block = ReadString();
-						recipe.UniqueId = ReadVarInt(); // network id
+						recipe.NetworkId = ReadVarInt(); // network id
 						recipes.Add(recipe);
 						break;
 					}
@@ -3186,7 +3186,7 @@ namespace MiNET.Net
 			recipe.Block = ReadString();
 			recipe.Priority = ReadSignedVarInt();
 			recipe.Unlocking = ReadUnlockingRequirement();
-			recipe.UniqueId = ReadVarInt(); // network id
+			recipe.NetworkId = ReadVarInt(); // network id
 			return recipe;
 		}
 
@@ -3217,14 +3217,16 @@ namespace MiNET.Net
 			recipe.Priority = ReadSignedVarInt();
 			recipe.AssumeSymmetry = ReadBool();
 			recipe.Unlocking = ReadUnlockingRequirement();
-			recipe.UniqueId = ReadVarInt(); // network id
+			recipe.NetworkId = ReadVarInt(); // network id
 			return recipe;
 		}
 
 		// RecipeIngredient: a type-discriminated union (int id+meta / molang / item tag / string
-		// id+meta / complex alias) followed by a zigzag32 stack count. MiNET only ever produces the
-		// int-id-meta variant; the others are decoded (using air as a harmless stand-in) so a
-		// server-authored recipe using them still consumes the right number of bytes.
+		// id+meta / complex alias) followed by a zigzag32 stack count. The descriptor on the item
+		// decides the variant; an item without one is the plain int-id-meta variant, written from the
+		// id it was decoded with. Registry-built ingredients (recipes.json, plugins) carry a type-1
+		// descriptor naming the item, so the network id is resolved from the registry string id
+		// instead of a stored number.
 		public void WriteRecipeIngredient(Item stack)
 		{
 			if (stack?.IngredientDescriptor != null)
@@ -3233,6 +3235,13 @@ namespace MiNET.Net
 				Write(descriptor.Type);
 				switch (descriptor.Type)
 				{
+					case 1: // int_id_meta, by registry string id
+					{
+						short networkId = ItemFactory.GetNetworkIdByName(descriptor.Name);
+						Write(networkId);
+						if (networkId != 0) Write(descriptor.Metadata);
+						break;
+					}
 					case 2: // molang
 						Write(descriptor.Text); // expression
 						Write(descriptor.MolangVersion); // version

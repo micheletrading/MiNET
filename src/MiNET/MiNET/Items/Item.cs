@@ -347,22 +347,31 @@ namespace MiNET.Items
 	}
 
 	/// <summary>
-	///     The non-item variants of the RecipeIngredient wire union (Packet.ReadRecipeIngredient): a
-	///     molang expression, an item tag, a string id+meta pair, or a complex alias name. See
+	///     Which variant of the RecipeIngredient wire union (Packet.ReadRecipeIngredient) an item stands
+	///     for: a molang expression, an item tag, a string id+meta pair, a complex alias name - or, for a
+	///     recipe built from MiNET's own recipe registry, the plain int_id_meta variant carrying the
+	///     registry string id the writer resolves the wire network id from. See
 	///     <see cref="Item.IngredientDescriptor" />.
 	/// </summary>
 	public class RecipeIngredientDescriptor
 	{
-		/// <summary>2 = molang, 3 = item_tag, 4 = string_id_meta, 5 = complex_alias.</summary>
+		/// <summary>1 = int_id_meta (by <see cref="Name" />), 2 = molang, 3 = item_tag, 4 = string_id_meta, 5 = complex_alias.</summary>
 		public byte Type { get; set; }
 
 		/// <summary>Molang expression (type 2) / tag (type 3) / item name (type 4) / alias name (type 5).</summary>
 		public string Text { get; set; }
 
+		/// <summary>
+		///     Registry string id ("minecraft:stick") for type 1 - the durable identity the writer resolves
+		///     the wire network id from. Only set for ingredients built from recipe data (recipes.json or a
+		///     plugin); a decoded int_id_meta ingredient carries no descriptor and re-emits the id it read.
+		/// </summary>
+		public string Name { get; set; }
+
 		/// <summary>Molang version byte (type 2 only).</summary>
 		public byte MolangVersion { get; set; }
 
-		/// <summary>Metadata (type 4 only).</summary>
+		/// <summary>Metadata (type 1 and type 4).</summary>
 		public short Metadata { get; set; }
 	}
 }

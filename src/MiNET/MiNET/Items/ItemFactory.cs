@@ -125,6 +125,31 @@ namespace MiNET.Items
 			return nameToId;
 		}
 
+		// Registry string id -> item registry network id (itemstates.json). This is the one direction
+		// that is always exact: the string id is the durable identity and the network id is whatever
+		// this protocol version's registry assigns it. Used wherever data files reference items by
+		// name and the wire wants the number (recipes, for one).
+		private static readonly Lazy<Dictionary<string, short>> _networkIdByName = new Lazy<Dictionary<string, short>>(() =>
+		{
+			var map = new Dictionary<string, short>(Itemstates.Count, StringComparer.OrdinalIgnoreCase);
+			foreach (Itemstate state in Itemstates)
+			{
+				map[state.Name] = state.Id;
+			}
+			return map;
+		});
+
+		/// <summary>
+		///     The item registry network id for a registry string id, or 0 when the name is not in the
+		///     item registry (0 is "air"/void everywhere on the wire, so it degrades to an empty stack).
+		/// </summary>
+		public static short GetNetworkIdByName(string name)
+		{
+			if (string.IsNullOrEmpty(name)) return 0;
+			if (!name.StartsWith("minecraft:")) name = "minecraft:" + name;
+			return _networkIdByName.Value.TryGetValue(name, out short id) ? id : (short) 0;
+		}
+
 		public static short GetItemIdByName(string itemName)
 		{
 			itemName = itemName.ToLowerInvariant().Replace("_", "").Replace("minecraft:", "");

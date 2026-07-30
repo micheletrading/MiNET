@@ -38,7 +38,9 @@ namespace MiNET.Net
 	///		file mirrors the wire structure the corresponding packet's own AfterDecode already
 	///		exposes; the Send* builders in Player.cs load these once and construct the packet
 	///		through its typed fields (see MiNET/Player.cs, Send* methods for this data), never by
-	///		replaying raw captured bytes (that's JoinCapture, which this replaces packet by packet).
+	///		replaying raw captured bytes. The recipe registry (MiNET.Crafting.RecipeManager, from
+	///		Data/recipes.json) is the same idea for CraftingData, but it is domain data with its own
+	///		API rather than a packet-shaped data model, so it lives outside this class.
 	/// </summary>
 	public static class JoinSequenceData
 	{

@@ -946,9 +946,9 @@ namespace MiNET
 				//Level.AddPlayer(this, false);
 
 				// Join sequence mirrors vanilla BDS 1.26.34 (wire capture in temp_auto/trace-bds):
-				// same packet set, same order. State packets are generated from real level/player
-				// state; static definition content MiNET has no generator for yet still comes from
-				// JoinCapture (being replaced packet by packet with native builders).
+				// same packet set, same order. Every packet is built by MiNET from real level/player
+				// state or from its own committed data files (Data/*.json, see JoinSequenceData);
+				// nothing replays captured bytes.
 				SendSleepStatus();
 
 				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
@@ -1002,7 +1002,7 @@ namespace MiNET
 
 				SendPlayerHotbar();
 
-				if (!SendCaptured("McpeCraftingData")) SendCraftingRecipes();
+				SendCraftingRecipes();
 
 				SendAvailableCommands(); // The server's REAL command registry - never the captured vanilla list. Don't send before StartGame!
 
@@ -1173,20 +1173,6 @@ namespace MiNET
 			var packet = McpeCurrentStructureFeature.CreateObject();
 			packet.currentFeature = "";
 			SendPacket(packet);
-		}
-
-		// Sends captured vanilla join content (see JoinCapture): fresh decode + re-encode of BDS
-		// 1.26.34 data per send. Returns false when no capture exists for the name so callers can
-		// fall back to MiNET's own generator.
-		private bool SendCaptured(string packetName, string seq = null)
-		{
-			bool sent = false;
-			foreach (Packet packet in JoinCapture.CreatePackets(packetName, seq))
-			{
-				SendPacket(packet);
-				sent = true;
-			}
-			return sent;
 		}
 
 		public virtual void SendItemRegistry()
@@ -2199,17 +2185,10 @@ namespace MiNET
 
 		public virtual void SendCraftingRecipes()
 		{
-			// The 1.26 client expects a CraftingData packet during join (both vanilla BDS and
-			// PMMP always send one). MiNET's recipe data is not updated to the 1001 recipe
-			// format yet, so send a structurally valid empty packet; recipes can follow once
-			// RecipeManager is modernized.
-			McpeCraftingData craftingData = McpeCraftingData.CreateObject();
-			craftingData.recipes = new Recipes();
-			craftingData.potionTypeRecipes = new PotionTypeRecipe[0];
-			craftingData.potionContainerRecipes = new PotionContainerChangeRecipe[0];
-			craftingData.materialReducerRecipes = new MaterialReducerRecipe[0];
-			craftingData.isClean = true;
-			SendPacket(craftingData);
+			// The 1.26 client expects a CraftingData packet during join (both vanilla BDS and PMMP
+			// always send one). It is a projection of the server's recipe registry, which is also what
+			// crafting requests are validated against, so a plugin that adds a recipe changes both.
+			SendPacket(RecipeManager.CreateCraftingDataPacket());
 		}
 
 		public virtual void SendCreativeInventory()
