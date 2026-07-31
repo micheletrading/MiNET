@@ -56,6 +56,18 @@ namespace MiNET.Client
 
 			if (Client.PlayerStatus == 3)
 			{
+				// Spawn tail exactly like a real 1.26 client (captured live): close the loading
+				// screen, then announce spawn completion. Servers gate spawn-complete logic
+				// (mob spawning, etc.) on set_local_player_as_initialized.
+				var loadingScreen = McpeServerBoundLoadingScreen.CreateObject();
+				loadingScreen.type = 2;
+				loadingScreen.loadingScreenId = null;
+				Client.SendPacket(loadingScreen);
+
+				var initialized = McpeSetLocalPlayerAsInitialized.CreateObject();
+				initialized.runtimeEntityId = Client.EntityId;
+				Client.SendPacket(initialized);
+
 				Client.HasSpawned = true;
 				//if (Client.IsEmulator)
 				{
@@ -188,6 +200,13 @@ namespace MiNET.Client
 			}
 
 			client.SendPacket(packet);
+
+			// A real client opens its loading screen right after requesting the chunk radius
+			// (captured live); the matching type 2 close is sent on PlayStatus(3).
+			var loadingScreen = McpeServerBoundLoadingScreen.CreateObject();
+			loadingScreen.type = 1;
+			loadingScreen.loadingScreenId = null;
+			client.SendPacket(loadingScreen);
 		}
 
 		public virtual void HandleMcpeAddPlayer(McpeAddPlayer message)

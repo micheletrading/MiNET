@@ -451,6 +451,15 @@ namespace MiNET.Client
 
 				Client.SendPacket(packet);
 			}
+
+			// A real client opens its loading screen right after requesting the chunk radius
+			// (captured live); the matching type 2 close is sent on PlayStatus(3).
+			{
+				var loadingScreen = McpeServerBoundLoadingScreen.CreateObject();
+				loadingScreen.type = 1;
+				loadingScreen.loadingScreenId = null;
+				Client.SendPacket(loadingScreen);
+			}
 		}
 
 		public static string CodeName(string name, bool firstUpper = false)

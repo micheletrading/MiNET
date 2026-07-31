@@ -57,7 +57,9 @@ namespace MiNET.Client
 		{
 			Log.Warn("RealClientEmulator: starting post-spawn emulation");
 
-			SendLoadingScreen(client, 1);
+			// Loading screen open/close and set_local_player_as_initialized are part of the core
+			// client spawn sequence now (see McpeClientMessageHandlerBase/BedrockTraceHandler),
+			// sent by every bot session, emulated or not.
 			SendInventoryOptions(client);
 
 			Vector3 position = client.CurrentLocation.ToVector3();
@@ -111,7 +113,6 @@ namespace MiNET.Client
 				lastPosition = position;
 				client.CurrentLocation = new PlayerLocation(position, headYaw, yaw, pitch);
 
-				if (i == 2) SendLoadingScreen(client, 2);
 				if (i % 100 == 0) SendDiagnostics(client);
 				if (i == 20) SendAnimate(client, "mine");
 				if (i == 21) SendPlayerAction(client, PlayerAction.StartBreak, spawnBlock, BlockFace.Up);
@@ -129,14 +130,6 @@ namespace MiNET.Client
 			}
 
 			Log.Warn("RealClientEmulator: emulation complete");
-		}
-
-		private static void SendLoadingScreen(MiNetClient client, int type)
-		{
-			var packet = McpeServerBoundLoadingScreen.CreateObject();
-			packet.type = type;
-			packet.loadingScreenId = null;
-			client.SendPacket(packet);
 		}
 
 		private static void SendInventoryOptions(MiNetClient client)
