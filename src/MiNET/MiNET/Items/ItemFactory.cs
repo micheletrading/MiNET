@@ -523,21 +523,32 @@ namespace MiNET.Items
 				int blockId = id;
 				if (blockId < 0) blockId = (short) (Math.Abs(id) + 255); // hehe
 				Block block = BlockFactory.GetBlockById(blockId);
-				var runtimeId = BlockFactory.GetRuntimeId(blockId, (byte) metadata);
 
-				if (runtimeId < BlockFactory.BlockPalette.Count)
+				if (block.GetType() == typeof(Block))
 				{
-					var blockState = BlockFactory.BlockPalette[(int) runtimeId];
-					block.SetState(blockState);
-				}
-
-				if (CustomBlockItemFactory == null)
-				{
-					item = new ItemBlock(block, metadata);
+					// The id maps to no real block type: a bare Block carries no state and must
+					// not masquerade as a block-item (generic Block instances don't exist as
+					// gameplay objects). Plain Item keeps the id without inventing identity.
+					item = new Item(id, metadata, count);
 				}
 				else
 				{
-					item = CustomBlockItemFactory.GetBlockItem(block, metadata, count);
+					var runtimeId = BlockFactory.GetRuntimeId(blockId, (byte) metadata);
+
+					if (runtimeId < BlockFactory.BlockPalette.Count)
+					{
+						var blockState = BlockFactory.BlockPalette[(int) runtimeId];
+						block.SetState(blockState);
+					}
+
+					if (CustomBlockItemFactory == null)
+					{
+						item = new ItemBlock(block, metadata);
+					}
+					else
+					{
+						item = CustomBlockItemFactory.GetBlockItem(block, metadata, count);
+					}
 				}
 			}
 			else item = new Item(id, metadata, count);

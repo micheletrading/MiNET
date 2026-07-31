@@ -1094,10 +1094,49 @@ namespace MiNET.Blocks
 				557 => new ChiseledNetherBricks(),
 				558 => new CrackedNetherBricks(),
 				559 => new QuartzBricks(),
-				_ => new Block(blockId)
+				_ => GetTypedBlockForLegacyId(blockId)
 			};
 
 			return block;
+		}
+
+		// Legacy id (block_id_map.json, negatives included) -> block name.
+		private static readonly Lazy<Dictionary<int, string>> _blockNameByLegacyId = new Lazy<Dictionary<int, string>>(() =>
+		{
+			var idMap = ResourceUtil.ReadResource<Dictionary<string, int>>("block_id_map.json", typeof(Block), "Data");
+			var map = new Dictionary<int, string>();
+			foreach (KeyValuePair<string, int> kv in idMap) map.TryAdd(kv.Value, kv.Key);
+			return map;
+		});
+
+		// Legacy ids past the generated switch resolve through the palette to a TYPED class:
+		// legacy id -> name (block_id_map) -> palette default state -> generated class. A bare
+		// Block is the last resort for ids with no palette mapping at all (see Block.GetState,
+		// which warns loudly if such an instance is ever asked for state).
+		private static Block GetTypedBlockForLegacyId(int blockId)
+		{
+			// The static initializer's warm-up loop (transparency/light tables) runs before the
+			// palette fields are assigned; those calls only read id-based properties, so a bare
+			// Block is correct there. Every call after initialization resolves typed.
+			if (BlockPalette == null) return new Block(blockId);
+
+			// Ids above 255 can be the folded encoding of a negative legacy id
+			// (ItemFactory folds id < 0 to abs(id) + 255); block_id_map stores real negatives.
+			if (!_blockNameByLegacyId.Value.TryGetValue(blockId, out string name) && blockId > 255)
+			{
+				_blockNameByLegacyId.Value.TryGetValue(-(blockId - 255), out name);
+			}
+
+			if (name != null
+				&& _defaultStateByName.Value.TryGetValue(name, out BlockStateContainer defaultState)
+				&& _typedBlockTypeByClassName.Value.TryGetValue(PaletteNameToClassName(name), out Type blockType))
+			{
+				var typedBlock = (Block) Activator.CreateInstance(blockType);
+				typedBlock.SetState(defaultState);
+				return typedBlock;
+			}
+
+			return new Block(blockId);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]

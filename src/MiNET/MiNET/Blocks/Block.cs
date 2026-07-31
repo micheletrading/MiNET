@@ -79,13 +79,12 @@ namespace MiNET.Blocks
 		{
 		}
 
-		// Palette state carried by untyped (generic) block instances - blocks without a generated
-		// class, resolved by palette name. Typed classes override Get/SetState and ignore this.
-		private BlockStateContainer _genericState;
-
+		// State flows as the states LIST: typed (generated) classes map it onto their state
+		// properties in SetState(List) and rebuild it in GetState(). The palette container is
+		// looked up from the current state, never carried. A block type without a generated
+		// state mapping fails loudly here - the fix is running the generator, not a fallback.
 		public virtual void SetState(BlockStateContainer blockstate)
 		{
-			_genericState = blockstate;
 			SetState(blockstate.States);
 		}
 
@@ -95,13 +94,14 @@ namespace MiNET.Blocks
 
 		public virtual BlockStateContainer GetState()
 		{
-			return _genericState;
+			Log.Warn($"Block {GetType().Name} ({Name}, id={Id}) has no generated state mapping (GetState not overridden)");
+			return null;
 		}
 
 		public virtual BlockStateContainer GetGlobalState()
 		{
 			BlockStateContainer currentState = GetState();
-			if (!BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
+			if (currentState == null || !BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
 			{
 				Log.Warn($"Did not find block state for {this}, {currentState}");
 				return null;
@@ -113,7 +113,7 @@ namespace MiNET.Blocks
 		public int GetRuntimeId()
 		{
 			BlockStateContainer currentState = GetState();
-			if (!BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
+			if (currentState == null || !BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
 			{
 				Log.Warn($"Did not find block state for {this}, {currentState}");
 				return -1;
@@ -124,7 +124,8 @@ namespace MiNET.Blocks
 
 		public virtual Item GetItem()
 		{
-			if (!BlockFactory.BlockStates.TryGetValue(GetState(), out BlockStateContainer stateFromPick)) return null;
+			BlockStateContainer pickState = GetState();
+			if (pickState == null || !BlockFactory.BlockStates.TryGetValue(pickState, out BlockStateContainer stateFromPick)) return null;
 
 			if (stateFromPick.ItemInstance != null) return ItemFactory.GetItem(stateFromPick.ItemInstance.Id, stateFromPick.ItemInstance.Metadata);
 
