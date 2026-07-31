@@ -174,6 +174,15 @@ namespace MiNET
 					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Header: {string.Join(";", headers)}");
 					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Payload:\n{payload.ToString()}");
 
+					// Reverse-engineering aid: dump the full clientData JSON of a real client so
+					// the bot's login (CryptoUtils.EncodeSkinJwt) can be mirrored field by field.
+					string dumpDir = Environment.GetEnvironmentVariable("MINET_DUMP_CLIENTDATA");
+					if (!string.IsNullOrEmpty(dumpDir))
+					{
+						System.IO.Directory.CreateDirectory(dumpDir);
+						System.IO.File.WriteAllText(System.IO.Path.Combine(dumpDir, $"clientdata-{DateTime.UtcNow:HHmmss}.json"), payload.ToString());
+					}
+
 					// Skin JWT Payload: 
 
 					//{
@@ -289,7 +298,7 @@ namespace MiNET
 							// is what the client's "only allow trusted skins" setting checks, so
 							// without this every custom skin renders as a default persona for
 							// players with that setting on (PMMP marks relayed skins the same way).
-							IsVerified = true,
+							IsVerified = !Player.JoinBisect.Contains("no-skin-verified"),
 						};
 						foreach (dynamic animationData in payload.AnimatedImageData)
 						{

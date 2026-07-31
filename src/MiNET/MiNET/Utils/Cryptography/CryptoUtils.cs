@@ -217,12 +217,14 @@ namespace MiNET.Utils.Cryptography
 
 		public static byte[] EncodeSkinJwt(AsymmetricCipherKeyPair newKey, string username)
 		{
-			var resourcePatch = new SkinResourcePatch() {Geometry = new GeometryIdentifier() {Default = "geometry.humanoid.customSlim"}};
+			// Classic wide (Steve-template) custom skin: geometry, skin id suffix, arm size and
+			// skin color must all agree, or the client rejects the skin and falls back to Steve.
+			var resourcePatch = new SkinResourcePatch() {Geometry = new GeometryIdentifier() {Default = "geometry.humanoid.custom"}};
 			var skin = new Skin
 			{
-				SkinId = $"{Guid.NewGuid().ToString()}.CustomSlim",
+				SkinId = $"{Guid.NewGuid().ToString()}.Custom",
 				SkinResourcePatch = resourcePatch,
-				Slim = true,
+				Slim = false,
 				Height = 64,
 				Width = 64,
 				Data = BuildGreySkin(),
@@ -252,7 +254,7 @@ namespace MiNET.Utils.Cryptography
 			string skinData = $@"
 {{
 	""AnimatedImageData"": [],
-	""ArmSize"": """",
+	""ArmSize"": ""wide"",
 	""CapeData"": """",
 	""CapeId"": """",
 	""CapeImageHeight"": 0,
@@ -268,6 +270,7 @@ namespace MiNET.Utils.Cryptography
 	""GuiScale"": -1,
 	""LanguageCode"": ""en_US"",
 	""PersonaPieces"": [],
+	""OverrideSkin"": true,
 	""PersonaSkin"": false,
 	""PieceTintColors"": [],
 	""PlatformOfflineId"": """",
@@ -277,7 +280,7 @@ namespace MiNET.Utils.Cryptography
 	""SelfSignedId"": ""{Guid.NewGuid().ToString()}"",
 	""ServerAddress"": ""yodamine.com:19132"",
 	""SkinAnimationData"": """",
-	""SkinColor"": ""#0"",
+	""SkinColor"": ""#5a5a5a"",
 	""SkinData"": ""{skin64}"",
 	""SkinGeometryData"": """",
 	""SkinId"": ""{skin.SkinId}"",

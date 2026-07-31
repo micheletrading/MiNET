@@ -967,11 +967,11 @@ namespace MiNET
 				// same packet set, same order. Every packet is built by MiNET from real level/player
 				// state or from its own committed data files (Data/*.json, see JoinSequenceData);
 				// nothing replays captured bytes.
-				SendSleepStatus();
+				if (!JoinBisect.Contains("no-state-packets")) SendSleepStatus();
 
 				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
 
-				SendWorldClockState();
+				if (!JoinBisect.Contains("no-state-packets")) SendWorldClockState();
 				SendJigsawStructureData();
 				SendVoxelShapes();
 
@@ -983,7 +983,7 @@ namespace MiNET
 
 				SendPlayerSpawnPosition(); // undefined-position sentinel: no personal (bed) spawn at join
 
-				SendWorldClockRegistry();
+				if (!JoinBisect.Contains("no-state-packets")) SendWorldClockRegistry();
 
 				SendSetDificulty();
 
@@ -2201,11 +2201,27 @@ namespace MiNET
 			// entities' visible held items).
 		}
 
+		// TODO(1001): temporary join-regression bisect gate; remove when the real-client join
+		// rejection is found. Comma-separated toggles in MINET_JOIN_BISECT.
+		internal static readonly string JoinBisect = Environment.GetEnvironmentVariable("MINET_JOIN_BISECT") ?? "";
+
 		public virtual void SendCraftingRecipes()
 		{
 			// The 1.26 client expects a CraftingData packet during join (both vanilla BDS and PMMP
 			// always send one). It is a projection of the server's recipe registry, which is also what
 			// crafting requests are validated against, so a plugin that adds a recipe changes both.
+			if (JoinBisect.Contains("empty-recipes"))
+			{
+				var empty = McpeCraftingData.CreateObject();
+				empty.recipes = new Recipes();
+				empty.potionTypeRecipes = new PotionTypeRecipe[0];
+				empty.potionContainerRecipes = new PotionContainerChangeRecipe[0];
+				empty.materialReducerRecipes = new MaterialReducerRecipe[0];
+				empty.isClean = true;
+				SendPacket(empty);
+				return;
+			}
+
 			SendPacket(RecipeManager.CreateCraftingDataPacket());
 		}
 
@@ -3706,15 +3722,24 @@ namespace MiNET
 			//startGame.blockPalette = BlockFactory.BlockPalette;
 
 			startGame.enableNewInventorySystem = true;
-			// TODO(1001): compute from our block palette instead of mirroring. Valid today because
-			// our palette IS the vanilla 1.26.34 palette, so vanilla's checksum is our checksum.
-			startGame.blockPaletteChecksum = 17428865979533043624;
+			// 0 disables the client's palette-checksum verification. NEVER mirror BDS's value:
+			// the client recomputes the checksum locally and rejects the join with "Blocks
+			// between client and server do not match" on any mismatch (observed live 2026-07-31;
+			// the mirrored 1.26.34 value failed a 1.26.33 client). PMMP ships 0 for the same
+			// reason. Computing the real value needs the exact vanilla algorithm; until then 0.
+			startGame.blockPaletteChecksum = 0;
 			startGame.serverVersion = McpeProtocolInfo.GameVersion;
 			startGame.worldTemplateId = new UUID(new byte[16]);
 			// Session correlation id in vanilla's "<raknet>xxxx-xxxx-xxxx-xxxx" shape.
 			startGame.multiplayerCorrelationId = "<raknet>" + Guid.NewGuid().ToString("N").Substring(0, 16).Insert(4, "-").Insert(9, "-").Insert(14, "-");
 			// Vanilla sends the join-info block with all three optional sub-blocks absent.
 			startGame.hasServerJoinInfo = true;
+
+			if (JoinBisect.Contains("no-startgame-parity"))
+			{
+				startGame.multiplayerCorrelationId = "";
+				startGame.hasServerJoinInfo = false;
+			}
 
 			SendPacket(startGame);
 		}
