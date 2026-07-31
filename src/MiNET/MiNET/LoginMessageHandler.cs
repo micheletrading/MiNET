@@ -285,6 +285,11 @@ namespace MiNET
 							AnimationData = payload.SkinAnimationData,
 							IsPremiumSkin = payload.PremiumSkin,
 							IsPersonaSkin = payload.PersonaSkin,
+							// The server vouches for skins it relays: the PlayerList trusted flag
+							// is what the client's "only allow trusted skins" setting checks, so
+							// without this every custom skin renders as a default persona for
+							// players with that setting on (PMMP marks relayed skins the same way).
+							IsVerified = true,
 						};
 						foreach (dynamic animationData in payload.AnimatedImageData)
 						{

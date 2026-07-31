@@ -223,13 +223,30 @@ namespace MiNET.Utils.Cryptography
 				SkinId = $"{Guid.NewGuid().ToString()}.CustomSlim",
 				SkinResourcePatch = resourcePatch,
 				Slim = true,
-				Height = 32,
+				Height = 64,
 				Width = 64,
-				Data = Encoding.Default.GetBytes(new string('Z', 8192)),
+				Data = BuildGreySkin(),
 			};
 
 			string resourcePatchData = Convert.ToBase64String(Encoding.Default.GetBytes(Skin.ToJson(resourcePatch)));
 			string skin64 = Convert.ToBase64String(skin.Data);
+
+			// TheGrey's grey. The original was 8192 bytes of 'Z' (0x5A): a 64x32 skin where every
+			// RGBA channel was 0x5A, including alpha - and modern clients reject translucent skins
+			// outright (anti-invisible-skin rule), which silently killed it. Same grey, opaque,
+			// in the modern 64x64 double-layer format.
+			static byte[] BuildGreySkin()
+			{
+				byte[] data = new byte[64 * 64 * 4];
+				for (int i = 0; i < data.Length; i += 4)
+				{
+					data[i] = 0x5A;
+					data[i + 1] = 0x5A;
+					data[i + 2] = 0x5A;
+					data[i + 3] = 0xFF;
+				}
+				return data;
+			}
 
 
 			string skinData = $@"
@@ -269,6 +286,7 @@ namespace MiNET.Utils.Cryptography
 	""SkinResourcePatch"": ""{resourcePatchData}"",
 	""ThirdPartyName"": ""{username}"",
 	""ThirdPartyNameOnly"": false,
+	""TrustedSkin"": true,
 	""UIProfile"": 0
 }}
 ";
