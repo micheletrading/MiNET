@@ -96,6 +96,21 @@ namespace MiNET
 		public Skin Skin { get; set; }
 
 		public float MovementSpeed { get; set; } = 0.1f;
+		public float FlySpeed { get; set; } = 0.05f;
+		public float VerticalFlySpeed { get; set; } = 1.0f;
+
+		// Player attribute values for SendUpdateAttributes, vanilla defaults. The ranges and
+		// defaults in the attribute table are protocol constants; these are the live values,
+		// plugin-settable like any other player state.
+		public float FollowRange { get; set; } = 16;
+		public float KnockbackResistance { get; set; } = 0;
+		public float UnderwaterMovementSpeed { get; set; } = 0.02f;
+		public float LavaMovementSpeed { get; set; } = 0.02f;
+		public float Luck { get; set; } = 0;
+		public float FrictionModifier { get; set; } = 1;
+		public float Bounciness { get; set; } = 0;
+		public float AirDragModifier { get; set; } = 1;
+
 		public ConcurrentDictionary<EffectType, Effect> Effects { get; set; } = new ConcurrentDictionary<EffectType, Effect>();
 
 		public HungerManager HungerManager { get; set; }
@@ -122,6 +137,8 @@ namespace MiNET
 			HungerManager = new HungerManager(this);
 			ExperienceManager = new ExperienceManager(this);
 			ItemStackInventoryManager = new ItemStackInventoryManager(this);
+
+			AttackDamage = 1; // vanilla player base (Entity defaults to the mob value 2)
 
 			IsSpawned = false;
 			IsConnected = endPoint != null; // Can't connect if there is no endpoint
@@ -752,6 +769,7 @@ namespace MiNET
 		public bool IsWorldImmutable { get; set; }
 		public bool IsWorldBuilder { get; set; }
 		public bool IsMuted { get; set; }
+		public bool ShowNameTags { get; set; } = true;
 		public bool IsNoPvp { get; set; }
 		public bool IsNoPvm { get; set; }
 		public bool IsNoMvp { get; set; }
@@ -781,7 +799,7 @@ namespace MiNET
 			adventure.noPvm = IsNoPvm || IsSpectator || GameMode == GameMode.Spectator;
 			adventure.noMvp = IsNoMvp || IsSpectator || GameMode == GameMode.Spectator;
 			adventure.immutableWorld = IsWorldImmutable || GameMode == GameMode.Adventure;
-			adventure.showNameTags = true;
+			adventure.showNameTags = ShowNameTags;
 			adventure.autoJump = IsAutoJump;
 			SendPacket(adventure);
 
@@ -827,9 +845,9 @@ namespace MiNET
 				// through the enabled set only (verified against BDS 1.26.34 bytes).
 				Allowed = (AbilitySet) 0xFFFFF,
 				Enabled = set,
-				FlySpeed = 0.05f,
-				VerticalFlySpeed = 1.0f,
-				WalkSpeed = 0.1f,
+				FlySpeed = FlySpeed,
+				VerticalFlySpeed = VerticalFlySpeed,
+				WalkSpeed = MovementSpeed,
 			};
 		}
 
@@ -3880,17 +3898,17 @@ namespace MiNET
 			Add("minecraft:player.level", 0, 24791, ExperienceManager.ExperienceLevel, 0);
 			Add("minecraft:player.experience", 0, 1, ExperienceManager.Experience, 0);
 			Add("minecraft:health", 0, 20, HealthManager.Hearts, 20);
-			Add("minecraft:follow_range", 0, 2048, 16, 16);
-			Add("minecraft:knockback_resistance", -2, 1, 0, 0);
+			Add("minecraft:follow_range", 0, 2048, FollowRange, 16);
+			Add("minecraft:knockback_resistance", -2, 1, KnockbackResistance, 0);
 			Add("minecraft:movement", 0, float.MaxValue, (float) MovementSpeed, 0.1f);
-			Add("minecraft:underwater_movement", 0, float.MaxValue, 0.02f, 0.02f);
-			Add("minecraft:lava_movement", 0, float.MaxValue, 0.02f, 0.02f);
-			Add("minecraft:attack_damage", 1, 1, 1, 1);
+			Add("minecraft:underwater_movement", 0, float.MaxValue, UnderwaterMovementSpeed, 0.02f);
+			Add("minecraft:lava_movement", 0, float.MaxValue, LavaMovementSpeed, 0.02f);
+			Add("minecraft:attack_damage", 1, 1, AttackDamage, 1);
 			Add("minecraft:absorption", 0, 16, HealthManager.Absorption, 0);
-			Add("minecraft:luck", -1024, 1024, 0, 0);
-			Add("minecraft:friction_modifier", 0, 256, 1, 1);
-			Add("minecraft:bounciness", 0, 1, 0, 0);
-			Add("minecraft:air_drag_modifier", 0, 256, 1, 1);
+			Add("minecraft:luck", -1024, 1024, Luck, 0);
+			Add("minecraft:friction_modifier", 0, 256, FrictionModifier, 1);
+			Add("minecraft:bounciness", 0, 1, Bounciness, 0);
+			Add("minecraft:air_drag_modifier", 0, 256, AirDragModifier, 1);
 
 			McpeUpdateAttributes attributesPackate = McpeUpdateAttributes.CreateObject();
 			attributesPackate.runtimeEntityId = EntityManager.EntityIdSelf;
