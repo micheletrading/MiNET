@@ -1050,22 +1050,17 @@ namespace MiNET
 			Log.InfoFormat("Login complete by: {0} from {2} in {1}ms", Username, watch.ElapsedMilliseconds, EndPoint);
 		}
 
-		// The joining player's own player-list entry, sent before StartGame exactly like
-		// vanilla BDS (which sends the self entry twice during join; the second comes from
-		// Level.AddPlayer).
+		// The joining player's own player-list entry, sent before StartGame exactly like vanilla
+		// BDS, which sends self alone here and the full roster later from Level.AddPlayer.
+		//
+		// This used to copy the player into a detached stub, which silently dropped whatever the
+		// stub forgot: the record writer emits DisplayName ?? Username and the stub set neither,
+		// so every join announced the player with an empty name. Sending the player itself cannot
+		// drift out of sync with the fields the writer reads.
 		public virtual void SendPlayerListSelf()
 		{
-			var self = new Player(null, null)
-			{
-				ClientUuid = ClientUuid,
-				EntityId = EntityId,
-				NameTag = NameTag,
-				Skin = Skin,
-				PlayerInfo = PlayerInfo
-			};
-
 			var playerList = McpePlayerList.CreateObject();
-			playerList.records = new PlayerAddRecords {self};
+			playerList.records = new PlayerAddRecords {this};
 			SendPacket(playerList);
 		}
 

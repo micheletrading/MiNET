@@ -505,14 +505,20 @@ namespace MiNET
 							ECPublicKeyParameters pubAsyKey = (ECPublicKeyParameters) keyPair.Public;
 							ECPrivateKeyParameters privAsyKey = (ECPrivateKeyParameters) keyPair.Private;
 
-							var secretPrepend = Encoding.UTF8.GetBytes("RANDOM SECRET");
+							// Per-session nonce. It seeds the key derivation below and is handed to the client
+							// so it derives the same key. This used to be the literal string "RANDOM SECRET",
+							// which was neither: the same 13 bytes on every MiNET server and every session,
+							// where vanilla sends 16 fresh random bytes. The session key stayed unpredictable
+							// (the ECDH pair above is ephemeral) but a constant here is a MiNET fingerprint on
+							// the wire and gives up the defence in depth a real nonce is there for.
+							byte[] salt = RandomNumberGenerator.GetBytes(16);
 
 							ECDHBasicAgreement agreement = new ECDHBasicAgreement();
 							agreement.Init(keyPair.Private);
 							byte[] secret;
 							using (var sha = SHA256.Create())
 							{
-								secret = sha.ComputeHash(secretPrepend.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
+								secret = sha.ComputeHash(salt.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
 							}
 
 							Debug.Assert(secret.Length == 32);
@@ -555,11 +561,13 @@ namespace MiNET
 
 							var signKey = ECDsa.Create(signParam);
 							var b64PublicKey = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(pubAsyKey).GetEncoded().EncodeBase64();
-							var handshakeJson = new HandshakeData
-							{
-								salt = secretPrepend.EncodeBase64(),
-								signedToken = signedToken
-							};
+							// Only the claims vanilla sends. signedToken is Edu-only, and serializing it as an
+							// explicit null put 19 bytes on the wire that BDS never sends. It cannot be left to
+							// the serializer to drop: NewtonsoftMapper does set NullValueHandling.Ignore, but it
+							// installs itself from a static constructor nothing on the server side ever runs, so
+							// jose-jwt's own mapper is what serializes this.
+							var handshakeJson = new Dictionary<string, object> {{"salt", salt.EncodeBase64()}};
+							if (signedToken != null) handshakeJson["signedToken"] = signedToken;
 							string val = JWT.Encode(handshakeJson, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64PublicKey}});
 
 							Log.Debug($"Headers:\n{string.Join(";", JWT.Headers(val))}");

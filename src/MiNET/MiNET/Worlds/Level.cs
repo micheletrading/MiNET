@@ -311,25 +311,29 @@ namespace MiNET.Worlds
 				// The player list keeps us from moving this completely to player.
 				// It's simply to slow and bad.
 
-				Player[] players = GetAllPlayers();
-				var spawnedPlayers = players.ToList();
-				spawnedPlayers.Add(newPlayer);
+				// AddPlayer has already put the joiner in Players, so this is everyone else.
+				// Reading the level's players and then appending the joiner (as this used to)
+				// listed them twice, and every join sent a roster with one duplicate record.
+				Player[] others = GetAllPlayers().Where(p => p != newPlayer).ToArray();
 
-				Player[] sendList = spawnedPlayers.ToArray();
+				// The roster the joiner gets, self first then everyone else. Order is what vanilla
+				// BDS 1.26.34 sends: a second bot joining an occupied server receives [self, other],
+				// not the level's own ordering (verified with two clients against BDS).
+				var roster = new List<Player>(others.Length + 1) {newPlayer};
+				roster.AddRange(others);
 
 				var playerListMessage = McpePlayerList.CreateObject();
-				playerListMessage.records = new PlayerAddRecords(spawnedPlayers);
-				newPlayer.SendPacket(CreateMcpeBatch(playerListMessage.Encode()));
-				playerListMessage.PutPool();
+				playerListMessage.records = new PlayerAddRecords(roster);
+				newPlayer.SendPacket(playerListMessage);
 
 				var playerList = McpePlayerList.CreateObject();
 				playerList.records = new PlayerAddRecords {newPlayer};
-				RelayBroadcast(newPlayer, sendList, CreateMcpeBatch(playerList.Encode()));
+				RelayBroadcast(newPlayer, roster.ToArray(), CreateMcpeBatch(playerList.Encode()));
 				playerList.PutPool();
 
-				newPlayer.SpawnToPlayers(players);
+				newPlayer.SpawnToPlayers(others);
 
-				foreach (Player spawnedPlayer in players)
+				foreach (Player spawnedPlayer in others)
 				{
 					spawnedPlayer.SpawnToPlayers(new[] {newPlayer});
 				}

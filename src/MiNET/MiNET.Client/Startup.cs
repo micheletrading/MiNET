@@ -52,7 +52,13 @@ namespace MiNET.Client
 			Console.WriteLine(MiNET);
 			Console.WriteLine("Starting client...");
 
-			var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), "TheGrey");
+			// Username from the environment so several bots can be on a server at once. Questions
+			// about who appears in a player list, and how many records each join produces, cannot be
+			// answered with a single connection: with one player "everyone" and "everyone but me"
+			// are the same list.
+			string username = Environment.GetEnvironmentVariable("MINET_USERNAME") ?? "TheGrey";
+
+			var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), username);
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), "TheGrey");
 			//var client = new MiNetClient(new IPEndPoint(Dns.GetHostEntry("test.pmmp.io").AddressList[0], 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("192.168.0.4"), 19162), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
