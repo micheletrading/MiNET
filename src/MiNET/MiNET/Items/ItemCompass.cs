@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemCompass : Item
 	{
-		public ItemCompass() : base("minecraft:compass", 345)
+		public ItemCompass() : base("minecraft:compass")
 		{
 		}
 	}

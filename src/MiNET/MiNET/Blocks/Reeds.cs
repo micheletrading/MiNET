@@ -48,7 +48,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem(338, 0, 1)};
+			return new[] {ItemFactory.GetItem("minecraft:item.reeds", 0, 1)};
 		}
 	}
 }

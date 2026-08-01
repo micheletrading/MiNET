@@ -33,7 +33,7 @@ namespace MiNET.Items
 {
 	public class ItemCarrot : FoodItem
 	{
-		public ItemCarrot() : base("minecraft:carrot", 391, 0, 3, 4.8)
+		public ItemCarrot() : base("minecraft:carrot", 0, 3, 4.8)
 		{
 		}
 

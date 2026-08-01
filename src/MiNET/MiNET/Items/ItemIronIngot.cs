@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemIronIngot : Item
 	{
-		public ItemIronIngot() : base("minecraft:iron_ingot", 265)
+		public ItemIronIngot() : base("minecraft:iron_ingot")
 		{
 		}
 	}

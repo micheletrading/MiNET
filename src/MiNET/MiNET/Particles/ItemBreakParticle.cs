@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@ namespace MiNET.Particles
 	{
 		public ItemBreakParticle(Level level, Item item) : base(ParticleType.ItemBreak, level)
 		{
-			Data = (item.Id << 16) | (ushort) item.Metadata;
+			Data = (ItemFactory.GetNetworkIdByName(item.Name) << 16) | (ushort) item.Metadata;
 		}
 	}
 }

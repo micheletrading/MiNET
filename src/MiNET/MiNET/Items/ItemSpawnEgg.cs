@@ -43,7 +43,7 @@ namespace MiNET.Items
 		{
 		}
 
-		public ItemSpawnEgg(short metadata) : base("minecraft:spawn_egg", 383, metadata)
+		public ItemSpawnEgg(short metadata) : base("minecraft:spawn_egg", metadata)
 		{
 			MaxStackSize = 1;
 		}

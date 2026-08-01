@@ -533,17 +533,13 @@ namespace MiNET.Worlds
 										{
 											NbtCompound item = (NbtCompound) items[i];
 
+											// Java stores the item as a namespaced name under "id"; Bedrock stores it under
+											// "Name". The two namespaces mostly agree post-flattening but not everywhere, and
+											// there is no Java-to-Bedrock name table here yet, so a name only Java uses lands
+											// on nothing and reads back as an empty slot.
 											string itemName = item["id"].StringValue;
-											if (itemName.StartsWith("minecraft:"))
-											{
-												var id = itemName.Split(':')[1];
-
-												itemName = id.First().ToString().ToUpper() + id.Substring(1);
-											}
-
-											short itemId = ItemFactory.GetItemIdByName(itemName);
 											item.Remove("id");
-											item.Add(new NbtShort("id", itemId));
+											item.Add(new NbtString("Name", itemName));
 										}
 									}
 								}
@@ -555,17 +551,10 @@ namespace MiNET.Worlds
 								}
 								else if (blockEntity is FlowerPotBlockEntity)
 								{
+									// Same caveat as the container items above: a Java name, no translation table.
 									string itemName = blockEntityTag["Item"].StringValue;
-									if (itemName.StartsWith("minecraft:"))
-									{
-										var id = itemName.Split(':')[1];
-
-										itemName = id.First().ToString().ToUpper() + id.Substring(1);
-									}
-
-									short itemId = ItemFactory.GetItemIdByName(itemName);
 									blockEntityTag.Remove("Item");
-									blockEntityTag.Add(new NbtShort("item", itemId));
+									blockEntityTag.Add(new NbtString("item", itemName));
 
 									var data = blockEntityTag["Data"].IntValue;
 									blockEntityTag.Remove("Data");

@@ -97,33 +97,4 @@ namespace MiNET
 	{
 	}
 
-	public class Itemstates : List<Itemstate>
-	{
-		public static Itemstates FromJson(string json)
-		{
-			return JsonConvert.DeserializeObject<Itemstates>(json);
-		}
-	}
-
-	public class Itemstate
-	{
-		[JsonProperty("runtime_id")]
-		public short Id { get; set; }
-
-		[JsonProperty("name")]
-		public string Name { get; set; }
-
-		[JsonProperty("component_based")]
-		public bool ComponentBased { get; set; } = false;
-
-		// Item registry entry version as sent by vanilla BDS (0, 1 or 2).
-		[JsonProperty("version")]
-		public int Version { get; set; } = 2;
-
-		// Component NBT for component-based/data-driven items, captured from vanilla BDS as
-		// network-endian (little endian, varint) NBT bytes, base64. Null for plain items.
-		[JsonProperty("nbt_b64")]
-		public string NbtB64 { get; set; }
-		//public int RuntimeId { get; set; }
-	}
 }

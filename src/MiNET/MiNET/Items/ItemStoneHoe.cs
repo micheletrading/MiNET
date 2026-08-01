@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemStoneHoe : ItemHoe
 	{
-		public ItemStoneHoe() : base("minecraft:stone_hoe", 291)
+		public ItemStoneHoe() : base("minecraft:stone_hoe")
 		{
 			ItemMaterial = ItemMaterial.Stone;
 		}

@@ -32,7 +32,7 @@ namespace MiNET.Items
 {
 	public class ItemElytra : Item
 	{
-		public ItemElytra() : base("minecraft:elytra", 444)
+		public ItemElytra() : base("minecraft:elytra")
 		{
 			ItemType = ItemType.Elytra;
 		}

@@ -107,56 +107,56 @@ namespace MiNET.Items
 
 	public class ItemSpruceDoor : ItemWoodenDoor
 	{
-		public ItemSpruceDoor() : base("minecraft:spruce_door", 427, 193)
+		public ItemSpruceDoor() : base("minecraft:spruce_door", 193)
 		{
 		}
 	}
 
 	public class ItemBirchDoor : ItemWoodenDoor
 	{
-		public ItemBirchDoor() : base("minecraft:birch_door", 428, 194)
+		public ItemBirchDoor() : base("minecraft:birch_door", 194)
 		{
 		}
 	}
 
 	public class ItemJungleDoor : ItemWoodenDoor
 	{
-		public ItemJungleDoor() : base("minecraft:jungle_door", 429, 195)
+		public ItemJungleDoor() : base("minecraft:jungle_door", 195)
 		{
 		}
 	}
 
 	public class ItemAcaciaDoor : ItemWoodenDoor
 	{
-		public ItemAcaciaDoor() : base("minecraft:acacia_door", 430, 196)
+		public ItemAcaciaDoor() : base("minecraft:acacia_door", 196)
 		{
 		}
 	}
 
 	public class ItemDarkOakDoor : ItemWoodenDoor
 	{
-		public ItemDarkOakDoor() : base("minecraft:dark_oak_door", 431, 197)
+		public ItemDarkOakDoor() : base("minecraft:dark_oak_door", 197)
 		{
 		}
 	}
 
 	public class ItemWarpedDoor : ItemWoodenDoor
 	{
-		public ItemWarpedDoor() : base("minecraft:warped_door", 756)
+		public ItemWarpedDoor() : base("minecraft:warped_door")
 		{
 		}
 	}
 
 	public class ItemCrimsonDoor : ItemWoodenDoor
 	{
-		public ItemCrimsonDoor() : base("minecraft:crimson_door", 755)
+		public ItemCrimsonDoor() : base("minecraft:crimson_door")
 		{
 		}
 	}
 
 	public class ItemIronDoor : ItemWoodenDoor
 	{
-		public ItemIronDoor() : base("minecraft:iron_door", 330)
+		public ItemIronDoor() : base("minecraft:iron_door")
 		{
 		}
 	}

@@ -152,7 +152,7 @@ namespace MiNET.Client
 							
 							string itemName = item.Name;
 
-							if (ItemFactory.Translator.TryGetName(itemName, out var newName))
+							if (ItemFactory.TryGetCurrentName(itemName, out var newName))
 							{
 								Log.Warn($"Name mistmatch for item: {item} (Current={item.Name} New={newName})");
 								itemName = newName;
@@ -177,9 +177,9 @@ namespace MiNET.Client
 
 								if (newItem != null && (newItem is not ItemAir && newItem.Count > 0))
 								{
-									if (!idMapping.TryAdd(item.Name, newItem.Id))
+									if (!idMapping.TryAdd(item.Name, (short) newItem.NetworkId))
 									{
-										Log.Warn($"Duplicate key! Name={item.Name} Id={item.Id} NewName={newItem.Name} NewId={newItem.Id}");
+										Log.Warn($"Duplicate key! Name={item.Name} Id={item.NetworkId} NewName={newItem.Name} NewId={newItem.NetworkId}");
 									}
 								}
 
@@ -278,7 +278,7 @@ namespace MiNET.Client
 						Log.Warn($"For {id}, {meta} we picked {item}");
 						blockstate.ItemInstance = new ItemPickInstance()
 						{
-							Id = item.Id,
+							Id = (short) item.NetworkId,
 							Metadata = item.Metadata,
 							WantNbt = item.ExtraData != null
 						};

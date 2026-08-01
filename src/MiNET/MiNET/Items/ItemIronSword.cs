@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemIronSword : ItemSword
 	{
-		public ItemIronSword() : base("minecraft:iron_sword", 267)
+		public ItemIronSword() : base("minecraft:iron_sword")
 		{
 			ItemMaterial = ItemMaterial.Iron;
 		}

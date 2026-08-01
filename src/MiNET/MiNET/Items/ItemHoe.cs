@@ -38,7 +38,7 @@ namespace MiNET.Items
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemHoe));
 
-		internal ItemHoe(string name, short id) : base(name, id)
+		internal ItemHoe(string name) : base(name)
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Hoe;

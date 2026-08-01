@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -595,7 +595,7 @@ namespace MiNET.Client
 				//var matchingBlock = BlockFactory.BlockPalette[slot.RuntimeId];
 				
 				var serialized = SerializeCompound(extraData);
-				writer.WriteLine($"new Item({slot.Id}, {slot.Metadata}, {slot.Count}){{ RuntimeId={slot.RuntimeId}, NetworkId={slot.NetworkId}, ExtraData = {serialized} }}, /*{slot.Name}*/");
+				writer.WriteLine($"new Item(\"{slot.Name}\", {slot.Metadata}, {slot.Count}){{ RuntimeId={slot.RuntimeId}, NetworkId={slot.NetworkId}, ExtraData = {serialized} }}, /*{slot.Name}*/");
 			}
 
 			// Template

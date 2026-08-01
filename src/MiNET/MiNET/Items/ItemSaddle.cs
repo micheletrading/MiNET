@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemSaddle : Item
 	{
-		public ItemSaddle() : base("minecraft:saddle", 329)
+		public ItemSaddle() : base("minecraft:saddle")
 		{
 		}
 	}

@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemBread : FoodItem
 	{
-		public ItemBread() : base("minecraft:bread", 297, 0, 5, 6.0)
+		public ItemBread() : base("minecraft:bread", 0, 5, 6.0)
 		{
 		}
 	}

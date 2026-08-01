@@ -31,7 +31,7 @@ namespace MiNET.Items
 {
 	public class ItemShears : Item
 	{
-		public ItemShears() : base("minecraft:shears", 359)
+		public ItemShears() : base("minecraft:shears")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Sheers;

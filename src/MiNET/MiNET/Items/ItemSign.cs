@@ -36,7 +36,7 @@ namespace MiNET.Items
 		private readonly int _standingId;
 		private readonly int _wallId;
 
-		public ItemSignBase(string name, short id, int standingId, int wallId) : base(name, id)
+		public ItemSignBase(string name, int standingId, int wallId) : base(name)
 		{
 			_standingId = standingId;
 			_wallId = wallId;
@@ -68,41 +68,41 @@ namespace MiNET.Items
 
 	public class ItemSign : ItemSignBase
 	{
-		public ItemSign() : base("minecraft:oak_sign", 323, 63, 68) { }
+		public ItemSign() : base("minecraft:oak_sign", 63, 68) { }
 	}
 
 	public class ItemAcaciaSign : ItemSignBase
 	{
-		public ItemAcaciaSign() : base("minecraft:acacia_sign", 475, 445, 456) { }
+		public ItemAcaciaSign() : base("minecraft:acacia_sign", 445, 456) { }
 	}
 
 	public class ItemSpruceSign : ItemSignBase
 	{
-		public ItemSpruceSign() : base("minecraft:spruce_sign", 472, 436, 437) { }
+		public ItemSpruceSign() : base("minecraft:spruce_sign", 436, 437) { }
 	}
 
 	public class ItemBirchSign : ItemSignBase
 	{
-		public ItemBirchSign() : base("minecraft:birch_sign", 473, 441, 442) { }
+		public ItemBirchSign() : base("minecraft:birch_sign", 441, 442) { }
 	}
 
 	public class ItemJungleSign : ItemSignBase
 	{
-		public ItemJungleSign() : base("minecraft:jungle_sign", 474, 443, 444) { }
+		public ItemJungleSign() : base("minecraft:jungle_sign", 443, 444) { }
 	}
 
 	public class ItemDarkoakSign : ItemSignBase
 	{
-		public ItemDarkoakSign() : base("minecraft:dark_oak_sign", 476, 447, 448) { }
+		public ItemDarkoakSign() : base("minecraft:dark_oak_sign", 447, 448) { }
 	}
 
 	public class ItemCrimsonSign : ItemSignBase
 	{
-		public ItemCrimsonSign() : base("minecraft:crimson_sign", 753, 505, 507) { }
+		public ItemCrimsonSign() : base("minecraft:crimson_sign", 505, 507) { }
 	}
 
 	public class ItemWarpedSign : ItemSignBase
 	{
-		public ItemWarpedSign() : base("minecraft:warped_sign", 754, 506, 508) { }
+		public ItemWarpedSign() : base("minecraft:warped_sign", 506, 508) { }
 	}
 }

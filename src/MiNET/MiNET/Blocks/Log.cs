@@ -55,7 +55,7 @@ namespace MiNET.Blocks
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(263, 1);
+			return ItemFactory.GetItem("minecraft:coal", 1);
 		}
 	}
 }

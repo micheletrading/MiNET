@@ -33,7 +33,7 @@ namespace MiNET.Items
 {
 	public class ItemCamera : Item
 	{
-		public ItemCamera(short metadata) : base("minecraft:camera", 498, metadata)
+		public ItemCamera(short metadata) : base("minecraft:camera", metadata)
 		{
 		}
 

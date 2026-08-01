@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemLeatherBoots : ArmorBootsBase
 	{
-		public ItemLeatherBoots() : base("minecraft:leather_boots", 301)
+		public ItemLeatherBoots() : base("minecraft:leather_boots")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Boots;

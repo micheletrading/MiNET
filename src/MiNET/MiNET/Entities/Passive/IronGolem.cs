@@ -42,7 +42,7 @@ namespace MiNET.Entities.Passive
 		{
 			return new[]
 			{
-				ItemFactory.GetItem(265, 0, 4)
+				ItemFactory.GetItem("minecraft:iron_ingot", 0, 4)
 			};
 		}
 	}

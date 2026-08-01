@@ -110,7 +110,7 @@ namespace MiNET.Test.Crafting
 				foreach (Item result in results.Where(r => r != null && r.Count > 0))
 				{
 					if (result.NetworkId <= 0 && result.NetworkId != -1) continue; // negative registry ids are block items
-					if (ItemFactory.Itemstates.Any(s => s.Id == result.NetworkId)) continue;
+					if (ItemFactory.ItemRegistry.TryGetByNetworkId((short) result.NetworkId, out _)) continue;
 
 					unresolved.Add($"{recipe.NetworkId}: network id {result.NetworkId}");
 				}

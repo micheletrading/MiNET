@@ -63,12 +63,12 @@ namespace MiNET.Blocks
 				var count = rnd.Next(4);
 				if (count > 0)
 				{
-					return new[] {ItemFactory.GetItem(457, 0, 1), ItemFactory.GetItem(458, 0, (byte) count)};
+					return new[] {ItemFactory.GetItem("minecraft:beetroot", 0, 1), ItemFactory.GetItem("minecraft:beetroot_seeds", 0, (byte) count)};
 				}
-				return new[] {ItemFactory.GetItem(457, 0, 1)};
+				return new[] {ItemFactory.GetItem("minecraft:beetroot", 0, 1)};
 			}
 
-			return new[] {ItemFactory.GetItem(458, 0, 1)};
+			return new[] {ItemFactory.GetItem("minecraft:beetroot_seeds", 0, 1)};
 		}
 	}
 }

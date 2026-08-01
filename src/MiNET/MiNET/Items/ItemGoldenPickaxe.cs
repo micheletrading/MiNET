@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemGoldenPickaxe : ItemPickaxe
 	{
-		public ItemGoldenPickaxe() : base("minecraft:golden_pickaxe", 285)
+		public ItemGoldenPickaxe() : base("minecraft:golden_pickaxe")
 		{
 			ItemMaterial = ItemMaterial.Gold;
 		}

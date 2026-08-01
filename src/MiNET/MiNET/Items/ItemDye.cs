@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemDye : Item
 	{
-		public ItemDye() : base("minecraft:dye", 351)
+		public ItemDye() : base("minecraft:dye")
 		{
 		}
 	}

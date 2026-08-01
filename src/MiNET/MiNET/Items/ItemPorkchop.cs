@@ -27,13 +27,13 @@ namespace MiNET.Items
 {
 	public class ItemPorkchop : Item
 	{
-		public ItemPorkchop() : base("minecraft:porkchop", 319)
+		public ItemPorkchop() : base("minecraft:porkchop")
 		{
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(320);
+			return ItemFactory.GetItem("minecraft:cooked_porkchop");
 		}
 	}
 }

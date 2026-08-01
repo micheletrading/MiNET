@@ -44,7 +44,7 @@ namespace MiNET.Items
 
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemFlintAndSteel));
 
-		public ItemFlintAndSteel() : base("minecraft:flint_and_steel", 259)
+		public ItemFlintAndSteel() : base("minecraft:flint_and_steel")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.FlintAndSteel;

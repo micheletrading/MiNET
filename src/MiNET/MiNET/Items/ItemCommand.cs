@@ -40,10 +40,10 @@ namespace MiNET.Items
 		public Action<ItemCommand, Level, Player, BlockCoordinates> Action { get; set; }
 		public bool NeedBlockRevert { get; set; }
 
-		public ItemCommand(short id, short metadata, Action<ItemCommand, Level, Player, BlockCoordinates> action) : base("minet:command", id, metadata)
+		public ItemCommand(string name, short metadata, Action<ItemCommand, Level, Player, BlockCoordinates> action) : base("minet:command", metadata)
 		{
 			Action = action ?? throw new ArgumentNullException(nameof(action));
-			Item realItem = ItemFactory.GetItem(id, metadata);
+			Item realItem = ItemFactory.GetItemByName(name, metadata);
 			NeedBlockRevert = realItem is ItemBlock;
 		}
 

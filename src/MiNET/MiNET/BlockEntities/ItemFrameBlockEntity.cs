@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -69,10 +69,7 @@ namespace MiNET.BlockEntities
 			Compound = compound;
 			if (compound.TryGet("Item", out var item))
 			{
-				var id = item["id"].ShortValue;
-				var damage = item["Damage"].ShortValue;
-				var count = item["Count"].ShortValue;
-				ItemInFrame = ItemFactory.GetItem(id, damage, count);
+				ItemInFrame = ItemNbt.Read(item as NbtCompound);
 			}
 			if (compound.TryGet("ItemRotation", out var rotation))
 			{
@@ -101,12 +98,7 @@ namespace MiNET.BlockEntities
 
 			if (item != null)
 			{
-				var newItem = new NbtCompound("Item")
-				{
-					new NbtShort("id", item.Id),
-					new NbtShort("Damage", item.Metadata),
-					new NbtByte("Count", 1)
-				};
+				var newItem = ItemNbt.Write(item, "Item");
 
 				if (item.ExtraData != null)
 				{
@@ -132,7 +124,7 @@ namespace MiNET.BlockEntities
 			var itemComp = Compound["Item"] as NbtCompound;
 			if (itemComp == null) return slots;
 
-			Item item = ItemFactory.GetItem(itemComp["id"].ShortValue, itemComp["Damage"].ShortValue, itemComp["Count"].ByteValue);
+			Item item = ItemNbt.Read(itemComp);
 			slots.Add(item);
 
 			return slots;

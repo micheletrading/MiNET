@@ -38,7 +38,7 @@ namespace MiNET.Items
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemStick));
 
-		public ItemStick() : base("minecraft:stick", 280)
+		public ItemStick() : base("minecraft:stick")
 		{
 			FuelEfficiency = 5;
 		}

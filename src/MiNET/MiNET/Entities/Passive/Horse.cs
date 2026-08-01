@@ -114,7 +114,7 @@ namespace MiNET.Entities.Passive
 			}
 
 			var inHand = player.Inventory.GetItemInHand();
-			if (inHand is ItemSugar || inHand is ItemWheat || inHand is ItemApple || inHand is ItemGoldenCarrot || inHand is ItemGoldenApple || inHand.Id == 170)
+			if (inHand is ItemSugar || inHand is ItemWheat || inHand is ItemApple || inHand is ItemGoldenCarrot || inHand is ItemGoldenApple || inHand.Name == "minecraft:hay_block")
 			{
 				// Feeding
 
@@ -144,7 +144,7 @@ namespace MiNET.Entities.Passive
 					Temper += 10;
 					HealthManager.Regen(10);
 				}
-				else if (inHand.Id == 170)
+				else if (inHand.Name == "minecraft:hay_block")
 				{
 					//Temper += 3;
 					HealthManager.Regen(20);
@@ -157,7 +157,7 @@ namespace MiNET.Entities.Passive
 				if (!IsSaddled)
 				{
 					Inventory.SetSlot(0, inHand);
-					player.Inventory.RemoveItems(inHand.Id, 1); // Wrong. Should really be item in hand
+					player.Inventory.RemoveItems(inHand.Name, 1); // Wrong. Should really be item in hand
 				}
 			}
 			else
@@ -416,7 +416,7 @@ namespace MiNET.Entities.Passive
 						{
 							new NbtByte("Count", Slot0.Count),
 							new NbtShort("Damage", Slot0.Metadata),
-							new NbtShort("id", Slot0.Id),
+							new NbtString("Name", Slot0.Name),
 						},
 						new NbtInt("slotNumber", 0)
 					},
@@ -465,7 +465,7 @@ namespace MiNET.Entities.Passive
 						{
 							new NbtByte("Count", Slot1.Count),
 							new NbtShort("Damage", Slot1.Metadata),
-							new NbtShort("id", Slot1.Id),
+							new NbtString("Name", Slot1.Name),
 						},
 						new NbtInt("slotNumber", 1)
 					},

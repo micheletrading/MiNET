@@ -205,7 +205,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem(323, 0, 1)}; // Drop sign item
+			return new[] {ItemFactory.GetItem("minecraft:oak_sign", 0, 1)}; // Drop sign item
 		}
 
 		private BlockCoordinates GetDirCoord()

@@ -33,6 +33,14 @@ namespace MiNET.Utils
 		public bool        ComponentBased { get; set; }
 		public int         Version { get; set; }
 		public Nbt.Nbt Nbt  { get; set; }
+
+		/// <summary>
+		///     The component blob already serialized as network NBT, written to the wire verbatim.
+		///     Set instead of <see cref="Nbt" /> when the bytes are known ahead of time (the generated
+		///     item registry holds exactly the bytes BDS sends), which saves building an NBT tree only
+		///     to serialize it straight back. Null means fall back to <see cref="Nbt" />.
+		/// </summary>
+		public byte[] RawNbt { get; set; }
 	}
 
 	public class ItemComponentList : List<ItemComponent>

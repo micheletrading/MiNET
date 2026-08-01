@@ -1199,34 +1199,27 @@ namespace MiNET
 			// "item_registry", formerly item_component) instead of StartGame's itemstates.
 			// Without it the client cannot interpret any item network id we send and drops the
 			// connection during join. Sent right after StartGame, matching PMMP's
-			// PreSpawnPacketHandler and vanilla BDS 1.26.34. Entry data (ids, versions, component
-			// NBT) comes from itemstates.json, exported from a decoded BDS 1.26.34 wire capture.
+			// PreSpawnPacketHandler and vanilla BDS 1.26.34. Entry data comes from the generated
+			// ItemRegistry, whose component blobs are already the bytes BDS puts on the wire.
 			var entries = new ItemComponentList();
-			foreach (Itemstate state in ItemFactory.Itemstates)
+			foreach (ItemRegistryEntry entry in ItemFactory.ItemRegistry)
 			{
-				var nbtFile = new NbtFile
+				var component = new ItemComponent
 				{
-					BigEndian = false,
-					UseVarInt = true
+					Name = entry.Name,
+					RuntimeId = entry.NetworkId,
+					ComponentBased = entry.ComponentBased,
+					Version = entry.Version,
+					RawNbt = entry.ComponentNbt
 				};
-				if (state.NbtB64 != null)
+
+				// An item with no components still carries an (empty) compound on the wire.
+				if (component.RawNbt == null)
 				{
-					byte[] nbtBytes = Convert.FromBase64String(state.NbtB64);
-					nbtFile.LoadFromBuffer(nbtBytes, 0, nbtBytes.Length, NbtCompression.None);
-				}
-				else
-				{
-					nbtFile.RootTag = new NbtCompound("");
+					component.Nbt = new Nbt {NbtFile = new NbtFile {BigEndian = false, UseVarInt = true, RootTag = new NbtCompound("")}};
 				}
 
-				entries.Add(new ItemComponent
-				{
-					Name = state.Name,
-					RuntimeId = state.Id,
-					ComponentBased = state.ComponentBased,
-					Version = state.Version,
-					Nbt = new Nbt {NbtFile = nbtFile}
-				});
+				entries.Add(component);
 			}
 
 			var packet = McpeItemComponent.CreateObject();
@@ -2240,15 +2233,12 @@ namespace MiNET
 				Item icon = null;
 				if (def.IconNetworkId != 0)
 				{
-					// Emit the captured wire identity verbatim (see WriteItemLegacy's wire-ready
-					// branch); the factory cannot reconstruct every icon and unresolved icons
-					// (network id -1) crash the client when it rebuilds the creative UI.
-					icon = new Item(0, def.IconMetadata)
-					{
-						NetworkId = def.IconNetworkId,
-						NetworkMetadata = def.IconMetadata,
-						RuntimeId = def.IconRuntimeId
-					};
+					// The captured icon identity, resolved back through the item registry so the
+					// item carries a real name. An unresolved icon (network id -1) crashes the client
+					// when it rebuilds the creative UI, so the id must always land on a registry entry.
+					icon = ItemFactory.GetItemByNetworkId(def.IconNetworkId, def.IconMetadata);
+					icon.NetworkMetadata = def.IconMetadata;
+					icon.RuntimeId = def.IconRuntimeId;
 					if (def.IconNbtB64 != null)
 					{
 						byte[] nbtBytes = Convert.FromBase64String(def.IconNbtB64);
@@ -2269,12 +2259,9 @@ namespace MiNET
 			for (int i = 0; i < groupData.Entries.Count; i++)
 			{
 				CreativeEntryDef def = groupData.Entries[i];
-				var item = new Item(0, def.Metadata)
-				{
-					NetworkId = def.NetworkId,
-					NetworkMetadata = def.Metadata,
-					RuntimeId = def.RuntimeId
-				};
+				Item item = ItemFactory.GetItemByNetworkId(def.NetworkId, def.Metadata);
+				item.NetworkMetadata = def.Metadata;
+				item.RuntimeId = def.RuntimeId;
 				if (def.NbtB64 != null)
 				{
 					byte[] nbtBytes = Convert.FromBase64String(def.NbtB64);
@@ -3135,7 +3122,7 @@ namespace MiNET
 		private void EntityItemInteract(ItemUseOnEntityTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (itemInHand.Id != transaction.Item.Id || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
 			{
 				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
 			}
@@ -3155,7 +3142,7 @@ namespace MiNET
 		protected virtual void EntityAttack(ItemUseOnEntityTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (itemInHand.Id != transaction.Item.Id || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
 			{
 				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
 			}
@@ -3332,7 +3319,7 @@ namespace MiNET
 						// Drop
 						Item sourceItem = Inventory.GetItemInHand();
 
-						if (newItem.Id != sourceItem.Id) Log.Warn($"Inventory mismatch. Client reported drop item as {newItem} and it did not match existing item {sourceItem}");
+						if (!newItem.Name.Equals(sourceItem.Name, StringComparison.OrdinalIgnoreCase)) Log.Warn($"Inventory mismatch. Client reported drop item as {newItem} and it did not match existing item {sourceItem}");
 
 						byte count = newItem.Count;
 
@@ -3380,17 +3367,17 @@ namespace MiNET
 
 			var recipes = RecipeManager.Recipes
 				.Where(r => r is ShapedRecipe)
-				.Where(r => ((ShapedRecipe) r).Result.First().Id == result.Id && ((ShapedRecipe) r).Result.First().Metadata == result.Metadata).ToList();
+				.Where(r => ((ShapedRecipe) r).Result.First().Name.Equals(result.Name, StringComparison.OrdinalIgnoreCase) && ((ShapedRecipe) r).Result.First().Metadata == result.Metadata).ToList();
 
 			recipes.AddRange(RecipeManager.Recipes
 				.Where(r => r is ShapelessRecipe)
-				.Where(r => ((ShapelessRecipe) r).Result.First().Id == result.Id && ((ShapelessRecipe) r).Result.First().Metadata == result.Metadata).ToList());
+				.Where(r => ((ShapelessRecipe) r).Result.First().Name.Equals(result.Name, StringComparison.OrdinalIgnoreCase) && ((ShapelessRecipe) r).Result.First().Metadata == result.Metadata).ToList());
 
 			Log.Debug($"Found {recipes.Count} matching recipes with the result {result}");
 
 			if (recipes.Count == 0) return false;
 
-			var input = craftingInput.Where(i => i != null && i.Id != 0).ToList();
+			var input = craftingInput.Where(i => i != null && !i.IsAir).ToList();
 
 			foreach (var recipe in recipes)
 			{
@@ -3399,12 +3386,12 @@ namespace MiNET
 				{
 					case ShapedRecipe shapedRecipe:
 					{
-						ingredients = shapedRecipe.Input.Where(i => i != null && i.Id != 0).ToList();
+						ingredients = shapedRecipe.Input.Where(i => i != null && !i.IsAir).ToList();
 						break;
 					}
 					case ShapelessRecipe shapelessRecipe:
 					{
-						ingredients = shapelessRecipe.Input.Where(i => i != null && i.Id != 0).ToList();
+						ingredients = shapelessRecipe.Input.Where(i => i != null && !i.IsAir).ToList();
 						break;
 					}
 				}
@@ -3446,7 +3433,7 @@ namespace MiNET
 				if (ReferenceEquals(null, y)) return false;
 				if (ReferenceEquals(x, y)) return true;
 
-				return x.Id == y.Id && (x.Metadata == y.Metadata || x.Metadata == short.MaxValue || y.Metadata == short.MaxValue);
+				return x.Name.Equals(y.Name, StringComparison.OrdinalIgnoreCase) && (x.Metadata == y.Metadata || x.Metadata == short.MaxValue || y.Metadata == short.MaxValue);
 			}
 
 			public int GetHashCode(Item obj)
@@ -3614,7 +3601,7 @@ namespace MiNET
 
 			if (Level.Entities.TryGetValue((long) message.runtimeEntityId, out var entity))
 			{
-				Item item = ItemFactory.GetItem(383, (short) EntityHelpers.ToEntityType(entity.EntityTypeId));
+				Item item = ItemFactory.GetItem("minecraft:spawn_egg", (short) EntityHelpers.ToEntityType(entity.EntityTypeId));
 
 				Inventory.SetInventorySlot(Inventory.InHandSlot, item);
 			}
@@ -4388,25 +4375,25 @@ namespace MiNET
 				Level.DropItem(coordinates, stack);
 			}
 
-			if (Inventory.Helmet.Id != 0)
+			if (!Inventory.Helmet.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Helmet);
 				Inventory.Helmet = new ItemAir();
 			}
 
-			if (Inventory.Chest.Id != 0)
+			if (!Inventory.Chest.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Chest);
 				Inventory.Chest = new ItemAir();
 			}
 
-			if (Inventory.Leggings.Id != 0)
+			if (!Inventory.Leggings.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Leggings);
 				Inventory.Leggings = new ItemAir();
 			}
 
-			if (Inventory.Boots.Id != 0)
+			if (!Inventory.Boots.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Boots);
 				Inventory.Boots = new ItemAir();

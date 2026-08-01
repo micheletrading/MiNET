@@ -144,7 +144,7 @@ namespace MiNET.BlockEntities
 						if (CookTime >= 200)
 						{
 							Inventory.DecreaseSlot(0);
-							Inventory.IncreaseSlot(2, smelt.Id, smelt.Metadata);
+							Inventory.IncreaseSlot(2, smelt.Name, smelt.Metadata);
 
 							CookTime = 0;
 						}
@@ -234,7 +234,7 @@ namespace MiNET.BlockEntities
 			for (byte i = 0; i < items.Count; i++)
 			{
 				NbtCompound itemData = (NbtCompound) items[i];
-				Item item = ItemFactory.GetItem(itemData["id"].ShortValue, itemData["Damage"].ShortValue, itemData["Count"].ByteValue);
+				Item item = ItemNbt.Read(itemData);
 				slots.Add(item);
 			}
 

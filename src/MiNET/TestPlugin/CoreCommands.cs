@@ -1049,7 +1049,7 @@ namespace TestPlugin
 		{
 			var inventory = player.Inventory;
 
-			var command = new ItemCommand(41, 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
+			var command = new ItemCommand("minecraft:gold_block", 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
 
 			byte c = 0;
 			inventory.Slots[c++] = new ItemDiamondHoe();
@@ -1181,7 +1181,7 @@ namespace TestPlugin
 			EnchantArmor(player.Inventory, (short) EnchantingType.FireProtection, 7);
 
 
-			var command = new ItemCommand(41, 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
+			var command = new ItemCommand("minecraft:gold_block", 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
 
 			// Hotbar
 			byte c = 0;
@@ -1264,7 +1264,7 @@ namespace TestPlugin
 			};
 			inventory.Slots[c++] = new ItemBlock(new Anvil(), 0) {Count = 64};
 			inventory.Slots[c++] = new ItemBlock(new EnchantingTable(), 0) {Count = 64};
-			inventory.Slots[c++] = ItemFactory.GetItem(351, 4, 64);
+			inventory.Slots[c++] = ItemFactory.GetItem("minecraft:dye", 4, 64);
 			inventory.Slots[c++] = new ItemBlock(new Planks(), 0) {Count = 64};
 			inventory.Slots[c++] = new ItemCompass(); // Wooden Sword
 			inventory.Slots[c++] = new ItemWoodenSword(); // Wooden Sword
@@ -1305,9 +1305,9 @@ namespace TestPlugin
 			//inventory.Slots[c++] = new ItemBlock(new Block(35), 0) {Count = 64};
 			//inventory.Slots[c++] = new ItemBucket(8);
 
-			//inventory.Slots[c++] = ItemFactory.GetItem(39, 0) { Count = 1};
-			//inventory.Slots[c++] = ItemFactory.GetItem(40, 0), 4);
-			//inventory.Slots[c++] = ItemFactory.GetItem(281, 0), 4);
+			//inventory.Slots[c++] = ItemFactory.GetItem("minecraft:brown_mushroom", 0) { Count = 1};
+			//inventory.Slots[c++] = ItemFactory.GetItem("minecraft:red_mushroom", 0), 4);
+			//inventory.Slots[c++] = ItemFactory.GetItem("minecraft:bowl", 0), 4);
 
 			//for (byte i = 0; i < inventory.ItemHotbar.Length; i++)
 			//{

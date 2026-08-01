@@ -51,9 +51,23 @@ namespace MiNET.Items
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Item));
 
 		public int UniqueId { get; set; } = Environment.TickCount;
-		public string Name { get; protected set; } = string.Empty;
-		public short Id { get; protected set; }
+
+		/// <summary>
+		///     The registry string id ("minecraft:apple"). This is the item's identity: it is what the
+		///     save format stores, what recipe and creative data reference, and the only id that means
+		///     the same thing across game versions. <see cref="NetworkId" /> is derived from it.
+		/// </summary>
+		public string Name { get; protected internal set; } = string.Empty;
+
 		public int NetworkId { get; set; } = -1;
+
+		/// <summary>
+		///     Nothing in this slot. Air has a registry entry because it is a block, but an empty
+		///     stack goes on the wire as network id 0, which no real item uses. This is the check that
+		///     used to be written "Id == 0".
+		/// </summary>
+		[JsonIgnore]
+		public bool IsAir => string.IsNullOrEmpty(Name) || Name.Equals("minecraft:air", StringComparison.OrdinalIgnoreCase);
 
 		/// <summary>
 		///     The raw "metadata" varint as read off the wire alongside <see cref="NetworkId" /> (ReadItemLegacy/
@@ -103,16 +117,11 @@ namespace MiNET.Items
 
 		[JsonIgnore] public int FuelEfficiency { get; set; }
 
-		protected internal Item(string name, short id, short metadata = 0, int count = 1)
+		protected internal Item(string name, short metadata = 0, int count = 1)
 		{
 			Name = name;
-			Id = id;
 			Metadata = metadata;
 			Count = (byte) count;
-		}
-
-		protected internal Item(short id, short metadata = 0, int count = 1) : this(String.Empty, id, metadata, count)
-		{
 		}
 
 		public virtual void UseItem(Level world, Player player, BlockCoordinates blockCoordinates)
@@ -242,7 +251,7 @@ namespace MiNET.Items
 
 		protected bool Equals(Item other)
 		{
-			if (Id != other.Id || Metadata != other.Metadata) return false;
+			if (!string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase) || Metadata != other.Metadata) return false;
 			if (ExtraData == null ^ other.ExtraData == null) return false;
 
 			//TODO: This doesn't work in  most cases. We need to fix comparison when name == null
@@ -275,10 +284,7 @@ namespace MiNET.Items
 
 		public override int GetHashCode()
 		{
-			unchecked
-			{
-				return (Id * 397) ^ Metadata.GetHashCode();
-			}
+			return HashCode.Combine(Name == null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(Name), Metadata);
 		}
 
 		public object Clone()
@@ -288,7 +294,7 @@ namespace MiNET.Items
 
 		public override string ToString()
 		{
-			return $"{GetType().Name}(Id={Id}, Meta={Metadata}, UniqueId={UniqueId}) Count={Count}, NBT={ExtraData}";
+			return $"{GetType().Name}(Name={Name}, Meta={Metadata}, UniqueId={UniqueId}) Count={Count}, NBT={ExtraData}";
 		}
 
 		public bool Interact(Level level, Player player, Entity target)

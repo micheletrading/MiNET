@@ -84,14 +84,14 @@ namespace MiNET.Blocks
 				if (rnd.Next(200) == 0)
 				{
 					// Apple
-					return new Item[] {ItemFactory.GetItem(260, 0, 1)};
+					return new Item[] {ItemFactory.GetItem("minecraft:apple", 0, 1)};
 				}
 			}
 			if (rnd.Next(20) == 0)
 			{
 				// Sapling
 				var blockstate = GetState();
-				return new[] {ItemFactory.GetItem(6, blockstate.Data, 1)};
+				return new[] {ItemFactory.GetItem("minecraft:sapling", blockstate.Data, 1)};
 			}
 
 			return new Item[0];

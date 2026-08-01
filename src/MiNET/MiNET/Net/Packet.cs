@@ -1624,7 +1624,7 @@ namespace MiNET.Net
 			return responses;
 		}
 
-		// Item registry entry, protocol 1001+ (packet id 162, "item_registry"; reuses the "Itemstates" shape):
+		// Item registry entry, protocol 1001+ (packet id 162, "item_registry"):
 		//   name: string, runtime_id: li16, component_based: bool, version: zigzag32, nbt: nbt
 		public void Write(ItemComponentList list)
 		{
@@ -1636,7 +1636,11 @@ namespace MiNET.Net
 				Write(item.RuntimeId);
 				Write(item.ComponentBased);
 				WriteSignedVarInt(item.Version);
-				Write(item.Nbt);
+
+				// Entries from the generated registry carry the serialized bytes already, so they go
+				// out as they are. Only an entry built at runtime has to be serialized here.
+				if (item.RawNbt != null) Write(item.RawNbt);
+				else Write(item.Nbt);
 			}
 		}
 
@@ -1779,19 +1783,10 @@ namespace MiNET.Net
 			return items;
 		}
 
-		private const int ShieldId = 355;
-
-		// The shield's network id (itemstates.json "minecraft:shield" runtime_id, 387 as of protocol
-		// 1001). Resolved by name rather than via the ShieldId constant above: that constant (355) is
-		// the shield's *legacy Java numeric* id, not ItemShield's actual internal Id (513) - comparing
-		// a translated network id against it would never match, and translating a decoded network id
-		// back to an internal id and checking against 355 risks a false positive (FromNetworkId leaves
-		// unmapped network ids untouched, so an unrelated item id that happens to equal 355 - e.g.
-		// ItemWrittenBook's network id 387 coincides with unrelated internal ids elsewhere - could be
-		// misidentified). Comparing the raw wire network id directly against the shield's own resolved
-		// network id avoids both problems.
-		private static readonly Lazy<int> ShieldNetworkId = new(() =>
-			ItemFactory.Translator.TryGetNetworkId(ItemFactory.GetItemIdByName("minecraft:shield"), 0, out var shieldNetworkId) ? shieldNetworkId.Id : int.MinValue);
+		// The shield's network id, the one item the stack format treats specially: its extra-data
+		// blob carries a "blocking_tick" trailer nothing else has. Resolved by name from the item
+		// registry, so it follows the registry rather than being a number to keep up to date.
+		private static readonly Lazy<int> ShieldNetworkId = new(() => ItemFactory.GetNetworkIdByName("minecraft:shield"));
 
 		private static bool IsShieldNetworkId(int networkId)
 		{
@@ -1812,7 +1807,8 @@ namespace MiNET.Net
 		// ReadItemLegacy) are separate readers - do not conflate them.
 		public void Write(Item stack, bool writeUniqueId = true)
 		{
-			if (stack == null || stack.Id == 0 || !ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
+			short networkId = stack == null ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			if (networkId == 0)
 			{
 				Write((short) 0); // network_id
 				Write((ushort) 0); // count
@@ -1823,9 +1819,9 @@ namespace MiNET.Net
 				return;
 			}
 
-			Write((short) netData.Id); // network_id
+			Write(networkId); // network_id
 			Write((ushort) stack.Count); // count
-			WriteVarInt(netData.Meta); // metadata
+			WriteVarInt(stack.Metadata); // metadata
 
 			bool hasStackId = writeUniqueId && stack.UniqueId != 0;
 			Write(hasStackId); // has_stack_id
@@ -1840,7 +1836,7 @@ namespace MiNET.Net
 			// The extra_data blob (nbt marker + canPlaceOn/canDestroy counts) is only present on
 			// the wire when there's actually something to say; an item with no NBT that isn't a
 			// shield (blocking_tick trailer) writes a zero-length blob, not the empty skeleton.
-			bool isShield = netData.Id == ShieldId;
+			bool isShield = IsShieldNetworkId(networkId);
 			if (stack.ExtraData == null && !isShield)
 			{
 				WriteLength(0); // extra_data
@@ -1922,21 +1918,20 @@ namespace MiNET.Net
 
 			int blockRuntimeId = ReadVarInt(); // block_runtime_id
 
-			NbtCompound extraData = ReadItemExtraData(networkId == ShieldId);
+			NbtCompound extraData = ReadItemExtraData(IsShieldNetworkId(networkId));
 
 			if (networkId == 0)
 			{
 				return new ItemAir();
 			}
 
-			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
-
-			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+			Item stack = ItemFactory.GetItemByNetworkId(networkId, (short) metadata, count);
 
 			if (readUniqueId && hasStackId) stack.UniqueId = uniqueId;
 
 			stack.RuntimeId = blockRuntimeId;
 			stack.NetworkId = networkId;
+			stack.NetworkMetadata = metadata;
 			stack.ExtraData = extraData;
 
 			return stack;
@@ -1954,14 +1949,12 @@ namespace MiNET.Net
 			var metadata = ReadVarInt(); // metadata
 			int blockRuntimeId = ReadSignedVarInt(); // block_runtime_id
 
-			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
-
 			// Catalog/recipe item descriptors (creative content, crafting data) are static and don't carry
 			// live inventory state - except the shield, which BDS includes a "blocking_tick" trailer for
 			// even here (confirmed against live BDS 1.26.34 creative_content bytes).
 			NbtCompound extraData = ReadItemExtraData(includeBlockingTick: IsShieldNetworkId(networkId), out var canPlaceOn, out var canDestroy, out var blockingTick);
 
-			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+			Item stack = ItemFactory.GetItemByNetworkId(networkId, (short) metadata, count);
 			stack.RuntimeId = blockRuntimeId;
 			stack.NetworkId = networkId;
 			stack.NetworkMetadata = metadata;
@@ -1975,30 +1968,17 @@ namespace MiNET.Net
 
 		public void WriteItemLegacy(Item stack)
 		{
-			int networkId;
-			int metadata;
-			if (stack != null && stack.NetworkMetadata >= 0)
-			{
-				// Item came from a decode (ReadItemLegacy) - re-emit the exact wire values instead of
-				// re-deriving through ItemTranslator, which isn't guaranteed to invert to the same
-				// network_id/metadata pair (simple mappings can collapse many network ids onto one
-				// internal id, and the translator has no way to pick the original one back out). This
-				// also matters for items whose translated internal Id happens to be 0 (an unmapped
-				// block/item falls back to Id 0 in ItemFactory/BlockFactory) but that are not actually
-				// air on the wire - checking stack.Id == 0 alone would wrongly collapse those to air.
-				networkId = stack.NetworkId;
-				metadata = stack.NetworkMetadata;
-			}
-			else if (stack != null && stack.Id != 0 && ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
-			{
-				networkId = netData.Id;
-				metadata = netData.Meta;
-			}
-			else
+			// Name to network id is a single unambiguous lookup, so a decoded item and a server-built
+			// one encode the same way. Metadata still comes off the decode when there was one: it is
+			// aux data the registry says nothing about.
+			int networkId = stack == null ? 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			if (networkId == 0)
 			{
 				WriteSignedVarInt(0); // network_id => void, no further fields
 				return;
 			}
+
+			int metadata = stack.NetworkMetadata >= 0 ? stack.NetworkMetadata : stack.Metadata;
 
 			WriteSignedVarInt(networkId); // network_id
 			Write((ushort) stack.Count); // count
@@ -2031,13 +2011,13 @@ namespace MiNET.Net
 			}
 
 			int blockRuntimeId = ReadSignedVarInt(); // block_runtime_id
-			NbtCompound extraData = ReadItemExtraData(networkId == ShieldId);
+			NbtCompound extraData = ReadItemExtraData(IsShieldNetworkId(networkId));
 
-			var translated = ItemFactory.Translator.FromNetworkId(networkId, (short) metadata);
-			Item stack = ItemFactory.GetItem((short) translated.Id, translated.Meta, count);
+			Item stack = ItemFactory.GetItemByNetworkId(networkId, (short) metadata, count);
 			if (hasNetId) stack.UniqueId = uniqueId;
 			stack.RuntimeId = blockRuntimeId;
 			stack.NetworkId = networkId;
+			stack.NetworkMetadata = metadata;
 			stack.ExtraData = extraData;
 
 			return stack;
@@ -2045,15 +2025,16 @@ namespace MiNET.Net
 
 		public void WriteItemInstance(Item stack)
 		{
-			if (stack == null || stack.Id == 0 || !ItemFactory.Translator.TryGetNetworkId(stack.Id, stack.Metadata, out var netData))
+			short networkId = stack == null ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			if (networkId == 0)
 			{
 				WriteSignedVarInt(0); // network_id => air, no further fields
 				return;
 			}
 
-			WriteSignedVarInt(netData.Id); // network_id
+			WriteSignedVarInt(networkId); // network_id
 			Write((ushort) stack.Count); // count
-			WriteVarInt(netData.Meta); // metadata
+			WriteVarInt(stack.Metadata); // metadata
 
 			bool hasNetId = stack.UniqueId != 0;
 			Write(hasNetId); // has_net_id
@@ -2064,7 +2045,7 @@ namespace MiNET.Net
 
 			WriteSignedVarInt(stack.RuntimeId); // block_runtime_id
 
-			byte[] extraData = WriteItemExtraData(stack.ExtraData, netData.Id == ShieldId);
+			byte[] extraData = WriteItemExtraData(stack.ExtraData, IsShieldNetworkId(networkId));
 			WriteLength(extraData.Length);
 			Write(extraData);
 		}
@@ -2338,48 +2319,6 @@ namespace MiNET.Net
 			}
 
 			return attributes;
-		}
-
-		public Itemstates ReadItemstates()
-		{
-			var result = new Itemstates();
-			uint count = ReadUnsignedVarInt();
-			for (int runtimeId = 0; runtimeId < count; runtimeId++)
-			{
-				var name = ReadString();
-				var legacyId = ReadShort();
-				var component = ReadBool();
-
-				if (name == "minecraft:shield")
-				{
-					Log.Warn($"Got shield with runtime id {runtimeId}, legacy {legacyId}");
-				}
-
-				result.Add(new Itemstate
-				{
-					Id = legacyId,
-					Name = name,
-					ComponentBased = component
-				});
-			}
-
-			return result;
-		}
-
-		public void Write(Itemstates itemstates)
-		{
-			if (itemstates == null)
-			{
-				WriteUnsignedVarInt(0);
-				return;
-			}
-			WriteUnsignedVarInt((uint) itemstates.Count);
-			foreach (var itemstate in itemstates)
-			{
-				Write(itemstate.Name);
-				Write(itemstate.Id);
-				Write(itemstate.ComponentBased);
-			}
 		}
 
 		public BlockPalette ReadBlockPalette()
@@ -2988,7 +2927,7 @@ namespace MiNET.Net
 					{
 						var rec = smeltingRecipe;
 						WriteSignedVarInt(rec.Input.Metadata == 0 ? Furnace : FurnaceData); // Type
-						WriteSignedVarInt(rec.Input.Id);
+						WriteSignedVarInt(ItemFactory.GetNetworkIdByName(rec.Input.Name));
 						if (rec.Input.Metadata != 0)
 						{
 							WriteSignedVarInt(rec.Input.Metadata);
@@ -3109,7 +3048,7 @@ namespace MiNET.Net
 						short id = (short) ReadSignedVarInt(); // input_id
 						Item result = ReadItemLegacy(); // Result
 						recipe.Block = ReadString(); // block?
-						recipe.Input = ItemFactory.GetItem(id, 0);
+						recipe.Input = ItemFactory.GetItemByNetworkId(id, 0);
 						recipe.Result = result;
 						recipes.Add(recipe);
 						break;
@@ -3121,7 +3060,7 @@ namespace MiNET.Net
 						short meta = (short) ReadSignedVarInt(); // input_meta
 						Item result = ReadItemLegacy(); // Result
 						recipe.Block = ReadString(); // block?
-						recipe.Input = ItemFactory.GetItem(id, meta);
+						recipe.Input = ItemFactory.GetItemByNetworkId(id, meta);
 						recipe.Result = result;
 						recipes.Add(recipe);
 						break;
@@ -3239,9 +3178,9 @@ namespace MiNET.Net
 				{
 					case 1: // int_id_meta, by registry string id
 					{
-						short networkId = ItemFactory.GetNetworkIdByName(descriptor.Name);
-						Write(networkId);
-						if (networkId != 0) Write(descriptor.Metadata);
+						short descriptorNetworkId = ItemFactory.GetNetworkIdByName(descriptor.Name);
+						Write(descriptorNetworkId);
+						if (descriptorNetworkId != 0) Write(descriptor.Metadata);
 						break;
 					}
 					case 2: // molang
@@ -3263,7 +3202,10 @@ namespace MiNET.Net
 				return;
 			}
 
-			if (stack == null || stack.Id == 0)
+			// An ingredient with no descriptor is the plain int_id_meta variant. The id on the wire is
+			// the registry network id, resolved from the item's name like every other write path.
+			short networkId = stack == null ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			if (networkId == 0)
 			{
 				Write((byte) 0); // type = invalid
 				WriteSignedVarInt(stack?.Count ?? 0); // count
@@ -3271,8 +3213,8 @@ namespace MiNET.Net
 			}
 
 			Write((byte) 1); // type = int_id_meta
-			Write((short) stack.Id);
-			if (stack.Id != 0) Write((short) stack.Metadata);
+			Write(networkId);
+			Write((short) stack.Metadata);
 			WriteSignedVarInt(stack.Count == 0 ? 1 : stack.Count);
 		}
 
@@ -3287,7 +3229,7 @@ namespace MiNET.Net
 				{
 					short id = ReadShort();
 					short metadata = id == 0 ? (short) 0 : ReadShort();
-					item = id == 0 ? new ItemAir() : ItemFactory.GetItem(id, metadata);
+					item = id == 0 ? new ItemAir() : ItemFactory.GetItemByNetworkId(id, metadata);
 					break;
 				}
 				case 2: // molang

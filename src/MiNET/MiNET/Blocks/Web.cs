@@ -42,11 +42,11 @@ namespace MiNET.Blocks
 			// For PE works differently than this. Need to check enchanting
 			if (tool is ItemShears)
 			{
-				return new[] {ItemFactory.GetItem(30)};
+				return new[] {ItemFactory.GetItem("minecraft:web")};
 			}
 			if (tool.ItemType == ItemType.Sword)
 			{
-				return new[] {ItemFactory.GetItem(287)};
+				return new[] {ItemFactory.GetItem("minecraft:string")};
 			}
 
 			return new Item[0];

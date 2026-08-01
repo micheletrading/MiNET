@@ -68,7 +68,7 @@ namespace MiNET.Entities.Hostile
 			{
 				result = result.Concat(new[]
 				{
-					ItemFactory.GetItem(287, 0, (byte) count)
+					ItemFactory.GetItem("minecraft:string", 0, (byte) count)
 				}).ToArray();
 			}
 
@@ -76,7 +76,7 @@ namespace MiNET.Entities.Hostile
 			{
 				result = result.Concat(new[]
 				{
-					ItemFactory.GetItem(375),
+					ItemFactory.GetItem("minecraft:spider_eye"),
 				}).ToArray();
 			}
 

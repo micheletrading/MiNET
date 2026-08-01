@@ -27,7 +27,6 @@
   <ItemGroup>
     <None Remove="Blocks\blockstates.json" />
     <None Remove="Blocks\legacy_id_map.json" />
-    <None Remove="Items\itemstates.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Blocks\blockstates.json">
@@ -39,12 +38,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Blocks\Data\r12_to_current_block_map.bin" />
-    <EmbeddedResource Include="Items\Data\itemstates.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
     <EmbeddedResource Include="Items\Data\item_id_map.json" />
     <EmbeddedResource Include="Items\Data\r16_to_current_item_map.json" />
-    <EmbeddedResource Include="Items\Data\block_item_name_map.json" />
     <EmbeddedResource Include="Items\Data\creative_groups.json" />
     <EmbeddedResource Include="Data\entity_properties.json" />
     <EmbeddedResource Include="Data\jigsaw_structures.json" />

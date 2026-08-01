@@ -35,7 +35,7 @@ namespace MiNET.Items
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemPotion));
 
-		public ItemPotion(short metadata) : base("minecraft:potion", 373, metadata)
+		public ItemPotion(short metadata) : base("minecraft:potion", metadata)
 		{
 		}
 
@@ -50,7 +50,7 @@ namespace MiNET.Items
 				if (player.GameMode == GameMode.Survival || player.GameMode == GameMode.Adventure)
 				{
 					player.Inventory.ClearInventorySlot((byte) player.Inventory.InHandSlot);
-					player.Inventory.SetFirstEmptySlot(ItemFactory.GetItem(374), true);
+					player.Inventory.SetFirstEmptySlot(ItemFactory.GetItem("minecraft:glass_bottle"), true);
 				}
 				_isUsing = false;
 				return;

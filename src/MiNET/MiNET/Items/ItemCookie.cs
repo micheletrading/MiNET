@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemCookie : FoodItem
 	{
-		public ItemCookie() : base("minecraft:cookie", 357, 0, 2, 0.4)
+		public ItemCookie() : base("minecraft:cookie", 0, 2, 0.4)
 		{
 		}
 	}
