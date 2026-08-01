@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using fNbt;
 using MiNET.Items;
 
 namespace MiNET.Test.Items
@@ -135,6 +136,48 @@ namespace MiNET.Test.Items
 
 			Assert.AreEqual("minecraft:sugar_cane", item.Name);
 			Assert.AreNotEqual(0, item.NetworkId);
+		}
+
+
+		/// <summary>
+		///     Block entities store items as NBT, and six of them used to disagree about the shape:
+		///     four wrote "id" as a legacy short while two wrote the modern "Name". Reading has to
+		///     accept both, because an old world still holds the legacy form, and writing has to
+		///     always produce the modern one so a world converts itself the first time it is saved.
+		/// </summary>
+		[TestMethod]
+		public void ItemNbtReadsBothShapesAndWritesTheModernOne()
+		{
+			Item apple = ItemFactory.GetItemByName("minecraft:apple", 0, 7);
+
+			NbtCompound written = ItemNbt.Write(apple, "Item");
+			Assert.AreEqual("Item", written.Name);
+			Assert.AreEqual("minecraft:apple", written["Name"].StringValue);
+			Assert.AreEqual(7, written["Count"].ByteValue);
+			Assert.IsNull(written["id"], "the legacy short must never be written again");
+
+			Item roundTripped = ItemNbt.Read(written);
+			Assert.AreEqual(apple.Name, roundTripped.Name);
+			Assert.AreEqual(apple.Count, roundTripped.Count);
+			Assert.AreEqual(apple.NetworkId, roundTripped.NetworkId);
+
+			// The legacy shape an old save still holds: "id" as a pre-flattening short.
+			var legacy = new NbtCompound("Item")
+			{
+				new NbtShort("id", 260),
+				new NbtShort("Damage", 0),
+				new NbtByte("Count", 3)
+			};
+
+			Item upgraded = ItemNbt.Read(legacy);
+			Assert.AreEqual("minecraft:apple", upgraded.Name, "legacy id 260 is the apple");
+			Assert.AreEqual(3, upgraded.Count);
+
+			// Writing it back drops the legacy form for good.
+			Assert.IsNull(ItemNbt.Write(upgraded)["id"]);
+
+			Assert.IsTrue(ItemNbt.Read(null).IsAir);
+			Assert.IsTrue(ItemNbt.Read(new NbtCompound("Item")).IsAir);
 		}
 
 		/// <summary>
