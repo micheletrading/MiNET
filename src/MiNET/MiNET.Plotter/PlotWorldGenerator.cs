@@ -50,7 +50,7 @@ namespace MiNET.Plotter
 			RoadPattern = new Pattern();
 			var gravel = new Gravel();
 			var stone = new Stone();
-			var andesite = new Stone() {StoneType = "andesite"};
+			var andesite = new Andesite();
 			var dirt = new Dirt();
 			var grass = new Grass();
 
@@ -90,7 +90,7 @@ namespace MiNET.Plotter
 			PlotPattern.BlockList.Add(new Pattern.BlockDataEntry()
 			{
 				Weight = 27,
-				Block = new Tallgrass() {TallGrassType = "tall"}
+				Block = new ShortGrass()
 			});
 			PlotPattern.BlockList.Add(new Pattern.BlockDataEntry()
 			{

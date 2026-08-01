@@ -1,0 +1,3 @@
+[submodule "src/MiNET/MiNET.BlockGen/Data"]
+	path = src/MiNET/MiNET.BlockGen/Data
+	url = https://github.com/CloudburstMC/Data.git

@@ -24,6 +24,7 @@
 #endregion
 
 using System.Numerics;
+using MiNET.Entities;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Utils;
@@ -39,12 +40,19 @@ namespace MiNET.Blocks
 			IsTransparent = true;
 			BlastResistance = 6000;
 			Hardness = 5;
-			Damage = "undamaged";
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
-			Direction = player.GetDirection();
+			// The block state replaced the old numeric direction with minecraft:cardinal_direction.
+			// GetDirection returns Direction, whose order matches the state's values exactly.
+			CardinalDirection = (Entity.Direction) player.GetDirection() switch
+			{
+				Entity.Direction.West => "west",
+				Entity.Direction.North => "north",
+				Entity.Direction.East => "east",
+				_ => "south"
+			};
 
 			return false;
 		}

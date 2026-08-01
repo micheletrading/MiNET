@@ -34,7 +34,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Blocks\Data\block_id_map.json" />
-    <EmbeddedResource Include="Blocks\Data\canonical_block_states.nbt" />
     <EmbeddedResource Include="Blocks\Data\item_id_map.json" />
     <EmbeddedResource Include="Blocks\Data\legacy_id_map.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

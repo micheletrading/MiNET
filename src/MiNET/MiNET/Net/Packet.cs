@@ -2401,6 +2401,8 @@ namespace MiNET.Net
 				{
 					record.States.Add(state);
 				}
+
+				result.Add(record);
 			}
 
 			return result;

@@ -336,6 +336,72 @@ namespace MiNET.Client
 		}
 
 		/// <summary>
+		///     Fully decodes storage 0 of a subchunk payload into a 4096-entry grid of raw
+		///     palette values (positional ids when the server runs non-hash mode). Cell index
+		///     is the wire order (x &lt;&lt; 8) | (z &lt;&lt; 4) | y. Returns null on persisted
+		///     (NBT) palettes or parse failure. Used to read BDS's canonical positional ids
+		///     off the wire for the block-order extraction pipeline.
+		/// </summary>
+		public static int[] DecodeSubChunkGrid(byte[] data)
+		{
+			if (data == null || data.Length == 0) return null;
+
+			try
+			{
+				var stream = new MemoryStream(data);
+
+				int version = stream.ReadByte();
+				int storageSize = stream.ReadByte();
+				if (version >= 9) stream.ReadByte(); // y index
+				if (storageSize < 1) return null;
+
+				// Storage 0 only: the block layer (storage 1 is the liquid layer).
+				int flags = stream.ReadByte();
+				bool isRuntime = (flags & 1) != 0;
+				int bitsPerBlock = flags >> 1;
+				if (!isRuntime) return null;
+
+				var indices = new int[4096];
+				if (bitsPerBlock > 0)
+				{
+					int blocksPerWord = (int) Math.Floor(32f / bitsPerBlock);
+					int wordCount = (int) Math.Ceiling(4096f / blocksPerWord);
+					int mask = (1 << bitsPerBlock) - 1;
+					var wordBytes = new byte[4];
+					int cell = 0;
+					for (int w = 0; w < wordCount; w++)
+					{
+						if (stream.Read(wordBytes, 0, 4) != 4) return null;
+						uint word = BitConverter.ToUInt32(wordBytes, 0);
+						for (int j = 0; j < blocksPerWord && cell < 4096; j++, cell++)
+						{
+							indices[cell] = (int) ((word >> (j * bitsPerBlock)) & mask);
+						}
+					}
+				}
+
+				int paletteCount = VarInt.ReadSInt32(stream);
+				var palette = new int[paletteCount];
+				for (int j = 0; j < paletteCount; j++) palette[j] = VarInt.ReadSInt32(stream);
+
+				var grid = new int[4096];
+				for (int i = 0; i < 4096; i++)
+				{
+					int idx = indices[i];
+					if (idx < 0 || idx >= paletteCount) return null;
+					grid[i] = palette[idx];
+				}
+
+				return grid;
+			}
+			catch (Exception e)
+			{
+				if (Log.IsDebugEnabled) Log.Warn("Decoding subchunk grid", e);
+				return null;
+			}
+		}
+
+		/// <summary>
 		///     Parses the serialized subchunk payload from a SubChunkPacket entry: version
 		///     header, block storages, then block entities. Parse-only for now; feeds the
 		///     hash resolution statistics.

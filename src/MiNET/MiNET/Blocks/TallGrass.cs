@@ -31,7 +31,7 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public partial class Tallgrass : Block
+	public partial class TallGrass : Block
 	{
 		public enum TallGrassTypes
 		{
@@ -40,7 +40,7 @@ namespace MiNET.Blocks
 			Fern = 2
 		}
 
-		public Tallgrass() : base(31)
+		public TallGrass() : base(31)
 		{
 			BlastResistance = 3;
 			Hardness = 0.6f;

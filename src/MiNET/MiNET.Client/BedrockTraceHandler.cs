@@ -64,6 +64,39 @@ namespace MiNET.Client
 
 		private static int _subChunkPacketsLogged;
 
+		// Positional-id extraction (block-order pipeline): in non-hash mode the palette values in
+		// subchunk storages ARE indexes into BDS's canonical block palette. Dump world coord ->
+		// positional id for the placement region (chunks 0..3, see temp_auto placer.js); joined
+		// with the placement layout this yields the canonical order. Lines: x\ty\tz\tid.
+		private static readonly object _positionalDumpLock = new object();
+		private static StreamWriter _positionalDump;
+		private static int _positionalCells;
+
+		private void DumpPositionalIds(McpeSubChunkPacket message, SubChunkEntryCommon entry)
+		{
+			int chunkX = message.originX + entry.Offset.XOffset;
+			int chunkZ = message.originZ + entry.Offset.ZOffset;
+			if (chunkX < 0 || chunkX > 3 || chunkZ < 0 || chunkZ > 3) return;
+
+			int[] grid = ClientUtils.DecodeSubChunkGrid(entry.Data);
+			if (grid == null) return;
+
+			int baseX = chunkX * 16;
+			int baseY = (message.originY + entry.Offset.YOffset) * 16;
+			int baseZ = chunkZ * 16;
+			lock (_positionalDumpLock)
+			{
+				_positionalDump ??= new StreamWriter(@"c:\Development\github\MiNET\temp_auto\positional-ids.txt", false);
+				for (int i = 0; i < 4096; i++)
+				{
+					int x = baseX + ((i >> 8) & 15), z = baseZ + ((i >> 4) & 15), y = baseY + (i & 15);
+					_positionalDump.WriteLine($"{x}\t{y}\t{z}\t{grid[i]}");
+					_positionalCells++;
+				}
+				_positionalDump.Flush();
+			}
+		}
+
 		public override void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
 			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
@@ -75,6 +108,7 @@ namespace MiNET.Client
 						success++;
 						if (ClientUtils.TryParseSubChunkPayload(entry.Data, Client.BlockNetworkIdsAreHashes)) parsedOk++;
 						else parseFail++;
+						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
 						break;
 					case SubChunkRequestResult.SuccessAllAir:
 						allAir++;
@@ -87,7 +121,7 @@ namespace MiNET.Client
 
 			if (System.Threading.Interlocked.Increment(ref _subChunkPacketsLogged) <= 5 || parseFail > 0)
 			{
-				Log.Warn($"SubChunk response: origin=({message.originX},{message.originY},{message.originZ}) entries={message.entries.Length} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other}");
+				Log.Warn($"SubChunk response: origin=({message.originX},{message.originY},{message.originZ}) entries={message.entries.Length} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
 			}
 		}
 
@@ -222,9 +256,41 @@ namespace MiNET.Client
 			CallPacketHandlers(message);
 		}
 
+		// Live positional-id capture. In non-hash mode the runtime id on a block-change packet is
+		// the canonical palette index. Bedrock broadcasts the change in the SAME tick as the
+		// placement, before the queued shape update recomputes connection states, so the FIRST id
+		// seen for a coordinate is the state that was actually asked for. Later packets for that
+		// coordinate are the recompute and must not overwrite it, hence first-write-wins.
+		private static readonly object _liveIdLock = new object();
+		private static readonly Dictionary<BlockCoordinates, uint> _liveIds = new Dictionary<BlockCoordinates, uint>();
+		private static StreamWriter _liveIdDump;
+
+		private void RecordLiveId(BlockCoordinates coord, uint runtimeId)
+		{
+			if (Client.BlockNetworkIdsAreHashes) return;
+			lock (_liveIdLock)
+			{
+				if (!_liveIds.TryAdd(coord, runtimeId)) return;
+				_liveIdDump ??= new StreamWriter(@"c:\Development\github\MiNET\temp_auto\live-ids.txt", false) {AutoFlush = true};
+				_liveIdDump.WriteLine($"{coord.X}\t{coord.Y}\t{coord.Z}\t{runtimeId}");
+				if (_liveIds.Count % 2000 == 0) Log.Warn($"Live positional ids captured: {_liveIds.Count}");
+			}
+		}
+
 		public override void HandleMcpeUpdateBlock(McpeUpdateBlock message)
 		{
+			if (message.storage == 0) RecordLiveId(message.coordinates, message.blockRuntimeId);
 			CallPacketHandlers(message);
+		}
+
+		public override void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message)
+		{
+			// Batched changes: coordinates on the entries are absolute, same as McpeUpdateBlock.
+			if (message.layerZeroUpdates == null) return;
+			foreach (UpdateSubChunkBlocksPacketEntry entry in message.layerZeroUpdates)
+			{
+				RecordLiveId(entry.Coordinates, entry.BlockRuntimeId);
+			}
 		}
 
 		public override void HandleMcpeStartGame(McpeStartGame message)
@@ -241,6 +307,44 @@ namespace MiNET.Client
 			Log.Warn($"Got position from startgame packet: {Client.CurrentLocation}");
 			Log.Warn($"StartGame: blockNetworkIdsAreHashes={message.blockNetworkIdsAreHashes}, spawn={message.spawn}");
 			Client.BlockNetworkIdsAreHashes = message.blockNetworkIdsAreHashes;
+
+			// Verify the server's block registry checksum like the real client does: compute from
+			// our own palette and compare. 0 from the server means "no claim" (MiNET, PMMP).
+			// Against BDS this is the live known-answer test for the checksum algorithm; MISMATCH
+			// is expected until the algorithm is cracked (see NetworkBlockPalette).
+			if (message.blockPaletteChecksum != 0)
+			{
+				ulong computed = NetworkBlockPalette.ComputeRegistryChecksum();
+				bool match = computed == message.blockPaletteChecksum;
+				Log.Warn($"Registry checksum: received={message.blockPaletteChecksum} computed={computed} => {(match ? "MATCH, algorithm verified" : "MISMATCH, algorithm candidate wrong")}");
+
+				// Ground-truth capture: dump the palette BDS actually transmitted (non-hash mode) so
+				// the checksum algorithm can be verified against BDS's own registry content, not a
+				// third-party dump. Format per line: <runtimeId>\t<name>\t<stateType:stateName=value>|...
+				if (blockPalette != null && blockPalette.Count > 0)
+				{
+					string dumpPath = @"c:\Development\github\MiNET\temp_auto\bds-palette-nonhash.txt";
+					using var dump = new StreamWriter(dumpPath, false);
+					dump.WriteLine($"#checksum\t{message.blockPaletteChecksum}");
+					dump.WriteLine($"#count\t{blockPalette.Count}");
+					foreach (BlockStateContainer entry in blockPalette)
+					{
+						var states = entry.States.Select(s => s switch
+						{
+							BlockStateByte b => $"byte:{b.Name}={b.Value}",
+							BlockStateInt i => $"int:{i.Name}={i.Value}",
+							BlockStateString ss => $"string:{ss.Name}={ss.Value}",
+							_ => $"?:{s.Name}"
+						});
+						dump.WriteLine($"{entry.RuntimeId}\t{entry.Name}\t{string.Join("|", states)}");
+					}
+					Log.Warn($"Wrote BDS non-hash palette ({blockPalette.Count} entries) to {dumpPath}");
+				}
+			}
+			else
+			{
+				Log.Warn("Registry checksum: server sent 0 (no claim), nothing to verify");
+			}
 
 			var settings = new JsonSerializerSettings
 			{

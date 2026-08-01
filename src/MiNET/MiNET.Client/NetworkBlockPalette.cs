@@ -111,6 +111,28 @@ namespace MiNET.Client
 		}
 
 		/// <summary>
+		///     The client-side registry checksum, computed from the palette exactly as the real
+		///     client is presumed to: verified against BDS's StartGame blockPaletteChecksum on
+		///     every connection (see BedrockTraceHandler.HandleMcpeStartGame). The ALGORITHM IS
+		///     UNVERIFIED: no candidate has reproduced BDS's value yet, so a MISMATCH log is the
+		///     expected state until the real computation is identified. Current candidate:
+		///     FNV-1a 64 over the concatenated per-state hash documents in palette order.
+		/// </summary>
+		public static ulong ComputeRegistryChecksum()
+		{
+			ulong hash = 14695981039346656037;
+			foreach (Entry entry in HashToEntry.Values.OrderBy(e => e.Index))
+			{
+				foreach (byte b in SerializeHashDocument(entry.Name, entry.States))
+				{
+					hash ^= b;
+					hash = unchecked(hash * 1099511628211);
+				}
+			}
+			return hash;
+		}
+
+		/// <summary>
 		///     FNV-1a 32 over the standard little-endian NBT of {name, states}, states
 		///     sorted alphabetically. minecraft:unknown is hardcoded to -2.
 		/// </summary>
@@ -118,6 +140,20 @@ namespace MiNET.Client
 		{
 			if (name == "minecraft:unknown") return unchecked((uint) -2);
 
+			byte[] bytes = SerializeHashDocument(name, states);
+
+			uint hash = 0x811c9dc5;
+			foreach (byte b in bytes)
+			{
+				hash ^= b;
+				hash *= 0x01000193;
+			}
+
+			return hash;
+		}
+
+		private static byte[] SerializeHashDocument(string name, List<IBlockState> states)
+		{
 			var statesCompound = new NbtCompound("states");
 			foreach (IBlockState state in states.OrderBy(s => s.Name, StringComparer.Ordinal))
 			{
@@ -148,16 +184,7 @@ namespace MiNET.Client
 				RootTag = root
 			};
 
-			byte[] bytes = file.SaveToBuffer(NbtCompression.None);
-
-			uint hash = 0x811c9dc5;
-			foreach (byte b in bytes)
-			{
-				hash ^= b;
-				hash *= 0x01000193;
-			}
-
-			return hash;
+			return file.SaveToBuffer(NbtCompression.None);
 		}
 	}
 }

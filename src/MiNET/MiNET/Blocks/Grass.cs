@@ -77,7 +77,7 @@ namespace MiNET.Blocks
 					for (int i = 0; i < 4; i++)
 					{
 						var coordinates = Coordinates + new BlockCoordinates(random.Next(3) - 1, random.Next(5) - 3, random.Next(3) - 1);
-						if (level.GetBlock(coordinates) is Dirt next && next.DirtType == "normal")
+						if (level.GetBlock(coordinates) is Dirt)
 						{
 							Block nextUp = level.GetBlock(coordinates.BlockUp());
 							if (nextUp.IsTransparent && (nextUp.BlockLight >= 4 || nextUp.SkyLight >= 4))
@@ -132,11 +132,14 @@ namespace MiNET.Blocks
 					coord += BlockCoordinates.Up;
 					Block growthBlock = level.GetBlock(coord);
 
-					if (growthBlock is Tallgrass tallGrass)
+					// minecraft:tallgrass carried a tall_grass_type state; it is now separate blocks,
+					// short_grass and fern. minecraft:tall_grass is the two-block plant that used
+					// to be double_plant, so it is deliberately not what grows here.
+					if (growthBlock is ShortGrass or Fern)
 					{
 						if (grassPlanted >= 24) continue;
 
-						if (tallGrass.TallGrassType == "default" || tallGrass.TallGrassType == "tall")
+						if (growthBlock is ShortGrass)
 						{
 							if (rnd.Next(10) == 0)
 							{
@@ -199,8 +202,7 @@ namespace MiNET.Blocks
 						{
 							if(grassPlanted >= 24) continue;
 
-							var block = new Tallgrass();
-							block.TallGrassType = rnd.Next(10) != 0 ? "tall" : "fern";
+							Block block = rnd.Next(10) != 0 ? new ShortGrass() : new Fern();
 							block.Coordinates = coord;
 							level.SetBlock(block);
 							grassPlanted++;

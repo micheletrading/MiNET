@@ -106,10 +106,31 @@ namespace MiNET.Blocks
 		// FNV-1a 32 over the standard little-endian (non-varint) NBT of {name, states}, states
 		// sorted alphabetically by name. Mirrors MiNET.Client NetworkBlockPalette.ComputeNetworkHash,
 		// which is verified against live BDS 1.26.34 chunk data.
+		// The serialized NBT document the network hash is computed over, exposed for tooling
+		// (checksum-algorithm search against the BDS-known registry checksum).
+		public static byte[] GetNetworkHashDocument(int runtimeId)
+		{
+			return SerializeHashDocument(BlockPalette[runtimeId]);
+		}
+
 		public static uint ComputeNetworkHash(BlockStateContainer container)
 		{
 			if (container.Name == "minecraft:unknown") return unchecked((uint) -2);
 
+			byte[] bytes = SerializeHashDocument(container);
+
+			uint hash = 0x811c9dc5;
+			foreach (byte b in bytes)
+			{
+				hash ^= b;
+				hash *= 0x01000193;
+			}
+
+			return hash;
+		}
+
+		private static byte[] SerializeHashDocument(BlockStateContainer container)
+		{
 			var statesCompound = new NbtCompound("states");
 			foreach (IBlockState state in container.States.OrderBy(s => s.Name, StringComparer.Ordinal))
 			{
@@ -140,16 +161,7 @@ namespace MiNET.Blocks
 				RootTag = root
 			};
 
-			byte[] bytes = file.SaveToBuffer(NbtCompression.None);
-
-			uint hash = 0x811c9dc5;
-			foreach (byte b in bytes)
-			{
-				hash ^= b;
-				hash *= 0x01000193;
-			}
-
-			return hash;
+			return file.SaveToBuffer(NbtCompression.None);
 		}
 
 		public static int[] LegacyToRuntimeId = new int[65536];
@@ -186,20 +198,12 @@ namespace MiNET.Blocks
 				Dictionary<string, int> idMapping = new Dictionary<string, int>(ResourceUtil.ReadResource<Dictionary<string, int>>("block_id_map.json", typeof(Block), "Data"), StringComparer.OrdinalIgnoreCase);
 				Dictionary<string, int> itemIdMapping = new Dictionary<string, int>(ResourceUtil.ReadResource<Dictionary<string, int>>("item_id_map.json", typeof(Item), "Data"), StringComparer.OrdinalIgnoreCase);
 
-				int runtimeId = 0;
+				// The palette is compiled in rather than parsed from NBT at startup. It is an
+				// ordered list whose index IS the network id, and all of that is known when the
+				// code is generated, so there is nothing to work out here. Regenerate with
+				// MiNET.BlockGen after moving the pinned data submodule.
 				BlockPalette = new BlockPalette();
-				
-				using (var stream = assembly.GetManifestResourceStream(typeof(Block).Namespace + ".Data.canonical_block_states.nbt"))
-				{
-					do
-					{
-						var compound = Packet.ReadNbtCompound(stream, true);
-						var container = GetBlockStateContainer(compound);
-						
-						container.RuntimeId = runtimeId++;
-						BlockPalette.Add(container);
-					} while (stream.Position < stream.Length);
-				}
+				BlockPaletteData.Create(BlockPalette);
 
 				List<R12ToCurrentBlockMapEntry> legacyStateMap = new List<R12ToCurrentBlockMapEntry>();
 				using (var stream = assembly.GetManifestResourceStream(typeof(Block).Namespace + ".Data.r12_to_current_block_map.bin"))
@@ -571,7 +575,7 @@ namespace MiNET.Blocks
 				28 => new DetectorRail(),
 				29 => new StickyPiston(),
 				30 => new Web(),
-				31 => new Tallgrass(),
+				31 => new TallGrass(),
 				32 => new Deadbush(),
 				33 => new Piston(),
 				34 => new PistonArmCollision(),
@@ -730,7 +734,6 @@ namespace MiNET.Blocks
 				188 => new RepeatingCommandBlock(),
 				189 => new ChainCommandBlock(),
 				190 => new HardGlassPane(),
-				191 => new HardStainedGlassPane(),
 				192 => new ChemicalHeat(),
 				193 => new SpruceDoor(),
 				194 => new BirchDoor(),
@@ -741,9 +744,7 @@ namespace MiNET.Blocks
 				199 => new Frame(),
 				200 => new ChorusFlower(),
 				201 => new PurpurBlock(),
-				202 => new ColoredTorchRg(),
 				203 => new PurpurStairs(),
-				204 => new ColoredTorchBp(),
 				205 => new UndyedShulkerBox(),
 				206 => new EndBricks(),
 				207 => new FrostedIce(),
@@ -777,7 +778,6 @@ namespace MiNET.Blocks
 				235 => new BlackGlazedTerracotta(),
 				236 => new Concrete(),
 				237 => new ConcretePowder(),
-				238 => new ChemistryTable(),
 				239 => new UnderwaterTorch(),
 				240 => new ChorusPlant(),
 				241 => new StainedGlass(),
@@ -793,7 +793,6 @@ namespace MiNET.Blocks
 				251 => new Observer(),
 				252 => new StructureBlock(),
 				253 => new HardGlass(),
-				254 => new HardStainedGlass(),
 				255 => new Reserved6(),
 				257 => new PrismarineStairs(),
 				258 => new DarkPrismarineStairs(),
@@ -924,13 +923,6 @@ namespace MiNET.Blocks
 				383 => new Element117(),
 				384 => new Element118(),
 				385 => new Seagrass(),
-				386 => new Coral(),
-				387 => new CoralBlock(),
-				388 => new CoralFan(),
-				389 => new CoralFanDead(),
-				390 => new CoralFanHang(),
-				391 => new CoralFanHang2(),
-				392 => new CoralFanHang3(),
 				393 => new Kelp(),
 				394 => new DriedKelpBlock(),
 				395 => new AcaciaButton(),
@@ -1001,12 +993,10 @@ namespace MiNET.Blocks
 				462 => new SweetBerryBush(),
 				463 => new Lantern(),
 				464 => new Campfire(),
-				465 => new LavaCauldron(),
 				466 => new Jigsaw(),
 				467 => new Wood(),
 				468 => new Composter(),
 				469 => new LitBlastFurnace(),
-				470 => new LightBlock(),
 				471 => new WitherRose(),
 				472 => new StickyPistonArmCollision(),
 				473 => new BeeNest(),

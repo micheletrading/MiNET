@@ -41,9 +41,17 @@ namespace MiNET.Worlds.Tests
 			flatGenerator.Initialize(null);
 			SubChunk chunk = flatGenerator.GenerateChunkColumn(new ChunkCoordinates())[0];
 
+			// -4 is the bottom section of a 1.18+ world, and the case the old writer got wrong:
+			// it wrote version 8 with an unsigned index, which Bedrock treats as an outdated
+			// chunk and puts through its upgrade path, rewriting the block states we stored.
+			const int sectionY = -4;
+
 			using var stream = new MemoryStream();
-			provider.Write(chunk, stream);
+			provider.Write(chunk, stream, sectionY);
 			byte[] output = stream.ToArray();
+
+			Assert.AreEqual(9, output[0], "subchunk record must declare version 9");
+			Assert.AreEqual(unchecked((byte) (sbyte) sectionY), output[2], "version 9 stores its own signed section index");
 
 			var parsedChunk = new SubChunk();
 			provider.ParseSection(parsedChunk, output);

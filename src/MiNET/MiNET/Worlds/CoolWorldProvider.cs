@@ -281,7 +281,7 @@ namespace MiNET.Worlds
 							//Grass
 							if (GetRandomNumber(0, 5) == 1)
 							{
-								chunk.SetBlock(x, y + 1, z, new Tallgrass {TallGrassType = "tall"});
+								chunk.SetBlock(x, y + 1, z, new ShortGrass());
 							}
 
 							//Flowers

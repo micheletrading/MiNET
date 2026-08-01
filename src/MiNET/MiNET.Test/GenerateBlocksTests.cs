@@ -37,7 +37,6 @@ using MiNET.Utils;
 namespace MiNET.Test
 {
 	[TestClass
-	, Ignore("Manual code generation")
 	]
 	public class GenerateBlocksTests
 	{
@@ -158,22 +157,51 @@ namespace MiNET.Test
 		}
 
 
+		/// <summary>
+		///     Blocks whose hand-written class implements Name, SetState and GetState itself, so a
+		///     generated partial would be a duplicate. This cannot be detected by reflection: once
+		///     the previous partial is compiled in, a hand-implemented member and a generated one
+		///     look the same. Keep this list as short as the compiler demands.
+		/// </summary>
+		private static readonly HashSet<string> HandImplementedStateBlocks = new HashSet<string> {"Chalkboard"};
+
+		/// <summary>
+		///     Classes that exist as a hand-written file in Blocks/. These are the only ones
+		///     GenerateBlockDataClasses must not emit. It cannot decide this by reflection: the
+		///     classes it generated last time are compiled in and look identical to hand-written
+		///     ones, so asking the type system makes the generator skip everything and empty its
+		///     own output. The directory is the source of truth.
+		/// </summary>
+		private static HashSet<string> HandWrittenBlockClasses =>
+			_handWritten ??= new HashSet<string>(
+				Directory.GetFiles(Path.Combine(FindRepoRoot(), "src", "MiNET", "MiNET", "Blocks"), "*.cs")
+					.Where(f => Path.GetFileName(f) != "PartialBlocks.cs" && Path.GetFileName(f) != "BlockData.generated.cs")
+					.SelectMany(f => System.Text.RegularExpressions.Regex
+						.Matches(File.ReadAllText(f), @"public (?:abstract )?(?:partial )?class (\w+)")
+						.Select(m => m.Groups[1].Value)));
+
+		private static HashSet<string> _handWritten;
+
 		[TestMethod]
 		public void GeneratePartialBlocksFromBlockstates()
 		{
 			var blockPalette = BlockFactory.BlockPalette;
 
-			string fileName = Path.GetTempPath() + "MissingBlocks_" + Guid.NewGuid() + ".txt";
-			using (FileStream file = File.OpenWrite(fileName))
+			string fileName = Path.Combine(FindRepoRoot(), "src", "MiNET", "MiNET", "Blocks", "PartialBlocks.cs");
+			using (FileStream file = File.Create(fileName))
 			{
 				var blocks = new List<(int, string)>();
 
-				var writer = new IndentedTextWriter(new StreamWriter(file));
+				var writer = new IndentedTextWriter(new StreamWriter(file, new System.Text.UTF8Encoding(true)), "\t");
 
-				Console.WriteLine($"Directory:\n{Path.GetTempPath()}");
-				Console.WriteLine($"Filename:\n{fileName}");
-				Log.Warn($"Writing blocks to filename:\n{fileName}");
+				Console.WriteLine($"Writing partial block classes to:\n{fileName}");
+				Log.Warn($"Writing partial block classes to:\n{fileName}");
 
+				WriteGeneratedHeader(writer);
+				writer.WriteLine("using System;");
+				writer.WriteLine("using System.Collections.Generic;");
+				writer.WriteLine("using MiNET.Utils;");
+				writer.WriteLineNoTabs("");
 				writer.WriteLine($"namespace MiNET.Blocks");
 				writer.WriteLine($"{{");
 				writer.Indent++;
@@ -188,7 +216,22 @@ namespace MiNET.Test
 					bool existingBlock = blockById.GetType() != typeof(Block) && !blockById.IsGenerated;
 					int id = existingBlock ? currentBlockState.Id : -1;
 
-					string blockClassName = CodeName(currentBlockState.Name.Replace("minecraft:", ""), true);
+					// Every block gets its states here, with no exceptions. Nothing else declares
+					// state members: hand-written files carry material data and behaviour,
+					// GenerateBlockDataClasses carries only a constructor. So a partial can never
+					// collide, and no block can end up without a GetState.
+					// The lookup is by palette NAME: by legacy id, every colour of concrete powder
+					// resolves to the one shared class and looks like something it is not.
+					Block blockByName = BlockFactory.GetBlockByPaletteName(currentBlockState.Name);
+
+					// Prefer the resolved type's name over the palette name: the two do not always
+					// agree, and declaring the wrong one emits a partial that extends nothing.
+					// Blocks that still resolve to the generic Block have no class yet, so fall
+					// back to the palette name, which is what GenerateBlockDataClasses will use.
+					string blockClassName = blockByName.GetType() != typeof(Block)
+						? blockByName.GetType().Name
+						: CodeName(currentBlockState.Name.Replace("minecraft:", ""), true);
+					if (HandImplementedStateBlocks.Contains(blockClassName)) continue;
 
 					blocks.Add((blockById.Id, blockClassName));
 
@@ -197,6 +240,14 @@ namespace MiNET.Test
 					writer.WriteLine($"public partial class {blockClassName} {(existingBlock ? "" : ": Block")} // {blockById.Id} typeof={blockById.GetType().Name}");
 					writer.WriteLine($"{{");
 					writer.Indent++;
+
+					// Parity with the client-side generator in BedrockTraceHandler, which produced
+					// the committed PartialBlocks.cs. That one reads the palette off a live
+					// StartGame, and the palette is no longer sent, so this offline twin reading
+					// canonical_block_states.nbt is the only one that can still run. Without this
+					// line a regeneration would silently drop every block's name.
+					writer.WriteLine($"public override string Name => \"{currentBlockState.Name}\";");
+					writer.WriteLineNoTabs("");
 
 					var bits = new List<BlockStateByte>();
 					foreach (var state in blockstateGrouping.First().States)
@@ -207,7 +258,7 @@ namespace MiNET.Test
 						Type baseType = blockById.GetType().BaseType;
 						bool propOverride = baseType != null
 											&& ("Block" != baseType.Name
-												&& baseType.GetProperty(CodeName(state.Name, true)) != null);
+												&& baseType.GetProperty(CodeName(state.Name.Replace("minecraft:", ""), true)) != null);
 
 						switch (state)
 						{
@@ -219,12 +270,12 @@ namespace MiNET.Test
 								{
 									bits.Add(blockStateByte);
 									writer.Write($"[StateBit] ");
-									writer.WriteLine($"public {(propOverride ? "override" : "")} bool {CodeName(state.Name, true)} {{ get; set; }} = {(defaultVal == 1 ? "true" : "false")};");
+									writer.WriteLine($"public {(propOverride ? "override" : "")} bool {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {(defaultVal == 1 ? "true" : "false")};");
 								}
 								else
 								{
 									writer.Write($"[StateRange({values.Min()}, {values.Max()})] ");
-									writer.WriteLine($"public {(propOverride ? "override" : "")} byte {CodeName(state.Name, true)} {{ get; set; }} = {defaultVal};");
+									writer.WriteLine($"public {(propOverride ? "override" : "")} byte {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {defaultVal};");
 								}
 								break;
 							}
@@ -233,7 +284,7 @@ namespace MiNET.Test
 								var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateInt) d).Value).Distinct().OrderBy(s => s).ToList();
 								int defaultVal = ((BlockStateInt) defaultBlockState?.States.First(s => s.Name == state.Name))?.Value ?? 0;
 								writer.Write($"[StateRange({values.Min()}, {values.Max()})] ");
-								writer.WriteLine($"public {(propOverride ? "override" : "")} int {CodeName(state.Name, true)} {{ get; set; }} = {defaultVal};");
+								writer.WriteLine($"public {(propOverride ? "override" : "")} int {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {defaultVal};");
 								break;
 							}
 							case BlockStateString blockStateString:
@@ -244,7 +295,7 @@ namespace MiNET.Test
 								{
 									writer.WriteLine($"[StateEnum({string.Join(',', values.Select(v => $"\"{v}\""))})]");
 								}
-								writer.WriteLine($"public {(propOverride ? "override" : "")} string {CodeName(state.Name, true)} {{ get; set; }} = \"{defaultVal}\";");
+								writer.WriteLine($"public {(propOverride ? "override" : "")} string {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = \"{defaultVal}\";");
 								break;
 							}
 							default:
@@ -279,7 +330,7 @@ namespace MiNET.Test
 					{
 						writer.WriteLine($"case {state.GetType().Name} s when s.Name == \"{state.Name}\":");
 						writer.Indent++;
-						writer.WriteLine($"{CodeName(state.Name, true)} = {(bits.Contains(state) ? "Convert.ToBoolean(s.Value)" : "s.Value")};");
+						writer.WriteLine($"{CodeName(state.Name.Replace("minecraft:", ""), true)} = {(bits.Contains(state) ? "Convert.ToBoolean(s.Value)" : "s.Value")};");
 						writer.WriteLine($"break;");
 						writer.Indent--;
 					}
@@ -300,7 +351,7 @@ namespace MiNET.Test
 					writer.WriteLine($"record.Id = {blockstateGrouping.First().Id};");
 					foreach (var state in blockstateGrouping.First().States)
 					{
-						string propName = CodeName(state.Name, true);
+						string propName = CodeName(state.Name.Replace("minecraft:", ""), true);
 						writer.WriteLine($"record.States.Add(new {state.GetType().Name} {{Name = \"{state.Name}\", Value = {(bits.Contains(state) ? $"Convert.ToByte({propName})" : propName)}}});");
 					}
 					writer.WriteLine($"return record;");
@@ -363,10 +414,16 @@ namespace MiNET.Test
 				writer.Indent--;
 				writer.WriteLine($"}}");
 
+				// A BlockFactory switch fragment, kept for reference only. It is not valid C# on
+				// its own, so it goes out commented: pasting the file straight into Blocks/ used
+				// to fail to compile solely because of these trailing lines.
+				writer.WriteLineNoTabs("");
+				writer.WriteLineNoTabs("/* BlockFactory.GetBlockById fragment, for reference:");
 				foreach (var block in blocks.OrderBy(tuple => tuple.Item1))
 				{
 					writer.WriteLine($"else if (blockId == {block.Item1}) block = new {block.Item2}();");
 				}
+				writer.WriteLineNoTabs("*/");
 
 				writer.Flush();
 			}
@@ -407,10 +464,8 @@ namespace MiNET.Test
 				var currentBlockState = blockstateGrouping.First();
 				var defaultBlockState = blockstateGrouping.FirstOrDefault(bs => bs.Data == 0) ?? currentBlockState;
 
-				Block existingBlock = BlockFactory.GetBlockByPaletteName(currentBlockState.Name);
-				if (existingBlock.GetType() != typeof(Block)) continue; // already typed: hand-written, previously generated, or discovered by reflection
-
 				string blockClassName = CodeName(currentBlockState.Name.Replace("minecraft:", ""), true);
+				if (HandWrittenBlockClasses.Contains(blockClassName)) continue;
 				if (!seenClassNames.Add(blockClassName))
 				{
 					Log.Warn($"GenerateBlockDataClasses: skipping duplicate class name {blockClassName} for {currentBlockState.Name}");
@@ -424,51 +479,10 @@ namespace MiNET.Test
 				writer.WriteLine("{");
 				writer.Indent++;
 
-				var bits = new List<BlockStateByte>();
-				foreach (var state in blockstateGrouping.First().States)
-				{
-					var q = blockstateGrouping.SelectMany(c => c.States);
-
-					switch (state)
-					{
-						case BlockStateByte blockStateByte:
-						{
-							var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateByte) d).Value).Distinct().OrderBy(s => s).ToList();
-							byte defaultVal = ((BlockStateByte) defaultBlockState.States.First(s => s.Name == state.Name)).Value;
-							if (values.Min() == 0 && values.Max() == 1)
-							{
-								bits.Add(blockStateByte);
-								writer.WriteLine($"[StateBit] public bool {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {(defaultVal == 1 ? "true" : "false")};");
-							}
-							else
-							{
-								writer.WriteLine($"[StateRange({values.Min()}, {values.Max()})] public byte {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {defaultVal};");
-							}
-							break;
-						}
-						case BlockStateInt blockStateInt:
-						{
-							var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateInt) d).Value).Distinct().OrderBy(s => s).ToList();
-							int defaultVal = ((BlockStateInt) defaultBlockState.States.First(s => s.Name == state.Name)).Value;
-							writer.WriteLine($"[StateRange({values.Min()}, {values.Max()})] public int {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = {defaultVal};");
-							break;
-						}
-						case BlockStateString blockStateString:
-						{
-							var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateString) d).Value).Distinct().ToList();
-							string defaultVal = ((BlockStateString) defaultBlockState.States.First(s => s.Name == state.Name)).Value;
-							if (values.Count > 1)
-							{
-								writer.WriteLine($"[StateEnum({string.Join(',', values.Select(v => $"\"{v}\""))})]");
-							}
-							writer.WriteLine($"public string {CodeName(state.Name.Replace("minecraft:", ""), true)} {{ get; set; }} = \"{defaultVal}\";");
-							break;
-						}
-						default:
-							throw new ArgumentOutOfRangeException(nameof(state));
-					}
-				}
-
+				// Shell only. States live in the generated partial, always, for every block: two
+				// generators writing state members into the same class is what produced duplicate
+				// SetState/GetState definitions, and the skip rules invented to dodge that left some
+				// blocks with no GetState at all.
 				writer.WriteLineNoTabs("");
 				writer.WriteLine($"public {blockClassName}() : base({currentBlockState.Id})");
 				writer.WriteLine("{");
@@ -476,50 +490,6 @@ namespace MiNET.Test
 				writer.WriteLine("IsGenerated = true;");
 				writer.Indent--;
 				writer.WriteLine("}");
-
-				writer.WriteLineNoTabs("");
-				writer.WriteLine("public override void SetState(List<IBlockState> states)");
-				writer.WriteLine("{");
-				writer.Indent++;
-				writer.WriteLine("foreach (var state in states)");
-				writer.WriteLine("{");
-				writer.Indent++;
-				writer.WriteLine("switch(state)");
-				writer.WriteLine("{");
-				writer.Indent++;
-
-				foreach (var state in blockstateGrouping.First().States)
-				{
-					writer.WriteLine($"case {state.GetType().Name} s when s.Name == \"{state.Name}\":");
-					writer.Indent++;
-					writer.WriteLine($"{CodeName(state.Name.Replace("minecraft:", ""), true)} = {(bits.Contains(state) ? "Convert.ToBoolean(s.Value)" : "s.Value")};");
-					writer.WriteLine("break;");
-					writer.Indent--;
-				}
-
-				writer.Indent--;
-				writer.WriteLine("} // switch");
-				writer.Indent--;
-				writer.WriteLine("} // foreach");
-				writer.Indent--;
-				writer.WriteLine("} // method");
-
-				writer.WriteLineNoTabs("");
-				writer.WriteLine("public override BlockStateContainer GetState()");
-				writer.WriteLine("{");
-				writer.Indent++;
-				writer.WriteLine("var record = new BlockStateContainer();");
-				writer.WriteLine($"record.Name = \"{blockstateGrouping.First().Name}\";");
-				writer.WriteLine($"record.Id = {blockstateGrouping.First().Id};");
-				foreach (var state in blockstateGrouping.First().States)
-				{
-					string propName = CodeName(state.Name.Replace("minecraft:", ""), true);
-					writer.WriteLine($"record.States.Add(new {state.GetType().Name} {{Name = \"{state.Name}\", Value = {(bits.Contains(state) ? $"Convert.ToByte({propName})" : propName)}}});");
-				}
-				writer.WriteLine("return record;");
-				writer.Indent--;
-				writer.WriteLine("} // method");
-
 				writer.Indent--;
 				writer.WriteLine("} // class");
 			}
