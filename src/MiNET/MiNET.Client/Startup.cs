@@ -24,9 +24,11 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
@@ -189,11 +191,58 @@ namespace MiNET.Client
 
 			//	});
 
-			Console.WriteLine("<Enter> to exit!");
-			Console.ReadLine();
-			if (client.IsConnected) client.SendDisconnectionNotification();
-			Thread.Sleep(50);
-			client.StopClient();
+			using var stopped = new ManualResetEventSlim();
+			int shuttingDown = 0;
+
+			// The same leave the client does on <Enter>, reachable from a signal so a run with no
+			// console still says goodbye. Without it the server only notices on the RakNet timeout,
+			// which leaves the player standing in the world for another half minute. Idempotent
+			// because several of the hooks below can fire for one stop.
+			void Shutdown()
+			{
+				if (Interlocked.Exchange(ref shuttingDown, 1) != 0) return;
+
+				if (client.IsConnected) client.SendDisconnectionNotification();
+				Thread.Sleep(50);
+				client.StopClient();
+				stopped.Set();
+			}
+
+			// Cancel the signal so the runtime lets us finish rather than tearing the process down
+			// mid-disconnect. Nothing can hook an outright kill, so that path still costs a timeout.
+			Console.CancelKeyPress += (_, e) =>
+			{
+				e.Cancel = true;
+				Shutdown();
+			};
+
+			using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+			{
+				context.Cancel = true;
+				Shutdown();
+			});
+
+			using var sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
+			{
+				context.Cancel = true;
+				Shutdown();
+			});
+
+			AppDomain.CurrentDomain.ProcessExit += (_, _) => Shutdown();
+
+			// Started without a console (background process, service, redirected stdin) ReadLine
+			// returns immediately on EOF and the bot would quit the moment it finished logging in.
+			if (Console.IsInputRedirected)
+			{
+				Console.WriteLine("Running until terminated.");
+				stopped.Wait();
+			}
+			else
+			{
+				Console.WriteLine("<Enter> to exit!");
+				Console.ReadLine();
+				Shutdown();
+			}
 		}
 	}
 }

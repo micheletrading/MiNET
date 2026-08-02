@@ -84,11 +84,13 @@ namespace MiNET
 			settings.clientThrottleThreshold = 0;
 			settings.clientThrottleScalar = 0;
 
-			// Pre-wrap the reply so the async send queue can't compress it. Compression starts
-			// with the first packet after this one, in both directions.
+			// Pre-wrap the reply so the async send queue can't compress it. This is the one payload
+			// that carries neither compression nor a compressor id byte: the client only starts
+			// expecting them with the packet after this one. Compression starts with the first
+			// packet after this one, in both directions.
 			var wrapper = McpeWrapper.CreateObject();
 			wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-			wrapper.payload = Compression.CompressPacketsForWrapper(new List<Packet> {settings}, false, 0);
+			wrapper.payload = Compression.PackPacketsForWrapper([settings]);
 			wrapper.Encode();
 			_session.SendPacket(wrapper);
 
@@ -120,14 +122,28 @@ namespace MiNET
 			////Skin.SaveTextureToFile(fileName, Skin.Texture);
 		}
 
-		// Deterministic GUID from a seed (XUID/MID), so a player keeps a stable identity
-		// across joins when the login token carries no explicit identity GUID.
-		private static Guid DeriveStableUuid(string seed)
+		/// <summary>
+		///     The player UUID for an Xbox-authenticated client, whose login token carries an XUID but
+		///     no identity GUID. This is not ours to invent: the client already knows what UUID it has
+		///     and matches the player list against it, so a made-up one makes every entry we send be
+		///     somebody else. Vanilla derives an RFC 4122 v3 (MD5) UUID from the XUID, and this
+		///     reproduces the exact value BDS 1.26.34 put on the wire for a live client (PMMP's
+		///     calculateUuidFromXuid does the same).
+		/// </summary>
+		private static Guid DeriveUuidFromXuid(string xuid)
 		{
-			if (string.IsNullOrEmpty(seed)) return Guid.NewGuid();
-			using var md5 = System.Security.Cryptography.MD5.Create();
-			byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes("minet:" + seed));
-			return new Guid(hash);
+			if (string.IsNullOrEmpty(xuid)) return Guid.NewGuid();
+
+			byte[] hash = System.Security.Cryptography.MD5.HashData(Encoding.UTF8.GetBytes("pocket-auth-1-xuid:" + xuid));
+			hash[6] = (byte) ((hash[6] & 0x0f) | 0x30); // version 3
+			hash[8] = (byte) ((hash[8] & 0x3f) | 0x80); // variant RFC 4122
+
+			// Guid(byte[]) reads the first three groups little-endian; the UUID is big-endian.
+			return new Guid(
+				(hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3],
+				(short) ((hash[4] << 8) | hash[5]),
+				(short) ((hash[6] << 8) | hash[7]),
+				hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]);
 		}
 
 		public void DecodeCert(McpeLogin message)
@@ -169,10 +185,11 @@ namespace MiNET
 			{
 				{
 					IDictionary<string, dynamic> headers = JWT.Headers(skinData);
-					dynamic payload = JObject.Parse(JWT.Payload(skinData));
+					string clientDataJson = JWT.Payload(skinData);
+					ClientData clientData = ClientData.FromJson(clientDataJson);
 
 					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Header: {string.Join(";", headers)}");
-					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Payload:\n{payload.ToString()}");
+					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Payload:\n{clientDataJson}");
 
 					// Reverse-engineering aid: dump the full clientData JSON of a real client so
 					// the bot's login (CryptoUtils.EncodeSkinJwt) can be mirrored field by field.
@@ -180,7 +197,7 @@ namespace MiNET
 					if (!string.IsNullOrEmpty(dumpDir))
 					{
 						System.IO.Directory.CreateDirectory(dumpDir);
-						System.IO.File.WriteAllText(System.IO.Path.Combine(dumpDir, $"clientdata-{DateTime.UtcNow:HHmmss}.json"), payload.ToString());
+						System.IO.File.WriteAllText(System.IO.Path.Combine(dumpDir, $"clientdata-{DateTime.UtcNow:HHmmss}.json"), clientDataJson);
 					}
 
 					// Skin JWT Payload: 
@@ -260,60 +277,22 @@ namespace MiNET
 						//-------------------------- ThirdPartyNameOnly
 						//-------------------------- PlatformOfflineId
 
-						_playerInfo.ClientId = payload.ClientRandomId;
-						_playerInfo.CurrentInputMode = payload.CurrentInputMode;
-						_playerInfo.DefaultInputMode = payload.DefaultInputMode;
-						_playerInfo.DeviceModel = payload.DeviceModel;
-						_playerInfo.DeviceOS = payload.DeviceOS;
-						_playerInfo.GameVersion = payload.GameVersion;
-						_playerInfo.GuiScale = payload.GuiScale;
-						_playerInfo.LanguageCode = payload.LanguageCode;
-						_playerInfo.PlatformChatId = payload.PlatformOnlineId;
-						_playerInfo.ServerAddress = payload.ServerAddress;
-						_playerInfo.UIProfile = payload.UIProfile;
-						_playerInfo.ThirdPartyName = payload.ThirdPartyName;
-						_playerInfo.TenantId = payload.TenantId;
-						_playerInfo.DeviceId = payload.DeviceId;
-
-						_playerInfo.Skin = new Skin()
-						{
-							Cape = new Cape()
-							{
-								Data = Convert.FromBase64String((string) payload.CapeData ?? string.Empty),
-								Id = payload.CapeId,
-								ImageHeight = payload.CapeImageHeight,
-								ImageWidth = payload.CapeImageWidth,
-								OnClassicSkin = payload.CapeOnClassicSkin,
-							},
-							SkinId = payload.SkinId,
-							ResourcePatch = Encoding.UTF8.GetString(Convert.FromBase64String((string) payload.SkinResourcePatch ?? string.Empty)),
-							Width = payload.SkinImageWidth,
-							Height = payload.SkinImageHeight,
-							Data = Convert.FromBase64String((string) payload.SkinData ?? string.Empty),
-							GeometryData = Encoding.UTF8.GetString(Convert.FromBase64String((string) payload.SkinGeometryData ?? string.Empty)),
-							AnimationData = payload.SkinAnimationData,
-							IsPremiumSkin = payload.PremiumSkin,
-							IsPersonaSkin = payload.PersonaSkin,
-							// The server vouches for skins it relays: the PlayerList trusted flag
-							// is what the client's "only allow trusted skins" setting checks, so
-							// without this every custom skin renders as a default persona for
-							// players with that setting on (PMMP marks relayed skins the same way).
-							IsVerified = !Player.JoinBisect.Contains("no-skin-verified"),
-						};
-						foreach (dynamic animationData in payload.AnimatedImageData)
-						{
-							_playerInfo.Skin.Animations.Add(
-								new Animation()
-								{
-									Image = Convert.FromBase64String((string) animationData.Image ?? string.Empty),
-									ImageHeight = animationData.ImageHeight,
-									ImageWidth = animationData.ImageWidth,
-									FrameCount = animationData.Frames,
-									Expression = animationData.AnimationExpression,
-									Type = animationData.Type,
-								}
-							);
-						}
+						_playerInfo.ClientId = clientData.ClientRandomId;
+						_playerInfo.CurrentInputMode = clientData.CurrentInputMode;
+						_playerInfo.DefaultInputMode = clientData.DefaultInputMode;
+						_playerInfo.DeviceModel = clientData.DeviceModel;
+						_playerInfo.DeviceOS = clientData.DeviceOS;
+						_playerInfo.GameVersion = clientData.GameVersion;
+						_playerInfo.GuiScale = clientData.GuiScale;
+						_playerInfo.LanguageCode = clientData.LanguageCode;
+						_playerInfo.PlatformChatId = clientData.PlatformOnlineId;
+						_playerInfo.ServerAddress = clientData.ServerAddress;
+						_playerInfo.UIProfile = clientData.UIProfile;
+						_playerInfo.ThirdPartyName = clientData.ThirdPartyName;
+						_playerInfo.TenantId = clientData.TenantId;
+						_playerInfo.DeviceId = clientData.DeviceId;
+						
+						_playerInfo.Skin = clientData.ToSkin();
 					}
 					catch (Exception e)
 					{
@@ -362,7 +341,7 @@ namespace MiNET
 						if (string.IsNullOrEmpty(identity))
 						{
 							string seed = !string.IsNullOrEmpty(xuid) ? xuid : (string) tokenPayload.mid ?? (string) tokenPayload.sub;
-							identity = DeriveStableUuid(seed).ToString();
+							identity = DeriveUuidFromXuid(seed).ToString();
 						}
 
 						_playerInfo.CertificateData = new CertificateData

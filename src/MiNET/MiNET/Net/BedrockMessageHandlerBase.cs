@@ -68,6 +68,26 @@ namespace MiNET.Net
 			var sendList = new List<Packet>();
 			var sendInBatch = new List<Packet>();
 
+			// The batch is one packet built from many, so it can only be added once the run of
+			// ordinary packets ends. Anything that goes straight to sendList has to close that run
+			// first or it overtakes packets queued before it. Pre-encoded wrappers are the reason
+			// this matters: chunks, player lists and crafting data are packed off the RakNet ticker
+			// and handed over finished, but they are queued in order with everything else and the
+			// client holds them to it. A roster that overtakes StartGame is silently dropped.
+			void FlushBatch()
+			{
+				if (sendInBatch.Count == 0) return;
+
+				var pending = McpeWrapper.CreateObject();
+				pending.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
+				pending.payload = CompressionEnabled
+					? Compression.CompressPacketsForWrapper(sendInBatch)
+					: Compression.PackPacketsForWrapper(sendInBatch);
+				pending.Encode(); // prepare
+				sendList.Add(pending);
+				sendInBatch.Clear();
+			}
+
 			foreach (Packet packet in packetsToSend)
 			{
 				// We must send forced clear messages in single message batch because
@@ -76,10 +96,14 @@ namespace MiNET.Net
 				// to bother.
 				if (packet.ForceClear)
 				{
+					FlushBatch();
+
 					var wrapper = McpeWrapper.CreateObject();
 					wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 					wrapper.ForceClear = true;
-					wrapper.payload = Compression.CompressPacketsForWrapper(new List<Packet> {packet}, CompressionEnabled, CompressionThreshold);
+					wrapper.payload = CompressionEnabled
+						? Compression.CompressPacketsForWrapper(new List<Packet> {packet})
+						: Compression.PackPacketsForWrapper(new List<Packet> {packet});
 					wrapper.Encode(); // prepare
 					packet.PutPool();
 					sendList.Add(wrapper);
@@ -88,6 +112,8 @@ namespace MiNET.Net
 
 				if (packet is McpeWrapper)
 				{
+					FlushBatch();
+
 					packet.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 					sendList.Add(packet);
 					continue;
@@ -95,6 +121,8 @@ namespace MiNET.Net
 
 				if (!packet.IsMcpe)
 				{
+					FlushBatch();
+
 					packet.ReliabilityHeader.Reliability = packet.ReliabilityHeader.Reliability != Reliability.Undefined ? packet.ReliabilityHeader.Reliability : Reliability.Reliable;
 					sendList.Add(packet);
 					continue;
@@ -105,14 +133,7 @@ namespace MiNET.Net
 				sendInBatch.Add(OnSendCustomPacket(packet));
 			}
 
-			if (sendInBatch.Count > 0)
-			{
-				var batch = McpeWrapper.CreateObject();
-				batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				batch.payload = Compression.CompressPacketsForWrapper(sendInBatch, CompressionEnabled, CompressionThreshold);
-				batch.Encode(); // prepare
-				sendList.Add(batch);
-			}
+			FlushBatch();
 
 			return sendList;
 		}

@@ -354,8 +354,8 @@
 	</pdu>
 
 	<pdu id="0x17" online="false" client="true" server="true" name="MCPE_TICK_SYNC">
-		<field name="Request Time" type="long" />
-		<field name="Response Time" type="long" />
+		<field name="Request Time" type="long" endianess="LE" />
+		<field name="Response Time" type="long" endianess="LE" />
 	</pdu>
 
 	<pdu id="0x18" online="false" client="true" server="true" name="MCPE_LEVEL_SOUND_EVENT_OLD">
@@ -669,7 +669,7 @@
 		<field name="Action permissions" type="UnsignedVarInt" />
 		<field name="Permission level" type="UnsignedVarInt" />
 		<field name="Custom stored permissions" type="UnsignedVarInt" />
-		<field name="Entity Unique Id" type="long" />
+		<field name="Entity Unique Id" type="long" endianess="LE" />
 	</pdu>
 
 	<pdu id="0x38" online="false" client="true" server="true" name="MCPE_BLOCK_ENTITY_DATA">
@@ -1244,7 +1244,7 @@
 	</pdu>
 
 	<pdu id="0xbb" online="false" client="false" server="true" name="MCPE_UPDATE_ABILITIES">
-		<field name="Entity Unique ID" type="long" />
+		<field name="Entity Unique ID" type="long" endianess="LE" />
 		<field name="Permission Level" type="byte" />
 		<field name="Command Permission" type="byte" />
 		<!-- abilities[] handled in partial -->

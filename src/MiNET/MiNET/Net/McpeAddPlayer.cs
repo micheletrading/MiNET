@@ -59,7 +59,7 @@ namespace MiNET.Net
 			WriteUnsignedVarInt(0); // int properties
 			WriteUnsignedVarInt(0); // float properties
 
-			Write(uniqueId);
+			WriteLe(uniqueId);
 			Write(permissionLevel);
 			Write(commandPermission);
 			Write(abilities);
@@ -88,7 +88,7 @@ namespace MiNET.Net
 				ReadFloat(); // value
 			}
 
-			uniqueId = ReadLong();
+			uniqueId = ReadLongLe();
 			permissionLevel = ReadByte();
 			commandPermission = ReadByte();
 			abilities = ReadAbilityLayers();

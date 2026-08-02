@@ -30,16 +30,18 @@ using System.Linq;
 using System.Reflection;
 using fNbt;
 using log4net;
+using MiNET.Blocks;
 using MiNET.Utils;
-using Newtonsoft.Json.Linq;
 
 namespace MiNET.Client
 {
 	/// <summary>
-	///     The full network block palette for the target game version, loaded from the
-	///     PrismarineJS/minecraft-data dump, with the FNV-1a 32 network hash per state.
-	///     Chunk palettes reference block states by these hashes when the server has
-	///     block_network_ids_are_hashes set in StartGame.
+	///     The full network block palette for the target game version, keyed by the FNV-1a 32
+	///     network hash of each state. Chunk palettes reference block states by these hashes when
+	///     the server has block_network_ids_are_hashes set in StartGame.
+	///     Taken straight from BlockFactory, which compiles the same palette in as generated code.
+	///     This used to parse its own 5.5MB copy of the minecraft-data dump at startup to rebuild a
+	///     table the referenced assembly already had in memory.
 	/// </summary>
 	public static class NetworkBlockPalette
 	{
@@ -72,37 +74,11 @@ namespace MiNET.Client
 		{
 			var result = new Dictionary<uint, Entry>();
 
-			var assembly = Assembly.GetAssembly(typeof(NetworkBlockPalette));
-			using Stream stream = assembly.GetManifestResourceStream("MiNET.Client.Data.blockStates-1.26.30.json");
-			using var reader = new StreamReader(stream);
-			var entries = JArray.Parse(reader.ReadToEnd());
-
 			int index = 0;
-			foreach (JToken token in entries)
+			foreach (BlockStateContainer container in BlockFactory.BlockPalette)
 			{
-				string name = "minecraft:" + (string) token["name"];
-				var states = new List<IBlockState>();
-				foreach (JProperty state in ((JObject) token["states"]).Properties())
-				{
-					string type = (string) state.Value["type"];
-					switch (type)
-					{
-						case "byte":
-							states.Add(new BlockStateByte {Name = state.Name, Value = (byte) (int) state.Value["value"]});
-							break;
-						case "int":
-							states.Add(new BlockStateInt {Name = state.Name, Value = (int) state.Value["value"]});
-							break;
-						case "string":
-							states.Add(new BlockStateString {Name = state.Name, Value = (string) state.Value["value"]});
-							break;
-						default:
-							throw new InvalidDataException($"Unknown state type {type} on {name}");
-					}
-				}
-
-				uint hash = ComputeNetworkHash(name, states);
-				result[hash] = new Entry {Index = index, Name = name, States = states};
+				uint hash = ComputeNetworkHash(container.Name, container.States);
+				result[hash] = new Entry {Index = index, Name = container.Name, States = container.States};
 				index++;
 			}
 

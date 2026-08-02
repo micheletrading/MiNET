@@ -166,7 +166,10 @@ namespace MiNET.Entities
 			metadata[(int) MetadataFlags.RiderSeatPosition] = new MetadataVector3(RiderSeatPosition);
 			metadata[(int) MetadataFlags.RiderRotationLocked] = new MetadataByte(RiderRotationLocked);
 			metadata[(int) MetadataFlags.RiderMaxRotation] = new MetadataFloat(RiderMaxRotation);
-			metadata[(int) MetadataFlags.RiderMinRotation] = new MetadataFloat(RiderMinRotation);
+			// Byte, not float. Vanilla BDS 1.26.34 sends a byte here; the dictionary is
+			// self-describing so a float is not malformed, it just is not what the client
+			// is built to read for this property.
+			metadata[(int) MetadataFlags.RiderMinRotation] = new MetadataByte((byte) RiderMinRotation);
 			metadata[(int) MetadataFlags.AlwaysShowNameTag] = new MetadataByte(IsAlwaysShowName);
 			return metadata;
 		}

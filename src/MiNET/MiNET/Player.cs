@@ -89,9 +89,10 @@ namespace MiNET
 		public string ServerAddress { get; set; }
 		public PlayerInfo PlayerInfo { get; set; }
 
-		// player_list add-record color ARGB (protocol 800+). Not currently derived from any
-		// server-side player state; defaults to 0 for locally-authored records.
-		public int PlayerListColor { get; set; }
+		// player_list add-record colour, ARGB (protocol 800+). Vanilla BDS 1.26.34 sends 0xFFEDEDED
+		// for an ordinary player, verified against a live capture. It used to default to 0, which is
+		// not "no colour" but fully transparent black, and the client has to draw the row in it.
+		public int PlayerListColor { get; set; } = unchecked((int) 0xFFEDEDED);
 
 		public Skin Skin { get; set; }
 
@@ -967,11 +968,11 @@ namespace MiNET
 				// same packet set, same order. Every packet is built by MiNET from real level/player
 				// state or from its own committed data files (Data/*.json, see JoinSequenceData);
 				// nothing replays captured bytes.
-				if (!JoinBisect.Contains("no-state-packets")) SendSleepStatus();
+				SendSleepStatus();
 
 				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
 
-				if (!JoinBisect.Contains("no-state-packets")) SendWorldClockState();
+				SendWorldClockState();
 				SendJigsawStructureData();
 				SendVoxelShapes();
 
@@ -983,7 +984,7 @@ namespace MiNET
 
 				SendPlayerSpawnPosition(); // undefined-position sentinel: no personal (bed) spawn at join
 
-				if (!JoinBisect.Contains("no-state-packets")) SendWorldClockRegistry();
+				SendWorldClockRegistry();
 
 				SendSetDificulty();
 
@@ -2189,26 +2190,11 @@ namespace MiNET
 			// entities' visible held items).
 		}
 
-		// TODO(1001): temporary join-regression bisect gate; remove when the real-client join
-		// rejection is found. Comma-separated toggles in MINET_JOIN_BISECT.
-		internal static readonly string JoinBisect = Environment.GetEnvironmentVariable("MINET_JOIN_BISECT") ?? "";
-
 		public virtual void SendCraftingRecipes()
 		{
 			// The 1.26 client expects a CraftingData packet during join (both vanilla BDS and PMMP
 			// always send one). It is a projection of the server's recipe registry, which is also what
 			// crafting requests are validated against, so a plugin that adds a recipe changes both.
-			if (JoinBisect.Contains("empty-recipes"))
-			{
-				var empty = McpeCraftingData.CreateObject();
-				empty.recipes = new Recipes();
-				empty.potionTypeRecipes = new PotionTypeRecipe[0];
-				empty.potionContainerRecipes = new PotionContainerChangeRecipe[0];
-				empty.materialReducerRecipes = new MaterialReducerRecipe[0];
-				empty.isClean = true;
-				SendPacket(empty);
-				return;
-			}
 
 			SendPacket(RecipeManager.CreateCraftingDataPacket());
 		}
@@ -3652,11 +3638,15 @@ namespace MiNET
 			levelSettings.spawnSettings = new SpawnSettings()
 			{
 				Dimension = (int)(Level?.Dimension ?? 0),
-				BiomeName = "",
+				// Vanilla names the spawn biome; an empty string leaves the client with no biome for
+				// the point it spawns at.
+				BiomeName = "minecraft:plains",
 				BiomeType = 0
 			};
 			levelSettings.seed = 12345;
-			levelSettings.generator = 1;
+			// 2 = infinite, which is what vanilla BDS reports even for a flat world. 1 is "flat",
+			// and the client uses this to decide how it treats the world edge.
+			levelSettings.generator = 2;
 			levelSettings.gamemode = (int) GameMode;
 			levelSettings.x = (int) SpawnPosition.X;
 			levelSettings.y = (int) (SpawnPosition.Y + Height);
@@ -3674,8 +3664,22 @@ namespace MiNET
 			levelSettings.bonusChest = false;
 			levelSettings.mapEnabled = false;
 			levelSettings.permissionLevel = (int) PermissionLevel;
-			levelSettings.gameVersion = "";
-			levelSettings.hasEduFeaturesEnabled = true;
+			// "*" is what vanilla sends here, not the version string and not empty.
+			levelSettings.gameVersion = "*";
+
+			// This server is not Education Edition. Sending true put every client into edu mode,
+			// which changes chat, permissions and the player roster UI.
+			levelSettings.hasEduFeaturesEnabled = false;
+
+			// The remaining values vanilla BDS 1.26.34 sends, from a decoded capture. Zero is not a
+			// neutral default for any of them: it is a smaller tick range, an unlimited world of
+			// size zero, and a broadcast mode the client does not expect.
+			levelSettings.serverChunkTickRange = 4;
+			levelSettings.useMsaGamertagsOnly = true;
+			levelSettings.limitedWorldWidth = 16;
+			levelSettings.limitedWorldLength = 16;
+			levelSettings.xboxLiveBroadcastMode = 6;
+			levelSettings.platformBroadcastMode = 6;
 			
 			var startGame = McpeStartGame.CreateObject();
 			startGame.levelSettings = levelSettings;
@@ -3716,12 +3720,6 @@ namespace MiNET
 			startGame.multiplayerCorrelationId = "<raknet>" + Guid.NewGuid().ToString("N").Substring(0, 16).Insert(4, "-").Insert(9, "-").Insert(14, "-");
 			// Vanilla sends the join-info block with all three optional sub-blocks absent.
 			startGame.hasServerJoinInfo = true;
-
-			if (JoinBisect.Contains("no-startgame-parity"))
-			{
-				startGame.multiplayerCorrelationId = "";
-				startGame.hasServerJoinInfo = false;
-			}
 
 			SendPacket(startGame);
 		}
@@ -4420,7 +4418,11 @@ namespace MiNET
 			mcpeAddPlayer.deviceId = PlayerInfo.DeviceId;
 			mcpeAddPlayer.deviceOs = PlayerInfo.DeviceOS;
 
-			int[] a = new int[5];
+			// A spawned player must arrive with its ability layers. This went out with none, where
+			// vanilla BDS 1.26.34 sends two, leaving the receiving client a player it has no base
+			// layer to read walk and fly speed from. The layer is the same one UpdateAbilities
+			// sends for this player, so the two cannot describe the player differently.
+			mcpeAddPlayer.abilities = new List<AbilityLayer> {BuildBaseAbilityLayer()};
 
 			//NOT WORKING: Reported to Mojang
 			//if (IsRiding)
@@ -4444,9 +4446,8 @@ namespace MiNET
 				Level.RelayBroadcast(players, link);
 			}
 
-			SendEquipmentForPlayer(players);
-
-			SendArmorForPlayer(players);
+			// No equipment or armor here. Vanilla BDS 1.26.34 sends neither when it spawns a player,
+			// and sending them is what dropped a real client the moment another player appeared.
 		}
 
 		public virtual void SendEquipmentForPlayer(Player[] receivers = null)

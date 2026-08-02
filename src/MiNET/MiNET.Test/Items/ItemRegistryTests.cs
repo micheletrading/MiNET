@@ -29,6 +29,7 @@ using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using fNbt;
 using MiNET.Items;
+using MiNET.Net;
 
 namespace MiNET.Test.Items
 {
@@ -178,6 +179,34 @@ namespace MiNET.Test.Items
 
 			Assert.IsTrue(ItemNbt.Read(null).IsAir);
 			Assert.IsTrue(ItemNbt.Read(new NbtCompound("Item")).IsAir);
+		}
+
+
+		/// <summary>
+		///     An empty slot goes on the wire as network id 0. Air is a real registry entry (-158),
+		///     so resolving an empty stack by name yields a genuine item id and the client is told
+		///     the slot holds air rather than nothing. Every writer has to ask IsAir first.
+		/// </summary>
+		[TestMethod]
+		public void EmptyStacksEncodeAsNothingNotAsAir()
+		{
+			Assert.AreNotEqual(0, ItemFactory.GetNetworkIdByName("minecraft:air"),
+				"if air were 0 this whole class of bug would be impossible; it is not, so the guard matters");
+
+			foreach (Item empty in new[] {new ItemAir(), ItemFactory.GetItemByName("minecraft:air")})
+			{
+				Assert.IsTrue(empty.IsAir);
+
+				var packet = McpeMobEquipment.CreateObject();
+				packet.item = empty;
+				byte[] bytes = packet.Encode();
+				packet.PutPool();
+
+				var read = McpeMobEquipment.CreateObject();
+				read.Decode(bytes);
+				Assert.IsTrue(read.item.IsAir, "an empty hand decoded as a real item");
+				read.PutPool();
+			}
 		}
 
 		/// <summary>

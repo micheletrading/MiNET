@@ -3359,8 +3359,8 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(requestTime);
-			Write(responseTime);
+			WriteLe(requestTime);
+			WriteLe(responseTime);
 
 			AfterEncode();
 		}
@@ -3374,8 +3374,8 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			requestTime = ReadLong();
-			responseTime = ReadLong();
+			requestTime = ReadLongLe();
+			responseTime = ReadLongLe();
 
 			AfterDecode();
 		}
@@ -5221,7 +5221,7 @@ namespace MiNET.Net
 			WriteUnsignedVarInt(actionPermissions);
 			WriteUnsignedVarInt(permissionLevel);
 			WriteUnsignedVarInt(customStoredPermissions);
-			Write(entityUniqueId);
+			WriteLe(entityUniqueId);
 
 			AfterEncode();
 		}
@@ -5240,7 +5240,7 @@ namespace MiNET.Net
 			actionPermissions = ReadUnsignedVarInt();
 			permissionLevel = ReadUnsignedVarInt();
 			customStoredPermissions = ReadUnsignedVarInt();
-			entityUniqueId = ReadLong();
+			entityUniqueId = ReadLongLe();
 
 			AfterDecode();
 		}
@@ -10290,7 +10290,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(entityUniqueId);
+			WriteLe(entityUniqueId);
 			Write(permissionLevel);
 			Write(commandPermission);
 
@@ -10306,7 +10306,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			entityUniqueId = ReadLong();
+			entityUniqueId = ReadLongLe();
 			permissionLevel = ReadByte();
 			commandPermission = ReadByte();
 

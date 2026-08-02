@@ -322,10 +322,20 @@ namespace MiNET.Worlds
 				var roster = new List<Player>(others.Length + 1) {newPlayer};
 				roster.AddRange(others);
 
+
+				// Encoded and compressed here, on this thread, so the RakNet ticker that services
+				// every session has nothing to do but ship bytes. It still keeps its place in the
+				// sequence: PrepareSend closes the pending batch before it queues a finished wrapper.
+				// That order is not cosmetic. A roster that overtakes StartGame is dropped, and the
+				// joining player then sees the others in the world with no rows in the player list.
 				var playerListMessage = McpePlayerList.CreateObject();
 				playerListMessage.records = new PlayerAddRecords(roster);
-				newPlayer.SendPacket(playerListMessage);
+				newPlayer.SendPacket(CreateMcpeBatch(playerListMessage.Encode()));
+				playerListMessage.PutPool();
 
+				// One record, the joiner, to everyone already connected. This is how another client
+				// learns their skin, so it cannot be skipped: AddPlayer below only references the
+				// identity, it does not carry an appearance.
 				var playerList = McpePlayerList.CreateObject();
 				playerList.records = new PlayerAddRecords {newPlayer};
 				RelayBroadcast(newPlayer, roster.ToArray(), CreateMcpeBatch(playerList.Encode()));

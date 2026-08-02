@@ -9,7 +9,8 @@
     <None Remove="log4net.xml" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Data\blockStates-1.26.30.json" />
+    <EmbeddedResource Include="Data\persona_skin.json" />
+    <EmbeddedResource Include="Data\grey_skin.json" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="log4net.xml">

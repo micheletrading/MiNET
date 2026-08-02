@@ -376,6 +376,10 @@ namespace MiNET.Net
 			return (long) VarInt.ReadUInt64(_reader);
 		}
 
+		// Unlike every other fixed-width type here, the plain Write/Read for long is big-endian.
+		// That is what RakNet wants (GUIDs, ping timestamps) and it is the only reason the default
+		// points that way. Bedrock's own 64-bit fields are little-endian, so those use WriteLe/
+		// ReadLongLe, either directly or via endianess="LE" on the field in MCPE Protocol.xml.
 		public void Write(long value)
 		{
 			_writer.Write(BinaryPrimitives.ReverseEndianness(value));
@@ -384,6 +388,16 @@ namespace MiNET.Net
 		public long ReadLong()
 		{
 			return BinaryPrimitives.ReverseEndianness(_reader.ReadInt64());
+		}
+
+		public void WriteLe(long value)
+		{
+			_writer.Write(value);
+		}
+
+		public long ReadLongLe()
+		{
+			return _reader.ReadInt64();
 		}
 
 		public void Write(ulong value)
@@ -1807,7 +1821,8 @@ namespace MiNET.Net
 		// ReadItemLegacy) are separate readers - do not conflate them.
 		public void Write(Item stack, bool writeUniqueId = true)
 		{
-			short networkId = stack == null ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
+			short networkId = stack == null || stack.IsAir ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
 			if (networkId == 0)
 			{
 				Write((short) 0); // network_id
@@ -1971,7 +1986,8 @@ namespace MiNET.Net
 			// Name to network id is a single unambiguous lookup, so a decoded item and a server-built
 			// one encode the same way. Metadata still comes off the decode when there was one: it is
 			// aux data the registry says nothing about.
-			int networkId = stack == null ? 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
+			int networkId = stack == null || stack.IsAir ? 0 : ItemFactory.GetNetworkIdByName(stack.Name);
 			if (networkId == 0)
 			{
 				WriteSignedVarInt(0); // network_id => void, no further fields
@@ -2025,7 +2041,8 @@ namespace MiNET.Net
 
 		public void WriteItemInstance(Item stack)
 		{
-			short networkId = stack == null ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
+			short networkId = stack == null || stack.IsAir ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
 			if (networkId == 0)
 			{
 				WriteSignedVarInt(0); // network_id => air, no further fields
@@ -2742,7 +2759,11 @@ namespace MiNET.Net
 			Write(skin.AnimationData);
 
 			Write(skin.Cape.Id);
-			Write(skin.FullSkinId ?? skin.SkinId + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); // unique skin id; re-emit the decoded one verbatim if we have it
+			// The skin id again when we have nothing better, which is what vanilla BDS 1.26.34 sends
+			// for a persona skin (full id == skin id, verified against a live capture). This used to
+			// append a millisecond timestamp, so the same player's skin carried a different full id
+			// every time the server mentioned them, and nothing keyed on it could ever match.
+			Write(string.IsNullOrEmpty(skin.FullSkinId) ? skin.SkinId : skin.FullSkinId);
 			Write(skin.ArmSize);
 			Write(skin.SkinColor);
 			Write(skin.PersonaPieces.Count);
@@ -3204,7 +3225,8 @@ namespace MiNET.Net
 
 			// An ingredient with no descriptor is the plain int_id_meta variant. The id on the wire is
 			// the registry network id, resolved from the item's name like every other write path.
-			short networkId = stack == null ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
+			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
+			short networkId = stack == null || stack.IsAir ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
 			if (networkId == 0)
 			{
 				Write((byte) 0); // type = invalid
