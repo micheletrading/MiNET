@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Lava() : base(11)
 		{
-			LightLevel = 15;
-			BlastResistance = 500;
-			Hardness = 100;
 		}
 	}
 }

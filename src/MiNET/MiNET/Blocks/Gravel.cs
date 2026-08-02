@@ -39,8 +39,6 @@ namespace MiNET.Blocks
 
 		public Gravel() : base(13)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

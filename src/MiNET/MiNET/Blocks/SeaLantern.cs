@@ -32,9 +32,6 @@ namespace MiNET.Blocks
 	{
 		public SeaLantern() : base(169)
 		{
-			LightLevel = 15;
-			BlastResistance = 1.5f;
-			Hardness = 0.3f;
 		}
 
 		public override Item[] GetDrops(Item tool)

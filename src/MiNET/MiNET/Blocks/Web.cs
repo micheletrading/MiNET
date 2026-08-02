@@ -31,10 +31,6 @@ namespace MiNET.Blocks
 	{
 		public Web() : base(30)
 		{
-			IsSolid = false;
-			IsTransparent = true; // Partial - diffuses sky light
-			BlastResistance = 20;
-			Hardness = 4;
 		}
 
 		public override Item[] GetDrops(Item tool)

@@ -41,12 +41,7 @@ namespace MiNET.Blocks
 		public StandingSignBase(int id, string itemDropName) : base(id)
 		{
 			_itemDropName = itemDropName;
-			IsTransparent = true;
-			IsSolid = false;
-			BlastResistance = 5;
-			Hardness = 1;
 
-			IsFlammable = true; // Only in PE!!
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

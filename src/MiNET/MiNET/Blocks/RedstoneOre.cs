@@ -36,8 +36,6 @@ namespace MiNET.Blocks
 
 		public RedstoneOre(byte id) : base(id)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item[] GetDrops(Item tool)

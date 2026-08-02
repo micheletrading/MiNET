@@ -31,10 +31,6 @@ namespace MiNET.Blocks
 	{
 		public EnderChest() : base(130)
 		{
-			IsTransparent = true;
-			LightLevel = 7;
-			BlastResistance = 3000;
-			Hardness = 22.5f;
 			FuelEfficiency = 0;
 		}
 

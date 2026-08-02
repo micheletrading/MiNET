@@ -41,9 +41,6 @@ namespace MiNET.Blocks
 
 		public SnowLayer() : base(78)
 		{
-			IsTransparent = true;
-			BlastResistance = 0.5f;
-			Hardness = 0.1f;
 			IsReplaceable = true;
 		}
 

@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Hopper() : base(154)
 		{
-			IsTransparent = true;
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 	}
 }

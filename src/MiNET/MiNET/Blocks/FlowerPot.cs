@@ -31,7 +31,6 @@ namespace MiNET.Blocks
 	{
 		public FlowerPot() : base(140)
 		{
-			IsTransparent = true;
 		}
 
 		public override Item[] GetDrops(Item tool)

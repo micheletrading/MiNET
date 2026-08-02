@@ -37,8 +37,6 @@ namespace MiNET.Blocks
 	{
 		public Frame() : base(199)
 		{
-			IsTransparent = true;
-			IsSolid = false;
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

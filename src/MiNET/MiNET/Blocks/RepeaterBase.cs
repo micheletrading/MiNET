@@ -29,7 +29,6 @@ namespace MiNET.Blocks
 	{
 		public RepeaterBase(byte id) : base(id)
 		{
-			IsTransparent = true;
 		}
 	}
 }

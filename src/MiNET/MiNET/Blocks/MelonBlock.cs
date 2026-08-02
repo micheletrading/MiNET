@@ -33,7 +33,6 @@ namespace MiNET.Blocks
 		public MelonBlock() : base(103)
 		{
 			Hardness = 1;
-			IsTransparent = true;
 		}
 
 		public override Item[] GetDrops(Item tool)

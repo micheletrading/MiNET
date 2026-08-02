@@ -38,9 +38,6 @@ namespace MiNET.Blocks
 
 		public Cauldron() : base(118)
 		{
-			IsTransparent = true;
-			BlastResistance = 10;
-			Hardness = 2;
 		}
 
 		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)

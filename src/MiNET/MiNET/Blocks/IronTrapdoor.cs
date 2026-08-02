@@ -34,9 +34,6 @@ namespace MiNET.Blocks
 	{
 		public IronTrapdoor() : base(167)
 		{
-			IsTransparent = true;
-			BlastResistance = 25;
-			Hardness = 5;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates targetCoordinates, BlockFace face, Vector3 faceCoords)

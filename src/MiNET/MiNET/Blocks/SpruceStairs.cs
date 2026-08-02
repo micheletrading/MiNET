@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public SpruceStairs() : base(134)
 		{
-			BlastResistance = 15;
-			Hardness = 2;
-			IsFlammable = true;
 		}
 	}
 }

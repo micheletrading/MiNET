@@ -32,10 +32,7 @@ namespace MiNET.Blocks
 		public Air() : base(0)
 		{
 			IsReplaceable = true;
-			IsSolid = false;
 			IsBuildable = false;
-			IsTransparent = true;
-			IsBlockingSkylight = false;
 		}
 
 		public override Item[] GetDrops(Item tool)

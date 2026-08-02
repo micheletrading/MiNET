@@ -33,7 +33,6 @@ namespace MiNET.Blocks
 	{
 		public RedstoneTorch() : base(76)
 		{
-			LightLevel = 7;
 		}
 	}
 }

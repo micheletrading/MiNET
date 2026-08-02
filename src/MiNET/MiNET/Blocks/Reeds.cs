@@ -34,8 +34,6 @@ namespace MiNET.Blocks
 	{
 		public Reeds() : base(83)
 		{
-			IsSolid = false;
-			IsTransparent = true;
 		}
 
 		public override void BlockUpdate(Level level, BlockCoordinates blockCoordinates)

@@ -31,9 +31,6 @@ namespace MiNET.Blocks
 	{
 		public DoubleWoodenSlab() : base(157)
 		{
-			BlastResistance = 15;
-			Hardness = 2;
-			IsFlammable = true;
 		}
 
 		public override Item[] GetDrops(Item tool)

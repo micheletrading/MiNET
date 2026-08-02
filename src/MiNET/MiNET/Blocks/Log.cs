@@ -36,9 +36,6 @@ namespace MiNET.Blocks
 		public Log() : base(17)
 		{
 			FuelEfficiency = 15;
-			BlastResistance = 10;
-			Hardness = 2;
-			IsFlammable = true;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

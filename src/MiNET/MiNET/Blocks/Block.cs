@@ -50,18 +50,47 @@ namespace MiNET.Blocks
 		[Obsolete("Use block states instead.")]
 		public byte Metadata { get; set; }
 
-		public float Hardness { get; protected set; } = 0;
-		public float BlastResistance { get; protected set; } = 0;
+		// Values below are overridden per block by BlockData.generated.cs, from CloudburstMC
+		// block_properties.json. Virtual so the generated override supplies the vanilla value and a
+		// hand-written constructor can still assign over it: the override's initializer runs first.
+		public virtual float Hardness { get; protected set; } = 0;
+		public virtual float BlastResistance { get; protected set; } = 0;
 		public short FuelEfficiency { get; protected set; } = 0;
-		public float FrictionFactor { get; protected set; } = 0.6f;
-		public int LightLevel { get; set; } = 0;
+		public virtual float FrictionFactor { get; protected set; } = 0.6f;
+		public virtual int LightLevel { get; set; } = 0;
+
+		/// <summary>How much light this block removes as it passes through, 0 to 15.</summary>
+		public virtual int LightDampening { get; protected set; } = 15;
+
+		/// <summary>0 opaque through 1 fully see-through. Not the same question as IsSolid.</summary>
+		public virtual float Translucency { get; protected set; } = 0f;
+
+		/// <summary>Chance fire consumes this block, and chance fire spreads from it. 0 means neither.</summary>
+		public virtual int BurnOdds { get; protected set; } = 0;
+		public virtual int FlameOdds { get; protected set; } = 0;
+
+		/// <summary>Whether a wrong tool still drops the block, or just breaks it.</summary>
+		public virtual bool RequiresCorrectToolForDrops { get; protected set; } = false;
+
+		/// <summary>Whether water can occupy the same space, which is what waterlogging means.</summary>
+		public virtual bool CanContainLiquidSource { get; protected set; } = false;
 
 		public bool IsReplaceable { get; protected set; } = false;
-		public bool IsSolid { get; protected set; } = true;
+		public virtual bool IsSolid { get; protected set; } = true;
 		public bool IsBuildable { get; protected set; } = true;
-		public bool IsTransparent { get; protected set; } = false;
-		public bool IsFlammable { get; protected set; } = false;
-		public bool IsBlockingSkylight { get; protected set; } = true;
+
+		// Derived, not stored. These used to be set by hand on each block, which is why most blocks
+		// had them wrong or unset; they are now the obvious reading of the real values above.
+		public bool IsTransparent => Translucency > 0f;
+		public bool IsFlammable => BurnOdds > 0 || FlameOdds > 0;
+		public bool IsBlockingSkylight => LightDampening >= 15;
+
+		/// <summary>
+		///     Negative hardness is how vanilla says "cannot be broken", for bedrock, barriers, the
+		///     light blocks and 27 others. It is a sentinel, not a small number: multiply it into a
+		///     break time and you get a negative one, which reads as instant.
+		/// </summary>
+		public bool IsUnbreakable => Hardness < 0;
 
 		public byte BlockLight { get; set; }
 		public byte SkyLight { get; set; }

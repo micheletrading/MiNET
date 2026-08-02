@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public IronOre() : base(15)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item GetSmelt()

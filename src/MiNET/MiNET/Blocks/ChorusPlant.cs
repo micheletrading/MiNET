@@ -32,8 +32,6 @@ namespace MiNET.Blocks
 	{
 		public ChorusPlant() : base(240)
 		{
-			IsTransparent = true;
-			BlastResistance = 2;
 		}
 
 		public override Item[] GetDrops(Item tool)

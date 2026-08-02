@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Obsidian() : base(49)
 		{
-			BlastResistance = 6000;
-			Hardness = 50;
 		}
 	}
 }

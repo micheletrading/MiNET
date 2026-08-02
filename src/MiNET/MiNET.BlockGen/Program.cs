@@ -23,6 +23,7 @@
 
 #endregion
 
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using fNbt;
@@ -519,8 +520,75 @@ public static class Program
 		return count;
 	}
 
+	/// <summary>
+	///     The physical properties of a block, from CloudburstMC block_properties.json. The file is
+	///     per block state, 16913 of them, but only 51 blocks vary these values between their own
+	///     states (candles, whose light scales with how many are lit), so the first state's values
+	///     stand for the block. Those 51 keep whatever their hand-written class does.
+	///     Emitted as overrides with initializers rather than constructor assignments, so a
+	///     hand-written constructor still wins: an override's initializer runs before the body.
+	/// </summary>
+	private static void WriteBlockProperties(StringBuilder sb, string blockName, Dictionary<string, BlockProperties> properties)
+	{
+		if (!properties.TryGetValue(blockName, out BlockProperties p)) return;
+
+		sb.AppendLine($"\t\tpublic override float Hardness {{ get; protected set; }} = {Literal(p.Hardness)};");
+		sb.AppendLine($"\t\tpublic override float BlastResistance {{ get; protected set; }} = {Literal(p.ExplosionResistance)};");
+		sb.AppendLine($"\t\tpublic override float FrictionFactor {{ get; protected set; }} = {Literal(p.Friction)};");
+		sb.AppendLine($"\t\tpublic override int LightLevel {{ get; set; }} = {p.LightEmission};");
+		sb.AppendLine($"\t\tpublic override int LightDampening {{ get; protected set; }} = {p.LightDampening};");
+		sb.AppendLine($"\t\tpublic override float Translucency {{ get; protected set; }} = {Literal(p.Translucency)};");
+		sb.AppendLine($"\t\tpublic override int BurnOdds {{ get; protected set; }} = {p.BurnOdds};");
+		sb.AppendLine($"\t\tpublic override int FlameOdds {{ get; protected set; }} = {p.FlameOdds};");
+		sb.AppendLine($"\t\tpublic override bool IsSolid {{ get; protected set; }} = {(p.IsSolid ? "true" : "false")};");
+		sb.AppendLine($"\t\tpublic override bool RequiresCorrectToolForDrops {{ get; protected set; }} = {(p.RequiresCorrectToolForDrops ? "true" : "false")};");
+		sb.AppendLine($"\t\tpublic override bool CanContainLiquidSource {{ get; protected set; }} = {(p.CanContainLiquidSource ? "true" : "false")};");
+		sb.AppendLine();
+	}
+
+	private static string Literal(float value)
+	{
+		return value.ToString("0.0###########", CultureInfo.InvariantCulture) + "f";
+	}
+
+	/// <summary>Reads block_properties.json, keeping the first state seen for each block name.</summary>
+	private static Dictionary<string, BlockProperties> ReadBlockProperties(string path)
+	{
+		if (!File.Exists(path))
+		{
+			Console.Error.WriteLine($"block properties not found: {path}");
+			return new Dictionary<string, BlockProperties>();
+		}
+
+		var all = JsonConvert.DeserializeObject<List<BlockProperties>>(File.ReadAllText(path));
+
+		var result = new Dictionary<string, BlockProperties>(StringComparer.Ordinal);
+		foreach (BlockProperties p in all) result.TryAdd(p.Name, p);
+		return result;
+	}
+
+	private class BlockProperties
+	{
+		[JsonProperty("name")] public string Name { get; set; }
+		[JsonProperty("isSolid")] public bool IsSolid { get; set; }
+		[JsonProperty("hardness")] public float Hardness { get; set; }
+		[JsonProperty("explosionResistance")] public float ExplosionResistance { get; set; }
+		[JsonProperty("friction")] public float Friction { get; set; }
+		[JsonProperty("translucency")] public float Translucency { get; set; }
+		[JsonProperty("lightEmission")] public int LightEmission { get; set; }
+		[JsonProperty("lightDampening")] public int LightDampening { get; set; }
+		[JsonProperty("burnOdds")] public int BurnOdds { get; set; }
+		[JsonProperty("flameOdds")] public int FlameOdds { get; set; }
+		[JsonProperty("requiresCorrectToolForDrops")] public bool RequiresCorrectToolForDrops { get; set; }
+		[JsonProperty("canContainLiquidSource")] public bool CanContainLiquidSource { get; set; }
+	}
+
 	private static int WritePartialBlocks(string path, List<IGrouping<string, BlockState>> byName, HashSet<string> handImplemented)
 	{
+		Dictionary<string, BlockProperties> properties = ReadBlockProperties(
+			Path.Combine(Path.GetDirectoryName(path)!, "..", "..", "MiNET.BlockGen", "Data", "block_properties.json"));
+		Console.WriteLine($"block properties: {properties.Count} blocks");
+
 		var sb = new StringBuilder();
 		WriteHeader(sb, "CloudburstMC/Data block_palette.nbt");
 		sb.AppendLine("using System;");
@@ -554,6 +622,7 @@ public static class Program
 			sb.AppendLine("\t{");
 			sb.AppendLine($"\t\tpublic override string Name => \"{group.Key}\";");
 			sb.AppendLine();
+			WriteBlockProperties(sb, group.Key, properties);
 
 			foreach ((string stateName, object defaultValue) in first.States)
 			{

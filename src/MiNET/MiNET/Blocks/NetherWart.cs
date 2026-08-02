@@ -32,8 +32,6 @@ namespace MiNET.Blocks
 	{
 		public NetherWart() : base(115)
 		{
-			IsTransparent = true;
-			IsSolid = false;
 		}
 
 		public override Item[] GetDrops(Item tool)

@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public StainedHardenedClay() : base(159)
 		{
-			BlastResistance = 30;
-			Hardness = 1.25f;
 		}
 	}
 }

@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public Clay() : base(82)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 		}
 
 		public override Item[] GetDrops(Item tool)

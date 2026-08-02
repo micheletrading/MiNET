@@ -30,10 +30,6 @@ namespace MiNET.Blocks
 		public FenceGateBlocks(byte id) : base(id)
 		{
 			FuelEfficiency = 15;
-			IsTransparent = true;
-			BlastResistance = 15;
-			Hardness = 2;
-			IsFlammable = true;
 		}
 	}
 }

@@ -38,10 +38,8 @@ namespace MiNET.Blocks
 
 		internal Stationary(byte id) : base(id)
 		{
-			IsSolid = false;
 			IsBuildable = false;
 			IsReplaceable = true;
-			IsTransparent = true;
 		}
 
 		public override void DoPhysics(Level level)

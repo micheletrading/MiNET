@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public TripWire() : base(132)
 		{
-			IsTransparent = true;
-			IsSolid = false;
 		}
 
 		public override Item[] GetDrops(Item tool)

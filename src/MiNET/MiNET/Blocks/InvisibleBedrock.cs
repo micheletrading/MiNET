@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public InvisibleBedrock() : base(95)
 		{
-			BlastResistance = 18000000;
-			Hardness = 60000;
 		}
 	}
 }

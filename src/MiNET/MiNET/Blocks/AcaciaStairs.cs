@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public AcaciaStairs() : base(163)
 		{
-			BlastResistance = 15;
-			Hardness = 2;
-			IsFlammable = true;
 		}
 	}
 }

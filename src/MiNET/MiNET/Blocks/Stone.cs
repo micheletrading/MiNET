@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public Stone() : base(1)
 		{
-			BlastResistance = 30;
-			Hardness = 1.5f;
 		}
 
 		public override Item[] GetDrops(Item tool)

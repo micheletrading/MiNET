@@ -34,10 +34,6 @@ namespace MiNET.Blocks
 	{
 		public Lever() : base(69)
 		{
-			IsTransparent = true;
-			IsSolid = false;
-			BlastResistance = 2.5f;
-			Hardness = 0.5f;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

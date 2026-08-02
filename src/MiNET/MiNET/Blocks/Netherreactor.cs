@@ -29,7 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Netherreactor() : base(247)
 		{
-			BlastResistance = 30;
 		}
 	}
 }

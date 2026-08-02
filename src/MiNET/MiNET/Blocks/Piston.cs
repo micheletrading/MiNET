@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Piston() : base(33)
 		{
-			BlastResistance = 2.5f;
-			Hardness = 0.5f;
 		}
 	}
 }

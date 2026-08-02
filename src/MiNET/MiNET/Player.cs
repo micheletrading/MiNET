@@ -592,6 +592,8 @@ namespace MiNET
 					if (GameMode == GameMode.Survival)
 					{
 						Block target = Level.GetBlock(message.coordinates);
+						if (target.IsUnbreakable) break;
+
 						var drops = target.GetDrops(Inventory.GetItemInHand());
 						float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
 						double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
@@ -2658,15 +2660,20 @@ namespace MiNET
 							if (GameMode == GameMode.Survival)
 							{
 								Block target = Level.GetBlock(coordinates);
-								var drops = target.GetDrops(Inventory.GetItemInHand());
-								float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
-								double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
+								// Unbreakable blocks report negative hardness, which would come out as a
+								// negative break time and read to the client as instant.
+								if (!target.IsUnbreakable)
+								{
+									var drops = target.GetDrops(Inventory.GetItemInHand());
+									float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
+									double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
 
-								McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
-								breakEvent.eventId = 3600;
-								breakEvent.position = coordinates;
-								breakEvent.data = (int) (65535 / breakTime);
-								Level.RelayBroadcast(breakEvent);
+									McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
+									breakEvent.eventId = 3600;
+									breakEvent.position = coordinates;
+									breakEvent.data = (int) (65535 / breakTime);
+									Level.RelayBroadcast(breakEvent);
+								}
 							}
 							break;
 						}

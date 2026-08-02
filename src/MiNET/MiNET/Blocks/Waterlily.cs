@@ -34,7 +34,6 @@ namespace MiNET.Blocks
 	{
 		public Waterlily() : base(111)
 		{
-			IsTransparent = true;
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

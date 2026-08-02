@@ -43,10 +43,6 @@ namespace MiNET.Blocks
 
 		public Chalkboard() : base(230)
 		{
-			IsTransparent = true;
-			IsSolid = false;
-			BlastResistance = 5;
-			Hardness = 1;
 		}
 
 		public override void SetState(List<IBlockState> states)

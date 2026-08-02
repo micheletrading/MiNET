@@ -39,10 +39,6 @@ namespace MiNET.Blocks
 
 		public Leaves() : base(18)
 		{
-			IsTransparent = true;
-			BlastResistance = 1;
-			Hardness = 0.2f;
-			IsFlammable = true;
 		}
 
 		public override void BlockUpdate(Level level, BlockCoordinates blockCoordinates)

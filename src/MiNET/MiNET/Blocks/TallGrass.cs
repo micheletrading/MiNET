@@ -42,12 +42,8 @@ namespace MiNET.Blocks
 
 		public TallGrass() : base(31)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 
-			IsSolid = false;
 			IsReplaceable = true;
-			IsTransparent = true;
 		}
 
 		public override void OnTick(Level level, bool isRandom)

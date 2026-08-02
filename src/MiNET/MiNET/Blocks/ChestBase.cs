@@ -42,9 +42,6 @@ namespace MiNET.Blocks
 		public ChestBase(byte id) : base(id)
 		{
 			FuelEfficiency = 15;
-			IsTransparent = true;
-			BlastResistance = 12.5f;
-			Hardness = 2.5f;
 		}
 
 

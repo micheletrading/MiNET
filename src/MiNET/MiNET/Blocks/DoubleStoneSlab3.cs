@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public DoubleStoneSlab3() : base(422)
 		{
-			BlastResistance = 30;
-			Hardness = 2;
 		}
 
 		public override Item[] GetDrops(Item tool)

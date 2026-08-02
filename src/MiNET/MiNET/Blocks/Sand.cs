@@ -41,8 +41,6 @@ namespace MiNET.Blocks
 
 		public Sand() : base(12)
 		{
-			BlastResistance = 2.5f;
-			Hardness = 0.5f;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

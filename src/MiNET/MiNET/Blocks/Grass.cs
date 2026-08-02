@@ -41,8 +41,6 @@ namespace MiNET.Blocks
 
 		public Grass() : base(2)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 		}
 
 		public override void DoPhysics(Level level)

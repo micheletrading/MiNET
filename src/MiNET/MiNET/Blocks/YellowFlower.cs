@@ -33,8 +33,6 @@ namespace MiNET.Blocks
 	{
 		public YellowFlower() : base(37)
 		{
-			IsSolid = false;
-			IsTransparent = true;
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public Cobblestone() : base(4)
 		{
-			BlastResistance = 30;
-			Hardness = 2;
 		}
 
 		public override Item GetSmelt()

@@ -37,9 +37,6 @@ namespace MiNET.Blocks
 	{
 		public Anvil() : base(145)
 		{
-			IsTransparent = true;
-			BlastResistance = 6000;
-			Hardness = 5;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

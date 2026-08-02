@@ -38,10 +38,6 @@ namespace MiNET.Blocks
 	{
 		public MobSpawner() : base(52)
 		{
-			IsTransparent = true; // Doesn't block light
-			LightLevel = 1;
-			BlastResistance = 25;
-			Hardness = 5;
 		}
 
 		public override Item[] GetDrops(Item tool)

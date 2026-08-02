@@ -29,10 +29,6 @@ namespace MiNET.Blocks
 	{
 		public StoneSlab3() : base(417, 422)
 		{
-			BlastResistance = 30;
-			Hardness = 2;
-			IsTransparent = true; // Partial - blocks light.
-			IsBlockingSkylight = false; // Partial - blocks light.
 		}
 
 		protected override bool AreSameType(Block obj)

@@ -32,7 +32,6 @@ namespace MiNET.Blocks
 			FuelEfficiency = 800;
 			BlastResistance = 30;
 			Hardness = 5;
-			IsFlammable = true;
 		}
 	}
 }

@@ -39,10 +39,6 @@ namespace MiNET.Blocks
 
 		public Farmland() : base(60)
 		{
-			IsTransparent = true; // Partial - blocks light.
-			IsBlockingSkylight = false; // Partial - blocks light.
-			BlastResistance = 3;
-			Hardness = 0.6f;
 		}
 
 		public override Item[] GetDrops(Item tool)

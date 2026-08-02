@@ -32,9 +32,6 @@ namespace MiNET.Blocks
 		public Fire() : base(51)
 		{
 			IsReplaceable = true;
-			IsTransparent = true;
-			LightLevel = 15;
-			IsSolid = false;
 		}
 
 		public override Item[] GetDrops(Item tool)

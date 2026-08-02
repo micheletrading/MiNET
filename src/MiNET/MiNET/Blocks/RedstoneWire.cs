@@ -31,7 +31,6 @@ namespace MiNET.Blocks
 	{
 		public RedstoneWire() : base(55)
 		{
-			IsTransparent = true;
 		}
 
 		public override Item[] GetDrops(Item tool)

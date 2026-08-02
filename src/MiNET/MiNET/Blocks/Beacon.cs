@@ -36,9 +36,6 @@ namespace MiNET.Blocks
 	{
 		public Beacon() : base(138)
 		{
-			LightLevel = 15;
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates targetCoordinates, BlockFace face, Vector3 faceCoords)

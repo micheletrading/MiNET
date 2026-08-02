@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public NetherBrick() : base(112)
 		{
-			BlastResistance = 30;
-			Hardness = 2;
 		}
 	}
 }

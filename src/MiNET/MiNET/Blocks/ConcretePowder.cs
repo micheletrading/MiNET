@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public ConcretePowder() : base(237)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 	}
 }

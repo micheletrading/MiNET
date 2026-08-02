@@ -41,8 +41,6 @@ namespace MiNET.Blocks
 		protected BlockStairs(int id) : base(id)
 		{
 			FuelEfficiency = 15;
-			IsTransparent = true; // Partial - blocks light.
-			IsBlockingSkylight = false; // Partial - blocks light.
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

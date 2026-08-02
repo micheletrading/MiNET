@@ -35,9 +35,6 @@ namespace MiNET.Blocks
 	{
 		public Loom() : base(459)
 		{
-			IsTransparent = true;
-			BlastResistance = 6000;
-			Hardness = 5;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

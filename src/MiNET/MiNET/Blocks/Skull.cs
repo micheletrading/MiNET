@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Skull() : base(144)
 		{
-			IsTransparent = true;
-			BlastResistance = 5;
-			Hardness = 1;
 		}
 	}
 }

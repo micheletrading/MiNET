@@ -47,9 +47,6 @@ namespace MiNET.Blocks
 
 		public Bed() : base(26)
 		{
-			BlastResistance = 1;
-			Hardness = 0.2f;
-			IsTransparent = true;
 			//IsFlammable = true; // It can catch fire from lava, but not other means.
 		}
 

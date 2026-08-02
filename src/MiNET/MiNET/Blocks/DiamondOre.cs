@@ -32,8 +32,6 @@ namespace MiNET.Blocks
 	{
 		public DiamondOre() : base(56)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item[] GetDrops(Item tool)

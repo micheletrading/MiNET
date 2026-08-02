@@ -29,11 +29,6 @@ namespace MiNET.Blocks
 	{
 		public WoodenSlab() : base(158, 157)
 		{
-			BlastResistance = 15;
-			Hardness = 2;
-			IsFlammable = true;
-			IsTransparent = true; // Partial - blocks light.
-			IsBlockingSkylight = false; // Partial - blocks light.
 		}
 
 		protected override bool AreSameType(Block obj)

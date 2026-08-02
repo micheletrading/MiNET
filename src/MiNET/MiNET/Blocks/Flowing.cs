@@ -45,10 +45,8 @@ namespace MiNET.Blocks
 
 		protected Flowing(byte id) : base(id)
 		{
-			IsSolid = false;
 			IsBuildable = false;
 			IsReplaceable = true;
-			IsTransparent = true;
 		}
 
 		public override void BlockAdded(Level level)

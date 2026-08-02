@@ -29,7 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Stonecutter() : base(245)
 		{
-			BlastResistance = 17.5f;
 		}
 	}
 }
