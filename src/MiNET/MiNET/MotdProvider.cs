@@ -45,6 +45,24 @@ namespace MiNET
 
 		public string GameMode { get; set; }
 
+		public int PortV4 { get; set; }
+
+		public int PortV6 { get; set; }
+
+		public bool IsFreeToJoin { get; set; } = true;
+
+		public bool IsInEditorMode { get; set; }
+
+		/// <summary>
+		///     The version the pong advertises: the protocol target's major and minor with the patch
+		///     zeroed. The client checks this string as well as the protocol number before it will
+		///     list a server, and it is stricter about it than the protocol. Tested against a 1.26.33
+		///     client, all on protocol 1001: "1.26.34" and "1.26" are both hidden, "1.26.33" and
+		///     "1.26.0" both show. So a patch we name that the client has not shipped is rejected,
+		///     and zero is the wildcard.
+		/// </summary>
+		public string AdvertisedVersion { get; set; } = "1.26.33";
+
 		public MotdProvider()
 		{
 			byte[] buffer = new byte[8];
@@ -56,6 +74,16 @@ namespace MiNET
 			Motd = Config.GetProperty("motd", "MiNET Server");
 			SecondLine = Config.GetProperty("motd-2nd", "MiNET");
 			GameMode = Config.GetProperty("gamemode", "Survival");
+
+			// Overwritten with the real listening port once the server has resolved its endpoint.
+			PortV4 = Config.GetProperty("port", 19132);
+			PortV6 = PortV4 + 1;
+		}
+
+		private static string ZeroPatchVersion(string gameVersion)
+		{
+			string[] parts = gameVersion.Split('.');
+			return parts.Length < 2 ? gameVersion : $"{parts[0]}.{parts[1]}.0";
 		}
 
 		public virtual string GetMotd(ConnectionInfo connectionInfo, IPEndPoint caller, bool eduMotd = false)
@@ -66,7 +94,7 @@ namespace MiNET
 			ulong serverId = (ulong) ServerId;
 
 			var protocolVersion = McpeProtocolInfo.ProtocolVersion.ToString();
-			var clientVersion = McpeProtocolInfo.GameVersion;
+			var clientVersion = AdvertisedVersion;
 			var edition = "MCPE";
 
 			if (eduMotd)
@@ -81,8 +109,14 @@ namespace MiNET
 				// As of 1.16.210, the sub-MOTD cannot be blank or Minecraft won't see the MOTD
 				SecondLine = "MiNET";
 
+			// The tail of the string is what the client needs to offer the server as joinable. The
+			// field after the game mode is not a numeric game mode, it is whether the server is open
+			// to join, and the client honours it. The last one is the editor-mode flag.
+			string isFreeToJoin = IsFreeToJoin ? "1" : "0";
+			string isInEditorMode = IsInEditorMode ? "1" : "0";
+
 			// 2019-12-29 20:00:46,672 [DedicatedThreadPool-8631ff8f-0339-4a0d-83c7-222335bdb410_1] WARN  MiNET.Client.MiNetClient - MOTD: MCPE;gurunx;389;1.14.1;1;8;9586953286635751800;My World;Creative;1;53387;53388;
-			return string.Format($"{edition};{Motd};{protocolVersion};{clientVersion};{NumberOfPlayers};{MaxNumberOfPlayers};{serverId};{SecondLine};{GameMode};");
+			return string.Format($"{edition};{Motd};{protocolVersion};{clientVersion};{NumberOfPlayers};{MaxNumberOfPlayers};{serverId};{SecondLine};{GameMode};{isFreeToJoin};{PortV4};{PortV6};{isInEditorMode};");
 		}
 	}
 }

@@ -169,6 +169,11 @@ namespace MiNET
 
 				GreyListManager ??= new GreyListManager();
 				MotdProvider ??= new MotdProvider();
+				if (Endpoint != null)
+				{
+					MotdProvider.PortV4 = Endpoint.Port;
+					MotdProvider.PortV6 = Endpoint.Port + 1;
+				}
 
 				if (ServerRole == ServerRole.Full || ServerRole == ServerRole.Proxy)
 				{
