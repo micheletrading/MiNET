@@ -163,7 +163,7 @@ namespace MiNET
 			var serverInfo = Server.ConnectionInfo;
 			Interlocked.Increment(ref serverInfo.ConnectionsInConnectPhase);
 
-			SendPlayerStatus(0);
+			SendPlayerStatus(McpePlayStatus.PlayStatus.LoginSuccess);
 
 			{
 				SendResourcePacksInfo();
@@ -1476,7 +1476,7 @@ namespace MiNET
 
 			SendSetEntityData();
 
-			SendPlayerStatus(3);
+			SendPlayerStatus(McpePlayStatus.PlayStatus.PlayerSpawn);
 
 			IsSpawned = true;
 
@@ -1531,7 +1531,7 @@ namespace MiNET
 					if (_loginSequenceCompleted.Wait(15000)) ForcedSendChunks();
 				});
 
-				//SendPlayerStatus(3);
+				//SendPlayerStatus(McpePlayStatus.PlayStatus.PlayerSpawn);
 
 				var mcpeRespawn = McpeRespawn.CreateObject();
 				mcpeRespawn.x = SpawnPosition.X;
@@ -2270,10 +2270,10 @@ namespace MiNET
 			SendPacket(packet);
 		}
 
-		public void SendPlayerStatus(int status)
+		public void SendPlayerStatus(McpePlayStatus.PlayStatus status)
 		{
 			McpePlayStatus mcpePlayerStatus = McpePlayStatus.CreateObject();
-			mcpePlayerStatus.status = status;
+			mcpePlayerStatus.status = (int) status;
 			SendPacket(mcpePlayerStatus);
 		}
 

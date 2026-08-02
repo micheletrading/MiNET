@@ -108,7 +108,7 @@ namespace MiNET.Client
 		public string Username { get; set; }
 		public int ClientId { get; set; }
 
-		public int PlayerStatus { get; set; }
+		public McpePlayStatus.PlayStatus PlayerStatus { get; set; }
 		public bool UseBlobCache { get; set; }
 		public bool BlockNetworkIdsAreHashes { get; set; }
 		public Dictionary<ulong, byte[]> BlobCache { get; set; } = new Dictionary<ulong, byte[]>();

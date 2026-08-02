@@ -61,7 +61,7 @@ namespace MiNET.Console
 		{
 			base.HandleMcpePlayStatus(message);
 
-			if (Client.PlayerStatus == 0 && Client.UseBlobCache)
+			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess && Client.UseBlobCache)
 			{
 				var packet = McpeClientCacheStatus.CreateObject();
 				packet.enabled = Client.UseBlobCache;

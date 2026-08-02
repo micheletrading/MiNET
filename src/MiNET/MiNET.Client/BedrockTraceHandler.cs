@@ -1094,7 +1094,7 @@ namespace MiNET.Client
 
 			base.HandleMcpePlayStatus(message);
 
-			if (Client.PlayerStatus == 0)
+			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess)
 			{
 				var packet = McpeClientCacheStatus.CreateObject();
 				packet.enabled = Client.UseBlobCache;

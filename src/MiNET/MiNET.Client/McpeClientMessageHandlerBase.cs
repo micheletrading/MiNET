@@ -52,9 +52,9 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpePlayStatus(McpePlayStatus message)
 		{
-			Client.PlayerStatus = message.status;
+			Client.PlayerStatus = (McpePlayStatus.PlayStatus) message.status;
 
-			if (Client.PlayerStatus == 3)
+			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.PlayerSpawn)
 			{
 				// Spawn tail exactly like a real 1.26 client (captured live): close the loading
 				// screen, then announce spawn completion. Servers gate spawn-complete logic
