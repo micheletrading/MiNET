@@ -1250,10 +1250,7 @@ namespace MiNET
 		// water colour, tags), so the captured definitions are sent verbatim.
 		public virtual void SendBiomeDefinitionList()
 		{
-			var pk = McpeBiomeDefinitionList.CreateObject();
-			pk.Definitions = JoinSequenceData.BiomeDefinitions.Value.Definitions;
-			pk.Strings = JoinSequenceData.BiomeDefinitions.Value.Strings;
-			SendPacket(pk);
+			SendPacket(Worlds.BiomeDefinitions.CreatePacket());
 		}
 
 		// Jigsaw structure sync data, byte-identical to vanilla BDS 1.26.34 (Data/jigsaw_structures.json).
@@ -1289,10 +1286,13 @@ namespace MiNET
 		}
 
 		// Client fog stack, byte-identical to vanilla BDS 1.26.34 (Data/player_fog.json).
+		/// <summary>
+		///     No fog stack. Vanilla sends an empty one at join and so do we; fog is applied later
+		///     by gameplay, not declared here. Was reading a data file that held nothing.
+		/// </summary>
 		public virtual void SendPlayerFog()
 		{
 			var pk = McpePlayerFog.CreateObject();
-			pk.Stack = JoinSequenceData.PlayerFog.Value.Stack;
 			SendPacket(pk);
 		}
 
@@ -1369,30 +1369,14 @@ namespace MiNET
 
 		// Camera splines, byte-identical to vanilla BDS 1.26.34 (Data/camera_spline.json). Vector3
 		// control/rotation points are stored as plain x/y/z DTOs, converted here (see SendCameraPresets).
+		/// <summary>
+		///     No splines. A server declares camera splines when it wants scripted camera moves,
+		///     and we have none, which is what vanilla sends at join too. Was thirty lines of
+		///     projection over a data file holding an empty list.
+		/// </summary>
 		public virtual void SendCameraSpline()
 		{
 			var pk = McpeCameraSpline.CreateObject();
-			foreach (var dto in JoinSequenceData.CameraSpline.Value.Splines)
-			{
-				var spline = new CameraSplineDefinition
-				{
-					Name = dto.Name,
-					TotalTime = dto.TotalTime,
-					SplineType = dto.SplineType,
-				};
-				foreach (var point in dto.ControlPoints) spline.ControlPoints.Add(point.ToVector3());
-				foreach (var option in dto.ProgressKeyFrames) spline.ProgressKeyFrames.Add(option);
-				foreach (var option in dto.RotationKeyFrames)
-				{
-					spline.RotationKeyFrames.Add(new CameraRotationOption
-					{
-						Value = option.Value.ToVector3(),
-						Time = option.Time,
-						Easing = option.Easing,
-					});
-				}
-				pk.Splines.Add(spline);
-			}
 			SendPacket(pk);
 		}
 

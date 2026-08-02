@@ -273,14 +273,16 @@ namespace MiNET.Crafting
 				_recipes = new Recipes();
 				_byNetworkId = new Dictionary<int, Recipe>();
 
-				foreach (Recipe recipe in RecipeData.CreateVanillaRecipes())
+				RecipeDataFile file = RecipeLoader.Load();
+
+				foreach (Recipe recipe in RecipeLoader.CreateVanillaRecipes(file))
 				{
 					AddLocked(recipe);
 				}
 
-				_potionTypeRecipes = RecipeData.CreatePotionTypeRecipes();
-				_potionContainerRecipes = RecipeData.CreatePotionContainerRecipes();
-				_materialReducerRecipes = RecipeData.CreateMaterialReducerRecipes();
+				_potionTypeRecipes = RecipeLoader.CreatePotionTypeRecipes(file);
+				_potionContainerRecipes = RecipeLoader.CreatePotionContainerRecipes(file);
+				_materialReducerRecipes = RecipeLoader.CreateMaterialReducerRecipes(file);
 
 				Log.Info($"Recipe registry loaded: {_recipes.Count} recipes, {_potionTypeRecipes.Length} potion mixes, {_potionContainerRecipes.Length} container mixes, {_materialReducerRecipes.Length} material reducers");
 			}

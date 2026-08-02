@@ -102,6 +102,10 @@ public static class Program
 			Path.Combine(dataDir, "item_mappings.json"));
 		Console.WriteLine($"ItemData.generated.cs: {itemClasses} classes");
 
+		// Not code: this one emits our own data file, because biomes are a table nobody writes
+		// against by symbol. Their file stays here, ours ships.
+		BiomeGenerator.Run(dataDir, Path.Combine(repoRoot, "src", "MiNET", "MiNET", "Data", "biome_definitions.json.gz"));
+
 		return 0;
 	}
 

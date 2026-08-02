@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -79,14 +79,6 @@ namespace MiNET.Net
 		public static readonly Lazy<EntityPropertiesFile> EntityProperties = new Lazy<EntityPropertiesFile>(() =>
 			ResourceUtil.ReadResource<EntityPropertiesFile>("entity_properties.json", typeof(Player), "Data"));
 
-		public class PlayerFogFile
-		{
-			public List<string> Stack { get; set; } = new List<string>();
-		}
-
-		public static readonly Lazy<PlayerFogFile> PlayerFog = new Lazy<PlayerFogFile>(() =>
-			ResourceUtil.ReadResource<PlayerFogFile>("player_fog.json", typeof(Player), "Data"));
-
 		public class TrimDataFile
 		{
 			public List<TrimPattern> Patterns { get; set; } = new List<TrimPattern>();
@@ -96,14 +88,6 @@ namespace MiNET.Net
 		public static readonly Lazy<TrimDataFile> TrimData = new Lazy<TrimDataFile>(() =>
 			ResourceUtil.ReadResource<TrimDataFile>("trim_data.json", typeof(Player), "Data"));
 
-		public class BiomeDefinitionListFile
-		{
-			public List<BiomeDefinitionEntry> Definitions { get; set; } = new List<BiomeDefinitionEntry>();
-			public List<string> Strings { get; set; } = new List<string>();
-		}
-
-		public static readonly Lazy<BiomeDefinitionListFile> BiomeDefinitions = new Lazy<BiomeDefinitionListFile>(() =>
-			ResourceUtil.ReadResource<BiomeDefinitionListFile>("biome_definitions.json", typeof(Player), "Data"));
 
 		public class VoxelShapesFile
 		{
@@ -201,22 +185,5 @@ namespace MiNET.Net
 			public int? Easing { get; set; }
 		}
 
-		public class CameraSplineDto
-		{
-			public string Name { get; set; }
-			public float TotalTime { get; set; }
-			public string SplineType { get; set; }
-			public List<Vec3Dto> ControlPoints { get; set; } = new List<Vec3Dto>();
-			public List<CameraProgressOption> ProgressKeyFrames { get; set; } = new List<CameraProgressOption>();
-			public List<CameraRotationOptionDto> RotationKeyFrames { get; set; } = new List<CameraRotationOptionDto>();
-		}
-
-		public class CameraSplineFile
-		{
-			public List<CameraSplineDto> Splines { get; set; } = new List<CameraSplineDto>();
-		}
-
-		public static readonly Lazy<CameraSplineFile> CameraSpline = new Lazy<CameraSplineFile>(() =>
-			ResourceUtil.ReadResource<CameraSplineFile>("camera_spline.json", typeof(Player), "Data"));
 	}
 }
