@@ -53,6 +53,7 @@ using MiNET.Utils.Nbt;
 using MiNET.Utils.Skins;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
+using MiNET.Worlds.BlobCache;
 using Newtonsoft.Json;
 
 namespace MiNET
@@ -77,6 +78,16 @@ namespace MiNET
 
 		public int MaxViewDistance { get; set; } = 22;
 		public int MoveRenderDistance { get; set; } = 1;
+
+		/// <summary>
+		///     Chunks sent between pauses while streaming, and how long to pause. The pause exists
+		///     to keep a join burst from burying the RakNet send queue under thousands of ordered
+		///     datagrams while everything else on the session waits behind them. Measured on a
+		///     radius 32 join: 3209 chunks took 3.4s, of which 2.4s was these sleeps. Set the delay
+		///     to 0 to stream flat out.
+		/// </summary>
+		public int ChunkSendBatchSize { get; set; } = 16;
+		public int ChunkSendDelayMs { get; set; } = 12;
 
 		public GameMode GameMode { get; set; }
 		public bool UseCreativeInventory { get; set; } = true;
@@ -2513,9 +2524,51 @@ namespace MiNET
 			//Level.RelayBroadcast(sound);
 		}
 
+		/// <summary>
+		///     Whether this client gets chunks as blobs. Both ends have to agree: the client tells
+		///     us it keeps a cache, and BlobCacheEnabled says we are willing to serve one. Some
+		///     clients never opt in, so the plain chunk path is not optional and stays the default.
+		/// </summary>
+		public bool UseBlobCache { get; private set; }
+
+		/// <summary>
+		///     The emotes this client owns, sent once after login. Parsed but unused: acting on it
+		///     means validating an incoming Emote against the list and relaying it to the other
+		///     players, and we do neither yet. Handled so it stops arriving as an unknown packet.
+		/// </summary>
+		public virtual void HandleMcpeEmoteList(McpeEmoteList message)
+		{
+			if (Log.IsDebugEnabled) Log.Debug($"Emote list from {Username}: {message.emotePieceIds.Length} emotes");
+		}
+
 		public void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
 		{
-			Log.Warn($"Cache status: {(message.enabled ? "Enabled" : "Disabled")}");
+			UseBlobCache = message.enabled && BlobStore.Enabled;
+			Log.Info($"Cache status from {Username}: client={(message.enabled ? "enabled" : "disabled")}, serving blobs={UseBlobCache}");
+		}
+
+		/// <summary>
+		///     Answers a client's report of which blobs it already had. Hits cost nothing; misses
+		///     get the bytes the hash was taken over. A hash we cannot resolve means the blob aged
+		///     out of the store after we advertised it, which would strand the chunk, so it is
+		///     logged rather than passed over.
+		/// </summary>
+		public void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
+		{
+			if (message.hashMisses == null || message.hashMisses.Length == 0) return;
+
+			var blobs = new Dictionary<ulong, byte[]>();
+			foreach (ulong hash in message.hashMisses)
+			{
+				if (BlobStore.TryGet(hash, out byte[] blob)) blobs[hash] = blob;
+				else Log.Warn($"No blob for hash {hash:X16} requested by {Username}");
+			}
+
+			if (blobs.Count == 0) return;
+
+			var response = McpeClientCacheMissResponse.CreateObject();
+			response.blobs = blobs;
+			SendPacket(response);
 		}
 
 		public void HandleMcpeNetworkSettings(McpeNetworkSettings message)
@@ -3810,11 +3863,12 @@ namespace MiNET
 
 				SendNetworkChunkPublisherUpdate();
 				int packetCount = 0;
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius))
+				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, useBlobCache: UseBlobCache))
 				{
 					if (chunk != null) SendPacket(chunk);
 
-					if (++packetCount % 16 == 0) Thread.Sleep(12);
+					packetCount++;
+				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
 				}
 			}
 			finally
@@ -3859,11 +3913,12 @@ namespace MiNET
 
 				SendNetworkChunkPublisherUpdate();
 
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition))
+				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, UseBlobCache))
 				{
 					if (chunk != null) SendPacket(chunk);
 
-					if (++packetCount % 16 == 0) Thread.Sleep(12);
+					packetCount++;
+				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
 
 					if (!IsSpawned && packetCount == 56)
 					{

@@ -158,6 +158,7 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Item Stack Request | 0x93 | 147 |   
 | Item Stack Response | 0x94 | 148 |   
 | Update Player Game Type | 0x97 | 151 |   
+| Emote List | 0x98 | 152 |   
 | Packet Violation Warning | 0x9c | 156 |   
 | Player Fog | 0xa0 | 160 |   
 | Correct Player Move Prediction | 0xa1 | 161 |   
@@ -2626,10 +2627,12 @@ Wiki: [Update Block Properties](https://github.com/NiclasOlofsson/MiNET/wiki//Pr
 ### Client Cache Blob Status (0x87)
 Wiki: [Client Cache Blob Status](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-ClientCacheBlobStatus)
 
-**Sent from server:** true  
-**Sent from client:** false
+**Sent from server:** false  
+**Sent from client:** true
 
-
+ The client sends this to report which blobs it already holds, so the handler belongs on
+     the server. It was declared the other way round, which put the handler on the client and
+     left the server with no way to receive it at all. 
 
 
 #### Fields
@@ -2798,6 +2801,23 @@ Wiki: [Update Player Game Type](https://github.com/NiclasOlofsson/MiNET/wiki//Pr
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Emote List (0x98)
+Wiki: [Emote List](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-EmoteList)
+
+**Sent from server:** false  
+**Sent from client:** true
+
+ Sent by the client right after login, listing the emotes it owns so the server can
+     validate an Emote packet later. The piece id list is a UUID array, which the generator has
+     no type for, so it lives in the partial (Net/McpeEmoteList.cs). 
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Runtime Entity ID | UnsignedVarLong |  |
 -----------------------------------------------------------------------
 ### Packet Violation Warning (0x9c)
 Wiki: [Packet Violation Warning](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-PacketViolationWarning)

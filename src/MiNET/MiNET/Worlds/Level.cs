@@ -1011,7 +1011,7 @@ namespace MiNET.Worlds
 			}
 		}
 
-		public IEnumerable<McpeWrapper> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, McpeWrapper> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null)
+		public IEnumerable<McpeWrapper> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, McpeWrapper> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, bool useBlobCache = false)
 		{
 			lock (chunksUsed)
 			{
@@ -1062,7 +1062,9 @@ namespace MiNET.Worlds
 					McpeWrapper chunk = null;
 					if (chunkColumn != null)
 					{
-						chunk = chunkColumn.GetBatch();
+						// Both forms are cached on the column and shared by everyone, because the
+						// blob hashes come from content and not from who is asking.
+						chunk = useBlobCache ? chunkColumn.GetBlobBatch() : chunkColumn.GetBatch();
 						chunksUsed.Add(pair.Key, chunk);
 					}
 

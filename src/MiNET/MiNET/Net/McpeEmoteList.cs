@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -8,46 +8,46 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
 
 using System;
-using System.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 
-namespace MiNET
+namespace MiNET.Net
 {
-	public class PlayerFactory
+	/// <summary>
+	///     The emote piece ids, which the generated code cannot express: a length-prefixed array of
+	///     UUIDs, following the runtime entity id declared in the XML. Field order and types are
+	///     from Mojang's EmoteListPacketPayload schema (runtime id at ordinal 0, piece ids at 1).
+	/// </summary>
+	public partial class McpeEmoteList
 	{
-		public virtual Player CreatePlayer(MiNetServer server, IPEndPoint endPoint, PlayerInfo playerInfo)
+		public UUID[] emotePieceIds = Array.Empty<UUID>();
+
+		partial void AfterEncode()
 		{
-			var player = new Player(server, endPoint);
-			player.MaxViewDistance = Config.GetProperty("MaxViewDistance", 22);
-			player.MoveRenderDistance = Config.GetProperty("MoveRenderDistance", 1);
-			player.ChunkSendBatchSize = Config.GetProperty("Chunk.SendBatchSize", 16);
-			player.ChunkSendDelayMs = Config.GetProperty("Chunk.SendDelayMs", 12);
-			OnPlayerCreated(new PlayerEventArgs(player));
-			return player;
+			WriteUnsignedVarInt((uint) emotePieceIds.Length);
+			foreach (UUID pieceId in emotePieceIds) Write(pieceId);
 		}
 
-		public event EventHandler<PlayerEventArgs> PlayerCreated;
-
-		protected virtual void OnPlayerCreated(PlayerEventArgs e)
+		partial void AfterDecode()
 		{
-			PlayerCreated?.Invoke(this, e);
+			var count = ReadUnsignedVarInt();
+			emotePieceIds = new UUID[count];
+			for (int i = 0; i < count; i++) emotePieceIds[i] = ReadUUID();
 		}
 	}
 }

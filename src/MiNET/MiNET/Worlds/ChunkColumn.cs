@@ -37,6 +37,7 @@ using log4net;
 using MiNET.Blocks;
 using MiNET.Net;
 using MiNET.Utils.IO;
+using MiNET.Worlds.BlobCache;
 using MiNET.Utils.Vectors;
 
 namespace MiNET.Worlds
@@ -68,6 +69,7 @@ namespace MiNET.Worlds
 
 		public bool DisableCache { get; set; }
 		private McpeWrapper _cachedBatch;
+		private McpeWrapper _cachedBlobBatch;
 		private object _cacheSync = new object();
 
 		public ChunkColumn(bool clearBuffers = true)
@@ -456,6 +458,14 @@ namespace MiNET.Worlds
 
 					_cachedBatch = null;
 				}
+
+				if (_cachedBlobBatch != null)
+				{
+					_cachedBlobBatch.MarkPermanent(false);
+					_cachedBlobBatch.PutPool();
+
+					_cachedBlobBatch = null;
+				}
 			}
 		}
 
@@ -490,6 +500,79 @@ namespace MiNET.Worlds
 			}
 		}
 
+		/// <summary>
+		///     The same chunk with its bulk moved into content-addressed blobs: one per section,
+		///     one for the biomes, leaving only border blocks and block entities inline. A client
+		///     that already holds a blob never receives those bytes again, and blobs shared between
+		///     chunks (all-air sections, repeated terrain) are stored and sent once for everyone.
+		///
+		///     Shared and cached exactly like the plain form, because the hashes are derived from
+		///     content and not from who is asking. What differs per client is only which blobs come
+		///     back as misses.
+		/// </summary>
+		public McpeWrapper GetBlobBatch()
+		{
+			lock (_cacheSync)
+			{
+				if (!DisableCache && !IsDirty && _cachedBlobBatch != null) return _cachedBlobBatch;
+
+				if (_cachedBlobBatch != null)
+				{
+					_cachedBlobBatch.MarkPermanent(false);
+					_cachedBlobBatch.PutPool();
+					_cachedBlobBatch = null;
+				}
+
+				int topEmpty = GetTopEmpty();
+
+				// Hashes go out in the order the client rebuilds them: every section from the
+				// bottom up, then the biome blob last.
+				var hashes = new ulong[topEmpty + 1];
+				for (int ci = 0; ci < topEmpty; ci++)
+				{
+					using var section = new MemoryStream();
+					this[ci].Write(section);
+					hashes[ci] = BlobStore.Add(section.ToArray());
+				}
+
+				hashes[topEmpty] = BlobStore.Add(GetBiomePalette(biomeId));
+
+				var packet = McpeLevelChunk.CreateObject();
+				packet.cacheEnabled = true;
+				packet.blobHashes = hashes;
+				packet.subChunkRequestMode = SubChunkRequestMode.SubChunkRequestModeLegacy;
+				packet.chunkX = X;
+				packet.chunkZ = Z;
+				packet.subChunkCount = (uint) topEmpty;
+				packet.chunkData = GetTailBytes();
+				byte[] bytes = packet.Encode();
+				packet.PutPool();
+
+				McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(bytes, 0, bytes.Length), CompressionLevel.Fastest, true);
+				batch.MarkPermanent();
+
+				_cachedBlobBatch = batch;
+
+				return _cachedBlobBatch;
+			}
+		}
+
+		/// <summary>
+		///     Everything in the chunk payload that is not a blob: the border block count and the
+		///     block entities. Sections and biomes are addressed by hash in the cached form, so
+		///     this is all that still travels inline.
+		/// </summary>
+		private byte[] GetTailBytes()
+		{
+			using var stream = new MemoryStream();
+
+			stream.WriteByte(0); // Border blocks - nope (EDU)
+
+			WriteBlockEntities(stream);
+
+			return stream.ToArray();
+		}
+
 
 		public byte[] GetBytes(int topEmpty)
 		{
@@ -505,20 +588,24 @@ namespace MiNET.Worlds
 
 			stream.WriteByte(0); // Border blocks - nope (EDU)
 
-			if (BlockEntities.Count != 0)
-			{
-				foreach (NbtCompound blockEntity in BlockEntities.Values.ToArray())
-				{
-					var file = new NbtFile(blockEntity)
-					{
-						BigEndian = false,
-						UseVarInt = true
-					};
-					file.SaveToStream(stream, NbtCompression.None);
-				}
-			}
+			WriteBlockEntities(stream);
 
 			return stream.ToArray();
+		}
+
+		private void WriteBlockEntities(MemoryStream stream)
+		{
+			if (BlockEntities.Count == 0) return;
+
+			foreach (NbtCompound blockEntity in BlockEntities.Values.ToArray())
+			{
+				var file = new NbtFile(blockEntity)
+				{
+					BigEndian = false,
+					UseVarInt = true
+				};
+				file.SaveToStream(stream, NbtCompression.None);
+			}
 		}
 
 		private byte[] GetBiomePalette(byte[] biomes)

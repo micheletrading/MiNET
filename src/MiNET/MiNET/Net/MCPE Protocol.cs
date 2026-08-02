@@ -103,9 +103,11 @@ namespace MiNET.Net
 		void HandleMcpeLevelSoundEventV2(McpeLevelSoundEventV2 message);
 		void HandleMcpeLevelSoundEvent(McpeLevelSoundEvent message);
 		void HandleMcpeClientCacheStatus(McpeClientCacheStatus message);
+		void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message);
 		void HandleMcpePlayerAuthInput(McpePlayerAuthInput message);
 		void HandleMcpeItemStackRequest(McpeItemStackRequest message);
 		void HandleMcpeUpdatePlayerGameType(McpeUpdatePlayerGameType message);
+		void HandleMcpeEmoteList(McpeEmoteList message);
 		void HandleMcpePacketViolationWarning(McpePacketViolationWarning message);
 		void HandleMcpeFilterTextPacket(McpeFilterTextPacket message);
 		void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message);
@@ -233,7 +235,6 @@ namespace MiNET.Net
 		void HandleMcpeStructureTemplateDataExportRequest(McpeStructureTemplateDataExportRequest message);
 		void HandleMcpeStructureTemplateDataExportResponse(McpeStructureTemplateDataExportResponse message);
 		void HandleMcpeUpdateBlockProperties(McpeUpdateBlockProperties message);
-		void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message);
 		void HandleMcpeClientCacheMissResponse(McpeClientCacheMissResponse message);
 		void HandleMcpeNetworkSettings(McpeNetworkSettings message);
 		void HandleMcpeCreativeContent(McpeCreativeContent message);
@@ -617,9 +618,6 @@ namespace MiNET.Net
 					break;
 				case McpeUpdateBlockProperties msg:
 					_messageHandler.HandleMcpeUpdateBlockProperties(msg);
-					break;
-				case McpeClientCacheBlobStatus msg:
-					_messageHandler.HandleMcpeClientCacheBlobStatus(msg);
 					break;
 				case McpeClientCacheMissResponse msg:
 					_messageHandler.HandleMcpeClientCacheMissResponse(msg);
@@ -1045,6 +1043,8 @@ namespace MiNET.Net
 						return McpeItemStackResponse.CreateObject().Decode(buffer);
 					case 0x97:
 						return McpeUpdatePlayerGameType.CreateObject().Decode(buffer);
+					case 0x98:
+						return McpeEmoteList.CreateObject().Decode(buffer);
 					case 0x9c:
 						return McpePacketViolationWarning.CreateObject().Decode(buffer);
 					case 0xa0:
@@ -9739,6 +9739,54 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+		}
+
+	}
+
+	public partial class McpeEmoteList : Packet<McpeEmoteList>
+	{
+
+		public long runtimeEntityId; // = null;
+
+		public McpeEmoteList()
+		{
+			Id = 0x98;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarLong(runtimeEntityId);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			runtimeEntityId = ReadUnsignedVarLong();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			runtimeEntityId=default(long);
 		}
 
 	}

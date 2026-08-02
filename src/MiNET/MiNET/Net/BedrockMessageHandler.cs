@@ -107,6 +107,12 @@ namespace MiNET.Net
 				case McpeClientCacheStatus msg:
 					handler.HandleMcpeClientCacheStatus(msg);
 					break;
+				case McpeClientCacheBlobStatus msg:
+					handler.HandleMcpeClientCacheBlobStatus(msg);
+					break;
+				case McpeEmoteList msg:
+					handler.HandleMcpeEmoteList(msg);
+					break;
 				case McpeAnimate msg:
 					handler.HandleMcpeAnimate(msg);
 					break;

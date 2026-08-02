@@ -630,6 +630,14 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
+		{
+		}
+
+		public void HandleMcpeEmoteList(McpeEmoteList message)
+		{
+		}
+
 		public void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
 		{
 		}

@@ -163,6 +163,15 @@ namespace MiNET.Net
 
 		partial void AfterEncode()
 		{
+			// Was empty, so the server could decode this packet but never produce one.
+			WriteUnsignedVarInt((uint) (blobs?.Count ?? 0));
+			if (blobs == null) return;
+
+			foreach (KeyValuePair<ulong, byte[]> blob in blobs)
+			{
+				Write(blob.Key);
+				WriteByteArray(blob.Value);
+			}
 		}
 
 		partial void AfterDecode()

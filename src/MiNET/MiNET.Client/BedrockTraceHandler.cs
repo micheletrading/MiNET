@@ -119,6 +119,28 @@ namespace MiNET.Client
 				}
 			}
 
+			// Blob hashes on subchunk entries need answering just like the ones on a LevelChunk, or
+			// the server has no reason to send the blobs and we never see their contents. We hold
+			// no blob storage, so everything is a miss, which is also what a real client reports
+			// the first time it meets a world.
+			if (message.cacheEnabled)
+			{
+				var misses = message.entries
+					.OfType<SubChunkEntryWithCache>()
+					.Select(entry => entry.usedBlobHash)
+					.Where(hash => hash != 0)
+					.Distinct()
+					.ToArray();
+
+				if (misses.Length > 0)
+				{
+					var status = McpeClientCacheBlobStatus.CreateObject();
+					status.hashHits = Array.Empty<ulong>();
+					status.hashMisses = misses;
+					Client.SendPacket(status);
+				}
+			}
+
 			if (System.Threading.Interlocked.Increment(ref _subChunkPacketsLogged) <= 5 || parseFail > 0)
 			{
 				Log.Warn($"SubChunk response: origin=({message.originX},{message.originY},{message.originZ}) entries={message.entries.Length} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
@@ -903,6 +925,28 @@ namespace MiNET.Client
 			Log.DebugFormat("NBT:\n{0}", message.namedtag.NbtFile.RootTag);
 		}
 
+		/// <summary>
+		///     Skeleton chunk: the payload is biomes only and block data has to be asked for a
+		///     section at a time. Highest requestable relative index is subChunkCount in limited
+		///     mode; relative index 0 is section y -4.
+		/// </summary>
+		private void SendSubChunkRequest(McpeLevelChunk message)
+		{
+			int highest = message.subChunkRequestMode == SubChunkRequestMode.SubChunkRequestModeLimited ? (int) message.subChunkCount : 23;
+
+			var request = McpeSubChunkRequestPacket.CreateObject();
+			request.dimension = message.dimension;
+			request.originX = message.chunkX;
+			request.originY = 0;
+			request.originZ = message.chunkZ;
+			for (int i = 0; i <= highest; i++)
+			{
+				request.offsets.Add(new SubChunkPositionOffset {XOffset = 0, YOffset = (sbyte) (i - 4), ZOffset = 0});
+			}
+
+			Client.SendPacket(request);
+		}
+
 		public override void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
 			// TODO doesn't work anymore I guess
@@ -929,6 +973,15 @@ namespace MiNET.Client
 				status.hashHits = hits.ToArray();
 				status.hashMisses = misses.ToArray();
 				Client.SendPacket(status);
+
+				// The hash on a cached LevelChunk covers the column's biome blob only, so the
+				// subchunks still have to be requested exactly as in the uncached case. Returning
+				// here left the chunk half fetched and, more to the point, meant we never saw the
+				// SubChunk entries that carry the per-section blob hashes.
+				if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
+				{
+					SendSubChunkRequest(message);
+				}
 			}
 			else
 			{
@@ -941,21 +994,7 @@ namespace MiNET.Client
 					{
 						if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
 						{
-							// Skeleton chunk: payload is biomes only; block data must be
-							// requested per subchunk. Highest requestable relative index is
-							// subChunkCount in limited mode; relative index 0 is section y -4.
-							int highest = message.subChunkRequestMode == SubChunkRequestMode.SubChunkRequestModeLimited ? (int) message.subChunkCount : 23;
-							var request = McpeSubChunkRequestPacket.CreateObject();
-							request.dimension = message.dimension;
-							request.originX = message.chunkX;
-							request.originY = 0;
-							request.originZ = message.chunkZ;
-							for (int i = 0; i <= highest; i++)
-							{
-								request.offsets.Add(new SubChunkPositionOffset {XOffset = 0, YOffset = (sbyte) (i - 4), ZOffset = 0});
-							}
-
-							Client.SendPacket(request);
+							SendSubChunkRequest(message);
 							return null;
 						}
 

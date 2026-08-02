@@ -1111,7 +1111,10 @@
 		<field name="NamedTag" type="Nbt" />
 	</pdu>
 
-	<pdu id="0x87" online="false" client="false" server="true" name="MCPE_CLIENT_CACHE_BLOB_STATUS">
+	<!-- The client sends this to report which blobs it already holds, so the handler belongs on
+	     the server. It was declared the other way round, which put the handler on the client and
+	     left the server with no way to receive it at all. -->
+	<pdu id="0x87" online="false" client="true" server="false" name="MCPE_CLIENT_CACHE_BLOB_STATUS">
 		<!--<field name="Hash Misses" type="ulong[]" />
 		<field name="Hash Hits" type="ulong[]" />-->
 	</pdu>
@@ -1186,6 +1189,13 @@
 	</pdu>
 
 	<pdu id="0x97" online="false" client="true" server="false" name="MCPE_UPDATE_PLAYER_GAME_TYPE"></pdu>
+
+	<!-- Sent by the client right after login, listing the emotes it owns so the server can
+	     validate an Emote packet later. The piece id list is a UUID array, which the generator has
+	     no type for, so it lives in the partial (Net/McpeEmoteList.cs). -->
+	<pdu id="0x98" online="false" client="true" server="false" name="MCPE_EMOTE_LIST">
+		<field name="Runtime Entity ID" type="UnsignedVarLong" />
+	</pdu>
 
 	<pdu id="0x9c" online="false" client="true" server="false" name="MCPE_PACKET_VIOLATION_WARNING">
 		<field name="Violation Type" type="SignedVarInt" />
