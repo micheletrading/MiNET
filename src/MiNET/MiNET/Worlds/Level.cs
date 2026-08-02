@@ -113,6 +113,39 @@ namespace MiNET.Worlds
 		public int SaveInterval { get; set; } = 300;
 		public int UnloadInterval { get; set; } = -1;
 
+		// What StartGame tells a joining client about this world. The defaults are the values
+		// vanilla BDS 1.26.34 sends, taken from a decoded capture. Zero is not a neutral default
+		// for most of them: it is a smaller tick range, an unlimited world of size zero, and a
+		// broadcast mode the client does not expect.
+		public long Seed { get; set; } = 12345;
+
+		// 2 = infinite, which is what vanilla reports even for a flat world. 1 is "flat", and the
+		// client uses this to decide how it treats the world edge.
+		public int GeneratorType { get; set; } = 2;
+
+		// Vanilla names the spawn biome. An empty string leaves the client with no biome for the
+		// point it spawns at.
+		public string SpawnBiomeName { get; set; } = "minecraft:plains";
+		public short SpawnBiomeType { get; set; }
+
+		public bool AchievementsDisabled { get; set; } = true;
+		public float RainLevel { get; set; }
+		public float LightningLevel { get; set; }
+		public bool IsMultiplayer { get; set; } = true;
+		public bool BroadcastToLan { get; set; } = true;
+		public int XboxLiveBroadcastMode { get; set; } = 6;
+		public int PlatformBroadcastMode { get; set; } = 6;
+		public bool UseMsaGamertagsOnly { get; set; } = true;
+		public bool IsTexturepacksRequired { get; set; }
+		public bool BonusChest { get; set; }
+		public bool MapEnabled { get; set; }
+		public bool IsTrial { get; set; }
+		public int ServerChunkTickRange { get; set; } = 4;
+		public int LimitedWorldWidth { get; set; } = 16;
+		public int LimitedWorldLength { get; set; } = 16;
+		public int MovementRewindHistorySize { get; set; } = 40;
+		public int EnchantmentSeed { get; set; } = 123456;
+
 		public Level(LevelManager levelManager, string levelId, IWorldProvider worldProvider, EntityManager entityManager, GameMode gameMode = GameMode.Survival, Difficulty difficulty = Difficulty.Normal, int viewDistance = 11)
 		{
 			Random = new Random();

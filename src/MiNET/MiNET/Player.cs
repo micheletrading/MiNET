@@ -3634,53 +3634,49 @@ namespace MiNET
 
 		public void SendStartGame()
 		{
-			var levelSettings = new LevelSettings();
-			levelSettings.spawnSettings = new SpawnSettings()
+			var levelSettings = new LevelSettings
 			{
-				Dimension = (int)(Level?.Dimension ?? 0),
-				// Vanilla names the spawn biome; an empty string leaves the client with no biome for
-				// the point it spawns at.
-				BiomeName = "minecraft:plains",
-				BiomeType = 0
+				spawnSettings = new SpawnSettings()
+				{
+					Dimension = (int) (Level?.Dimension ?? 0),
+					BiomeName = Level.SpawnBiomeName,
+					BiomeType = Level.SpawnBiomeType
+				},
+				seed = Level.Seed,
+				generator = Level.GeneratorType,
+				gamemode = (int) GameMode,
+				difficulty = (int) Level.Difficulty,
+				x = (int) SpawnPosition.X,
+				y = (int) (SpawnPosition.Y + Height),
+				z = (int) SpawnPosition.Z,
+				hasAchievementsDisabled = Level.AchievementsDisabled,
+				time = (int) Level.WorldTime,
+				eduOffer = PlayerInfo.Edition == 1 ? 1 : 0,
+				rainLevel = Level.RainLevel,
+				lightningLevel = Level.LightningLevel,
+				isMultiplayer = Level.IsMultiplayer,
+				broadcastToLan = Level.BroadcastToLan,
+				enableCommands = EnableCommands,
+				isTexturepacksRequired = Level.IsTexturepacksRequired,
+				gamerules = Level.GetGameRules(),
+				bonusChest = Level.BonusChest,
+				mapEnabled = Level.MapEnabled,
+				permissionLevel = (int) PermissionLevel,
+				// "*" is what vanilla sends here, not the version string and not empty.
+				gameVersion = "*",
+
+				// This server is not Education Edition. Sending true put every client into edu mode,
+				// which changes chat, permissions and the player roster UI.
+				hasEduFeaturesEnabled = false,
+
+				serverChunkTickRange = Level.ServerChunkTickRange,
+				useMsaGamertagsOnly = Level.UseMsaGamertagsOnly,
+				limitedWorldWidth = Level.LimitedWorldWidth,
+				limitedWorldLength = Level.LimitedWorldLength,
+				xboxLiveBroadcastMode = Level.XboxLiveBroadcastMode,
+				platformBroadcastMode = Level.PlatformBroadcastMode
 			};
-			levelSettings.seed = 12345;
-			// 2 = infinite, which is what vanilla BDS reports even for a flat world. 1 is "flat",
-			// and the client uses this to decide how it treats the world edge.
-			levelSettings.generator = 2;
-			levelSettings.gamemode = (int) GameMode;
-			levelSettings.x = (int) SpawnPosition.X;
-			levelSettings.y = (int) (SpawnPosition.Y + Height);
-			levelSettings.z = (int) SpawnPosition.Z;
-			levelSettings.hasAchievementsDisabled = true;
-			levelSettings.time = (int) Level.WorldTime;
-			levelSettings.eduOffer = PlayerInfo.Edition == 1 ? 1 : 0;
-			levelSettings.rainLevel = 0;
-			levelSettings.lightningLevel = 0;
-			levelSettings.isMultiplayer = true;
-			levelSettings.broadcastToLan = true;
-			levelSettings.enableCommands = EnableCommands;
-			levelSettings.isTexturepacksRequired = false;
-			levelSettings.gamerules = Level.GetGameRules();
-			levelSettings.bonusChest = false;
-			levelSettings.mapEnabled = false;
-			levelSettings.permissionLevel = (int) PermissionLevel;
-			// "*" is what vanilla sends here, not the version string and not empty.
-			levelSettings.gameVersion = "*";
 
-			// This server is not Education Edition. Sending true put every client into edu mode,
-			// which changes chat, permissions and the player roster UI.
-			levelSettings.hasEduFeaturesEnabled = false;
-
-			// The remaining values vanilla BDS 1.26.34 sends, from a decoded capture. Zero is not a
-			// neutral default for any of them: it is a smaller tick range, an unlimited world of
-			// size zero, and a broadcast mode the client does not expect.
-			levelSettings.serverChunkTickRange = 4;
-			levelSettings.useMsaGamertagsOnly = true;
-			levelSettings.limitedWorldWidth = 16;
-			levelSettings.limitedWorldLength = 16;
-			levelSettings.xboxLiveBroadcastMode = 6;
-			levelSettings.platformBroadcastMode = 6;
-			
 			var startGame = McpeStartGame.CreateObject();
 			startGame.levelSettings = levelSettings;
 			startGame.entityIdSelf = EntityId;
@@ -3694,19 +3690,19 @@ namespace MiNET
 			startGame.levelId = "minet-" + (Level.LevelName ?? "world");
 			startGame.worldName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
 			startGame.premiumWorldTemplateId = "00000000-0000-0000-0000-000000000000"; // vanilla sends the zero uuid as a string, not empty
-			startGame.isTrial = false;
-			// Chunk palettes are written as network hashes (see SubChunk.WriteStore), matching
-			// vanilla BDS. The flag and the chunk encoding must always agree.
-			startGame.blockNetworkIdsAreHashes = true;
-			// Values as sent by vanilla BDS 1.26.34 (decoded wire capture).
-			startGame.movementRewindHistorySize = 40;
+			startGame.isTrial = Level.IsTrial;
+			// How SubChunk.WriteStore encodes chunk palettes. The two must always agree, so both
+			// come from the one setting. The palette itself is never sent, in either mode: vanilla
+			// stopped sending it, and index mode indexes the client's own canonical palette. That
+			// is what makes index mode demanding: our palette order has to be the client's, exactly.
+			startGame.blockNetworkIdsAreHashes = SubChunk.BlockNetworkIdsAreHashes;
+			startGame.movementRewindHistorySize = Level.MovementRewindHistorySize;
+			// Wire behaviour switches, not world settings: both must match how this server actually
+			// handles breaking and sound, so they are not somebody's to configure.
 			startGame.enableNewBlockBreakSystem = true;
 			startGame.serverControlledSound = true;
 			startGame.currentTick = Level.TickTime;
-			startGame.enchantmentSeed = 123456;
-
-			//startGame.blockPalette = BlockFactory.BlockPalette;
-
+			startGame.enchantmentSeed = Level.EnchantmentSeed;
 			startGame.enableNewInventorySystem = true;
 			// 0 disables the client's palette-checksum verification. NEVER mirror BDS's value:
 			// the client recomputes the checksum locally and rejects the join with "Blocks

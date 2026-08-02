@@ -39,6 +39,18 @@ namespace MiNET.Worlds
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(SubChunk));
 
+		/// <summary>
+		///     How chunk palette entries are written, and therefore what StartGame must tell the
+		///     client. True writes network hashes; false writes runtime ids, which the client reads
+		///     as indices into its own canonical palette, so they are only correct while our
+		///     palette order matches the client's. On BDS this is a server setting too.
+		///     Server-wide on purpose, not per level or per player: WriteStore caches the encoded
+		///     bytes on the subchunk and everyone who gets that chunk gets those same bytes, so
+		///     there can only be one answer. Changing it after chunks have been encoded serves
+		///     stale bytes in the wrong encoding.
+		/// </summary>
+		public static bool BlockNetworkIdsAreHashes { get; set; } = Config.GetProperty("BlockNetworkIdsAreHashes", false);
+
 		private bool _isAllAir = true;
 
 		private List<int> _runtimeIds; // Add air, always as first (performance)
@@ -384,10 +396,10 @@ namespace MiNET.Worlds
 			VarInt.WriteSInt32(stream, palette.Count); // count
 			foreach (var val in palette)
 			{
-				// Palette entries go out as network hashes, matching
-				// StartGame.blockNetworkIdsAreHashes = true (the vanilla default). Hashes are
-				// order-independent, so the client does not need to share our palette order.
-				VarInt.WriteSInt32(stream, (int) BlockFactory.GetNetworkHash(val));
+				// A hash, or a runtime id the client resolves against its own canonical palette.
+				// Hashes are order-independent and cost a full 5-byte varint; indices are 1-2 bytes
+				// but are only correct while our palette order is identical to the client's.
+				VarInt.WriteSInt32(stream, BlockNetworkIdsAreHashes ? (int) BlockFactory.GetNetworkHash(val) : val);
 			}
 
 			return true;
