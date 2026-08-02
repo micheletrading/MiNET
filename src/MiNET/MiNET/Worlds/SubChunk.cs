@@ -109,13 +109,16 @@ namespace MiNET.Worlds
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static unsafe bool AllZeroFast<T>(T[] data) where T : unmanaged
 		{
-			fixed (T* shorts = data)
+			fixed (T* start = data)
 			{
-				byte* bytes = (byte*) shorts;
+				byte* bytes = (byte*) start;
 				int len = data.Length * sizeof(T);
 				int rem = len % (sizeof(long) * 16);
 				long* b = (long*) bytes;
-				long* e = (long*) (shorts + len - rem);
+				// len is a byte count, so it has to advance the byte pointer. Advancing the T*
+				// instead scanned sizeof(T) times too far, reading past the array into whatever
+				// followed it: zeroed heap for a fresh array, stale contents for a pooled one.
+				long* e = (long*) (bytes + len - rem);
 
 				while (b < e)
 				{
@@ -139,10 +142,13 @@ namespace MiNET.Worlds
 					b += 16;
 				}
 
+				// rem counts bytes, so the leftover is scanned as bytes. Indexing data here mixed a
+				// byte offset into a T-indexed array, and the comparison was inverted on top of
+				// that. Neither showed up while the only caller passed 4096 shorts, because 8192
+				// bytes divides evenly into the block above and rem was always zero.
 				for (int i = 0; i < rem; i++)
 				{
-					if (data[len - 1 - i].Equals(default(T)))
-						return false;
+					if (bytes[len - 1 - i] != 0) return false;
 				}
 
 				return true;
