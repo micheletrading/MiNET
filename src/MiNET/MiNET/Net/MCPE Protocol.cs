@@ -259,6 +259,8 @@ namespace MiNET.Net
 		void HandleMcpePlayerLocation(McpePlayerLocation message);
 		void HandleMcpeVoxelShapes(McpeVoxelShapes message);
 		void HandleMcpeCameraSpline(McpeCameraSpline message);
+		void HandleMcpeCameraInstruction(McpeCameraInstruction message);
+		void HandleMcpeCameraShake(McpeCameraShake message);
 		void HandleMcpeLocatorBar(McpeLocatorBar message);
 		void HandleMcpeSyncWorldClocks(McpeSyncWorldClocks message);
 		void HandleFtlCreatePlayer(FtlCreatePlayer message);
@@ -691,6 +693,12 @@ namespace MiNET.Net
 				case McpeCameraSpline msg:
 					_messageHandler.HandleMcpeCameraSpline(msg);
 					break;
+				case McpeCameraInstruction msg:
+					_messageHandler.HandleMcpeCameraInstruction(msg);
+					break;
+				case McpeCameraShake msg:
+					_messageHandler.HandleMcpeCameraShake(msg);
+					break;
 				case McpeLocatorBar msg:
 					_messageHandler.HandleMcpeLocatorBar(msg);
 					break;
@@ -1097,6 +1105,10 @@ namespace MiNET.Net
 						return McpeVoxelShapes.CreateObject().Decode(buffer);
 					case 0x152:
 						return McpeCameraSpline.CreateObject().Decode(buffer);
+					case 0x12c:
+						return McpeCameraInstruction.CreateObject().Decode(buffer);
+					case 0x9f:
+						return McpeCameraShake.CreateObject().Decode(buffer);
 					case 0x155:
 						return McpeLocatorBar.CreateObject().Decode(buffer);
 					case 0x158:
@@ -11155,6 +11167,110 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+		}
+
+	}
+
+	public partial class McpeCameraInstruction : Packet<McpeCameraInstruction>
+	{
+
+
+		public McpeCameraInstruction()
+		{
+			Id = 0x12c;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+		}
+
+	}
+
+	public partial class McpeCameraShake : Packet<McpeCameraShake>
+	{
+
+		public float intensity; // = null;
+		public float duration; // = null;
+		public byte type; // = null;
+		public byte action; // = null;
+
+		public McpeCameraShake()
+		{
+			Id = 0x9f;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(intensity);
+			Write(duration);
+			Write(type);
+			Write(action);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			intensity = ReadFloat();
+			duration = ReadFloat();
+			type = ReadByte();
+			action = ReadByte();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			intensity=default(float);
+			duration=default(float);
+			type=default(byte);
+			action=default(byte);
 		}
 
 	}

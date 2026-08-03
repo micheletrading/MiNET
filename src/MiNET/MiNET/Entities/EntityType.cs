@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -76,6 +76,10 @@ namespace MiNET.Entities
 		EvocationFangs = 103,
 		IceBomb = 106,
 		Balloon = 107,
+		WindCharge = 143,
+		BreezeWindCharge = 141,
+		OminousItemSpawner = 145,
+		ChestBoat = 218,
 
 		Zombie = 32,
 		Creeper = 33,
@@ -106,6 +110,21 @@ namespace MiNET.Entities
 		Vex = 105,
 		Drowned = 110,
 		Pillager = 114,
+		Ravager = 59,
+		ElderGuardianGhost = 120,
+		Piglin = 123,
+		Hoglin = 124,
+		Zoglin = 126,
+		PiglinBrute = 127,
+		Warden = 131,
+		Breeze = 140,
+		Bogged = 144,
+		Creaking = 146,
+		ZombieNautilus = 150,
+		Parched = 151,
+		CamelHusk = 152,
+		SulfurCube = 153,
+		ZombieVillagerV2 = 116,
 
 		Chicken = 10,
 		Cow = 11,
@@ -136,6 +155,24 @@ namespace MiNET.Entities
 		TropicalFish = 111,
 		Fish = 112,
 		Panda = 113,
+		VillagerV2 = 115,
+		WanderingTrader = 118,
+		Fox = 121,
+		Bee = 122,
+		Strider = 125,
+		Goat = 128,
+		GlowSquid = 129,
+		Axolotl = 130,
+		Frog = 132,
+		Tadpole = 133,
+		Allay = 134,
+		Camel = 138,
+		Sniffer = 139,
+		Armadillo = 142,
+		HappyGhast = 147,
+		CopperGolem = 148,
+		Nautilus = 149,
+		TraderLlama = 157,
 
 		Player = 63,
 
@@ -147,109 +184,159 @@ namespace MiNET.Entities
 		Herobrine = 666
 	}
 
+	/// <summary>
+	///     What the client is told about an entity type: its identifier, whether it has a spawn egg
+	///     and whether /summon accepts it. The runtime id is the <see cref="EntityType" /> value
+	///     itself, except where vanilla disagrees (only the player does, at 257).
+	/// </summary>
+	public record EntityIdentity(string Id, bool HasSpawnEgg, bool Summonable, string Bid = "", int? Rid = null)
+	{
+		public int GetRid(EntityType type)
+		{
+			return Rid ?? (int) type;
+		}
+	}
+
 	public static class EntityHelpers
 	{
-		public static readonly Dictionary<EntityType, string> LegacyEntityTypeIdConverter = new Dictionary<EntityType, string>
+		public static readonly Dictionary<EntityType, EntityIdentity> LegacyEntityTypeIdConverter = new Dictionary<EntityType, EntityIdentity>
 		{
-			{ EntityType.Npc, "minecraft:npc" },
-			{ EntityType.Player, "minecraft:player" },
-			{ EntityType.WitherSkeleton, "minecraft:wither_skeleton" },
-			{ EntityType.Husk, "minecraft:husk" },
-			{ EntityType.Stray, "minecraft:stray" },
-			{ EntityType.Witch, "minecraft:witch" },
-			{ EntityType.ZombieVillager, "minecraft:zombie_villager" },
-			{ EntityType.Blaze, "minecraft:blaze" },
-			{ EntityType.MagmaCube, "minecraft:magma_cube" },
-			{ EntityType.Ghast, "minecraft:ghast" },
-			{ EntityType.CaveSpider, "minecraft:cave_spider" },
-			{ EntityType.Silverfish, "minecraft:silverfish" },
-			{ EntityType.Enderman, "minecraft:enderman" },
-			{ EntityType.Slime, "minecraft:slime" },
-			{ EntityType.ZombiePigman, "minecraft:zombie_pigman" },
-			{ EntityType.Spider, "minecraft:spider" },
-			{ EntityType.Skeleton, "minecraft:skeleton" },
-			{ EntityType.Creeper, "minecraft:creeper" },
-			{ EntityType.Zombie, "minecraft:zombie" },
-			{ EntityType.SkeletonHorse, "minecraft:skeleton_horse" },
-			{ EntityType.Mule, "minecraft:mule" },
-			{ EntityType.Donkey, "minecraft:donkey" },
-			{ EntityType.Dolphin, "minecraft:dolphin" },
-			{ EntityType.TropicalFish, "minecraft:tropicalfish" },
-			{ EntityType.Wolf, "minecraft:wolf" },
-			{ EntityType.Squid, "minecraft:squid" },
-			{ EntityType.Drowned, "minecraft:drowned" },
-			{ EntityType.Sheep, "minecraft:sheep" },
-			{ EntityType.MushroomCow, "minecraft:mooshroom" },
-			{ EntityType.Panda, "minecraft:panda" },
-			{ EntityType.Salmon, "minecraft:salmon" },
-			{ EntityType.Pig, "minecraft:pig" },
-			{ EntityType.Villager, "minecraft:villager" },
-			{ EntityType.Fish, "minecraft:cod" },
-			{ EntityType.Pufferfish, "minecraft:pufferfish" },
-			{ EntityType.Cow, "minecraft:cow" },
-			{ EntityType.Chicken, "minecraft:chicken" },
-			{ EntityType.Balloon, "minecraft:balloon" },
-			{ EntityType.Llama, "minecraft:llama" },
-			{ EntityType.IronGolem, "minecraft:iron_golem" },
-			{ EntityType.Rabbit, "minecraft:rabbit" },
-			{ EntityType.SnowGolem, "minecraft:snow_golem" },
-			{ EntityType.Bat, "minecraft:bat" },
-			{ EntityType.Ocelot, "minecraft:ocelot" },
-			{ EntityType.Horse, "minecraft:horse" },
-			{ EntityType.Cat, "minecraft:cat" },
-			{ EntityType.PolarBear, "minecraft:polar_bear" },
-			{ EntityType.ZombieHorse, "minecraft:zombie_horse" },
-			{ EntityType.Turtle, "minecraft:turtle" },
-			{ EntityType.Parrot, "minecraft:parrot" },
-			{ EntityType.Guardian, "minecraft:guardian" },
-			{ EntityType.ElderGuardian, "minecraft:elder_guardian" },
-			{ EntityType.Vindicator, "minecraft:vindicator" },
-			{ EntityType.Wither, "minecraft:wither" },
-			{ EntityType.Dragon, "minecraft:ender_dragon" },
-			{ EntityType.Shulker, "minecraft:shulker" },
-			{ EntityType.Endermite, "minecraft:endermite" },
-			{ EntityType.Minecart, "minecraft:minecart" },
-			{ EntityType.HopperMinecart, "minecraft:hopper_minecart" },
-			{ EntityType.TntMinecart, "minecraft:tnt_minecart" },
-			{ EntityType.ChestMinecart, "minecraft:chest_minecart" },
-			{ EntityType.CommandBlockMinecart, "minecraft:command_block_minecart" },
-			{ EntityType.ArmorStand, "minecraft:armor_stand" },
-			{ EntityType.DroppedItem, "minecraft:item" },
-			{ EntityType.PrimedTnt, "minecraft:tnt" },
-			{ EntityType.FallingBlock, "minecraft:falling_block" },
-			{ EntityType.ThrownBottleoEnchanting, "minecraft:xp_bottle" },
-			{ EntityType.ExperienceOrb, "minecraft:xp_orb" },
-			{ EntityType.EnderEye, "minecraft:eye_of_ender_signal" },
-			{ EntityType.EnderCrystal, "minecraft:ender_crystal" },
-			{ EntityType.ShulkerBullet, "minecraft:shulker_bullet" },
-			{ EntityType.FishingRodHook, "minecraft:fishing_hook" },
-			{ EntityType.DragonFireball, "minecraft:dragon_fireball" },
-			{ EntityType.ShotArrow, "minecraft:arrow" },
-			{ EntityType.ThrownSnowball, "minecraft:snowball" },
-			{ EntityType.ThrownEgg, "minecraft:egg" },
-			{ EntityType.Painting, "minecraft:painting" },
-			{ EntityType.Trident, "minecraft:thrown_trident" },
-			{ EntityType.GhastFireball, "minecraft:fireball" },
-			{ EntityType.ThrownSpashPotion, "minecraft:splash_potion" },
-			{ EntityType.ThrownEnderPerl, "minecraft:ender_pearl" },
-			{ EntityType.LeashKnot, "minecraft:leash_knot" },
-			{ EntityType.WitherSkull, "minecraft:wither_skull" },
-			{ EntityType.WitherSkullDangerous, "minecraft:wither_skull_dangerous" },
-			{ EntityType.Boat, "minecraft:boat" },
-			{ EntityType.LightningBolt, "minecraft:lightning_bolt" },
-			{ EntityType.BlazeFireball, "minecraft:small_fireball" },
-			{ EntityType.LlamaSpit, "minecraft:llama_spit" },
-			{ EntityType.AreaEffectCloud, "minecraft:area_effect_cloud" },
-			{ EntityType.LingeringPotion, "minecraft:lingering_potion" },
-			{ EntityType.FireworksRocket, "minecraft:fireworks_rocket" },
-			{ EntityType.EvocationFangs, "minecraft:evocation_fang" },
-			{ EntityType.Evoker, "minecraft:evocation_illager" },
-			{ EntityType.Vex, "minecraft:vex" },
-			{ EntityType.Agent, "minecraft:agent" },
-			{ EntityType.IceBomb, "minecraft:ice_bomb" },
-			{ EntityType.Phantom, "minecraft:phantom" },
-			{ EntityType.Camera, "minecraft:tripod_camera" },
-			{ EntityType.Pillager, "minecraft:pillager" },
+			{ EntityType.Npc, new EntityIdentity("minecraft:npc", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Player, new EntityIdentity("minecraft:player", HasSpawnEgg: false, Summonable: false, Bid: "minecraft:", Rid: 257) },
+			{ EntityType.WitherSkeleton, new EntityIdentity("minecraft:wither_skeleton", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Husk, new EntityIdentity("minecraft:husk", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Stray, new EntityIdentity("minecraft:stray", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Witch, new EntityIdentity("minecraft:witch", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.ZombieVillager, new EntityIdentity("minecraft:zombie_villager", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.Blaze, new EntityIdentity("minecraft:blaze", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.MagmaCube, new EntityIdentity("minecraft:magma_cube", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Ghast, new EntityIdentity("minecraft:ghast", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.CaveSpider, new EntityIdentity("minecraft:cave_spider", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Silverfish, new EntityIdentity("minecraft:silverfish", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Enderman, new EntityIdentity("minecraft:enderman", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Slime, new EntityIdentity("minecraft:slime", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.ZombiePigman, new EntityIdentity("minecraft:zombie_pigman", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Spider, new EntityIdentity("minecraft:spider", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Skeleton, new EntityIdentity("minecraft:skeleton", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Creeper, new EntityIdentity("minecraft:creeper", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Zombie, new EntityIdentity("minecraft:zombie", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.SkeletonHorse, new EntityIdentity("minecraft:skeleton_horse", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Mule, new EntityIdentity("minecraft:mule", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Donkey, new EntityIdentity("minecraft:donkey", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Dolphin, new EntityIdentity("minecraft:dolphin", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.TropicalFish, new EntityIdentity("minecraft:tropicalfish", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Wolf, new EntityIdentity("minecraft:wolf", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Squid, new EntityIdentity("minecraft:squid", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Drowned, new EntityIdentity("minecraft:drowned", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Sheep, new EntityIdentity("minecraft:sheep", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.MushroomCow, new EntityIdentity("minecraft:mooshroom", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Panda, new EntityIdentity("minecraft:panda", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Salmon, new EntityIdentity("minecraft:salmon", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Pig, new EntityIdentity("minecraft:pig", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Villager, new EntityIdentity("minecraft:villager", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.Fish, new EntityIdentity("minecraft:cod", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Pufferfish, new EntityIdentity("minecraft:pufferfish", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Cow, new EntityIdentity("minecraft:cow", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Chicken, new EntityIdentity("minecraft:chicken", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Balloon, new EntityIdentity("minecraft:balloon", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.Llama, new EntityIdentity("minecraft:llama", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.IronGolem, new EntityIdentity("minecraft:iron_golem", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Rabbit, new EntityIdentity("minecraft:rabbit", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.SnowGolem, new EntityIdentity("minecraft:snow_golem", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Bat, new EntityIdentity("minecraft:bat", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Ocelot, new EntityIdentity("minecraft:ocelot", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Horse, new EntityIdentity("minecraft:horse", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Cat, new EntityIdentity("minecraft:cat", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.PolarBear, new EntityIdentity("minecraft:polar_bear", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.ZombieHorse, new EntityIdentity("minecraft:zombie_horse", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Turtle, new EntityIdentity("minecraft:turtle", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Parrot, new EntityIdentity("minecraft:parrot", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Guardian, new EntityIdentity("minecraft:guardian", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.ElderGuardian, new EntityIdentity("minecraft:elder_guardian", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Vindicator, new EntityIdentity("minecraft:vindicator", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Wither, new EntityIdentity("minecraft:wither", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Dragon, new EntityIdentity("minecraft:ender_dragon", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Shulker, new EntityIdentity("minecraft:shulker", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Endermite, new EntityIdentity("minecraft:endermite", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Minecart, new EntityIdentity("minecraft:minecart", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.HopperMinecart, new EntityIdentity("minecraft:hopper_minecart", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.TntMinecart, new EntityIdentity("minecraft:tnt_minecart", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.ChestMinecart, new EntityIdentity("minecraft:chest_minecart", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.CommandBlockMinecart, new EntityIdentity("minecraft:command_block_minecart", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.ArmorStand, new EntityIdentity("minecraft:armor_stand", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.DroppedItem, new EntityIdentity("minecraft:item", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.PrimedTnt, new EntityIdentity("minecraft:tnt", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.FallingBlock, new EntityIdentity("minecraft:falling_block", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.ThrownBottleoEnchanting, new EntityIdentity("minecraft:xp_bottle", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.ExperienceOrb, new EntityIdentity("minecraft:xp_orb", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.EnderEye, new EntityIdentity("minecraft:eye_of_ender_signal", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.EnderCrystal, new EntityIdentity("minecraft:ender_crystal", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.ShulkerBullet, new EntityIdentity("minecraft:shulker_bullet", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.FishingRodHook, new EntityIdentity("minecraft:fishing_hook", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.DragonFireball, new EntityIdentity("minecraft:dragon_fireball", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.ShotArrow, new EntityIdentity("minecraft:arrow", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.ThrownSnowball, new EntityIdentity("minecraft:snowball", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.ThrownEgg, new EntityIdentity("minecraft:egg", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.Painting, new EntityIdentity("minecraft:painting", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.Trident, new EntityIdentity("minecraft:thrown_trident", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.GhastFireball, new EntityIdentity("minecraft:fireball", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.ThrownSpashPotion, new EntityIdentity("minecraft:splash_potion", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.ThrownEnderPerl, new EntityIdentity("minecraft:ender_pearl", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.LeashKnot, new EntityIdentity("minecraft:leash_knot", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.WitherSkull, new EntityIdentity("minecraft:wither_skull", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.WitherSkullDangerous, new EntityIdentity("minecraft:wither_skull_dangerous", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.Boat, new EntityIdentity("minecraft:boat", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.LightningBolt, new EntityIdentity("minecraft:lightning_bolt", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.BlazeFireball, new EntityIdentity("minecraft:small_fireball", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.LlamaSpit, new EntityIdentity("minecraft:llama_spit", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.AreaEffectCloud, new EntityIdentity("minecraft:area_effect_cloud", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.LingeringPotion, new EntityIdentity("minecraft:lingering_potion", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.FireworksRocket, new EntityIdentity("minecraft:fireworks_rocket", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.EvocationFangs, new EntityIdentity("minecraft:evocation_fang", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.Evoker, new EntityIdentity("minecraft:evocation_illager", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Vex, new EntityIdentity("minecraft:vex", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Agent, new EntityIdentity("minecraft:agent", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.IceBomb, new EntityIdentity("minecraft:ice_bomb", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.Phantom, new EntityIdentity("minecraft:phantom", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Camera, new EntityIdentity("minecraft:tripod_camera", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.Pillager, new EntityIdentity("minecraft:pillager", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Ravager, new EntityIdentity("minecraft:ravager", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.ElderGuardianGhost, new EntityIdentity("minecraft:elder_guardian_ghost", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.VillagerV2, new EntityIdentity("minecraft:villager_v2", HasSpawnEgg: true, Summonable: false) },
+			{ EntityType.ZombieVillagerV2, new EntityIdentity("minecraft:zombie_villager_v2", HasSpawnEgg: true, Summonable: false) },
+			{ EntityType.WanderingTrader, new EntityIdentity("minecraft:wandering_trader", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.TraderLlama, new EntityIdentity("minecraft:trader_llama", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Fox, new EntityIdentity("minecraft:fox", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Bee, new EntityIdentity("minecraft:bee", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Piglin, new EntityIdentity("minecraft:piglin", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.PiglinBrute, new EntityIdentity("minecraft:piglin_brute", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Hoglin, new EntityIdentity("minecraft:hoglin", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Zoglin, new EntityIdentity("minecraft:zoglin", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Strider, new EntityIdentity("minecraft:strider", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Goat, new EntityIdentity("minecraft:goat", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.GlowSquid, new EntityIdentity("minecraft:glow_squid", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Axolotl, new EntityIdentity("minecraft:axolotl", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Warden, new EntityIdentity("minecraft:warden", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Frog, new EntityIdentity("minecraft:frog", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Tadpole, new EntityIdentity("minecraft:tadpole", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Allay, new EntityIdentity("minecraft:allay", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Camel, new EntityIdentity("minecraft:camel", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Sniffer, new EntityIdentity("minecraft:sniffer", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Breeze, new EntityIdentity("minecraft:breeze", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.BreezeWindCharge, new EntityIdentity("minecraft:breeze_wind_charge_projectile", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.WindCharge, new EntityIdentity("minecraft:wind_charge_projectile", HasSpawnEgg: false, Summonable: true) },
+			{ EntityType.Armadillo, new EntityIdentity("minecraft:armadillo", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Bogged, new EntityIdentity("minecraft:bogged", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.OminousItemSpawner, new EntityIdentity("minecraft:ominous_item_spawner", HasSpawnEgg: false, Summonable: false) },
+			{ EntityType.Creaking, new EntityIdentity("minecraft:creaking", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.HappyGhast, new EntityIdentity("minecraft:happy_ghast", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.CopperGolem, new EntityIdentity("minecraft:copper_golem", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Nautilus, new EntityIdentity("minecraft:nautilus", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.ZombieNautilus, new EntityIdentity("minecraft:zombie_nautilus", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.Parched, new EntityIdentity("minecraft:parched", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.CamelHusk, new EntityIdentity("minecraft:camel_husk", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.SulfurCube, new EntityIdentity("minecraft:sulfur_cube", HasSpawnEgg: true, Summonable: true) },
+			{ EntityType.ChestBoat, new EntityIdentity("minecraft:chest_boat", HasSpawnEgg: false, Summonable: true) },
 		};
 
 		public static TStore Store<TStore>(this Entity entity) where TStore : new()
@@ -263,20 +350,23 @@ namespace MiNET.Entities
 			return entityType.Create(world);
 		}
 
+		/// <summary>
+		///     The registry as the client wants it, for AvailableEntityIdentifiers: field order
+		///     bid, hasspawnegg, id, rid, summonable, matching what a real server sends.
+		/// </summary>
 		public static NbtList GenerateEntityIdentifiers()
 		{
 			var list = new NbtList("idlist");
 
-			foreach(var q in LegacyEntityTypeIdConverter)
+			foreach (var q in LegacyEntityTypeIdConverter)
 			{
 				list.Add(new NbtCompound
 				{
-					new NbtString("bid", ":"),
-					new NbtByte("experimental", 0),
-					new NbtByte("hasspawnegg", 0),
-					new NbtString("id", q.Value),
-					new NbtInt("rid", (int)q.Key),
-					new NbtByte("summonable", 0)
+					new NbtString("bid", q.Value.Bid),
+					new NbtByte("hasspawnegg", (byte) (q.Value.HasSpawnEgg ? 1 : 0)),
+					new NbtString("id", q.Value.Id),
+					new NbtInt("rid", q.Value.GetRid(q.Key)),
+					new NbtByte("summonable", (byte) (q.Value.Summonable ? 1 : 0))
 				});
 			}
 
@@ -287,7 +377,7 @@ namespace MiNET.Entities
 		{
 			if(LegacyEntityTypeIdConverter.TryGetValue(type, out var value))
 			{
-				return value;
+				return value.Id;
 			}
 
 			return ":";
@@ -295,7 +385,7 @@ namespace MiNET.Entities
 
 		public static EntityType ToEntityType(string type)
 		{
-			return LegacyEntityTypeIdConverter.FirstOrDefault(l => l.Value == type).Key;
+			return LegacyEntityTypeIdConverter.FirstOrDefault(l => l.Value.Id == type).Key;
 		}
 
 		public static Entity Create(this EntityType entityType, Level world)
@@ -429,6 +519,105 @@ namespace MiNET.Entities
 					break;
 				case EntityType.Vex:
 					entity = new Vex(world);
+					break;
+				case EntityType.Ravager:
+					entity = new Ravager(world);
+					break;
+				case EntityType.ElderGuardianGhost:
+					entity = new ElderGuardianGhost(world);
+					break;
+				case EntityType.Piglin:
+					entity = new Piglin(world);
+					break;
+				case EntityType.PiglinBrute:
+					entity = new PiglinBrute(world);
+					break;
+				case EntityType.Hoglin:
+					entity = new Hoglin(world);
+					break;
+				case EntityType.Zoglin:
+					entity = new Zoglin(world);
+					break;
+				case EntityType.Warden:
+					entity = new Warden(world);
+					break;
+				case EntityType.Breeze:
+					entity = new Breeze(world);
+					break;
+				case EntityType.Bogged:
+					entity = new Bogged(world);
+					break;
+				case EntityType.Creaking:
+					entity = new Creaking(world);
+					break;
+				case EntityType.ZombieVillagerV2:
+					entity = new ZombieVillagerV2(world);
+					break;
+				case EntityType.ZombieNautilus:
+					entity = new ZombieNautilus(world);
+					break;
+				case EntityType.Parched:
+					entity = new Parched(world);
+					break;
+				case EntityType.CamelHusk:
+					entity = new CamelHusk(world);
+					break;
+				case EntityType.SulfurCube:
+					entity = new SulfurCube(world);
+					break;
+				case EntityType.VillagerV2:
+					entity = new VillagerV2(world);
+					break;
+				case EntityType.WanderingTrader:
+					entity = new WanderingTrader(world);
+					break;
+				case EntityType.TraderLlama:
+					entity = new TraderLlama(world);
+					break;
+				case EntityType.Fox:
+					entity = new Fox(world);
+					break;
+				case EntityType.Bee:
+					entity = new Bee(world);
+					break;
+				case EntityType.Strider:
+					entity = new Strider(world);
+					break;
+				case EntityType.Goat:
+					entity = new Goat(world);
+					break;
+				case EntityType.GlowSquid:
+					entity = new GlowSquid(world);
+					break;
+				case EntityType.Axolotl:
+					entity = new Axolotl(world);
+					break;
+				case EntityType.Frog:
+					entity = new Frog(world);
+					break;
+				case EntityType.Tadpole:
+					entity = new Tadpole(world);
+					break;
+				case EntityType.Allay:
+					entity = new Allay(world);
+					break;
+				case EntityType.Camel:
+					entity = new Camel(world);
+					break;
+				case EntityType.Sniffer:
+					entity = new Sniffer(world);
+					break;
+				case EntityType.Armadillo:
+					entity = new Armadillo(world);
+					break;
+				case EntityType.HappyGhast:
+					entity = new HappyGhast(world);
+					break;
+				case EntityType.CopperGolem:
+					entity = new CopperGolem(world);
+					break;
+				case EntityType.Nautilus:
+					entity = new Nautilus(world);
 					break;
 				case EntityType.Npc:
 					entity = new PlayerMob("test", world);

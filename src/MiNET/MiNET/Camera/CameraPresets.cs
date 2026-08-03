@@ -1,0 +1,98 @@
+#region LICENSE
+
+// The contents of this file are subject to the Common Public Attribution
+// License Version 1.0. (the "License"); you may not use this file except in
+// compliance with the License. You may obtain a copy of the License at
+// https://github.com/NiclasOlofsson/MiNET/blob/master/LICENSE.
+// The License is based on the Mozilla Public License Version 1.1, but Sections 14
+// and 15 have been added to cover use of software over a computer network and
+// provide for limited attribution for the Original Developer. In addition, Exhibit A has
+// been modified to be consistent with Exhibit B.
+//
+// Software distributed under the License is distributed on an "AS IS" basis,
+// WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
+// the specific language governing rights and limitations under the License.
+//
+// The Original Code is MiNET.
+//
+// The Original Developer is the Initial Developer.  The Initial Developer of
+// the Original Code is Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
+// All Rights Reserved.
+
+#endregion
+
+using System.Collections.Generic;
+using System.Numerics;
+using MiNET.Net;
+
+namespace MiNET.Camera
+{
+	/// <summary>
+	///     The camera presets vanilla ships, and the names of them.
+	///
+	///     A preset is a named camera configuration the client holds. These six carry almost no
+	///     values because the client already implements them: naming <see cref="FirstPerson" /> is
+	///     the whole instruction. A preset with real values in it is the interesting case, and that
+	///     is what <see cref="CameraManager.AddPreset" /> is for.
+	///
+	///     BDS builds the same list by reading behavior_packs/*/cameras/presets/*.json, so these
+	///     values are the vanilla files transcribed. Each player gets their own copy through
+	///     <see cref="CameraManager" />, which is why <see cref="Vanilla" /> hands out fresh
+	///     instances rather than shared ones.
+	/// </summary>
+	public static class CameraPresets
+	{
+		public const string FirstPerson = "minecraft:first_person";
+		public const string FixedBoom = "minecraft:fixed_boom";
+		public const string FollowOrbit = "minecraft:follow_orbit";
+		public const string Free = "minecraft:free";
+		public const string ThirdPerson = "minecraft:third_person";
+		public const string ThirdPersonFront = "minecraft:third_person_front";
+
+		public static IEnumerable<CameraPreset> Vanilla
+		{
+			get
+			{
+				yield return new CameraPreset {Name = FirstPerson, Parent = ""};
+
+				// The boom presets pin an offset even though it is the origin: the client
+				// distinguishes "no offset given" from "an offset of zero". The -0 on X is what BDS
+				// puts on the wire (its own preset file says 0.0), and it is a different float, so
+				// it stays.
+				yield return new CameraPreset
+				{
+					Name = FixedBoom,
+					Parent = "",
+					Offset = Vector2.Zero,
+					EntityOffset = new Vector3(-0f, 0f, 0f)
+				};
+				yield return new CameraPreset
+				{
+					Name = FollowOrbit,
+					Parent = "",
+					Offset = Vector2.Zero,
+					EntityOffset = new Vector3(-0f, 0f, 0f),
+					Radius = 10
+				};
+
+				// The free camera is the only one placed absolutely, so it opens at the origin and
+				// stays there until an instruction moves it.
+				yield return new CameraPreset
+				{
+					Name = Free,
+					Parent = "",
+					PositionX = 0,
+					PositionY = 0,
+					PositionZ = 0,
+					RotationX = 0,
+					RotationY = 0
+				};
+
+				yield return new CameraPreset {Name = ThirdPerson, Parent = ""};
+				yield return new CameraPreset {Name = ThirdPersonFront, Parent = ""};
+			}
+		}
+	}
+}

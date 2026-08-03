@@ -38,6 +38,7 @@ using fNbt;
 using log4net;
 using Microsoft.IO;
 using MiNET.Blocks;
+using MiNET.Camera;
 using MiNET.Crafting;
 using MiNET.Effects;
 using MiNET.Entities;
@@ -127,6 +128,7 @@ namespace MiNET
 
 		public HungerManager HungerManager { get; set; }
 		public ExperienceManager ExperienceManager { get; set; }
+		public CameraManager CameraManager { get; set; }
 
 		public bool IsFalling { get; set; }
 		public bool IsFlyingHorizontally { get; set; }
@@ -148,6 +150,7 @@ namespace MiNET
 			Inventory = new PlayerInventory(this);
 			HungerManager = new HungerManager(this);
 			ExperienceManager = new ExperienceManager(this);
+			CameraManager = new CameraManager(this);
 			ItemStackInventoryManager = new ItemStackInventoryManager(this);
 
 			AttackDamage = 1; // vanilla player base (Entity defaults to the mob value 2)
@@ -986,12 +989,18 @@ namespace MiNET
 				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
 
 				SendWorldClockState();
-				SendJigsawStructureData();
-				SendVoxelShapes();
+				// TODO: jigsaw structures. Vanilla's payload is one structure, minecraft:trail_ruins,
+				// and nothing we generate uses the jigsaw system.
+				//SendJigsawStructureData();
+				// TODO: voxel shapes. Only matters for custom block geometry, and vanilla sends
+				// nothing but the two built-in shapes with a zero custom count.
+				//SendVoxelShapes();
 
 				SendStartGame();
 
-				SendSyncEntityProperty();
+				// TODO: entity properties. Vanilla declares actor-property schemas for thirteen mobs
+			// (happy ghast, sulfur cube, wolf, cat and the rest); we set none of those properties.
+			//SendSyncEntityProperty();
 
 				SendItemRegistry();
 
@@ -1236,13 +1245,13 @@ namespace MiNET
 			SendPacket(packet);
 		}
 
-		// Entity identifier registry, byte-identical to vanilla BDS 1.26.34 (Data/entity_identifiers.json,
-		// exported from a decoded wire capture; see JoinSequenceData). MiNET does not generate this
-		// registry itself, so the captured document is sent verbatim rather than through EntityHelpers.
+		// Entity identifier registry, built from our own EntityType registry (EntityHelpers).
 		public virtual void SendAvailableEntityIdentifiers()
 		{
+			var root = new NbtCompound("") {EntityHelpers.GenerateEntityIdentifiers()};
+
 			var pk = McpeAvailableEntityIdentifiers.CreateObject();
-			pk.namedtag = JoinSequenceData.NbtFromBase64(JoinSequenceData.EntityIdentifiers.Value.NbtB64);
+			pk.namedtag = new Nbt {NbtFile = new NbtFile(root) {BigEndian = false, UseVarInt = true}};
 			SendPacket(pk);
 		}
 
@@ -1308,53 +1317,9 @@ namespace MiNET
 			SendPacket(pk);
 		}
 
-		// Camera presets, byte-identical to vanilla BDS 1.26.34 (Data/camera_presets.json). Vector2/
-		// Vector3-valued fields are stored as plain x/y/z DTOs (JoinSequenceData.Vec2Dto/Vec3Dto)
-		// since System.Numerics vectors are not JSON-serializable properties, and converted here.
 		public virtual void SendCameraPresets()
 		{
-			var pk = McpeCameraPresets.CreateObject();
-			foreach (var dto in JoinSequenceData.CameraPresets.Value.Presets)
-			{
-				var preset = new CameraPreset
-				{
-					Name = dto.Name,
-					Parent = dto.Parent,
-					PositionX = dto.PositionX,
-					PositionY = dto.PositionY,
-					PositionZ = dto.PositionZ,
-					RotationX = dto.RotationX,
-					RotationY = dto.RotationY,
-					RotationSpeed = dto.RotationSpeed,
-					SnapToTarget = dto.SnapToTarget,
-					HorizontalRotationLimit = dto.HorizontalRotationLimit?.ToVector2(),
-					VerticalRotationLimit = dto.VerticalRotationLimit?.ToVector2(),
-					ContinueTargeting = dto.ContinueTargeting,
-					TrackingRadius = dto.TrackingRadius,
-					Offset = dto.Offset?.ToVector2(),
-					EntityOffset = dto.EntityOffset?.ToVector3(),
-					Radius = dto.Radius,
-					YawLimitMin = dto.YawLimitMin,
-					YawLimitMax = dto.YawLimitMax,
-					AudioListener = dto.AudioListener,
-					PlayerEffects = dto.PlayerEffects,
-					ControlScheme = dto.ControlScheme,
-				};
-
-				if (dto.AimAssist != null)
-				{
-					preset.AimAssist = new CameraPresetAimAssist
-					{
-						PresetId = dto.AimAssist.PresetId,
-						TargetMode = dto.AimAssist.TargetMode,
-						Angle = dto.AimAssist.Angle?.ToVector2(),
-						Distance = dto.AimAssist.Distance,
-					};
-				}
-
-				pk.Presets.Add(preset);
-			}
-			SendPacket(pk);
+			CameraManager.SendPresets();
 		}
 
 		// Aim-assist categories/presets, byte-identical to vanilla BDS 1.26.34
@@ -1483,6 +1448,9 @@ namespace MiNET
 			_haveJoined = true;
 
 			OnPlayerJoin(new PlayerEventArgs(this));
+
+			// Temporary: proves the camera API against a real client. Delete with Camera/CameraDemo.cs.
+			CameraDemo.Run(this);
 		}
 
 		//public virtual void HandleMcpeRespawn()

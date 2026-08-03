@@ -24,6 +24,7 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Add Item Entity | 0x0f | 15 |   
 | Take Item Entity | 0x11 | 17 |   
 | Move Entity | 0x12 | 18 |   
+| Camera Instruction | 0x12c | 18 |   
 | Trim Data | 0x12e | 18 |   
 | Move Player | 0x13 | 19 |   
 | Set Player Inventory Options | 0x133 | 19 |   
@@ -160,6 +161,7 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Update Player Game Type | 0x97 | 151 |   
 | Emote List | 0x98 | 152 |   
 | Packet Violation Warning | 0x9c | 156 |   
+| Camera Shake | 0x9f | 159 |   
 | Player Fog | 0xa0 | 160 |   
 | Correct Player Move Prediction | 0xa1 | 161 |   
 | Item Component | 0xa2 | 162 |   
@@ -3238,6 +3240,38 @@ Wiki: [Camera Spline](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Cam
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Camera Instruction (0x12c)
+Wiki: [Camera Instruction](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CameraInstruction)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+-----------------------------------------------------------------------
+### Camera Shake (0x9f)
+Wiki: [Camera Shake](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-CameraShake)
+
+**Sent from server:** true  
+**Sent from client:** false
+
+
+
+
+#### Fields
+
+| Name | Type | Size |
+|:-----|:-----|:-----|
+|Intensity | float |  |
+|Duration | float |  |
+|Type | byte |  |
+|Action | byte |  |
 -----------------------------------------------------------------------
 ### Locator Bar (0x155)
 Wiki: [Locator Bar](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-LocatorBar)

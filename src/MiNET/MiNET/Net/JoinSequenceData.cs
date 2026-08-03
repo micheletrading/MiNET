@@ -60,9 +60,6 @@ namespace MiNET.Net
 		public static readonly Lazy<NbtDocumentFile> JigsawStructureData = new Lazy<NbtDocumentFile>(() =>
 			ResourceUtil.ReadResource<NbtDocumentFile>("jigsaw_structures.json", typeof(Player), "Data"));
 
-		public static readonly Lazy<NbtDocumentFile> EntityIdentifiers = new Lazy<NbtDocumentFile>(() =>
-			ResourceUtil.ReadResource<NbtDocumentFile>("entity_identifiers.json", typeof(Player), "Data"));
-
 		public class EntityPropertyEntry
 		{
 			public string Name { get; set; }
@@ -109,81 +106,6 @@ namespace MiNET.Net
 		public static readonly Lazy<CameraAimAssistPresetsFile> CameraAimAssistPresets = new Lazy<CameraAimAssistPresetsFile>(() =>
 			ResourceUtil.ReadResource<CameraAimAssistPresetsFile>("camera_aim_assist_presets.json", typeof(Player), "Data"));
 
-		// Camera presets/splines carry Vector2/Vector3-valued fields, which System.Numerics does
-		// not expose as JSON-serializable properties (they are public fields), so the data files
-		// use a plain x/y/z DTO for those and the Send* builder converts it to the packet's own
-		// Vector2/Vector3 fields.
-		public class Vec2Dto
-		{
-			public float X { get; set; }
-			public float Y { get; set; }
-
-			public Vector2 ToVector2()
-			{
-				return new Vector2(X, Y);
-			}
-		}
-
-		public class Vec3Dto
-		{
-			public float X { get; set; }
-			public float Y { get; set; }
-			public float Z { get; set; }
-
-			public Vector3 ToVector3()
-			{
-				return new Vector3(X, Y, Z);
-			}
-		}
-
-		public class CameraPresetAimAssistDto
-		{
-			public string PresetId { get; set; }
-			public byte? TargetMode { get; set; }
-			public Vec2Dto Angle { get; set; }
-			public float? Distance { get; set; }
-		}
-
-		public class CameraPresetDto
-		{
-			public string Name { get; set; }
-			public string Parent { get; set; }
-			public float? PositionX { get; set; }
-			public float? PositionY { get; set; }
-			public float? PositionZ { get; set; }
-			public float? RotationX { get; set; }
-			public float? RotationY { get; set; }
-			public float? RotationSpeed { get; set; }
-			public bool? SnapToTarget { get; set; }
-			public Vec2Dto HorizontalRotationLimit { get; set; }
-			public Vec2Dto VerticalRotationLimit { get; set; }
-			public bool? ContinueTargeting { get; set; }
-			public float? TrackingRadius { get; set; }
-			public Vec2Dto Offset { get; set; }
-			public Vec3Dto EntityOffset { get; set; }
-			public float? Radius { get; set; }
-			public float? YawLimitMin { get; set; }
-			public float? YawLimitMax { get; set; }
-			public byte? AudioListener { get; set; }
-			public bool? PlayerEffects { get; set; }
-			public CameraPresetAimAssistDto AimAssist { get; set; }
-			public byte? ControlScheme { get; set; }
-		}
-
-		public class CameraPresetsFile
-		{
-			public List<CameraPresetDto> Presets { get; set; } = new List<CameraPresetDto>();
-		}
-
-		public static readonly Lazy<CameraPresetsFile> CameraPresets = new Lazy<CameraPresetsFile>(() =>
-			ResourceUtil.ReadResource<CameraPresetsFile>("camera_presets.json", typeof(Player), "Data"));
-
-		public class CameraRotationOptionDto
-		{
-			public Vec3Dto Value { get; set; }
-			public float Time { get; set; }
-			public int? Easing { get; set; }
-		}
-
+		// Camera presets are not here: they are declared in code, in MiNET.CameraPresets.
 	}
 }

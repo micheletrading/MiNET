@@ -45,8 +45,6 @@
     <EmbeddedResource Include="Data\jigsaw_structures.json" />
     <EmbeddedResource Include="Data\voxel_shapes.json" />
     <EmbeddedResource Include="Data\biome_definitions.json.gz" />
-    <EmbeddedResource Include="Data\entity_identifiers.json" />
-    <EmbeddedResource Include="Data\camera_presets.json" />
     <EmbeddedResource Include="Data\camera_aim_assist_presets.json" />
     <EmbeddedResource Include="Data\trim_data.json" />
     <!-- Gzipped because .NET does not compress embedded resources and this is 3.2MB of very

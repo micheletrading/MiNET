@@ -806,6 +806,14 @@ namespace MiNET.Client
 		{
 		}
 
+		public virtual void HandleMcpeCameraInstruction(McpeCameraInstruction message)
+		{
+		}
+
+		public virtual void HandleMcpeCameraShake(McpeCameraShake message)
+		{
+		}
+
 		public virtual void HandleMcpePlayerLocation(McpePlayerLocation message)
 		{
 		}

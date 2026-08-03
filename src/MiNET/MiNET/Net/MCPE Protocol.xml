@@ -1344,6 +1344,18 @@
 		<!-- all fields handled in partial: splines[] -->
 	</pdu>
 
+	<pdu id="0x12c" online="false" client="false" server="true" name="MCPE_CAMERA_INSTRUCTION">
+		<!-- all fields handled in partial: every field is an independent optional (set, clear,
+		     fade, target, remove target, fov, spline, attach/detach) -->
+	</pdu>
+
+	<pdu id="0x9f" online="false" client="false" server="true" name="MCPE_CAMERA_SHAKE">
+		<field name="Intensity" type="float" />
+		<field name="Duration" type="float" />
+		<field name="Type" type="byte" />
+		<field name="Action" type="byte" />
+	</pdu>
+
 	<pdu id="0x155" online="false" client="false" server="true" name="MCPE_LOCATOR_BAR">
 		<!-- all fields handled in partial: waypoints[] -->
 	</pdu>

@@ -395,6 +395,11 @@ namespace MiNET.Net
 			_writer.Write(value);
 		}
 
+		public long ReadLeLong()
+		{
+			return _reader.ReadInt64();
+		}
+
 		public long ReadLongLe()
 		{
 			return _reader.ReadInt64();
