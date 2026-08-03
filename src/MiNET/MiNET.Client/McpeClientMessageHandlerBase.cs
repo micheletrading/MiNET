@@ -780,6 +780,15 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpeSyncWorldClocks(McpeSyncWorldClocks message)
 		{
+			foreach (var clock in message.Clocks)
+			{
+				Log.Warn($"WorldClock registry: id={clock.Id} name={clock.Name} time={clock.Time} paused={clock.Paused} markers={clock.TimeMarkers.Count}");
+			}
+
+			foreach (var state in message.SyncStates)
+			{
+				Log.Warn($"WorldClock state: id={state.ClockId} time={state.Time} paused={state.Paused}");
+			}
 		}
 
 		public virtual void HandleMcpePlayerFog(McpePlayerFog message)

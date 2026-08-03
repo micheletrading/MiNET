@@ -65,7 +65,6 @@ namespace MiNET.Worlds
 
 		public IWorldProvider WorldProvider { get; set; }
 
-		private int _worldDayCycleTime = 24000;
 
 		public PlayerLocation SpawnPoint { get; set; } = null;
 
@@ -91,8 +90,17 @@ namespace MiNET.Worlds
 		public bool HaveDownfall { get; set; }
 		public Difficulty Difficulty { get; set; }
 		public bool AutoSmelt { get; set; } = false;
-		public long WorldTime { get; set; }
-		public long CurrentWorldCycleTime { get; private set; }
+		/// <summary>Ticks on the level clock. Stored by <see cref="Clock" />; this is a shorthand for it.</summary>
+		public long WorldTime
+		{
+			get => Clock.Time;
+			set => Clock.Time = value;
+		}
+
+		/// <summary>Position within the current day, derived from <see cref="Clock" />.</summary>
+		public long CurrentWorldCycleTime => Clock.TimeOfDay;
+
+		/// <summary>Age of the world in ticks. Unrelated to the clock: it never pauses and never wraps.</summary>
 		public long TickTime { get; set; }
 		public int SkylightSubtracted { get; set; }
 		public long StartTimeInTicks { get; private set; }
@@ -105,6 +113,9 @@ namespace MiNET.Worlds
 		public EntityManager EntityManager { get; protected set; }
 		public InventoryManager InventoryManager { get; protected set; }
 		public EntitySpawnManager EntitySpawnManager { get; protected set; }
+
+		/// <summary>The level's clock. One per level; it reads and writes <see cref="WorldTime" />.</summary>
+		public WorldClock Clock { get; protected set; }
 
 		public int ViewDistance { get; set; }
 
@@ -154,6 +165,7 @@ namespace MiNET.Worlds
 			EntityManager = entityManager;
 			InventoryManager = new InventoryManager(this);
 			EntitySpawnManager = new EntitySpawnManager(this);
+			Clock = new WorldClock(this);
 			LevelId = levelId;
 			GameMode = gameMode;
 			Difficulty = difficulty;
@@ -173,7 +185,7 @@ namespace MiNET.Worlds
 
 			SpawnPoint = SpawnPoint ?? new PlayerLocation(WorldProvider.GetSpawnPoint());
 			TickTime = WorldProvider.GetTime();
-			WorldTime = WorldProvider.GetDayTime();
+			Clock.Time = WorldProvider.GetDayTime();
 			LevelName = WorldProvider.GetName();
 
 			if (WorldProvider.IsCaching)
@@ -538,18 +550,13 @@ namespace MiNET.Worlds
 
 				Player[] players = GetSpawnedPlayers();
 
-				if (DoDaylightcycle)
-				{
-					WorldTime++;
-				}
+				Clock.Tick();
 
-				CurrentWorldCycleTime = WorldTime % _worldDayCycleTime;
-
-				if (DoDaylightcycle && TickTime % 100 == 0)
+				// Vanilla's cadence: one clock sync every 256 ticks, and no SetTime at all. BDS
+				// 1.26.34 never sends SetTime, running clock or frozen.
+				if (!Clock.Paused && TickTime % 256 == 0)
 				{
-					McpeSetTime message = McpeSetTime.CreateObject();
-					message.time = (int) WorldTime;
-					RelayBroadcast(message);
+					Clock.BroadcastState();
 				}
 
 				SkylightSubtracted = CalculateSkylightSubtracted(WorldTime);

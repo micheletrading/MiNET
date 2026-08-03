@@ -360,9 +360,7 @@ namespace MiNET.Plugins.Commands
 			Level level = commander.Level;
 			level.WorldTime = time;
 
-			McpeSetTime message = McpeSetTime.CreateObject();
-			message.time = (int) level.WorldTime;
-			level.RelayBroadcast(message);
+			level.Clock.BroadcastState();
 
 			return $"{commander.Username} sets time to {time}";
 		}
@@ -379,9 +377,7 @@ namespace MiNET.Plugins.Commands
 			Level level = commander.Level;
 			level.WorldTime = (int) time;
 
-			McpeSetTime message = McpeSetTime.CreateObject();
-			message.time = (int) level.WorldTime;
-			level.RelayBroadcast(message);
+			level.Clock.BroadcastState();
 
 			return $"{commander.Username} sets time to {time}";
 		}
@@ -603,9 +599,7 @@ namespace MiNET.Plugins.Commands
 
 			level.WorldTime = 5000;
 
-			McpeSetTime message = McpeSetTime.CreateObject();
-			message.time = (int) level.WorldTime;
-			level.RelayBroadcast(message);
+			level.Clock.BroadcastState();
 
 			return $"{player.Username} set day to 5000 and locked time.";
 		}

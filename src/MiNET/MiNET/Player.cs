@@ -1073,69 +1073,15 @@ namespace MiNET
 			SendPacket(packet);
 		}
 
-		// FNV-1 64 (multiply then xor) of a name; vanilla derives world clock and time marker
-		// ids from their names with exactly this hash (verified against a BDS 1.26.34 capture).
-		private static long Fnv1_64(string name)
-		{
-			ulong hash = 14695981039346656037;
-			foreach (byte b in Encoding.UTF8.GetBytes(name))
-			{
-				hash = unchecked(hash * 1099511628211);
-				hash ^= b;
-			}
-			return unchecked((long) hash);
-		}
-
-		// The vanilla overworld day-cycle markers (time within the 24000-tick day).
-		private static readonly (string Name, int Time)[] DayCycleMarkers =
-		{
-			("minecraft:sunrise", 23000),
-			("minecraft:night", 13000),
-			("minecraft:noon", 6000),
-			("minecraft:midnight", 18000),
-			("minecraft:day", 1000),
-			("minecraft:sunset", 12000),
-		};
-
-		// sync_state payload: the overworld clock's current time, from the level.
 		public virtual void SendWorldClockState()
 		{
-			var packet = McpeSyncWorldClocks.CreateObject();
-			packet.payloadType = 0;
-			packet.SyncStates.Add(new SyncWorldClockStateData
-			{
-				ClockId = Fnv1_64("minecraft:overworld"),
-				Time = (int) Level.WorldTime,
-				Paused = !Level.DoDaylightcycle
-			});
-			SendPacket(packet);
+			Level.Clock.SendStateTo(this);
 		}
 
 		// initialize_registry payload: the overworld clock and its day-cycle markers.
 		public virtual void SendWorldClockRegistry()
 		{
-			var clock = new WorldClockData
-			{
-				Id = Fnv1_64("minecraft:overworld"),
-				Name = "minecraft:overworld",
-				Time = (int) Level.WorldTime,
-				Paused = !Level.DoDaylightcycle
-			};
-			foreach ((string name, int time) in DayCycleMarkers)
-			{
-				clock.TimeMarkers.Add(new TimeMarkerData
-				{
-					Id = Fnv1_64(name),
-					Name = name,
-					Time = time,
-					Period = 24000
-				});
-			}
-
-			var packet = McpeSyncWorldClocks.CreateObject();
-			packet.payloadType = 1;
-			packet.Clocks.Add(clock);
-			SendPacket(packet);
+			Level.Clock.SendRegistryTo(this);
 		}
 
 		// The player's personal (bed/anchor) spawn. MiNET does not track one yet, so this is
