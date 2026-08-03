@@ -59,7 +59,14 @@ namespace MiNET.Effects
 
 	public class Effect
 	{
-		public const int MaxDuration = 0x7fffffff;
+		/// <summary>
+		///     An effect that never expires. The client renders this as an infinity symbol; any
+		///     other value it counts down itself from whatever we send.
+		/// </summary>
+		public const int InfiniteDuration = -1;
+
+		/// <summary>Kept for callers; prefer <see cref="InfiniteDuration" />, which is what it means.</summary>
+		public const int MaxDuration = InfiniteDuration;
 
 		public EffectType EffectId { get; set; }
 		public int Duration { get; set; }
@@ -82,6 +89,7 @@ namespace MiNET.Effects
 			message.duration = Duration;
 			message.amplifier = Level;
 			message.particles = Particles;
+			message.tick = 0;
 			player.SendPacket(message);
 
 			player.BroadcastSetEntityData();
@@ -96,6 +104,7 @@ namespace MiNET.Effects
 			message.duration = Duration;
 			message.amplifier = Level;
 			message.particles = Particles;
+			message.tick = 0;
 			player.SendPacket(message);
 		}
 
@@ -105,12 +114,17 @@ namespace MiNET.Effects
 			message.runtimeEntityId = EntityManager.EntityIdSelf;
 			message.eventId = 3;
 			message.effectId = (int) EffectId;
+			message.tick = 0;
 			player.SendPacket(message);
 		}
 
+		public bool IsInfinite => Duration == InfiniteDuration;
+
 		public virtual void OnTick(Player player)
 		{
-			if (Duration > 0 && Duration != MaxDuration) Duration -= 1;
+			if (IsInfinite) return;
+
+			if (Duration > 0) Duration -= 1;
 			if (Duration < 20) player.RemoveEffect(this); // Need 20 tick grace for some effects that fade
 		}
 

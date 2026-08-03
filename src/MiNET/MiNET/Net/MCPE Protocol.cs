@@ -2472,11 +2472,11 @@ namespace MiNET.Net
 			System = 6,
 			Whisper = 7,
 			Announcement = 8,
-			Json = 9,
-			Jsonwhisper = 10,
+			Jsonwhisper = 9,
+			Json = 10,
+			Jsonannouncement = 11,
 		}
 
-		public byte type; // = null;
 
 		public McpeText()
 		{
@@ -2490,7 +2490,6 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(type);
 
 			AfterEncode();
 		}
@@ -2504,7 +2503,6 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			type = ReadByte();
 
 			AfterDecode();
 		}
@@ -2516,7 +2514,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			type=default(byte);
 		}
 
 	}
@@ -3636,6 +3633,8 @@ namespace MiNET.Net
 		public int amplifier; // = null;
 		public bool particles; // = null;
 		public int duration; // = null;
+		public long tick; // = null;
+		public bool ambient; // = null;
 
 		public McpeMobEffect()
 		{
@@ -3655,6 +3654,8 @@ namespace MiNET.Net
 			WriteSignedVarInt(amplifier);
 			Write(particles);
 			WriteSignedVarInt(duration);
+			WriteUnsignedVarLong(tick);
+			Write(ambient);
 
 			AfterEncode();
 		}
@@ -3674,6 +3675,8 @@ namespace MiNET.Net
 			amplifier = ReadSignedVarInt();
 			particles = ReadBool();
 			duration = ReadSignedVarInt();
+			tick = ReadUnsignedVarLong();
+			ambient = ReadBool();
 
 			AfterDecode();
 		}
@@ -3691,6 +3694,8 @@ namespace MiNET.Net
 			amplifier=default(int);
 			particles=default(bool);
 			duration=default(int);
+			tick=default(long);
+			ambient=default(bool);
 		}
 
 	}
@@ -6930,6 +6935,7 @@ namespace MiNET.Net
 		public int fadeOutTime; // = null;
 		public string xuid; // = null;
 		public string platformOnlineId; // = null;
+		public string filteredTitleText; // = null;
 
 		public McpeSetTitle()
 		{
@@ -6950,6 +6956,7 @@ namespace MiNET.Net
 			WriteSignedVarInt(fadeOutTime);
 			Write(xuid);
 			Write(platformOnlineId);
+			Write(filteredTitleText);
 
 			AfterEncode();
 		}
@@ -6970,6 +6977,7 @@ namespace MiNET.Net
 			fadeOutTime = ReadSignedVarInt();
 			xuid = ReadString();
 			platformOnlineId = ReadString();
+			filteredTitleText = ReadString();
 
 			AfterDecode();
 		}
@@ -6988,6 +6996,7 @@ namespace MiNET.Net
 			fadeOutTime=default(int);
 			xuid=default(string);
 			platformOnlineId=default(string);
+			filteredTitleText=default(string);
 		}
 
 	}

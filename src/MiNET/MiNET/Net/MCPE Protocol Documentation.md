@@ -418,15 +418,15 @@ Wiki: [Text](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Text)
 |System | 6 |
 |Whisper | 7 |
 |Announcement | 8 |
-|Json | 9 |
-|Jsonwhisper | 10 |
+|Jsonwhisper | 9 |
+|Json | 10 |
+|Jsonannouncement | 11 |
 
 
 #### Fields
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Type | byte |  |
 -----------------------------------------------------------------------
 ### Set Time (0x0a)
 Wiki: [Set Time](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SetTime)
@@ -812,6 +812,8 @@ Wiki: [Mob Effect](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-MobEff
 |Amplifier | SignedVarInt |  |
 |Particles | bool |  |
 |Duration | SignedVarInt |  |
+|Tick | UnsignedVarLong |  |
+|Ambient | bool |  |
 -----------------------------------------------------------------------
 ### Update Attributes (0x1d)
 Wiki: [Update Attributes](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-UpdateAttributes)
@@ -1902,6 +1904,7 @@ Wiki: [Set Title](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-SetTitl
 |Fade Out Time | SignedVarInt |  |
 |Xuid | string |  |
 |Platform Online Id | string |  |
+|Filtered Title Text | string |  |
 -----------------------------------------------------------------------
 ### Add Behavior Tree (0x59)
 Wiki: [Add Behavior Tree](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AddBehaviorTree)

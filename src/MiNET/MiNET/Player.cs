@@ -967,8 +967,8 @@ namespace MiNET
 				SendStartGame();
 
 				// TODO: entity properties. Vanilla declares actor-property schemas for thirteen mobs
-			// (happy ghast, sulfur cube, wolf, cat and the rest); we set none of those properties.
-			//SendSyncEntityProperty();
+				// (happy ghast, sulfur cube, wolf, cat and the rest); we set none of those properties.
+				//SendSyncEntityProperty();
 
 				SendItemRegistry();
 
@@ -3600,7 +3600,7 @@ namespace MiNET
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
 			startGame.playerGamemode = 5; // fallback: use the level's game mode, like vanilla
 			startGame.spawn = SpawnPosition;
-			startGame.rotation = new Vector2(KnownPosition.HeadYaw, KnownPosition.Pitch);
+			startGame.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.HeadYaw);
 			
 			// A stable but non-legacy level id: the client keys local caches on world identity,
 			// and the old constant id may pin poisoned cache entries from early broken sessions.
