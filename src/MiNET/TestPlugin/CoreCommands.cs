@@ -901,7 +901,7 @@ namespace TestPlugin
 		[Command]
 		public void Permission(Player player, int permission)
 		{
-			player.CommandPermission = permission;
+			player.CommandPermission = (CommandPermission) permission;
 			player.SendAdventureSettings();
 		}
 

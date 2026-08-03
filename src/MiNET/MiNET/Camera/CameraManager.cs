@@ -40,27 +40,18 @@ namespace MiNET.Camera
 	}
 
 	/// <summary>
-	///     One control point on a camera path, matching what the Editor's camera tool authors: where
-	///     the camera is, where it looks, when it gets there, and how it eases in.
+	///     One control point on a camera path: where the camera is, where it looks, when it gets
+	///     there, and how it eases in.
 	/// </summary>
 	public class CameraSplinePoint
 	{
 		public Vector3 Position { get; set; }
 
 		/// <summary>
-		///     Euler degrees as pitch, yaw, roll. Not a look-at point and not a direction vector:
-		///     a constant value here holds one fixed heading for the whole path, and unit-length
-		///     values produce roughly no rotation at all.
-		///
-		///     Positive pitch looks up. To aim at a target from <see cref="Position" />, with
-		///     d = target - position:
-		///
-		///     pitch = atan2(d.Y, length(d.X, d.Z)) in degrees
-		///     yaw   = atan2(d.X, d.Z) in degrees, plus 180
-		///
-		///     Yaw must then be unwrapped against the previous point so consecutive values never
-		///     differ by more than 180, or a path that goes right round will spin an extra lap
-		///     where atan2 wraps.
+		///     Euler degrees as pitch, yaw, roll, positive pitch looking up. To aim at a target,
+		///     with d = target - <see cref="Position" />: pitch is atan2(d.Y, length(d.X, d.Z)),
+		///     yaw is atan2(d.X, d.Z) plus 180. Unwrap yaw against the previous point so
+		///     consecutive values stay within 180 of each other.
 		/// </summary>
 		public Vector3 Rotation { get; set; }
 
@@ -71,46 +62,36 @@ namespace MiNET.Camera
 	}
 
 	/// <summary>
-	///     One player's camera.
+	///     One player's camera: the preset list this player holds, and the instructions that put
+	///     them on a preset and move it. Presets are per player, so two people in the same world
+	///     can have different cameras.
 	///
-	///     The client holds a registry of named presets, and every camera command names one. So this
-	///     owns two things: the preset list this player was sent, and the instructions that put the
-	///     player on a preset and move it around. Presets are per player because the registry packet
-	///     is per player: two people in the same world can be given different cameras.
-	///
-	///     Order matters. <see cref="SendPresets" /> has to reach the client before any
-	///     <see cref="SetCamera" />, because an instruction refers to a preset by its index in that
-	///     registry, not by name. The join sequence does this once; after that, changing the preset
-	///     list means sending it again.
-	///
-	///     A worked sequence, all of it verified against a real client:
+	///     <see cref="SendPresets" /> must reach the client before any <see cref="SetCamera" />,
+	///     since an instruction names a preset by its index in that registry. Changing the list
+	///     means sending it again.
 	///
 	///     <code>
 	///     var eye = new Vector3(x, y + 1.6f, z);
 	///
-	///     camera.Fade(0.3f, 0.4f, 0.8f, Vector3.Zero);          // cut behind a fade to black
-	///     camera.SetCamera(CameraPresets.Free,                  // absolute placement, looking at eye
+	///     camera.Fade(0.3f, 0.4f, 0.8f, Vector3.Zero);
+	///     camera.SetCamera(CameraPresets.Free,
 	///         position: eye + new Vector3(-8, 6, -8), facing: eye, ignoreStartingValues: true);
 	///
-	///     camera.SetCamera(CameraPresets.Free,                  // same preset, eased to a new spot
+	///     camera.SetCamera(CameraPresets.Free,                  // same preset, eased elsewhere
 	///         ease: new CameraEase {Type = CameraEaseType.InOutSine, Duration = 4f},
 	///         position: eye + new Vector3(9, 3, -6), facing: eye, ignoreStartingValues: true);
 	///
 	///     camera.SetFieldOfView(35, 1.2f, CameraEaseType.OutCubic);
-	///     camera.Shake(0.5f, 1.2f, CameraShakeType.Rotational); // independent of the camera stack
+	///     camera.Shake(0.5f, 1.2f, CameraShakeType.Rotational);
 	///     camera.ClearFieldOfView(1f, CameraEaseType.InOutSine);
+	///     camera.FollowSpline(path);                            // free preset only
 	///
-	///     camera.FollowSpline(path);                            // only while on the free preset
-	///
-	///     camera.SetCamera(CameraPresets.FirstPerson);          // back to a normal perspective
-	///     camera.ClearCamera();                                 // then hand control back
+	///     camera.SetCamera(CameraPresets.FirstPerson);
+	///     camera.ClearCamera();
 	///     </code>
 	///
-	///     Two traps worth knowing. Send nothing else in the same breath as a camera instruction
-	///     while debugging: an unrelated broken packet in the same batch looks exactly like the
-	///     camera packet being rejected. And a malformed instruction does not produce a packet
-	///     violation or a disconnect reason, it just kills the client, so the only reliable signal
-	///     that it survived is whether McpePlayerAuthInput keeps arriving.
+	///     A malformed instruction kills the client without a packet violation or a disconnect
+	///     reason, so the signal that one survived is whether McpePlayerAuthInput keeps arriving.
 	/// </summary>
 	public class CameraManager
 	{

@@ -73,7 +73,6 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | Crafting Data | 0x34 | 52 |   
 | Crafting Event | 0x35 | 53 |   
 | Gui Data Pick Item | 0x36 | 54 |   
-| Adventure Settings | 0x37 | 55 |   
 | Block Entity Data | 0x38 | 56 |   
 | Player Input | 0x39 | 57 |   
 | Level Chunk | 0x3a | 58 |   
@@ -1342,26 +1341,6 @@ Wiki: [Gui Data Pick Item](https://github.com/NiclasOlofsson/MiNET/wiki//Protoco
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
------------------------------------------------------------------------
-### Adventure Settings (0x37)
-Wiki: [Adventure Settings](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-AdventureSettings)
-
-**Sent from server:** true  
-**Sent from client:** true
-
-
-
-
-#### Fields
-
-| Name | Type | Size |
-|:-----|:-----|:-----|
-|Flags | UnsignedVarInt |  |
-|Command permission | UnsignedVarInt |  |
-|Action permissions | UnsignedVarInt |  |
-|Permission level | UnsignedVarInt |  |
-|Custom stored permissions | UnsignedVarInt |  |
-|Entity Unique Id | long |  |
 -----------------------------------------------------------------------
 ### Block Entity Data (0x38)
 Wiki: [Block Entity Data](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-BlockEntityData)

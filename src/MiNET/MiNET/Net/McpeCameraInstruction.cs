@@ -29,13 +29,9 @@ using System.Numerics;
 namespace MiNET.Net
 {
 	/// <summary>
-	///     How a camera move is interpolated.
-	///
-	///     Written two different ways depending on where it appears: the set instruction sends the
-	///     ordinal as a byte, while the field-of-view and spline instructions send the name as a
-	///     string. So the order of this enum is wire-significant, and it is not the order
-	///     minecraft-data lists (which has the quad family at 2..4); this is the order the client
-	///     uses, with sine first.
+	///     How a camera move is interpolated. Written two ways: the set instruction sends the
+	///     ordinal as a byte, the field-of-view and spline instructions send the name as a string,
+	///     so both the order here and <see cref="CameraEaseTypes.Names" /> are wire-significant.
 	/// </summary>
 	public enum CameraEaseType : byte
 	{
@@ -75,7 +71,7 @@ namespace MiNET.Net
 
 	public static class CameraEaseTypes
 	{
-		private static readonly string[] Names =
+		internal static readonly string[] Names =
 		{
 			"linear", "spring",
 			"in_sine", "out_sine", "in_out_sine",
@@ -179,18 +175,10 @@ namespace MiNET.Net
 	}
 
 	/// <summary>
-	///     Where the camera looks at one point along a spline.
-	///
-	///     <see cref="Value" /> is euler degrees as pitch, yaw, roll, despite being a Vector3 where
-	///     the set instruction uses a Vector2 for the same idea. It is not a look-at position and
-	///     not a direction vector: a constant value holds one fixed heading for the whole path, and
-	///     unit-length values produce roughly no rotation at all, both of which look like the field
-	///     is being ignored.
-	///
-	///     Positive pitch looks UP, the opposite of the usual Minecraft convention. Yaw is
-	///     atan2(dx, dz) in degrees plus 180 to face a target, and must be unwrapped across
-	///     keyframes: atan2 wraps at 180, and the client interpolates straight through the
-	///     discontinuity as a full extra revolution.
+	///     Where the camera looks at one point along a spline. <see cref="Value" /> is euler degrees
+	///     as pitch, yaw, roll, with positive pitch looking up. Yaw must be unwrapped across
+	///     keyframes so consecutive values stay within 180 of each other, or the client interpolates
+	///     through the wrap as an extra revolution.
 	/// </summary>
 	public class CameraRotationKeyFrame
 	{
@@ -204,14 +192,10 @@ namespace MiNET.Net
 	///     <see cref="SplineIdentifier" /> names one the client already holds and
 	///     <see cref="LoadFromJson" /> is set.
 	///
-	///     The three lists are parallel: one curve point, one progress keyframe and one rotation
-	///     keyframe per control point, which is the same model the Editor's camera tool authors.
-	///     None of them may be empty. A curve with no progress or rotation keyframes hard-crashes
-	///     the client the instant it arrives, with no packet violation and no disconnect reason.
-	///
-	///     Minimum control points are vanilla's: four for <see cref="CameraSplineType.CatmullRom" />,
-	///     three for <see cref="CameraSplineType.Linear" />. The player must already be on the free
-	///     preset; splines are documented as valid only there.
+	///     The three lists are parallel, one entry each per control point, and none may be empty:
+	///     the client crashes outright on a curve with no progress or rotation keyframes. Four
+	///     control points minimum for <see cref="CameraSplineType.CatmullRom" />, three for
+	///     <see cref="CameraSplineType.Linear" />. Valid only while the player is on the free preset.
 	/// </summary>
 	public class CameraSplineInstruction
 	{
@@ -225,34 +209,13 @@ namespace MiNET.Net
 	}
 
 	/// <summary>
-	///     One packet, nine independent verbs. The server sets whichever apply and leaves the rest
-	///     null; each is preceded by a presence bool on the wire, so an instruction that does
-	///     nothing is nine zero bytes. This is what the /camera command compiles into.
-	///
-	///     Sources, in the order they were trusted. pmmp/BedrockProtocol is on CURRENT_PROTOCOL
-	///     1001, the same protocol number we target, and CloudburstMC/Protocol agrees with it
-	///     throughout; between them they are the authority here. Mojang's published schema is
-	///     wrong on three counts (it has the set instruction's default flag as a bare bool, and
-	///     both the field-of-view and spline ease types as numbers), and minecraft-data is wrong on
-	///     the fade nesting and on the ease ordering. Everything below was then confirmed against a
-	///     real 1.26 client.
-	///
-	///     Things that are not obvious and cost time to find:
-	///
-	///     The fade is two independently optional halves, a time struct and a colour struct, so a
-	///     fade can change only the timing or only the colour. Writing it flat is two bytes short
-	///     and the client reads the first float's leading byte as the time presence flag.
-	///
-	///     The ease type is written two different ways. The set instruction sends the ordinal as a
-	///     byte; the field-of-view and spline instructions send the name as a string. The ordinal
-	///     order is not the one minecraft-data lists: sine comes before quad.
+	///     Nine independent verbs, each preceded by a presence bool. The server sets whichever
+	///     apply and leaves the rest null. This is what the /camera command compiles into.
 	///
 	///     Entity ids here are little-endian int64, unlike most of the protocol, hence WriteLe.
-	///     PMMP's own comment on that field is "why be consistent mojang ?????".
 	///
-	///     The set instruction's preset is an index into the registry the client was last sent by
-	///     McpeCameraPresets, not a name, so the registry has to arrive first and indices shift if
-	///     it is resent with a different order.
+	///     Reference for the layout: pmmp/BedrockProtocol, which is on the same protocol number we
+	///     target, and CloudburstMC/Protocol.
 	/// </summary>
 	public partial class McpeCameraInstruction : Packet<McpeCameraInstruction>
 	{

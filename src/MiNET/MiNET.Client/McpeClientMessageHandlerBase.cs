@@ -375,10 +375,6 @@ namespace MiNET.Client
 		{
 		}
 
-		public virtual void HandleMcpeAdventureSettings(McpeAdventureSettings message)
-		{
-			Client.UserPermission = (CommandPermission) message.commandPermission;
-		}
 
 		public virtual void HandleMcpeBlockEntityData(McpeBlockEntityData message)
 		{
@@ -796,6 +792,7 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpeUpdateAbilities(McpeUpdateAbilities message)
 		{
+			Client.UserPermission = (CommandPermission) message.commandPermission;
 		}
 
 		public virtual void HandleMcpeUpdateAdventureSettings(McpeUpdateAdventureSettings message)

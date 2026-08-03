@@ -626,14 +626,6 @@
 
 	</pdu>
 
-	<enums id="Adventure Flags">
-		<enum id="MayFly" value="0x40" />
-		<enum id="NoClip" value="0x80" />
-		<enum id="WorldBuilder" value="0x100" />
-		<enum id="Flying" value="0x200" />
-		<enum id="Muted" value="0x400" />
-	</enums>
-
 	<enums id="Command Permission">
 		<enum id="Normal" value="0" />
 		<enum id="Operator" value="1" />
@@ -662,15 +654,6 @@
 		<enum id="All"
 			value="(BuildAndMine | DoorsAndSwitches | OpenContainers | AttackPlayers | AttackMobs | Operator | Teleport)" />
 	</enums>
-
-	<pdu id="0x37" online="false" client="true" server="true" name="MCPE_ADVENTURE_SETTINGS">
-		<field name="Flags" type="UnsignedVarInt" />
-		<field name="Command permission" type="UnsignedVarInt" />
-		<field name="Action permissions" type="UnsignedVarInt" />
-		<field name="Permission level" type="UnsignedVarInt" />
-		<field name="Custom stored permissions" type="UnsignedVarInt" />
-		<field name="Entity Unique Id" type="long" endianess="LE" />
-	</pdu>
 
 	<pdu id="0x38" online="false" client="true" server="true" name="MCPE_BLOCK_ENTITY_DATA">
 		<field name="Coordinates" type="BlockCoordinates" />

@@ -339,9 +339,7 @@ namespace MiNET.Camera
 			await Task.Delay(500);
 			if (!player.IsConnected) return;
 
-			// Off the free camera and back onto a normal perspective before clearing. Clearing
-			// straight out of the free camera, with a spline just finished, is what killed the
-			// client last run; clear on its own is fine.
+			// Back onto a normal perspective before handing control back.
 			camera.SetCamera(CameraPresets.FirstPerson);
 			await Task.Delay(500);
 			if (!player.IsConnected) return;

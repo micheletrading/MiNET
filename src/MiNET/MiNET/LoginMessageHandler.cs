@@ -749,10 +749,6 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeAdventureSettings(McpeAdventureSettings message)
-		{
-		}
-
 		public void HandleMcpeBlockEntityData(McpeBlockEntityData message)
 		{
 		}

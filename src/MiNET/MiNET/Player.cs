@@ -24,7 +24,6 @@
 #endregion
 
 using System;
-using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -787,18 +786,10 @@ namespace MiNET
 		public bool IsWorldBuilder { get; set; }
 		public bool IsMuted { get; set; }
 		public bool ShowNameTags { get; set; } = true;
-		public bool IsNoPvp { get; set; }
 		public bool IsNoPvm { get; set; }
 		public bool IsNoMvp { get; set; }
 		public bool IsNoClip { get; set; }
 		public bool IsFlying { get; set; }
-
-		public virtual void HandleMcpeAdventureSettings(McpeAdventureSettings message)
-		{
-			var flags = message.flags;
-			IsAutoJump = (flags & 0x20) == 0x20;
-			IsFlying = (flags & 0x200) == 0x200;
-		}
 
 		public virtual void SendGameRules()
 		{
@@ -826,9 +817,7 @@ namespace MiNET
 		public virtual void SendUpdateAbilitiesPacket()
 		{
 			var abilities = McpeUpdateAbilities.CreateObject();
-			// entity_unique_id is li64 on the wire; Write(long) is big-endian in MiNET, so reverse (same
-			// as the old AdventureSettings did).
-			abilities.entityUniqueId = BinaryPrimitives.ReverseEndianness(EntityId);
+			abilities.entityUniqueId = EntityId;
 			abilities.permissionLevel = (byte) PermissionLevel;
 			abilities.commandPermission = (byte) CommandPermission;
 			abilities.abilities = new List<AbilityLayer> { BuildBaseAbilityLayer() };
@@ -868,30 +857,9 @@ namespace MiNET
 			};
 		}
 
-		private uint GetAdventureFlags()
-		{
-			uint flags = 0;
-			if (IsWorldImmutable || GameMode == GameMode.Adventure) flags |= 0x01; // Immutable World (Remove hit markers client-side).
-			if (IsNoPvp || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x02; // No PvP (Remove hit markers client-side).
-			if (IsNoPvm || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x04; // No PvM (Remove hit markers client-side).
-			if (IsNoMvp || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x08;
-
-			if (IsAutoJump) flags |= 0x20;
-
-			if (AllowFly || GameMode == GameMode.Creative) flags |= 0x40;
-
-			if (IsNoClip || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x80; // No clip
-
-			if (IsWorldBuilder) flags |= 0x100; // Worldbuilder
-
-			if (IsFlying) flags |= 0x200;
-			if (IsMuted) flags |= 0x400; // Mute
-			return flags;
-		}
-
 		public PermissionLevel PermissionLevel { get; set; } = PermissionLevel.Operator;
 
-		public int CommandPermission { get; set; } = (int) Net.CommandPermission.Normal;
+		public CommandPermission CommandPermission { get; set; } = CommandPermission.Normal;
 
 		public ActionPermissions ActionPermissions { get; set; } = ActionPermissions.Default;
 

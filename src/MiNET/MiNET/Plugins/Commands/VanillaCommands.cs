@@ -63,7 +63,7 @@ namespace MiNET.Plugins.Commands
 				{
 					names.Add(p.Username);
 					p.ActionPermissions = ActionPermissions.Operator;
-					p.CommandPermission = 4;
+					p.CommandPermission = CommandPermission.Admin;
 					p.PermissionLevel = PermissionLevel.Operator;
 					p.SendAdventureSettings();
 				}

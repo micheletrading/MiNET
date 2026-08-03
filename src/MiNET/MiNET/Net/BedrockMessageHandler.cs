@@ -158,9 +158,6 @@ namespace MiNET.Net
 				case McpeBlockEntityData msg:
 					handler.HandleMcpeBlockEntityData(msg);
 					break;
-				case McpeAdventureSettings msg:
-					handler.HandleMcpeAdventureSettings(msg);
-					break;
 				case McpePlayerAction msg:
 					handler.HandleMcpePlayerAction(msg);
 					break;

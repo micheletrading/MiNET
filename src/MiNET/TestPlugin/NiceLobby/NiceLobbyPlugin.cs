@@ -397,7 +397,7 @@ namespace TestPlugin.NiceLobby
 			if (player.CertificateData.ExtraData.Xuid != null && player.Username.Equals("gurunx"))
 			{
 				player.ActionPermissions = ActionPermissions.Operator;
-				player.CommandPermission = 4;
+				player.CommandPermission = CommandPermission.Admin;
 				player.PermissionLevel = PermissionLevel.Operator;
 				player.SendAdventureSettings();
 			}

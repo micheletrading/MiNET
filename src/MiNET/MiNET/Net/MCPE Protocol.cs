@@ -80,7 +80,6 @@ namespace MiNET.Net
 		void HandleMcpeInventoryContent(McpeInventoryContent message);
 		void HandleMcpeInventorySlot(McpeInventorySlot message);
 		void HandleMcpeCraftingEvent(McpeCraftingEvent message);
-		void HandleMcpeAdventureSettings(McpeAdventureSettings message);
 		void HandleMcpeBlockEntityData(McpeBlockEntityData message);
 		void HandleMcpePlayerInput(McpePlayerInput message);
 		void HandleMcpeSetPlayerGameType(McpeSetPlayerGameType message);
@@ -167,7 +166,6 @@ namespace MiNET.Net
 		void HandleMcpeCraftingData(McpeCraftingData message);
 		void HandleMcpeCraftingEvent(McpeCraftingEvent message);
 		void HandleMcpeGuiDataPickItem(McpeGuiDataPickItem message);
-		void HandleMcpeAdventureSettings(McpeAdventureSettings message);
 		void HandleMcpeBlockEntityData(McpeBlockEntityData message);
 		void HandleMcpeLevelChunk(McpeLevelChunk message);
 		void HandleMcpeSetCommandsEnabled(McpeSetCommandsEnabled message);
@@ -416,9 +414,6 @@ namespace MiNET.Net
 					break;
 				case McpeGuiDataPickItem msg:
 					_messageHandler.HandleMcpeGuiDataPickItem(msg);
-					break;
-				case McpeAdventureSettings msg:
-					_messageHandler.HandleMcpeAdventureSettings(msg);
 					break;
 				case McpeBlockEntityData msg:
 					_messageHandler.HandleMcpeBlockEntityData(msg);
@@ -879,8 +874,6 @@ namespace MiNET.Net
 						return McpeCraftingEvent.CreateObject().Decode(buffer);
 					case 0x36:
 						return McpeGuiDataPickItem.CreateObject().Decode(buffer);
-					case 0x37:
-						return McpeAdventureSettings.CreateObject().Decode(buffer);
 					case 0x38:
 						return McpeBlockEntityData.CreateObject().Decode(buffer);
 					case 0x39:
@@ -1120,14 +1113,6 @@ namespace MiNET.Net
 		}
 	}
 
-	public enum AdventureFlags
-	{
-		Mayfly = 0x40,
-		Noclip = 0x80,
-		Worldbuilder = 0x100,
-		Flying = 0x200,
-		Muted = 0x400,
-	}
 	public enum CommandPermission
 	{
 		Normal = 0,
@@ -5202,74 +5187,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-		}
-
-	}
-
-	public partial class McpeAdventureSettings : Packet<McpeAdventureSettings>
-	{
-
-		public uint flags; // = null;
-		public uint commandPermission; // = null;
-		public uint actionPermissions; // = null;
-		public uint permissionLevel; // = null;
-		public uint customStoredPermissions; // = null;
-		public long entityUniqueId; // = null;
-
-		public McpeAdventureSettings()
-		{
-			Id = 0x37;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			WriteUnsignedVarInt(flags);
-			WriteUnsignedVarInt(commandPermission);
-			WriteUnsignedVarInt(actionPermissions);
-			WriteUnsignedVarInt(permissionLevel);
-			WriteUnsignedVarInt(customStoredPermissions);
-			WriteLe(entityUniqueId);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			flags = ReadUnsignedVarInt();
-			commandPermission = ReadUnsignedVarInt();
-			actionPermissions = ReadUnsignedVarInt();
-			permissionLevel = ReadUnsignedVarInt();
-			customStoredPermissions = ReadUnsignedVarInt();
-			entityUniqueId = ReadLongLe();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			flags=default(uint);
-			commandPermission=default(uint);
-			actionPermissions=default(uint);
-			permissionLevel=default(uint);
-			customStoredPermissions=default(uint);
-			entityUniqueId=default(long);
 		}
 
 	}

@@ -30,17 +30,13 @@ using MiNET.Net;
 namespace MiNET.Camera
 {
 	/// <summary>
-	///     The camera presets vanilla ships, and the names of them.
+	///     The camera presets vanilla ships, and their names. A preset is a named camera
+	///     configuration the client holds; these six carry almost no values because the client
+	///     already implements them, so naming <see cref="FirstPerson" /> is the whole instruction.
+	///     Presets with real values in them go through <see cref="CameraManager.AddPreset" />.
 	///
-	///     A preset is a named camera configuration the client holds. These six carry almost no
-	///     values because the client already implements them: naming <see cref="FirstPerson" /> is
-	///     the whole instruction. A preset with real values in it is the interesting case, and that
-	///     is what <see cref="CameraManager.AddPreset" /> is for.
-	///
-	///     BDS builds the same list by reading behavior_packs/*/cameras/presets/*.json, so these
-	///     values are the vanilla files transcribed. Each player gets their own copy through
-	///     <see cref="CameraManager" />, which is why <see cref="Vanilla" /> hands out fresh
-	///     instances rather than shared ones.
+	///     <see cref="Vanilla" /> hands out fresh instances because each player owns their own copy.
+	///     The values match behavior_packs/*/cameras/presets/*.json, which is what BDS reads.
 	/// </summary>
 	public static class CameraPresets
 	{
