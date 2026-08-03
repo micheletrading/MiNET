@@ -1059,8 +1059,8 @@
 	</pdu>
 
 	<pdu id="0x7c" online="false" client="false" server="true" name="MCPE_LEVEL_EVENT_GENERIC">
-		<field name="Event ID" type="UnsignedVarInt" />
-		<!-- trailing nbt loop handled in partial -->
+		<field name="Event ID" type="SignedVarInt" />
+		<field name="Event Data" type="NbtBody" />
 	</pdu>
 
 	<pdu id="0x7d" online="false" client="false" server="true" name="MCPE_LECTERN_UPDATE">

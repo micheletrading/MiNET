@@ -206,6 +206,7 @@ Read more about packets and this specification on the [Protocol Wiki](https://gi
 | MaterialReducerRecipe[] [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-MaterialReducerRecipe[]) |
 | MetadataDictionary [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-MetadataDictionary) |
 | Nbt [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-Nbt) |
+| NbtBody [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-NbtBody) |
 | OFFLINE_MESSAGE_DATA_ID [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-OFFLINE_MESSAGE_DATA_ID) |
 | PlayerAttributes [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-PlayerAttributes) |
 | PlayerLocation [(wiki)](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-Type-PlayerLocation) |
@@ -2484,7 +2485,8 @@ Wiki: [Level Event Generic](https://github.com/NiclasOlofsson/MiNET/wiki//Protoc
 
 | Name | Type | Size |
 |:-----|:-----|:-----|
-|Event ID | UnsignedVarInt |  |
+|Event ID | SignedVarInt |  |
+|Event Data | NbtBody |  |
 -----------------------------------------------------------------------
 ### Lectern Update (0x7d)
 Wiki: [Lectern Update](https://github.com/NiclasOlofsson/MiNET/wiki//Protocol-LecternUpdate)

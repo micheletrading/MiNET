@@ -1060,25 +1060,16 @@ namespace MiNET
 		// compound header). MiNET does not model sleeping yet, so sleeping count is 0.
 		public virtual void SendSleepStatus()
 		{
-			int players = Math.Max(1, Level.PlayerCount);
-
-			using var stream = new MemoryStream();
-			void WriteIntTag(string name, int value)
+			var root = new NbtCompound("")
 			{
-				stream.WriteByte(3); // TAG_Int
-				byte[] nameBytes = Encoding.UTF8.GetBytes(name);
-				MiNET.Utils.VarInt.WriteUInt32(stream, (uint) nameBytes.Length);
-				stream.Write(nameBytes, 0, nameBytes.Length);
-				MiNET.Utils.VarInt.WriteSInt32(stream, value);
-			}
-			WriteIntTag("ableToSleep", 1);
-			WriteIntTag("overworldPlayerCount", players);
-			WriteIntTag("sleepingPlayerCount", 0);
-			stream.WriteByte(0); // TAG_End
+				new NbtInt("ableToSleep", 1),
+				new NbtInt("overworldPlayerCount", Math.Max(1, Level.PlayerCount)),
+				new NbtInt("sleepingPlayerCount", 0)
+			};
 
 			var packet = McpeLevelEventGeneric.CreateObject();
-			packet.eventId = 19602;
-			packet.eventData = stream.ToArray();
+			packet.eventId = (int) LevelEventType.SleepingPlayers;
+			packet.eventData = root;
 			SendPacket(packet);
 		}
 

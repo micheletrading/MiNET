@@ -31,6 +31,7 @@ using System;
 using System.Net;
 using System.Numerics;
 using System.Threading;
+using fNbt;
 using MiNET.Utils; 
 using MiNET.Utils.Skins;
 using MiNET.Items;
@@ -8790,7 +8791,8 @@ namespace MiNET.Net
 	public partial class McpeLevelEventGeneric : Packet<McpeLevelEventGeneric>
 	{
 
-		public uint eventId; // = null;
+		public int eventId; // = null;
+		public NbtCompound eventData; // = null;
 
 		public McpeLevelEventGeneric()
 		{
@@ -8804,7 +8806,8 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			WriteUnsignedVarInt(eventId);
+			WriteSignedVarInt(eventId);
+			WriteNbtBody(eventData);
 
 			AfterEncode();
 		}
@@ -8818,7 +8821,8 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			eventId = ReadUnsignedVarInt();
+			eventId = ReadSignedVarInt();
+			eventData = ReadNbtBody();
 
 			AfterDecode();
 		}
@@ -8830,7 +8834,8 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			eventId=default(uint);
+			eventId=default(int);
+			eventData=default(NbtCompound);
 		}
 
 	}

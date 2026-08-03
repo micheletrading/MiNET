@@ -792,6 +792,39 @@ namespace MiNET.Net
 			return nbt;
 		}
 
+		/// <summary>
+		///     A compound written as its contents only, tags then TAG_End, with no root type byte
+		///     and no root name, running to the end of the packet. LevelEventGeneric carries its
+		///     payload this way.
+		/// </summary>
+		public void WriteNbtBody(NbtCompound compound)
+		{
+			if (compound == null) return;
+
+			var file = new NbtFile(compound) {BigEndian = false, UseVarInt = true};
+			byte[] buffer = file.SaveToBuffer(NbtCompression.None);
+
+			// Drop the root header fNbt writes: the compound type byte and its zero-length name.
+			const int rootHeader = 2;
+			_writer.Write(buffer, rootHeader, buffer.Length - rootHeader);
+		}
+
+		public NbtCompound ReadNbtBody()
+		{
+			byte[] body = ReadBytes(0, true);
+			if (body.Length == 0) return null;
+
+			// Put the root header back so fNbt has something it recognises.
+			var framed = new byte[body.Length + 2];
+			framed[0] = 10; // TAG_Compound
+			framed[1] = 0; // zero-length name
+			Buffer.BlockCopy(body, 0, framed, 2, body.Length);
+
+			var file = new NbtFile {BigEndian = false, UseVarInt = true};
+			file.LoadFromBuffer(framed, 0, framed.Length, NbtCompression.None);
+			return (NbtCompound) file.RootTag;
+		}
+
 		public static NbtCompound ReadNbtCompound(Stream stream, bool useVarInt = false)
 		{
 			NbtFile file = new NbtFile();
