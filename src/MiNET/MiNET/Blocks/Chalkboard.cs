@@ -39,25 +39,13 @@ namespace MiNET.Blocks
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Chalkboard));
 
-		public override string Name => "minecraft:chalkboard";
-
 		public Chalkboard() : base(230)
 		{
 		}
 
-		public override void SetState(List<IBlockState> states)
-		{
-			
-		} // method
-
-		public override BlockStateContainer GetState()
-		{
-			var record = new BlockStateContainer();
-			record.Name = "minecraft:chalkboard";
-			record.Id = 230;
-			return record;
-		} // method
-
+		// State comes from the generated partial. The hand-written pair here declared no states at
+		// all while the palette carries direction 0-15, so every chalkboard state failed the palette
+		// lookup and resolved to no runtime id.
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
 		{

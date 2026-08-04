@@ -210,12 +210,12 @@ namespace MiNET.Worlds
 			{
 				if (Config.GetProperty("CheckForSafeSpawn", true))
 				{
-					// Clamp the spawn to ground level in both directions; level.dat frequently
-					// carries a bogus SpawnY (e.g. 255 on flat worlds), which drops the player
-					// from the sky at join.
+					// Snap the spawn to the ground exactly. GetHeight is the first air block, which is
+					// where feet belong: SpawnPoint is a feet position like KnownPosition, and the eye
+					// offset is added only on the wire. Clearance would be a drop at every join, and a
+					// tolerance band would let a spawn below the surface stand.
 					var height = GetHeight((BlockCoordinates) SpawnPoint);
-					// Spawn Y = ground height + 2 (player position is the head block).
-					if (height > 0 && Math.Abs(SpawnPoint.Y - (height + 2)) > 3) SpawnPoint.Y = height + 2;
+					if (height > 0 && SpawnPoint.Y != height) SpawnPoint.Y = height;
 					Log.Debug($"Checking for safe spawn, ground height {height}, spawn Y {SpawnPoint.Y}");
 				}
 

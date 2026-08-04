@@ -89,9 +89,17 @@ namespace MiNET.Blocks
 		private static readonly Lazy<uint[]> _networkHashes = new Lazy<uint[]>(() =>
 		{
 			var hashes = new uint[BlockPalette.Count];
+			var taken = new HashSet<uint>(BlockPalette.Count);
 			for (int i = 0; i < BlockPalette.Count; i++)
 			{
-				hashes[i] = ComputeNetworkHash(BlockPalette[i]);
+				// A colliding state takes the next free value upwards, resolved walking the palette
+				// in canonical order, which is what the client does. Resolving differently would
+				// hand the client the id of the block it collided with. The pinned palette has no
+				// collisions (16913 states, birthday expectation 0.03), so this changes nothing
+				// today and exists for the version where it does.
+				uint hash = ComputeNetworkHash(BlockPalette[i]);
+				while (!taken.Add(hash)) hash++;
+				hashes[i] = hash;
 			}
 			return hashes;
 		});
@@ -166,6 +174,40 @@ namespace MiNET.Blocks
 		{
 			int runtimeId = GetRuntimeIdFromNetworkId(networkId);
 			return runtimeId < 0 ? null : GetBlockByRuntimeId(runtimeId);
+		}
+
+		/// <summary>
+		///     Per runtime id, whether skylight passes through the block undimmed. Light dampening is
+		///     a per-class constant from the block data, so it is resolved once per name and spread
+		///     across that name's states.
+		///     Keyed by runtime id rather than legacy id, so a block without a legacy id still has an
+		///     answer, and leaves, water and cobweb need no naming as exceptions.
+		/// </summary>
+		private static readonly Lazy<bool[]> _skyLightPasses = new Lazy<bool[]>(() =>
+		{
+			var passes = new bool[BlockPalette.Count];
+			var byName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+			for (int i = 0; i < BlockPalette.Count; i++)
+			{
+				string name = BlockPalette[i].Name;
+				if (!byName.TryGetValue(name, out bool value))
+				{
+					Block block = GetBlockByName(name);
+					value = block != null && block.LightDampening == 0;
+					byName[name] = value;
+				}
+
+				passes[i] = value;
+			}
+
+			return passes;
+		});
+
+		public static bool SkyLightPasses(int runtimeId)
+		{
+			bool[] passes = _skyLightPasses.Value;
+			return runtimeId >= 0 && runtimeId < passes.Length && passes[runtimeId];
 		}
 
 		// A block name's default (first palette) state; null if the name is unknown. Callers that

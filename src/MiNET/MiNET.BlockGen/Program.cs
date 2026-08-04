@@ -80,10 +80,13 @@ public static class Program
 
 		var byName = palette.GroupBy(p => p.Name).OrderBy(g => g.Key).ToList();
 
+		Dictionary<string, int> baseIndex = VerifyPaletteLayout(palette, byName);
+		if (baseIndex == null) return 1;
+
 		int classes = WriteBlockDataClasses(Path.Combine(blocksDir, "BlockData.generated.cs"), byName, handWritten);
 		Console.WriteLine($"BlockData.generated.cs: {classes} classes");
 
-		int partials = WritePartialBlocks(Path.Combine(blocksDir, "PartialBlocks.cs"), byName, handImplemented);
+		int partials = WritePartialBlocks(Path.Combine(blocksDir, "PartialBlocks.cs"), byName, handImplemented, baseIndex);
 		Console.WriteLine($"PartialBlocks.cs: {partials} partials");
 
 		int entries = WriteBlockPalette(Path.Combine(blocksDir, "BlockPaletteData.generated.cs"), palette);
@@ -290,6 +293,208 @@ public static class Program
 	// A block's identity in the palette: its name, its legacy id if it still has one, and the
 	// set of states for one permutation.
 	private sealed record BlockState(string Name, int Id, int Version, List<(string Name, object Value)> States);
+
+	/// <summary>
+	///     The palette is not an arbitrary list, and the generated GetRuntimeId arithmetic depends
+	///     on that. Two properties, both asserted here rather than assumed, because a future
+	///     Bedrock drop that breaks either must fail the build instead of emitting wrong ids:
+	///     each block owns one contiguous run, and inside it the states are a full cross product
+	///     enumerated as a mixed-radix counter.
+	///     The block order itself is the names sorted by unsigned FNV-1 64 (note: FNV-1, not the
+	///     FNV-1a used for the permutation network hash), which is checked here too. It is not
+	///     needed to emit ids, but a collision would leave two blocks' relative order undefined.
+	/// </summary>
+	private static Dictionary<string, int> VerifyPaletteLayout(List<BlockState> palette, List<IGrouping<string, BlockState>> byName)
+	{
+		var baseIndex = new Dictionary<string, int>();
+		var lastIndex = new Dictionary<string, int>();
+		var counts = new Dictionary<string, int>();
+		for (int i = 0; i < palette.Count; i++)
+		{
+			string name = palette[i].Name;
+			if (!baseIndex.ContainsKey(name)) baseIndex[name] = i;
+			lastIndex[name] = i;
+			counts[name] = counts.GetValueOrDefault(name) + 1;
+		}
+
+		var errors = new List<string>();
+
+		foreach (string name in baseIndex.Keys)
+		{
+			if (lastIndex[name] - baseIndex[name] + 1 != counts[name])
+			{
+				errors.Add($"{name}: run is not contiguous ({counts[name]} states between index {baseIndex[name]} and {lastIndex[name]})");
+			}
+		}
+
+		foreach (IGrouping<string, BlockState> group in byName)
+		{
+			List<BlockState> run = group.ToList();
+			if (StateStrides(run, out _, out _) == null) errors.Add($"{group.Key}: states are not a positional encoding");
+		}
+
+		var byHash = new Dictionary<ulong, string>();
+		foreach (string name in baseIndex.Keys)
+		{
+			ulong hash = Fnv1_64(name);
+			if (byHash.TryGetValue(hash, out string other)) errors.Add($"FNV-1 64 collision: {name} and {other}");
+			else byHash[hash] = name;
+		}
+
+		List<string> expectedOrder = baseIndex.Keys.OrderBy(Fnv1_64).ToList();
+		List<string> actualOrder = baseIndex.OrderBy(kv => kv.Value).Select(kv => kv.Key).ToList();
+		if (!expectedOrder.SequenceEqual(actualOrder))
+		{
+			Console.WriteLine("note: block order is no longer the unsigned FNV-1 64 name sort (ids are still emitted from the data)");
+		}
+
+		if (errors.Count > 0)
+		{
+			Console.Error.WriteLine($"palette layout assertions failed ({errors.Count}):");
+			foreach (string e in errors.Take(20)) Console.Error.WriteLine($"  {e}");
+			return null;
+		}
+
+		Console.WriteLine($"palette layout: {baseIndex.Count} contiguous runs, all positional, name order is the FNV-1 64 sort");
+		return baseIndex;
+	}
+
+	/// <summary>
+	///     Per state, the values it takes in run order and the offset at which it advances by one.
+	///     The stride is read off the data rather than assumed, because the states are listed
+	///     alphabetically in a palette entry and that is not the digit order: 236 of 1356 blocks
+	///     differ (minecraft:fence_gate lists in_wall_bit first but its stride is 8).
+	///     Returns null when the run is not a positional encoding at all.
+	/// </summary>
+	private static List<object>[] StateStrides(List<BlockState> run, out int[] strides, out string[] stateNames)
+	{
+		strides = null;
+		stateNames = null;
+
+		BlockState first = run[0];
+		int n = first.States.Count;
+		if (n == 0) return run.Count == 1 ? Array.Empty<List<object>>() : null;
+
+		string[] names = first.States.Select(s => s.Name).ToArray();
+		stateNames = names;
+		var domains = new List<object>[n];
+		strides = new int[n];
+
+		for (int i = 0; i < n; i++)
+		{
+			int digit = i;
+			if (run.Any(p => p.States.Count != n || p.States[digit].Name != names[digit])) return null;
+
+			var values = new List<object>();
+			foreach (BlockState p in run)
+			{
+				if (!values.Contains(p.States[i].Value)) values.Add(p.States[i].Value);
+			}
+			domains[i] = values;
+
+			int stride = run.FindIndex(p => !Equals(p.States[i].Value, first.States[i].Value));
+			strides[i] = stride < 0 ? run.Count : stride;
+		}
+
+		int product = 1;
+		foreach (List<object> d in domains) product *= d.Count;
+		if (product != run.Count) return null;
+
+		for (int off = 0; off < run.Count; off++)
+		{
+			int predicted = 0;
+			for (int i = 0; i < n; i++) predicted += domains[i].IndexOf(run[off].States[i].Value) * strides[i];
+			if (predicted != off) return null;
+		}
+
+		return domains;
+	}
+
+	/// <summary>
+	///     The block's palette index in closed form, replacing a lookup that allocated a state
+	///     container, a list and one boxed object per state, hashed the name, and could allocate
+	///     two HashSets inside BlockStateContainer.Equals - twice per block placed.
+	///     Every digit is range-checked and returns -1 for a value outside its domain. That is not
+	///     decoration: an unresolvable state has to stay loud, because SubChunk.SetBlock turns -1
+	///     into a refusal to write, and bare arithmetic would hand back a plausible wrong id.
+	/// </summary>
+	private static void WriteRuntimeId(StringBuilder sb, List<BlockState> run, int baseId, HashSet<string> bits)
+	{
+		List<object>[] domains = StateStrides(run, out int[] strides, out string[] stateNames);
+
+		sb.AppendLine();
+		if (domains == null || domains.Length == 0)
+		{
+			sb.AppendLine($"\t\tpublic override int GetRuntimeId() => {baseId};");
+			return;
+		}
+
+		sb.AppendLine("\t\tpublic override int GetRuntimeId()");
+		sb.AppendLine("\t\t{");
+
+		var terms = new List<string>();
+		for (int i = 0; i < domains.Length; i++)
+		{
+			string prop = CodeName(stateNames[i].Replace("minecraft:", ""));
+			string digit = $"d{i}";
+			bool needsCheck = true;
+
+			if (bits.Contains(stateNames[i]))
+			{
+				int whenTrue = domains[i].FindIndex(v => Convert.ToInt64(v) == 1);
+				int whenFalse = domains[i].FindIndex(v => Convert.ToInt64(v) == 0);
+				sb.AppendLine($"\t\t\tint {digit} = {prop} ? {whenTrue} : {whenFalse};");
+				needsCheck = false;
+			}
+			else if (domains[i][0] is byte or int)
+			{
+				List<long> values = domains[i].Select(Convert.ToInt64).ToList();
+				bool ascendingRun = values.Select((v, k) => v == values[0] + k).All(x => x);
+				if (ascendingRun)
+				{
+					long min = values[0], max = values[^1];
+					sb.AppendLine($"\t\t\tif ({prop} < {min} || {prop} > {max}) return -1;");
+					sb.AppendLine($"\t\t\tint {digit} = {prop}{(min == 0 ? "" : $" - {min}")};");
+					needsCheck = false;
+				}
+				else
+				{
+					sb.AppendLine($"\t\t\tint {digit} = {prop} switch");
+					sb.AppendLine("\t\t\t{");
+					for (int k = 0; k < values.Count; k++) sb.AppendLine($"\t\t\t\t{values[k]} => {k},");
+					sb.AppendLine("\t\t\t\t_ => -1");
+					sb.AppendLine("\t\t\t};");
+				}
+			}
+			else
+			{
+				sb.AppendLine($"\t\t\tint {digit} = {prop} switch");
+				sb.AppendLine("\t\t\t{");
+				for (int k = 0; k < domains[i].Count; k++) sb.AppendLine($"\t\t\t\t\"{domains[i][k]}\" => {k},");
+				sb.AppendLine("\t\t\t\t_ => -1");
+				sb.AppendLine("\t\t\t};");
+			}
+
+			if (needsCheck) sb.AppendLine($"\t\t\tif ({digit} < 0) return -1;");
+			terms.Add(strides[i] == 1 ? digit : $"{digit} * {strides[i]}");
+		}
+
+		sb.AppendLine();
+		sb.AppendLine($"\t\t\treturn {baseId} + {string.Join(" + ", terms)};");
+		sb.AppendLine("\t\t} // method");
+	}
+
+	/// <summary>FNV-1 (multiply then xor), not FNV-1a. This is what orders the block names.</summary>
+	private static ulong Fnv1_64(string value)
+	{
+		ulong hash = 0xcbf29ce484222325;
+		foreach (byte b in Encoding.UTF8.GetBytes(value))
+		{
+			hash = unchecked(hash * 0x100000001b3) ^ b;
+		}
+
+		return hash;
+	}
 
 	/// <summary>
 	///     Emits the block palette as compiled code instead of a data file parsed at startup.
@@ -583,7 +788,7 @@ public static class Program
 		[JsonProperty("canContainLiquidSource")] public bool CanContainLiquidSource { get; set; }
 	}
 
-	private static int WritePartialBlocks(string path, List<IGrouping<string, BlockState>> byName, HashSet<string> handImplemented)
+	private static int WritePartialBlocks(string path, List<IGrouping<string, BlockState>> byName, HashSet<string> handImplemented, Dictionary<string, int> baseIndex)
 	{
 		Dictionary<string, BlockProperties> properties = ReadBlockProperties(
 			Path.Combine(Path.GetDirectoryName(path)!, "..", "..", "MiNET.BlockGen", "Data", "block_properties.json"));
@@ -694,6 +899,9 @@ public static class Program
 			}
 			sb.AppendLine("\t\t\treturn record;");
 			sb.AppendLine("\t\t} // method");
+
+			WriteRuntimeId(sb, group.ToList(), baseIndex[group.Key], bits);
+
 			sb.AppendLine("\t} // class");
 		}
 

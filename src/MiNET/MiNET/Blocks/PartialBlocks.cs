@@ -52,6 +52,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 14574 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class AcaciaDoor // minecraft:acacia_door
@@ -108,6 +117,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 6942 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class AcaciaDoubleSlab // minecraft:acacia_double_slab
@@ -149,6 +176,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10354 + d0;
+		} // method
 	} // class
 
 	public partial class AcaciaFence // minecraft:acacia_fence
@@ -185,6 +225,8 @@ namespace MiNET.Blocks
 			record.Id = 830;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16137;
 	} // class
 
 	public partial class AcaciaFenceGate // minecraft:acacia_fence_gate
@@ -235,6 +277,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 15182 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -292,6 +351,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 4167 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class AcaciaLeaves // minecraft:acacia_leaves
@@ -338,6 +409,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 3985 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class AcaciaLog // minecraft:acacia_log
@@ -379,6 +458,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6825 + d0;
+		} // method
 	} // class
 
 	public partial class AcaciaPlanks // minecraft:acacia_planks
@@ -415,6 +508,8 @@ namespace MiNET.Blocks
 			record.Id = 997;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6992;
 	} // class
 
 	public partial class AcaciaPressurePlate // minecraft:acacia_pressure_plate
@@ -456,6 +551,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 9075 + d0;
+		} // method
 	} // class
 
 	public partial class AcaciaSapling // minecraft:acacia_sapling
@@ -496,6 +599,13 @@ namespace MiNET.Blocks
 			record.Id = 1083;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 12736 + d0;
 		} // method
 	} // class
 
@@ -548,6 +658,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 383 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class AcaciaSlab // minecraft:acacia_slab
@@ -588,6 +716,19 @@ namespace MiNET.Blocks
 			record.Id = 1062;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15148 + d0;
 		} // method
 	} // class
 
@@ -635,6 +776,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12574 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class AcaciaStandingSign // minecraft:acacia_standing_sign
@@ -675,6 +825,14 @@ namespace MiNET.Blocks
 			record.Id = 445;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 12620 + d0;
 		} // method
 	} // class
 
@@ -727,6 +885,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 10213 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class AcaciaWallSign // minecraft:acacia_wall_sign
@@ -768,6 +936,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 5393 + d0;
+		} // method
 	} // class
 
 	public partial class AcaciaWood // minecraft:acacia_wood
@@ -808,6 +984,20 @@ namespace MiNET.Blocks
 			record.Id = 1072;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13348 + d0;
 		} // method
 	} // class
 
@@ -855,6 +1045,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "rail_direction", Value = RailDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = RailDataBit ? 1 : 0;
+			if (RailDirection < 0 || RailDirection > 5) return -1;
+			int d1 = RailDirection;
+
+			return 1878 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class Air // minecraft:air
@@ -891,6 +1090,8 @@ namespace MiNET.Blocks
 			record.Id = 0;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13094;
 	} // class
 
 	public partial class Allium // minecraft:allium
@@ -927,6 +1128,8 @@ namespace MiNET.Blocks
 			record.Id = 1086;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1961;
 	} // class
 
 	public partial class Allow // minecraft:allow
@@ -963,6 +1166,8 @@ namespace MiNET.Blocks
 			record.Id = 210;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13967;
 	} // class
 
 	public partial class AmethystBlock // minecraft:amethyst_block
@@ -999,6 +1204,8 @@ namespace MiNET.Blocks
 			record.Id = 582;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1597;
 	} // class
 
 	public partial class AmethystCluster // minecraft:amethyst_cluster
@@ -1040,6 +1247,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:block_face", Value = BlockFace});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = BlockFace switch
+			{
+				"down" => 0,
+				"up" => 1,
+				"north" => 2,
+				"south" => 3,
+				"west" => 4,
+				"east" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15693 + d0;
+		} // method
 	} // class
 
 	public partial class AncientDebris // minecraft:ancient_debris
@@ -1076,6 +1300,8 @@ namespace MiNET.Blocks
 			record.Id = 526;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12462;
 	} // class
 
 	public partial class Andesite // minecraft:andesite
@@ -1112,6 +1338,8 @@ namespace MiNET.Blocks
 			record.Id = 849;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2704;
 	} // class
 
 	public partial class AndesiteDoubleSlab // minecraft:andesite_double_slab
@@ -1153,6 +1381,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11606 + d0;
+		} // method
 	} // class
 
 	public partial class AndesiteSlab // minecraft:andesite_slab
@@ -1193,6 +1434,19 @@ namespace MiNET.Blocks
 			record.Id = 1148;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12739 + d0;
 		} // method
 	} // class
 
@@ -1239,6 +1493,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 9181 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -1301,6 +1564,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 10037 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Anvil // minecraft:anvil
@@ -1342,6 +1644,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13059 + d0;
+		} // method
 	} // class
 
 	public partial class Azalea // minecraft:azalea
@@ -1378,6 +1695,8 @@ namespace MiNET.Blocks
 			record.Id = 592;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13334;
 	} // class
 
 	public partial class AzaleaLeaves // minecraft:azalea_leaves
@@ -1423,6 +1742,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "persistent_bit", Value = Convert.ToByte(PersistentBit)});
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 15340 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -1470,6 +1797,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 12722 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class AzureBluet // minecraft:azure_bluet
@@ -1506,6 +1841,8 @@ namespace MiNET.Blocks
 			record.Id = 1087;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 845;
 	} // class
 
 	public partial class Bamboo // minecraft:bamboo
@@ -1557,6 +1894,28 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "bamboo_stalk_thickness", Value = BambooStalkThickness});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+			int d1 = BambooLeafSize switch
+			{
+				"no_leaves" => 0,
+				"small_leaves" => 1,
+				"large_leaves" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = BambooStalkThickness switch
+			{
+				"thin" => 0,
+				"thick" => 1,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+
+			return 5430 + d0 * 6 + d1 * 2 + d2;
+		} // method
 	} // class
 
 	public partial class BambooBlock // minecraft:bamboo_block
@@ -1597,6 +1956,20 @@ namespace MiNET.Blocks
 			record.Id = 782;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 111 + d0;
 		} // method
 	} // class
 
@@ -1643,6 +2016,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 12863 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -1700,6 +2082,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 1565 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class BambooDoubleSlab // minecraft:bamboo_double_slab
@@ -1741,6 +2141,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6546 + d0;
+		} // method
 	} // class
 
 	public partial class BambooFence // minecraft:bamboo_fence
@@ -1777,6 +2190,8 @@ namespace MiNET.Blocks
 			record.Id = 770;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2247;
 	} // class
 
 	public partial class BambooFenceGate // minecraft:bamboo_fence_gate
@@ -1827,6 +2242,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 8876 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -1884,6 +2316,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 7432 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class BambooMosaic // minecraft:bamboo_mosaic
@@ -1920,6 +2364,8 @@ namespace MiNET.Blocks
 			record.Id = 764;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16841;
 	} // class
 
 	public partial class BambooMosaicDoubleSlab // minecraft:bamboo_mosaic_double_slab
@@ -1961,6 +2407,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6392 + d0;
+		} // method
 	} // class
 
 	public partial class BambooMosaicSlab // minecraft:bamboo_mosaic_slab
@@ -2001,6 +2460,19 @@ namespace MiNET.Blocks
 			record.Id = 779;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 4162 + d0;
 		} // method
 	} // class
 
@@ -2048,6 +2520,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12582 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class BambooPlanks // minecraft:bamboo_planks
@@ -2084,6 +2565,8 @@ namespace MiNET.Blocks
 			record.Id = 765;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10253;
 	} // class
 
 	public partial class BambooPressurePlate // minecraft:bamboo_pressure_plate
@@ -2125,6 +2608,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 12393 + d0;
+		} // method
 	} // class
 
 	public partial class BambooSapling // minecraft:bamboo_sapling
@@ -2165,6 +2656,13 @@ namespace MiNET.Blocks
 			record.Id = 419;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 15136 + d0;
 		} // method
 	} // class
 
@@ -2217,6 +2715,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 6513 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class BambooSlab // minecraft:bamboo_slab
@@ -2257,6 +2773,19 @@ namespace MiNET.Blocks
 			record.Id = 768;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12942 + d0;
 		} // method
 	} // class
 
@@ -2304,6 +2833,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 3160 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class BambooStandingSign // minecraft:bamboo_standing_sign
@@ -2344,6 +2882,14 @@ namespace MiNET.Blocks
 			record.Id = 773;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 14533 + d0;
 		} // method
 	} // class
 
@@ -2396,6 +2942,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 9103 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class BambooWallSign // minecraft:bamboo_wall_sign
@@ -2436,6 +2992,14 @@ namespace MiNET.Blocks
 			record.Id = 774;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 13342 + d0;
 		} // method
 	} // class
 
@@ -2483,6 +3047,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = OpenBit ? 1 : 0;
+
+			return 7069 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class Barrier // minecraft:barrier
@@ -2519,6 +3092,8 @@ namespace MiNET.Blocks
 			record.Id = 416;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12158;
 	} // class
 
 	public partial class Basalt // minecraft:basalt
@@ -2560,6 +3135,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6844 + d0;
+		} // method
 	} // class
 
 	public partial class Beacon // minecraft:beacon
@@ -2596,6 +3185,8 @@ namespace MiNET.Blocks
 			record.Id = 138;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 846;
 	} // class
 
 	public partial class Bed // minecraft:bed
@@ -2647,6 +3238,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "occupied_bit", Value = Convert.ToByte(OccupiedBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = HeadPieceBit ? 1 : 0;
+			int d2 = OccupiedBit ? 1 : 0;
+
+			return 13095 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class Bedrock // minecraft:bedrock
@@ -2687,6 +3288,13 @@ namespace MiNET.Blocks
 			record.Id = 7;
 			record.States.Add(new BlockStateByte {Name = "infiniburn_bit", Value = Convert.ToByte(InfiniburnBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InfiniburnBit ? 1 : 0;
+
+			return 13805 + d0;
 		} // method
 	} // class
 
@@ -2734,6 +3342,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "honey_level", Value = HoneyLevel});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			if (HoneyLevel < 0 || HoneyLevel > 5) return -1;
+			int d1 = HoneyLevel;
+
+			return 10395 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class Beehive // minecraft:beehive
@@ -2780,6 +3398,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "honey_level", Value = HoneyLevel});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			if (HoneyLevel < 0 || HoneyLevel > 5) return -1;
+			int d1 = HoneyLevel;
+
+			return 12495 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class Beetroot // minecraft:beetroot
@@ -2820,6 +3448,14 @@ namespace MiNET.Blocks
 			record.Id = 244;
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+
+			return 9163 + d0;
 		} // method
 	} // class
 
@@ -2872,6 +3508,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "toggle_bit", Value = Convert.ToByte(ToggleBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Attachment switch
+			{
+				"standing" => 0,
+				"hanging" => 1,
+				"side" => 2,
+				"multiple" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			if (Direction < 0 || Direction > 3) return -1;
+			int d1 = Direction;
+			int d2 = ToggleBit ? 1 : 0;
+
+			return 13527 + d0 * 4 + d1 + d2 * 16;
+		} // method
 	} // class
 
 	public partial class BigDripleaf // minecraft:big_dripleaf
@@ -2923,6 +3577,31 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = BigDripleafHead ? 1 : 0;
+			int d1 = BigDripleafTilt switch
+			{
+				"none" => 0,
+				"unstable" => 1,
+				"partial_tilt" => 2,
+				"full_tilt" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+
+			return 11704 + d0 * 4 + d1 + d2 * 8;
+		} // method
 	} // class
 
 	public partial class BirchButton // minecraft:birch_button
@@ -2968,6 +3647,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 15599 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -3025,6 +3713,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 13975 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class BirchDoubleSlab // minecraft:birch_double_slab
@@ -3066,6 +3772,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 16118 + d0;
+		} // method
 	} // class
 
 	public partial class BirchFence // minecraft:birch_fence
@@ -3102,6 +3821,8 @@ namespace MiNET.Blocks
 			record.Id = 831;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16110;
 	} // class
 
 	public partial class BirchFenceGate // minecraft:birch_fence_gate
@@ -3152,6 +3873,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 5549 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -3209,6 +3947,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 2261 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class BirchLeaves // minecraft:birch_leaves
@@ -3255,6 +4005,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 6339 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class BirchLog // minecraft:birch_log
@@ -3296,6 +4054,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2709 + d0;
+		} // method
 	} // class
 
 	public partial class BirchPlanks // minecraft:birch_planks
@@ -3332,6 +4104,8 @@ namespace MiNET.Blocks
 			record.Id = 995;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9189;
 	} // class
 
 	public partial class BirchPressurePlate // minecraft:birch_pressure_plate
@@ -3373,6 +4147,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 5201 + d0;
+		} // method
 	} // class
 
 	public partial class BirchSapling // minecraft:birch_sapling
@@ -3413,6 +4195,13 @@ namespace MiNET.Blocks
 			record.Id = 1081;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 15097 + d0;
 		} // method
 	} // class
 
@@ -3465,6 +4254,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 302 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class BirchSlab // minecraft:birch_slab
@@ -3505,6 +4312,19 @@ namespace MiNET.Blocks
 			record.Id = 1060;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5985 + d0;
 		} // method
 	} // class
 
@@ -3552,6 +4372,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 13628 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class BirchStandingSign // minecraft:birch_standing_sign
@@ -3592,6 +4421,14 @@ namespace MiNET.Blocks
 			record.Id = 441;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 13 + d0;
 		} // method
 	} // class
 
@@ -3644,6 +4481,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 13063 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class BirchWallSign // minecraft:birch_wall_sign
@@ -3685,6 +4532,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 13336 + d0;
+		} // method
 	} // class
 
 	public partial class BirchWood // minecraft:birch_wood
@@ -3725,6 +4580,20 @@ namespace MiNET.Blocks
 			record.Id = 1070;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2903 + d0;
 		} // method
 	} // class
 
@@ -3772,6 +4641,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 1038 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class BlackCandleCake // minecraft:black_candle_cake
@@ -3813,6 +4691,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 7328 + d0;
+		} // method
 	} // class
 
 	public partial class BlackCarpet // minecraft:black_carpet
@@ -3849,6 +4734,8 @@ namespace MiNET.Blocks
 			record.Id = 866;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12167;
 	} // class
 
 	public partial class BlackConcrete // minecraft:black_concrete
@@ -3885,6 +4772,8 @@ namespace MiNET.Blocks
 			record.Id = 897;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13111;
 	} // class
 
 	public partial class BlackConcretePowder // minecraft:black_concrete_powder
@@ -3921,6 +4810,8 @@ namespace MiNET.Blocks
 			record.Id = 978;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2002;
 	} // class
 
 	public partial class BlackGlazedTerracotta // minecraft:black_glazed_terracotta
@@ -3962,6 +4853,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 10993 + d0;
+		} // method
 	} // class
 
 	public partial class BlackShulkerBox // minecraft:black_shulker_box
@@ -3998,6 +4897,8 @@ namespace MiNET.Blocks
 			record.Id = 882;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12150;
 	} // class
 
 	public partial class BlackStainedGlass // minecraft:black_stained_glass
@@ -4034,6 +4935,8 @@ namespace MiNET.Blocks
 			record.Id = 942;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11572;
 	} // class
 
 	public partial class BlackStainedGlassPane // minecraft:black_stained_glass_pane
@@ -4070,6 +4973,8 @@ namespace MiNET.Blocks
 			record.Id = 912;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3989;
 	} // class
 
 	public partial class BlackTerracotta // minecraft:black_terracotta
@@ -4106,6 +5011,8 @@ namespace MiNET.Blocks
 			record.Id = 993;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12444;
 	} // class
 
 	public partial class BlackWool // minecraft:black_wool
@@ -4142,6 +5049,8 @@ namespace MiNET.Blocks
 			record.Id = 809;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1964;
 	} // class
 
 	public partial class Blackstone // minecraft:blackstone
@@ -4178,6 +5087,8 @@ namespace MiNET.Blocks
 			record.Id = 528;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15181;
 	} // class
 
 	public partial class BlackstoneDoubleSlab // minecraft:blackstone_double_slab
@@ -4219,6 +5130,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 358 + d0;
+		} // method
 	} // class
 
 	public partial class BlackstoneSlab // minecraft:blackstone_slab
@@ -4259,6 +5183,19 @@ namespace MiNET.Blocks
 			record.Id = 537;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 3376 + d0;
 		} // method
 	} // class
 
@@ -4305,6 +5242,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 13809 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -4367,6 +5313,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 6145 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class BlastFurnace // minecraft:blast_furnace
@@ -4407,6 +5392,21 @@ namespace MiNET.Blocks
 			record.Id = 451;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15143 + d0;
 		} // method
 	} // class
 
@@ -4454,6 +5454,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 2 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class BlueCandleCake // minecraft:blue_candle_cake
@@ -4495,6 +5504,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 12122 + d0;
+		} // method
 	} // class
 
 	public partial class BlueCarpet // minecraft:blue_carpet
@@ -4531,6 +5547,8 @@ namespace MiNET.Blocks
 			record.Id = 862;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1046;
 	} // class
 
 	public partial class BlueConcrete // minecraft:blue_concrete
@@ -4567,6 +5585,8 @@ namespace MiNET.Blocks
 			record.Id = 893;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14634;
 	} // class
 
 	public partial class BlueConcretePowder // minecraft:blue_concrete_powder
@@ -4603,6 +5623,8 @@ namespace MiNET.Blocks
 			record.Id = 974;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13150;
 	} // class
 
 	public partial class BlueGlazedTerracotta // minecraft:blue_glazed_terracotta
@@ -4644,6 +5666,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 9380 + d0;
+		} // method
 	} // class
 
 	public partial class BlueIce // minecraft:blue_ice
@@ -4680,6 +5710,8 @@ namespace MiNET.Blocks
 			record.Id = 266;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13817;
 	} // class
 
 	public partial class BlueOrchid // minecraft:blue_orchid
@@ -4716,6 +5748,8 @@ namespace MiNET.Blocks
 			record.Id = 1085;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6329;
 	} // class
 
 	public partial class BlueShulkerBox // minecraft:blue_shulker_box
@@ -4752,6 +5786,8 @@ namespace MiNET.Blocks
 			record.Id = 878;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12649;
 	} // class
 
 	public partial class BlueStainedGlass // minecraft:blue_stained_glass
@@ -4788,6 +5824,8 @@ namespace MiNET.Blocks
 			record.Id = 938;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10393;
 	} // class
 
 	public partial class BlueStainedGlassPane // minecraft:blue_stained_glass_pane
@@ -4824,6 +5862,8 @@ namespace MiNET.Blocks
 			record.Id = 908;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 285;
 	} // class
 
 	public partial class BlueTerracotta // minecraft:blue_terracotta
@@ -4860,6 +5900,8 @@ namespace MiNET.Blocks
 			record.Id = 989;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5389;
 	} // class
 
 	public partial class BlueWool // minecraft:blue_wool
@@ -4896,6 +5938,8 @@ namespace MiNET.Blocks
 			record.Id = 818;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9396;
 	} // class
 
 	public partial class BoneBlock // minecraft:bone_block
@@ -4942,6 +5986,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Deprecated < 0 || Deprecated > 3) return -1;
+			int d0 = Deprecated;
+			int d1 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 6465 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class Bookshelf // minecraft:bookshelf
@@ -4978,6 +6038,8 @@ namespace MiNET.Blocks
 			record.Id = 47;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13087;
 	} // class
 
 	public partial class BorderBlock // minecraft:border_block
@@ -5039,6 +6101,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 8713 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class BrainCoral // minecraft:brain_coral
@@ -5075,6 +6176,8 @@ namespace MiNET.Blocks
 			record.Id = 836;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2877;
 	} // class
 
 	public partial class BrainCoralBlock // minecraft:brain_coral_block
@@ -5111,6 +6214,8 @@ namespace MiNET.Blocks
 			record.Id = 1104;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10233;
 	} // class
 
 	public partial class BrainCoralFan // minecraft:brain_coral_fan
@@ -5152,6 +6257,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 2994 + d0;
+		} // method
 	} // class
 
 	public partial class BrainCoralWallFan // minecraft:brain_coral_wall_fan
@@ -5192,6 +6305,14 @@ namespace MiNET.Blocks
 			record.Id = 1159;
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 6350 + d0;
 		} // method
 	} // class
 
@@ -5244,6 +6365,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "brewing_stand_slot_c_bit", Value = Convert.ToByte(BrewingStandSlotCBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = BrewingStandSlotABit ? 1 : 0;
+			int d1 = BrewingStandSlotBBit ? 1 : 0;
+			int d2 = BrewingStandSlotCBit ? 1 : 0;
+
+			return 15128 + d0 + d1 * 2 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class BrickBlock // minecraft:brick_block
@@ -5280,6 +6410,8 @@ namespace MiNET.Blocks
 			record.Id = 45;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7988;
 	} // class
 
 	public partial class BrickDoubleSlab // minecraft:brick_double_slab
@@ -5321,6 +6453,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1036 + d0;
+		} // method
 	} // class
 
 	public partial class BrickSlab // minecraft:brick_slab
@@ -5361,6 +6506,19 @@ namespace MiNET.Blocks
 			record.Id = 1129;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15117 + d0;
 		} // method
 	} // class
 
@@ -5407,6 +6565,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12945 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -5469,6 +6636,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 848 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class BrownCandle // minecraft:brown_candle
@@ -5515,6 +6721,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 11518 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class BrownCandleCake // minecraft:brown_candle_cake
@@ -5556,6 +6771,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 5391 + d0;
+		} // method
 	} // class
 
 	public partial class BrownCarpet // minecraft:brown_carpet
@@ -5592,6 +6814,8 @@ namespace MiNET.Blocks
 			record.Id = 863;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3409;
 	} // class
 
 	public partial class BrownConcrete // minecraft:brown_concrete
@@ -5628,6 +6852,8 @@ namespace MiNET.Blocks
 			record.Id = 894;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12590;
 	} // class
 
 	public partial class BrownConcretePowder // minecraft:brown_concrete_powder
@@ -5664,6 +6890,8 @@ namespace MiNET.Blocks
 			record.Id = 975;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11117;
 	} // class
 
 	public partial class BrownGlazedTerracotta // minecraft:brown_glazed_terracotta
@@ -5705,6 +6933,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 5140 + d0;
+		} // method
 	} // class
 
 	public partial class BrownMushroom // minecraft:brown_mushroom
@@ -5741,6 +6977,8 @@ namespace MiNET.Blocks
 			record.Id = 39;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5134;
 	} // class
 
 	public partial class BrownMushroomBlock // minecraft:brown_mushroom_block
@@ -5782,6 +7020,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "huge_mushroom_bits", Value = HugeMushroomBits});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (HugeMushroomBits < 0 || HugeMushroomBits > 15) return -1;
+			int d0 = HugeMushroomBits;
+
+			return 14734 + d0;
+		} // method
 	} // class
 
 	public partial class BrownShulkerBox // minecraft:brown_shulker_box
@@ -5818,6 +7064,8 @@ namespace MiNET.Blocks
 			record.Id = 879;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13333;
 	} // class
 
 	public partial class BrownStainedGlass // minecraft:brown_stained_glass
@@ -5854,6 +7102,8 @@ namespace MiNET.Blocks
 			record.Id = 939;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2703;
 	} // class
 
 	public partial class BrownStainedGlassPane // minecraft:brown_stained_glass_pane
@@ -5890,6 +7140,8 @@ namespace MiNET.Blocks
 			record.Id = 909;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1532;
 	} // class
 
 	public partial class BrownTerracotta // minecraft:brown_terracotta
@@ -5926,6 +7178,8 @@ namespace MiNET.Blocks
 			record.Id = 990;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15898;
 	} // class
 
 	public partial class BrownWool // minecraft:brown_wool
@@ -5962,6 +7216,8 @@ namespace MiNET.Blocks
 			record.Id = 810;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1331;
 	} // class
 
 	public partial class BubbleColumn // minecraft:bubble_column
@@ -6003,6 +7259,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "drag_down", Value = Convert.ToByte(DragDown)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DragDown ? 1 : 0;
+
+			return 10419 + d0;
+		} // method
 	} // class
 
 	public partial class BubbleCoral // minecraft:bubble_coral
@@ -6039,6 +7302,8 @@ namespace MiNET.Blocks
 			record.Id = 837;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12594;
 	} // class
 
 	public partial class BubbleCoralBlock // minecraft:bubble_coral_block
@@ -6075,6 +7340,8 @@ namespace MiNET.Blocks
 			record.Id = 1105;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6556;
 	} // class
 
 	public partial class BubbleCoralFan // minecraft:bubble_coral_fan
@@ -6115,6 +7382,14 @@ namespace MiNET.Blocks
 			record.Id = 1096;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 1264 + d0;
 		} // method
 	} // class
 
@@ -6157,6 +7432,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 13328 + d0;
+		} // method
 	} // class
 
 	public partial class BuddingAmethyst // minecraft:budding_amethyst
@@ -6193,6 +7476,8 @@ namespace MiNET.Blocks
 			record.Id = 583;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13622;
 	} // class
 
 	public partial class Bush // minecraft:bush
@@ -6229,6 +7514,8 @@ namespace MiNET.Blocks
 			record.Id = 1278;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13567;
 	} // class
 
 	public partial class Cactus // minecraft:cactus
@@ -6270,6 +7557,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "age", Value = Age});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 15) return -1;
+			int d0 = Age;
+
+			return 13606 + d0;
+		} // method
 	} // class
 
 	public partial class CactusFlower // minecraft:cactus_flower
@@ -6306,6 +7601,8 @@ namespace MiNET.Blocks
 			record.Id = 1285;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1298;
 	} // class
 
 	public partial class Cake // minecraft:cake
@@ -6347,6 +7644,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "bite_counter", Value = BiteCounter});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (BiteCounter < 0 || BiteCounter > 6) return -1;
+			int d0 = BiteCounter;
+
+			return 14055 + d0;
+		} // method
 	} // class
 
 	public partial class Calcite // minecraft:calcite
@@ -6383,6 +7688,8 @@ namespace MiNET.Blocks
 			record.Id = 581;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1252;
 	} // class
 
 	public partial class CalibratedSculkSensor // minecraft:calibrated_sculk_sensor
@@ -6429,6 +7736,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "sculk_sensor_phase", Value = SculkSensorPhase});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			if (SculkSensorPhase < 0 || SculkSensorPhase > 2) return -1;
+			int d1 = SculkSensorPhase;
+
+			return 11018 + d0 * 3 + d1;
+		} // method
 	} // class
 
 	public partial class Camera // minecraft:camera
@@ -6465,6 +7789,8 @@ namespace MiNET.Blocks
 			record.Id = 242;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14648;
 	} // class
 
 	public partial class Campfire // minecraft:campfire
@@ -6510,6 +7836,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "extinguished", Value = Convert.ToByte(Extinguished)});
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Extinguished ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 10421 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -6557,6 +7899,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 14950 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class CandleCake // minecraft:candle_cake
@@ -6597,6 +7948,13 @@ namespace MiNET.Blocks
 			record.Id = 684;
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 15161 + d0;
 		} // method
 	} // class
 
@@ -6639,6 +7997,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+
+			return 11554 + d0;
+		} // method
 	} // class
 
 	public partial class CartographyTable // minecraft:cartography_table
@@ -6675,6 +8041,8 @@ namespace MiNET.Blocks
 			record.Id = 455;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16875;
 	} // class
 
 	public partial class CarvedPumpkin // minecraft:carved_pumpkin
@@ -6715,6 +8083,21 @@ namespace MiNET.Blocks
 			record.Id = 410;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14925 + d0;
 		} // method
 	} // class
 
@@ -6762,6 +8145,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "fill_level", Value = FillLevel});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CauldronLiquid switch
+			{
+				"water" => 0,
+				"lava" => 1,
+				"powder_snow" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			if (FillLevel < 0 || FillLevel > 6) return -1;
+			int d1 = FillLevel;
+
+			return 15044 + d0 * 7 + d1;
+		} // method
 	} // class
 
 	public partial class CaveVines // minecraft:cave_vines
@@ -6802,6 +8201,14 @@ namespace MiNET.Blocks
 			record.Id = 577;
 			record.States.Add(new BlockStateInt {Name = "growing_plant_age", Value = GrowingPlantAge});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GrowingPlantAge < 0 || GrowingPlantAge > 25) return -1;
+			int d0 = GrowingPlantAge;
+
+			return 8014 + d0;
 		} // method
 	} // class
 
@@ -6844,6 +8251,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "growing_plant_age", Value = GrowingPlantAge});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GrowingPlantAge < 0 || GrowingPlantAge > 25) return -1;
+			int d0 = GrowingPlantAge;
+
+			return 11625 + d0;
+		} // method
 	} // class
 
 	public partial class CaveVinesHeadWithBerries // minecraft:cave_vines_head_with_berries
@@ -6884,6 +8299,14 @@ namespace MiNET.Blocks
 			record.Id = 631;
 			record.States.Add(new BlockStateInt {Name = "growing_plant_age", Value = GrowingPlantAge});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GrowingPlantAge < 0 || GrowingPlantAge > 25) return -1;
+			int d0 = GrowingPlantAge;
+
+			return 15065 + d0;
 		} // method
 	} // class
 
@@ -6931,6 +8354,64 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ConditionalBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 13006 + d0 * 6 + d1;
+		} // method
+	} // class
+
+	public partial class Chalkboard // minecraft:chalkboard
+	{
+		public override string Name => "minecraft:chalkboard";
+
+		public override float Hardness { get; protected set; } = 1.0f;
+		public override float BlastResistance { get; protected set; } = 1.0f;
+		public override float FrictionFactor { get; protected set; } = 0.6f;
+		public override int LightLevel { get; set; } = 0;
+		public override int LightDampening { get; protected set; } = 0;
+		public override float Translucency { get; protected set; } = 1.0f;
+		public override int BurnOdds { get; protected set; } = 0;
+		public override int FlameOdds { get; protected set; } = 0;
+		public override bool IsSolid { get; protected set; } = false;
+		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
+		public override bool CanContainLiquidSource { get; protected set; } = true;
+
+		[StateRange(0, 15)] public int Direction { get; set; } = 0;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateInt s when s.Name == "direction":
+						Direction = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:chalkboard";
+			record.Id = 230;
+			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 15) return -1;
+			int d0 = Direction;
+
+			return 5373 + d0;
+		} // method
 	} // class
 
 	public partial class ChemicalHeat // minecraft:chemical_heat
@@ -6967,6 +8448,8 @@ namespace MiNET.Blocks
 			record.Id = 192;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15027;
 	} // class
 
 	public partial class CherryButton // minecraft:cherry_button
@@ -7012,6 +8495,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 7368 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -7069,6 +8561,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 6738 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class CherryDoubleSlab // minecraft:cherry_double_slab
@@ -7110,6 +8620,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12187 + d0;
+		} // method
 	} // class
 
 	public partial class CherryFence // minecraft:cherry_fence
@@ -7146,6 +8669,8 @@ namespace MiNET.Blocks
 			record.Id = 787;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3427;
 	} // class
 
 	public partial class CherryFenceGate // minecraft:cherry_fence_gate
@@ -7196,6 +8721,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 16812 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -7253,6 +8795,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 452 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class CherryLeaves // minecraft:cherry_leaves
@@ -7299,6 +8853,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 10983 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class CherryLog // minecraft:cherry_log
@@ -7340,6 +8902,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14610 + d0;
+		} // method
 	} // class
 
 	public partial class CherryPlanks // minecraft:cherry_planks
@@ -7376,6 +8952,8 @@ namespace MiNET.Blocks
 			record.Id = 792;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15388;
 	} // class
 
 	public partial class CherryPressurePlate // minecraft:cherry_pressure_plate
@@ -7417,6 +8995,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 436 + d0;
+		} // method
 	} // class
 
 	public partial class CherrySapling // minecraft:cherry_sapling
@@ -7457,6 +9043,13 @@ namespace MiNET.Blocks
 			record.Id = 802;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 14608 + d0;
 		} // method
 	} // class
 
@@ -7509,6 +9102,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 14007 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class CherrySlab // minecraft:cherry_slab
@@ -7549,6 +9160,19 @@ namespace MiNET.Blocks
 			record.Id = 794;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12591 + d0;
 		} // method
 	} // class
 
@@ -7596,6 +9220,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 14047 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class CherryStandingSign // minecraft:cherry_standing_sign
@@ -7636,6 +9269,14 @@ namespace MiNET.Blocks
 			record.Id = 797;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 11064 + d0;
 		} // method
 	} // class
 
@@ -7688,6 +9329,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 3360 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class CherryWallSign // minecraft:cherry_wall_sign
@@ -7728,6 +9379,14 @@ namespace MiNET.Blocks
 			record.Id = 799;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 15347 + d0;
 		} // method
 	} // class
 
@@ -7770,6 +9429,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14043 + d0;
+		} // method
 	} // class
 
 	public partial class Chest // minecraft:chest
@@ -7811,6 +9484,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14039 + d0;
+		} // method
 	} // class
 
 	public partial class ChippedAnvil // minecraft:chipped_anvil
@@ -7851,6 +9539,21 @@ namespace MiNET.Blocks
 			record.Id = 1214;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7906 + d0;
 		} // method
 	} // class
 
@@ -7898,6 +9601,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (BooksStored < 0 || BooksStored > 63) return -1;
+			int d0 = BooksStored;
+			if (Direction < 0 || Direction > 3) return -1;
+			int d1 = Direction;
+
+			return 1605 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class ChiseledCinnabar // minecraft:chiseled_cinnabar
@@ -7934,6 +9647,8 @@ namespace MiNET.Blocks
 			record.Id = 1379;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12733;
 	} // class
 
 	public partial class ChiseledCopper // minecraft:chiseled_copper
@@ -7970,6 +9685,8 @@ namespace MiNET.Blocks
 			record.Id = 1015;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10353;
 	} // class
 
 	public partial class ChiseledDeepslate // minecraft:chiseled_deepslate
@@ -8006,6 +9723,8 @@ namespace MiNET.Blocks
 			record.Id = 650;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9065;
 	} // class
 
 	public partial class ChiseledNetherBricks // minecraft:chiseled_nether_bricks
@@ -8042,6 +9761,8 @@ namespace MiNET.Blocks
 			record.Id = 557;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14591;
 	} // class
 
 	public partial class ChiseledPolishedBlackstone // minecraft:chiseled_polished_blackstone
@@ -8078,6 +9799,8 @@ namespace MiNET.Blocks
 			record.Id = 534;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8893;
 	} // class
 
 	public partial class ChiseledQuartzBlock // minecraft:chiseled_quartz_block
@@ -8119,6 +9842,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14685 + d0;
+		} // method
 	} // class
 
 	public partial class ChiseledRedSandstone // minecraft:chiseled_red_sandstone
@@ -8155,6 +9892,8 @@ namespace MiNET.Blocks
 			record.Id = 1211;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15092;
 	} // class
 
 	public partial class ChiseledResinBricks // minecraft:chiseled_resin_bricks
@@ -8191,6 +9930,8 @@ namespace MiNET.Blocks
 			record.Id = 1275;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12593;
 	} // class
 
 	public partial class ChiseledSandstone // minecraft:chiseled_sandstone
@@ -8227,6 +9968,8 @@ namespace MiNET.Blocks
 			record.Id = 1199;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12157;
 	} // class
 
 	public partial class ChiseledStoneBricks // minecraft:chiseled_stone_bricks
@@ -8263,6 +10006,8 @@ namespace MiNET.Blocks
 			record.Id = 1125;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 348;
 	} // class
 
 	public partial class ChiseledSulfur // minecraft:chiseled_sulfur
@@ -8299,6 +10044,8 @@ namespace MiNET.Blocks
 			record.Id = 1362;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8548;
 	} // class
 
 	public partial class ChiseledTuff // minecraft:chiseled_tuff
@@ -8335,6 +10082,8 @@ namespace MiNET.Blocks
 			record.Id = 1008;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15871;
 	} // class
 
 	public partial class ChiseledTuffBricks // minecraft:chiseled_tuff_bricks
@@ -8371,6 +10120,8 @@ namespace MiNET.Blocks
 			record.Id = 1014;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15020;
 	} // class
 
 	public partial class ChorusFlower // minecraft:chorus_flower
@@ -8412,6 +10163,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "age", Value = Age});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 5) return -1;
+			int d0 = Age;
+
+			return 7085 + d0;
+		} // method
 	} // class
 
 	public partial class ChorusPlant // minecraft:chorus_plant
@@ -8448,6 +10207,8 @@ namespace MiNET.Blocks
 			record.Id = 240;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9807;
 	} // class
 
 	public partial class Cinnabar // minecraft:cinnabar
@@ -8484,6 +10245,8 @@ namespace MiNET.Blocks
 			record.Id = 1364;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12638;
 	} // class
 
 	public partial class CinnabarBrickDoubleSlab // minecraft:cinnabar_brick_double_slab
@@ -8525,6 +10288,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7093 + d0;
+		} // method
 	} // class
 
 	public partial class CinnabarBrickSlab // minecraft:cinnabar_brick_slab
@@ -8565,6 +10341,19 @@ namespace MiNET.Blocks
 			record.Id = 1375;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13963 + d0;
 		} // method
 	} // class
 
@@ -8611,6 +10400,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12453 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -8673,6 +10471,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 15437 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class CinnabarBricks // minecraft:cinnabar_bricks
@@ -8709,6 +10546,8 @@ namespace MiNET.Blocks
 			record.Id = 1374;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11051;
 	} // class
 
 	public partial class CinnabarDoubleSlab // minecraft:cinnabar_double_slab
@@ -8750,6 +10589,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6506 + d0;
+		} // method
 	} // class
 
 	public partial class CinnabarSlab // minecraft:cinnabar_slab
@@ -8790,6 +10642,19 @@ namespace MiNET.Blocks
 			record.Id = 1365;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15869 + d0;
 		} // method
 	} // class
 
@@ -8836,6 +10701,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12934 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -8898,6 +10772,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 1335 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Clay // minecraft:clay
@@ -8934,6 +10847,8 @@ namespace MiNET.Blocks
 			record.Id = 82;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14046;
 	} // class
 
 	public partial class ClientRequestPlaceholderBlock // minecraft:client_request_placeholder_block
@@ -8970,6 +10885,8 @@ namespace MiNET.Blocks
 			record.Id = 720;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6512;
 	} // class
 
 	public partial class ClosedEyeblossom // minecraft:closed_eyeblossom
@@ -9006,6 +10923,8 @@ namespace MiNET.Blocks
 			record.Id = 1274;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13154;
 	} // class
 
 	public partial class CoalBlock // minecraft:coal_block
@@ -9042,6 +10961,8 @@ namespace MiNET.Blocks
 			record.Id = 173;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9275;
 	} // class
 
 	public partial class CoalOre // minecraft:coal_ore
@@ -9078,6 +10999,8 @@ namespace MiNET.Blocks
 			record.Id = 16;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6505;
 	} // class
 
 	public partial class CoarseDirt // minecraft:coarse_dirt
@@ -9114,6 +11037,8 @@ namespace MiNET.Blocks
 			record.Id = 1217;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7084;
 	} // class
 
 	public partial class CobbledDeepslate // minecraft:cobbled_deepslate
@@ -9150,6 +11075,8 @@ namespace MiNET.Blocks
 			record.Id = 634;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13084;
 	} // class
 
 	public partial class CobbledDeepslateDoubleSlab // minecraft:cobbled_deepslate_double_slab
@@ -9191,6 +11118,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11052 + d0;
+		} // method
 	} // class
 
 	public partial class CobbledDeepslateSlab // minecraft:cobbled_deepslate_slab
@@ -9231,6 +11171,19 @@ namespace MiNET.Blocks
 			record.Id = 635;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14665 + d0;
 		} // method
 	} // class
 
@@ -9277,6 +11230,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 1011 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -9339,6 +11301,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 16301 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Cobblestone // minecraft:cobblestone
@@ -9375,6 +11376,8 @@ namespace MiNET.Blocks
 			record.Id = 4;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5265;
 	} // class
 
 	public partial class CobblestoneDoubleSlab // minecraft:cobblestone_double_slab
@@ -9416,6 +11419,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15899 + d0;
+		} // method
 	} // class
 
 	public partial class CobblestoneSlab // minecraft:cobblestone_slab
@@ -9456,6 +11472,19 @@ namespace MiNET.Blocks
 			record.Id = 1128;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6394 + d0;
 		} // method
 	} // class
 
@@ -9518,6 +11547,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 3990 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Cocoa // minecraft:cocoa
@@ -9564,6 +11632,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 2) return -1;
+			int d0 = Age;
+			if (Direction < 0 || Direction > 3) return -1;
+			int d1 = Direction;
+
+			return 12906 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class ColoredTorchBlue // minecraft:colored_torch_blue
@@ -9604,6 +11682,23 @@ namespace MiNET.Blocks
 			record.Id = 204;
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6770 + d0;
 		} // method
 	} // class
 
@@ -9646,6 +11741,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12953 + d0;
+		} // method
 	} // class
 
 	public partial class ColoredTorchPurple // minecraft:colored_torch_purple
@@ -9687,6 +11799,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15374 + d0;
+		} // method
 	} // class
 
 	public partial class ColoredTorchRed // minecraft:colored_torch_red
@@ -9727,6 +11856,23 @@ namespace MiNET.Blocks
 			record.Id = 202;
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 16834 + d0;
 		} // method
 	} // class
 
@@ -9774,6 +11920,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ConditionalBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 15613 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class Composter // minecraft:composter
@@ -9814,6 +11969,14 @@ namespace MiNET.Blocks
 			record.Id = 468;
 			record.States.Add(new BlockStateInt {Name = "composter_fill_level", Value = ComposterFillLevel});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (ComposterFillLevel < 0 || ComposterFillLevel > 8) return -1;
+			int d0 = ComposterFillLevel;
+
+			return 9308 + d0;
 		} // method
 	} // class
 
@@ -9856,6 +12019,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+
+			return 5526 + d0;
+		} // method
 	} // class
 
 	public partial class Conduit // minecraft:conduit
@@ -9892,6 +12063,8 @@ namespace MiNET.Blocks
 			record.Id = 412;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6457;
 	} // class
 
 	public partial class CopperBars // minecraft:copper_bars
@@ -9928,6 +12101,8 @@ namespace MiNET.Blocks
 			record.Id = 1321;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6896;
 	} // class
 
 	public partial class CopperBlock // minecraft:copper_block
@@ -9964,6 +12139,8 @@ namespace MiNET.Blocks
 			record.Id = 595;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7826;
 	} // class
 
 	public partial class CopperBulb // minecraft:copper_bulb
@@ -10010,6 +12187,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 6892 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class CopperChain // minecraft:copper_chain
@@ -10051,6 +12236,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5480 + d0;
+		} // method
 	} // class
 
 	public partial class CopperChest // minecraft:copper_chest
@@ -10091,6 +12290,21 @@ namespace MiNET.Blocks
 			record.Id = 1286;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5483 + d0;
 		} // method
 	} // class
 
@@ -10148,6 +12362,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 11667 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class CopperGolemStatue // minecraft:copper_golem_statue
@@ -10189,6 +12421,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6854 + d0;
+		} // method
 	} // class
 
 	public partial class CopperGrate // minecraft:copper_grate
@@ -10225,6 +12472,8 @@ namespace MiNET.Blocks
 			record.Id = 1023;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1963;
 	} // class
 
 	public partial class CopperLantern // minecraft:copper_lantern
@@ -10266,6 +12515,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 16872 + d0;
+		} // method
 	} // class
 
 	public partial class CopperOre // minecraft:copper_ore
@@ -10302,6 +12558,8 @@ namespace MiNET.Blocks
 			record.Id = 566;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5197;
 	} // class
 
 	public partial class CopperTorch // minecraft:copper_torch
@@ -10342,6 +12600,23 @@ namespace MiNET.Blocks
 			record.Id = 1337;
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6459 + d0;
 		} // method
 	} // class
 
@@ -10394,6 +12669,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 11032 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class Cornflower // minecraft:cornflower
@@ -10430,6 +12715,8 @@ namespace MiNET.Blocks
 			record.Id = 1093;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8892;
 	} // class
 
 	public partial class CrackedDeepslateBricks // minecraft:cracked_deepslate_bricks
@@ -10466,6 +12753,8 @@ namespace MiNET.Blocks
 			record.Id = 665;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9234;
 	} // class
 
 	public partial class CrackedDeepslateTiles // minecraft:cracked_deepslate_tiles
@@ -10502,6 +12791,8 @@ namespace MiNET.Blocks
 			record.Id = 664;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6349;
 	} // class
 
 	public partial class CrackedNetherBricks // minecraft:cracked_nether_bricks
@@ -10538,6 +12829,8 @@ namespace MiNET.Blocks
 			record.Id = 558;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7270;
 	} // class
 
 	public partial class CrackedPolishedBlackstoneBricks // minecraft:cracked_polished_blackstone_bricks
@@ -10574,6 +12867,8 @@ namespace MiNET.Blocks
 			record.Id = 535;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14532;
 	} // class
 
 	public partial class CrackedStoneBricks // minecraft:cracked_stone_bricks
@@ -10610,6 +12905,8 @@ namespace MiNET.Blocks
 			record.Id = 1124;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5262;
 	} // class
 
 	public partial class Crafter // minecraft:crafter
@@ -10661,6 +12958,31 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "triggered_bit", Value = Convert.ToByte(TriggeredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Crafting ? 1 : 0;
+			int d1 = Orientation switch
+			{
+				"down_east" => 0,
+				"down_north" => 1,
+				"down_south" => 2,
+				"down_west" => 3,
+				"up_east" => 4,
+				"up_north" => 5,
+				"up_south" => 6,
+				"up_west" => 7,
+				"west_up" => 8,
+				"east_up" => 9,
+				"north_up" => 10,
+				"south_up" => 11,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = TriggeredBit ? 1 : 0;
+
+			return 15637 + d0 * 24 + d1 + d2 * 12;
+		} // method
 	} // class
 
 	public partial class CraftingTable // minecraft:crafting_table
@@ -10697,6 +13019,8 @@ namespace MiNET.Blocks
 			record.Id = 58;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11055;
 	} // class
 
 	public partial class CreakingHeart // minecraft:creaking_heart
@@ -10748,6 +13072,29 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CreakingHeartState switch
+			{
+				"uprooted" => 0,
+				"dormant" => 1,
+				"awake" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = Natural ? 1 : 0;
+			int d2 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+
+			return 14990 + d0 * 3 + d1 * 9 + d2;
+		} // method
 	} // class
 
 	public partial class CreeperHead // minecraft:creeper_head
@@ -10788,6 +13135,14 @@ namespace MiNET.Blocks
 			record.Id = 1223;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 10987 + d0;
 		} // method
 	} // class
 
@@ -10834,6 +13189,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 6980 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -10891,6 +13255,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 5997 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class CrimsonDoubleSlab // minecraft:crimson_double_slab
@@ -10932,6 +13314,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2884 + d0;
+		} // method
 	} // class
 
 	public partial class CrimsonFence // minecraft:crimson_fence
@@ -10968,6 +13363,8 @@ namespace MiNET.Blocks
 			record.Id = 511;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15868;
 	} // class
 
 	public partial class CrimsonFenceGate // minecraft:crimson_fence_gate
@@ -11019,6 +13416,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 7836 + d0 * 8 + d1 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class CrimsonFungus // minecraft:crimson_fungus
@@ -11055,6 +13469,8 @@ namespace MiNET.Blocks
 			record.Id = 483;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15387;
 	} // class
 
 	public partial class CrimsonHangingSign // minecraft:crimson_hanging_sign
@@ -11111,6 +13527,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 14062 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class CrimsonHyphae // minecraft:crimson_hyphae
@@ -11152,6 +13580,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6776 + d0;
+		} // method
 	} // class
 
 	public partial class CrimsonNylium // minecraft:crimson_nylium
@@ -11188,6 +13630,8 @@ namespace MiNET.Blocks
 			record.Id = 487;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6396;
 	} // class
 
 	public partial class CrimsonPlanks // minecraft:crimson_planks
@@ -11224,6 +13668,8 @@ namespace MiNET.Blocks
 			record.Id = 497;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8480;
 	} // class
 
 	public partial class CrimsonPressurePlate // minecraft:crimson_pressure_plate
@@ -11265,6 +13711,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 16853 + d0;
+		} // method
 	} // class
 
 	public partial class CrimsonRoots // minecraft:crimson_roots
@@ -11301,6 +13755,8 @@ namespace MiNET.Blocks
 			record.Id = 478;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15147;
 	} // class
 
 	public partial class CrimsonShelf // minecraft:crimson_shelf
@@ -11352,6 +13808,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 13882 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class CrimsonSlab // minecraft:crimson_slab
@@ -11392,6 +13866,19 @@ namespace MiNET.Blocks
 			record.Id = 519;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11546 + d0;
 		} // method
 	} // class
 
@@ -11439,6 +13926,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12658 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class CrimsonStandingSign // minecraft:crimson_standing_sign
@@ -11480,6 +13976,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 14691 + d0;
+		} // method
 	} // class
 
 	public partial class CrimsonStem // minecraft:crimson_stem
@@ -11520,6 +14024,20 @@ namespace MiNET.Blocks
 			record.Id = 480;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11540 + d0;
 		} // method
 	} // class
 
@@ -11572,6 +14090,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 6828 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class CrimsonWallSign // minecraft:crimson_wall_sign
@@ -11613,6 +14141,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 837 + d0;
+		} // method
 	} // class
 
 	public partial class CryingObsidian // minecraft:crying_obsidian
@@ -11649,6 +14185,8 @@ namespace MiNET.Blocks
 			record.Id = 544;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13152;
 	} // class
 
 	public partial class CutCopper // minecraft:cut_copper
@@ -11685,6 +14223,8 @@ namespace MiNET.Blocks
 			record.Id = 602;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7864;
 	} // class
 
 	public partial class CutCopperSlab // minecraft:cut_copper_slab
@@ -11725,6 +14265,19 @@ namespace MiNET.Blocks
 			record.Id = 616;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9066 + d0;
 		} // method
 	} // class
 
@@ -11772,6 +14325,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 7353 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class CutRedSandstone // minecraft:cut_red_sandstone
@@ -11808,6 +14370,8 @@ namespace MiNET.Blocks
 			record.Id = 1212;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6134;
 	} // class
 
 	public partial class CutRedSandstoneDoubleSlab // minecraft:cut_red_sandstone_double_slab
@@ -11848,6 +14412,19 @@ namespace MiNET.Blocks
 			record.Id = 1183;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6510 + d0;
 		} // method
 	} // class
 
@@ -11890,6 +14467,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14972 + d0;
+		} // method
 	} // class
 
 	public partial class CutSandstone // minecraft:cut_sandstone
@@ -11926,6 +14516,8 @@ namespace MiNET.Blocks
 			record.Id = 1200;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11736;
 	} // class
 
 	public partial class CutSandstoneDoubleSlab // minecraft:cut_sandstone_double_slab
@@ -11967,6 +14559,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1990 + d0;
+		} // method
 	} // class
 
 	public partial class CutSandstoneSlab // minecraft:cut_sandstone_slab
@@ -12007,6 +14612,19 @@ namespace MiNET.Blocks
 			record.Id = 1155;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9293 + d0;
 		} // method
 	} // class
 
@@ -12054,6 +14672,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 15353 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class CyanCandleCake // minecraft:cyan_candle_cake
@@ -12095,6 +14722,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 2996 + d0;
+		} // method
 	} // class
 
 	public partial class CyanCarpet // minecraft:cyan_carpet
@@ -12131,6 +14765,8 @@ namespace MiNET.Blocks
 			record.Id = 860;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5312;
 	} // class
 
 	public partial class CyanConcrete // minecraft:cyan_concrete
@@ -12167,6 +14803,8 @@ namespace MiNET.Blocks
 			record.Id = 891;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14624;
 	} // class
 
 	public partial class CyanConcretePowder // minecraft:cyan_concrete_powder
@@ -12203,6 +14841,8 @@ namespace MiNET.Blocks
 			record.Id = 972;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5135;
 	} // class
 
 	public partial class CyanGlazedTerracotta // minecraft:cyan_glazed_terracotta
@@ -12244,6 +14884,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 9228 + d0;
+		} // method
 	} // class
 
 	public partial class CyanShulkerBox // minecraft:cyan_shulker_box
@@ -12280,6 +14928,8 @@ namespace MiNET.Blocks
 			record.Id = 876;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13818;
 	} // class
 
 	public partial class CyanStainedGlass // minecraft:cyan_stained_glass
@@ -12316,6 +14966,8 @@ namespace MiNET.Blocks
 			record.Id = 936;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11571;
 	} // class
 
 	public partial class CyanStainedGlassPane // minecraft:cyan_stained_glass_pane
@@ -12352,6 +15004,8 @@ namespace MiNET.Blocks
 			record.Id = 906;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12886;
 	} // class
 
 	public partial class CyanTerracotta // minecraft:cyan_terracotta
@@ -12388,6 +15042,8 @@ namespace MiNET.Blocks
 			record.Id = 987;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 0;
 	} // class
 
 	public partial class CyanWool // minecraft:cyan_wool
@@ -12424,6 +15080,8 @@ namespace MiNET.Blocks
 			record.Id = 816;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9202;
 	} // class
 
 	public partial class DamagedAnvil // minecraft:damaged_anvil
@@ -12465,6 +15123,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 16114 + d0;
+		} // method
 	} // class
 
 	public partial class Dandelion // minecraft:dandelion
@@ -12501,6 +15174,8 @@ namespace MiNET.Blocks
 			record.Id = 37;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16912;
 	} // class
 
 	public partial class DarkOakButton // minecraft:dark_oak_button
@@ -12546,6 +15221,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 335 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -12603,6 +15287,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 10356 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class DarkOakDoubleSlab // minecraft:dark_oak_double_slab
@@ -12644,6 +15346,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6344 + d0;
+		} // method
 	} // class
 
 	public partial class DarkOakFence // minecraft:dark_oak_fence
@@ -12680,6 +15395,8 @@ namespace MiNET.Blocks
 			record.Id = 832;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13968;
 	} // class
 
 	public partial class DarkOakFenceGate // minecraft:dark_oak_fence_gate
@@ -12730,6 +15447,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 6374 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -12787,6 +15521,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 4749 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class DarkOakLeaves // minecraft:dark_oak_leaves
@@ -12833,6 +15579,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 12193 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class DarkOakLog // minecraft:dark_oak_log
@@ -12874,6 +15628,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 4164 + d0;
+		} // method
 	} // class
 
 	public partial class DarkOakPlanks // minecraft:dark_oak_planks
@@ -12910,6 +15678,8 @@ namespace MiNET.Blocks
 			record.Id = 998;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5198;
 	} // class
 
 	public partial class DarkOakPressurePlate // minecraft:dark_oak_pressure_plate
@@ -12951,6 +15721,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 11651 + d0;
+		} // method
 	} // class
 
 	public partial class DarkOakSapling // minecraft:dark_oak_sapling
@@ -12991,6 +15769,13 @@ namespace MiNET.Blocks
 			record.Id = 1084;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 1999 + d0;
 		} // method
 	} // class
 
@@ -13043,6 +15828,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 9131 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class DarkOakSlab // minecraft:dark_oak_slab
@@ -13083,6 +15886,19 @@ namespace MiNET.Blocks
 			record.Id = 1063;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2055 + d0;
 		} // method
 	} // class
 
@@ -13129,6 +15945,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 8894 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -13181,6 +16006,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 15099 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class DarkOakWood // minecraft:dark_oak_wood
@@ -13222,6 +16057,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10 + d0;
+		} // method
 	} // class
 
 	public partial class DarkPrismarine // minecraft:dark_prismarine
@@ -13258,6 +16107,8 @@ namespace MiNET.Blocks
 			record.Id = 1202;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6863;
 	} // class
 
 	public partial class DarkPrismarineDoubleSlab // minecraft:dark_prismarine_double_slab
@@ -13299,6 +16150,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1518 + d0;
+		} // method
 	} // class
 
 	public partial class DarkPrismarineSlab // minecraft:dark_prismarine_slab
@@ -13339,6 +16203,19 @@ namespace MiNET.Blocks
 			record.Id = 1141;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11030 + d0;
 		} // method
 	} // class
 
@@ -13386,6 +16263,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 14982 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class DarkoakStandingSign // minecraft:darkoak_standing_sign
@@ -13426,6 +16312,14 @@ namespace MiNET.Blocks
 			record.Id = 447;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 14707 + d0;
 		} // method
 	} // class
 
@@ -13468,6 +16362,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 9209 + d0;
+		} // method
 	} // class
 
 	public partial class DaylightDetector // minecraft:daylight_detector
@@ -13508,6 +16410,14 @@ namespace MiNET.Blocks
 			record.Id = 151;
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 6422 + d0;
 		} // method
 	} // class
 
@@ -13550,6 +16460,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 7053 + d0;
+		} // method
 	} // class
 
 	public partial class DeadBrainCoral // minecraft:dead_brain_coral
@@ -13586,6 +16504,8 @@ namespace MiNET.Blocks
 			record.Id = 841;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14510;
 	} // class
 
 	public partial class DeadBrainCoralBlock // minecraft:dead_brain_coral_block
@@ -13622,6 +16542,8 @@ namespace MiNET.Blocks
 			record.Id = 1109;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13056;
 	} // class
 
 	public partial class DeadBrainCoralFan // minecraft:dead_brain_coral_fan
@@ -13662,6 +16584,14 @@ namespace MiNET.Blocks
 			record.Id = 1099;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 1299 + d0;
 		} // method
 	} // class
 
@@ -13704,6 +16634,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 6130 + d0;
+		} // method
 	} // class
 
 	public partial class DeadBubbleCoral // minecraft:dead_bubble_coral
@@ -13740,6 +16678,8 @@ namespace MiNET.Blocks
 			record.Id = 842;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14607;
 	} // class
 
 	public partial class DeadBubbleCoralBlock // minecraft:dead_bubble_coral_block
@@ -13776,6 +16716,8 @@ namespace MiNET.Blocks
 			record.Id = 1110;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3418;
 	} // class
 
 	public partial class DeadBubbleCoralFan // minecraft:dead_bubble_coral_fan
@@ -13816,6 +16758,14 @@ namespace MiNET.Blocks
 			record.Id = 1100;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 1259 + d0;
 		} // method
 	} // class
 
@@ -13858,6 +16808,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 1598 + d0;
+		} // method
 	} // class
 
 	public partial class DeadFireCoral // minecraft:dead_fire_coral
@@ -13894,6 +16852,8 @@ namespace MiNET.Blocks
 			record.Id = 843;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12655;
 	} // class
 
 	public partial class DeadFireCoralBlock // minecraft:dead_fire_coral_block
@@ -13930,6 +16890,8 @@ namespace MiNET.Blocks
 			record.Id = 1111;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3593;
 	} // class
 
 	public partial class DeadFireCoralFan // minecraft:dead_fire_coral_fan
@@ -13970,6 +16932,14 @@ namespace MiNET.Blocks
 			record.Id = 1101;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 13155 + d0;
 		} // method
 	} // class
 
@@ -14012,6 +16982,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 5136 + d0;
+		} // method
 	} // class
 
 	public partial class DeadHornCoral // minecraft:dead_horn_coral
@@ -14048,6 +17026,8 @@ namespace MiNET.Blocks
 			record.Id = 844;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11605;
 	} // class
 
 	public partial class DeadHornCoralBlock // minecraft:dead_horn_coral_block
@@ -14084,6 +17064,8 @@ namespace MiNET.Blocks
 			record.Id = 1112;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12887;
 	} // class
 
 	public partial class DeadHornCoralFan // minecraft:dead_horn_coral_fan
@@ -14124,6 +17106,14 @@ namespace MiNET.Blocks
 			record.Id = 1102;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 13878 + d0;
 		} // method
 	} // class
 
@@ -14166,6 +17156,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 13828 + d0;
+		} // method
 	} // class
 
 	public partial class DeadTubeCoral // minecraft:dead_tube_coral
@@ -14202,6 +17200,8 @@ namespace MiNET.Blocks
 			record.Id = 840;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6732;
 	} // class
 
 	public partial class DeadTubeCoralBlock // minecraft:dead_tube_coral_block
@@ -14238,6 +17238,8 @@ namespace MiNET.Blocks
 			record.Id = 1108;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5993;
 	} // class
 
 	public partial class DeadTubeCoralFan // minecraft:dead_tube_coral_fan
@@ -14278,6 +17280,14 @@ namespace MiNET.Blocks
 			record.Id = 389;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 13117 + d0;
 		} // method
 	} // class
 
@@ -14320,6 +17330,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 15093 + d0;
+		} // method
 	} // class
 
 	public partial class Deadbush // minecraft:deadbush
@@ -14356,6 +17374,8 @@ namespace MiNET.Blocks
 			record.Id = 32;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7852;
 	} // class
 
 	public partial class DecoratedPot // minecraft:decorated_pot
@@ -14396,6 +17416,14 @@ namespace MiNET.Blocks
 			record.Id = 806;
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+
+			return 13157 + d0;
 		} // method
 	} // class
 
@@ -14438,6 +17466,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1311 + d0;
+		} // method
 	} // class
 
 	public partial class DeepslateBrickDoubleSlab // minecraft:deepslate_brick_double_slab
@@ -14479,6 +17521,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 4158 + d0;
+		} // method
 	} // class
 
 	public partial class DeepslateBrickSlab // minecraft:deepslate_brick_slab
@@ -14519,6 +17574,19 @@ namespace MiNET.Blocks
 			record.Id = 647;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5457 + d0;
 		} // method
 	} // class
 
@@ -14565,6 +17633,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 14974 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -14627,6 +17704,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 2057 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class DeepslateBricks // minecraft:deepslate_bricks
@@ -14663,6 +17779,8 @@ namespace MiNET.Blocks
 			record.Id = 646;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9379;
 	} // class
 
 	public partial class DeepslateCoalOre // minecraft:deepslate_coal_ore
@@ -14699,6 +17817,8 @@ namespace MiNET.Blocks
 			record.Id = 661;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14511;
 	} // class
 
 	public partial class DeepslateCopperOre // minecraft:deepslate_copper_ore
@@ -14735,6 +17855,8 @@ namespace MiNET.Blocks
 			record.Id = 663;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 347;
 	} // class
 
 	public partial class DeepslateDiamondOre // minecraft:deepslate_diamond_ore
@@ -14771,6 +17893,8 @@ namespace MiNET.Blocks
 			record.Id = 660;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15901;
 	} // class
 
 	public partial class DeepslateEmeraldOre // minecraft:deepslate_emerald_ore
@@ -14807,6 +17931,8 @@ namespace MiNET.Blocks
 			record.Id = 662;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12735;
 	} // class
 
 	public partial class DeepslateGoldOre // minecraft:deepslate_gold_ore
@@ -14843,6 +17969,8 @@ namespace MiNET.Blocks
 			record.Id = 657;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12461;
 	} // class
 
 	public partial class DeepslateIronOre // minecraft:deepslate_iron_ore
@@ -14879,6 +18007,8 @@ namespace MiNET.Blocks
 			record.Id = 656;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14636;
 	} // class
 
 	public partial class DeepslateLapisOre // minecraft:deepslate_lapis_ore
@@ -14915,6 +18045,8 @@ namespace MiNET.Blocks
 			record.Id = 655;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14606;
 	} // class
 
 	public partial class DeepslateRedstoneOre // minecraft:deepslate_redstone_ore
@@ -14951,6 +18083,8 @@ namespace MiNET.Blocks
 			record.Id = 658;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13055;
 	} // class
 
 	public partial class DeepslateTileDoubleSlab // minecraft:deepslate_tile_double_slab
@@ -14992,6 +18126,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1954 + d0;
+		} // method
 	} // class
 
 	public partial class DeepslateTileSlab // minecraft:deepslate_tile_slab
@@ -15032,6 +18179,19 @@ namespace MiNET.Blocks
 			record.Id = 643;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6727 + d0;
 		} // method
 	} // class
 
@@ -15078,6 +18238,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 7828 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -15140,6 +18309,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 8902 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class DeepslateTiles // minecraft:deepslate_tiles
@@ -15176,6 +18384,8 @@ namespace MiNET.Blocks
 			record.Id = 642;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7304;
 	} // class
 
 	public partial class Deny // minecraft:deny
@@ -15212,6 +18422,8 @@ namespace MiNET.Blocks
 			record.Id = 211;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10394;
 	} // class
 
 	public partial class DeprecatedAnvil // minecraft:deprecated_anvil
@@ -15252,6 +18464,21 @@ namespace MiNET.Blocks
 			record.Id = 1216;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9205 + d0;
 		} // method
 	} // class
 
@@ -15294,6 +18521,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13972 + d0;
+		} // method
 	} // class
 
 	public partial class DeprecatedPurpurBlock2 // minecraft:deprecated_purpur_block_2
@@ -15334,6 +18575,20 @@ namespace MiNET.Blocks
 			record.Id = 1207;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13969 + d0;
 		} // method
 	} // class
 
@@ -15381,6 +18636,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "rail_direction", Value = RailDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = RailDataBit ? 1 : 0;
+			if (RailDirection < 0 || RailDirection > 5) return -1;
+			int d1 = RailDirection;
+
+			return 6317 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class DiamondBlock // minecraft:diamond_block
@@ -15417,6 +18681,8 @@ namespace MiNET.Blocks
 			record.Id = 57;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1517;
 	} // class
 
 	public partial class DiamondOre // minecraft:diamond_ore
@@ -15453,6 +18719,8 @@ namespace MiNET.Blocks
 			record.Id = 56;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6860;
 	} // class
 
 	public partial class Diorite // minecraft:diorite
@@ -15489,6 +18757,8 @@ namespace MiNET.Blocks
 			record.Id = 847;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 415;
 	} // class
 
 	public partial class DioriteDoubleSlab // minecraft:diorite_double_slab
@@ -15530,6 +18800,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2256 + d0;
+		} // method
 	} // class
 
 	public partial class DioriteSlab // minecraft:diorite_slab
@@ -15570,6 +18853,19 @@ namespace MiNET.Blocks
 			record.Id = 1149;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1253 + d0;
 		} // method
 	} // class
 
@@ -15616,6 +18912,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6929 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -15678,6 +18983,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 3431 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Dirt // minecraft:dirt
@@ -15714,6 +19058,8 @@ namespace MiNET.Blocks
 			record.Id = 3;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10392;
 	} // class
 
 	public partial class DirtWithRoots // minecraft:dirt_with_roots
@@ -15750,6 +19096,8 @@ namespace MiNET.Blocks
 			record.Id = 573;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9274;
 	} // class
 
 	public partial class Dispenser // minecraft:dispenser
@@ -15796,6 +19144,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "triggered_bit", Value = Convert.ToByte(TriggeredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = TriggeredBit ? 1 : 0;
+
+			return 15886 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class DoubleCutCopperSlab // minecraft:double_cut_copper_slab
@@ -15837,6 +19194,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5371 + d0;
+		} // method
 	} // class
 
 	public partial class DragonEgg // minecraft:dragon_egg
@@ -15873,6 +19243,8 @@ namespace MiNET.Blocks
 			record.Id = 122;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14633;
 	} // class
 
 	public partial class DragonHead // minecraft:dragon_head
@@ -15913,6 +19285,14 @@ namespace MiNET.Blocks
 			record.Id = 1224;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 11011 + d0;
 		} // method
 	} // class
 
@@ -15960,6 +19340,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "rehydration_level", Value = RehydrationLevel});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			if (RehydrationLevel < 0 || RehydrationLevel > 3) return -1;
+			int d1 = RehydrationLevel;
+
+			return 3386 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class DriedKelpBlock // minecraft:dried_kelp_block
@@ -15996,6 +19393,8 @@ namespace MiNET.Blocks
 			record.Id = 394;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15866;
 	} // class
 
 	public partial class DripstoneBlock // minecraft:dripstone_block
@@ -16032,6 +19431,8 @@ namespace MiNET.Blocks
 			record.Id = 572;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3341;
 	} // class
 
 	public partial class Dropper // minecraft:dropper
@@ -16078,6 +19479,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "triggered_bit", Value = Convert.ToByte(TriggeredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = TriggeredBit ? 1 : 0;
+
+			return 14929 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class Element0 // minecraft:element_0
@@ -16114,6 +19524,8 @@ namespace MiNET.Blocks
 			record.Id = 36;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14638;
 	} // class
 
 	public partial class Element1 // minecraft:element_1
@@ -16150,6 +19562,8 @@ namespace MiNET.Blocks
 			record.Id = 267;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14637;
 	} // class
 
 	public partial class Element10 // minecraft:element_10
@@ -16186,6 +19600,8 @@ namespace MiNET.Blocks
 			record.Id = 276;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15231;
 	} // class
 
 	public partial class Element100 // minecraft:element_100
@@ -16222,6 +19638,8 @@ namespace MiNET.Blocks
 			record.Id = 366;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10018;
 	} // class
 
 	public partial class Element101 // minecraft:element_101
@@ -16258,6 +19676,8 @@ namespace MiNET.Blocks
 			record.Id = 367;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10019;
 	} // class
 
 	public partial class Element102 // minecraft:element_102
@@ -16294,6 +19714,8 @@ namespace MiNET.Blocks
 			record.Id = 368;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10020;
 	} // class
 
 	public partial class Element103 // minecraft:element_103
@@ -16330,6 +19752,8 @@ namespace MiNET.Blocks
 			record.Id = 369;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10021;
 	} // class
 
 	public partial class Element104 // minecraft:element_104
@@ -16366,6 +19790,8 @@ namespace MiNET.Blocks
 			record.Id = 370;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10022;
 	} // class
 
 	public partial class Element105 // minecraft:element_105
@@ -16402,6 +19828,8 @@ namespace MiNET.Blocks
 			record.Id = 371;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10023;
 	} // class
 
 	public partial class Element106 // minecraft:element_106
@@ -16438,6 +19866,8 @@ namespace MiNET.Blocks
 			record.Id = 372;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10024;
 	} // class
 
 	public partial class Element107 // minecraft:element_107
@@ -16474,6 +19904,8 @@ namespace MiNET.Blocks
 			record.Id = 373;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10025;
 	} // class
 
 	public partial class Element108 // minecraft:element_108
@@ -16510,6 +19942,8 @@ namespace MiNET.Blocks
 			record.Id = 374;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10026;
 	} // class
 
 	public partial class Element109 // minecraft:element_109
@@ -16546,6 +19980,8 @@ namespace MiNET.Blocks
 			record.Id = 375;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10027;
 	} // class
 
 	public partial class Element11 // minecraft:element_11
@@ -16582,6 +20018,8 @@ namespace MiNET.Blocks
 			record.Id = 277;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15232;
 	} // class
 
 	public partial class Element110 // minecraft:element_110
@@ -16618,6 +20056,8 @@ namespace MiNET.Blocks
 			record.Id = 376;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10031;
 	} // class
 
 	public partial class Element111 // minecraft:element_111
@@ -16654,6 +20094,8 @@ namespace MiNET.Blocks
 			record.Id = 377;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10030;
 	} // class
 
 	public partial class Element112 // minecraft:element_112
@@ -16690,6 +20132,8 @@ namespace MiNET.Blocks
 			record.Id = 378;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10029;
 	} // class
 
 	public partial class Element113 // minecraft:element_113
@@ -16726,6 +20170,8 @@ namespace MiNET.Blocks
 			record.Id = 379;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10028;
 	} // class
 
 	public partial class Element114 // minecraft:element_114
@@ -16762,6 +20208,8 @@ namespace MiNET.Blocks
 			record.Id = 380;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10035;
 	} // class
 
 	public partial class Element115 // minecraft:element_115
@@ -16798,6 +20246,8 @@ namespace MiNET.Blocks
 			record.Id = 381;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10034;
 	} // class
 
 	public partial class Element116 // minecraft:element_116
@@ -16834,6 +20284,8 @@ namespace MiNET.Blocks
 			record.Id = 382;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10033;
 	} // class
 
 	public partial class Element117 // minecraft:element_117
@@ -16870,6 +20322,8 @@ namespace MiNET.Blocks
 			record.Id = 383;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10032;
 	} // class
 
 	public partial class Element118 // minecraft:element_118
@@ -16906,6 +20360,8 @@ namespace MiNET.Blocks
 			record.Id = 384;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10036;
 	} // class
 
 	public partial class Element12 // minecraft:element_12
@@ -16942,6 +20398,8 @@ namespace MiNET.Blocks
 			record.Id = 278;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15233;
 	} // class
 
 	public partial class Element13 // minecraft:element_13
@@ -16978,6 +20436,8 @@ namespace MiNET.Blocks
 			record.Id = 279;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15234;
 	} // class
 
 	public partial class Element14 // minecraft:element_14
@@ -17014,6 +20474,8 @@ namespace MiNET.Blocks
 			record.Id = 280;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15235;
 	} // class
 
 	public partial class Element15 // minecraft:element_15
@@ -17050,6 +20512,8 @@ namespace MiNET.Blocks
 			record.Id = 281;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15236;
 	} // class
 
 	public partial class Element16 // minecraft:element_16
@@ -17086,6 +20550,8 @@ namespace MiNET.Blocks
 			record.Id = 282;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15237;
 	} // class
 
 	public partial class Element17 // minecraft:element_17
@@ -17122,6 +20588,8 @@ namespace MiNET.Blocks
 			record.Id = 283;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15238;
 	} // class
 
 	public partial class Element18 // minecraft:element_18
@@ -17158,6 +20626,8 @@ namespace MiNET.Blocks
 			record.Id = 284;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15239;
 	} // class
 
 	public partial class Element19 // minecraft:element_19
@@ -17194,6 +20664,8 @@ namespace MiNET.Blocks
 			record.Id = 285;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15240;
 	} // class
 
 	public partial class Element2 // minecraft:element_2
@@ -17230,6 +20702,8 @@ namespace MiNET.Blocks
 			record.Id = 268;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14640;
 	} // class
 
 	public partial class Element20 // minecraft:element_20
@@ -17266,6 +20740,8 @@ namespace MiNET.Blocks
 			record.Id = 286;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15254;
 	} // class
 
 	public partial class Element21 // minecraft:element_21
@@ -17302,6 +20778,8 @@ namespace MiNET.Blocks
 			record.Id = 287;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15253;
 	} // class
 
 	public partial class Element22 // minecraft:element_22
@@ -17338,6 +20816,8 @@ namespace MiNET.Blocks
 			record.Id = 288;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15256;
 	} // class
 
 	public partial class Element23 // minecraft:element_23
@@ -17374,6 +20854,8 @@ namespace MiNET.Blocks
 			record.Id = 289;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15255;
 	} // class
 
 	public partial class Element24 // minecraft:element_24
@@ -17410,6 +20892,8 @@ namespace MiNET.Blocks
 			record.Id = 290;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15258;
 	} // class
 
 	public partial class Element25 // minecraft:element_25
@@ -17446,6 +20930,8 @@ namespace MiNET.Blocks
 			record.Id = 291;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15257;
 	} // class
 
 	public partial class Element26 // minecraft:element_26
@@ -17482,6 +20968,8 @@ namespace MiNET.Blocks
 			record.Id = 292;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15260;
 	} // class
 
 	public partial class Element27 // minecraft:element_27
@@ -17518,6 +21006,8 @@ namespace MiNET.Blocks
 			record.Id = 293;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15259;
 	} // class
 
 	public partial class Element28 // minecraft:element_28
@@ -17554,6 +21044,8 @@ namespace MiNET.Blocks
 			record.Id = 294;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15252;
 	} // class
 
 	public partial class Element29 // minecraft:element_29
@@ -17590,6 +21082,8 @@ namespace MiNET.Blocks
 			record.Id = 295;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15251;
 	} // class
 
 	public partial class Element3 // minecraft:element_3
@@ -17626,6 +21120,8 @@ namespace MiNET.Blocks
 			record.Id = 269;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14639;
 	} // class
 
 	public partial class Element30 // minecraft:element_30
@@ -17662,6 +21158,8 @@ namespace MiNET.Blocks
 			record.Id = 296;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15247;
 	} // class
 
 	public partial class Element31 // minecraft:element_31
@@ -17698,6 +21196,8 @@ namespace MiNET.Blocks
 			record.Id = 297;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15248;
 	} // class
 
 	public partial class Element32 // minecraft:element_32
@@ -17734,6 +21234,8 @@ namespace MiNET.Blocks
 			record.Id = 298;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15245;
 	} // class
 
 	public partial class Element33 // minecraft:element_33
@@ -17770,6 +21272,8 @@ namespace MiNET.Blocks
 			record.Id = 299;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15246;
 	} // class
 
 	public partial class Element34 // minecraft:element_34
@@ -17806,6 +21310,8 @@ namespace MiNET.Blocks
 			record.Id = 300;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15243;
 	} // class
 
 	public partial class Element35 // minecraft:element_35
@@ -17842,6 +21348,8 @@ namespace MiNET.Blocks
 			record.Id = 301;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15244;
 	} // class
 
 	public partial class Element36 // minecraft:element_36
@@ -17878,6 +21386,8 @@ namespace MiNET.Blocks
 			record.Id = 302;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15241;
 	} // class
 
 	public partial class Element37 // minecraft:element_37
@@ -17914,6 +21424,8 @@ namespace MiNET.Blocks
 			record.Id = 303;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15242;
 	} // class
 
 	public partial class Element38 // minecraft:element_38
@@ -17950,6 +21462,8 @@ namespace MiNET.Blocks
 			record.Id = 304;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15249;
 	} // class
 
 	public partial class Element39 // minecraft:element_39
@@ -17986,6 +21500,8 @@ namespace MiNET.Blocks
 			record.Id = 305;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15250;
 	} // class
 
 	public partial class Element4 // minecraft:element_4
@@ -18022,6 +21538,8 @@ namespace MiNET.Blocks
 			record.Id = 270;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14642;
 	} // class
 
 	public partial class Element40 // minecraft:element_40
@@ -18058,6 +21576,8 @@ namespace MiNET.Blocks
 			record.Id = 306;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15280;
 	} // class
 
 	public partial class Element41 // minecraft:element_41
@@ -18094,6 +21614,8 @@ namespace MiNET.Blocks
 			record.Id = 307;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15279;
 	} // class
 
 	public partial class Element42 // minecraft:element_42
@@ -18130,6 +21652,8 @@ namespace MiNET.Blocks
 			record.Id = 308;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15278;
 	} // class
 
 	public partial class Element43 // minecraft:element_43
@@ -18166,6 +21690,8 @@ namespace MiNET.Blocks
 			record.Id = 309;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15277;
 	} // class
 
 	public partial class Element44 // minecraft:element_44
@@ -18202,6 +21728,8 @@ namespace MiNET.Blocks
 			record.Id = 310;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15276;
 	} // class
 
 	public partial class Element45 // minecraft:element_45
@@ -18238,6 +21766,8 @@ namespace MiNET.Blocks
 			record.Id = 311;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15275;
 	} // class
 
 	public partial class Element46 // minecraft:element_46
@@ -18274,6 +21804,8 @@ namespace MiNET.Blocks
 			record.Id = 312;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15274;
 	} // class
 
 	public partial class Element47 // minecraft:element_47
@@ -18310,6 +21842,8 @@ namespace MiNET.Blocks
 			record.Id = 313;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15273;
 	} // class
 
 	public partial class Element48 // minecraft:element_48
@@ -18346,6 +21880,8 @@ namespace MiNET.Blocks
 			record.Id = 314;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15272;
 	} // class
 
 	public partial class Element49 // minecraft:element_49
@@ -18382,6 +21918,8 @@ namespace MiNET.Blocks
 			record.Id = 315;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15271;
 	} // class
 
 	public partial class Element5 // minecraft:element_5
@@ -18418,6 +21956,8 @@ namespace MiNET.Blocks
 			record.Id = 271;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14641;
 	} // class
 
 	public partial class Element50 // minecraft:element_50
@@ -18454,6 +21994,8 @@ namespace MiNET.Blocks
 			record.Id = 316;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15267;
 	} // class
 
 	public partial class Element51 // minecraft:element_51
@@ -18490,6 +22032,8 @@ namespace MiNET.Blocks
 			record.Id = 317;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15268;
 	} // class
 
 	public partial class Element52 // minecraft:element_52
@@ -18526,6 +22070,8 @@ namespace MiNET.Blocks
 			record.Id = 318;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15269;
 	} // class
 
 	public partial class Element53 // minecraft:element_53
@@ -18562,6 +22108,8 @@ namespace MiNET.Blocks
 			record.Id = 319;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15270;
 	} // class
 
 	public partial class Element54 // minecraft:element_54
@@ -18598,6 +22146,8 @@ namespace MiNET.Blocks
 			record.Id = 320;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15263;
 	} // class
 
 	public partial class Element55 // minecraft:element_55
@@ -18634,6 +22184,8 @@ namespace MiNET.Blocks
 			record.Id = 321;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15264;
 	} // class
 
 	public partial class Element56 // minecraft:element_56
@@ -18670,6 +22222,8 @@ namespace MiNET.Blocks
 			record.Id = 322;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15265;
 	} // class
 
 	public partial class Element57 // minecraft:element_57
@@ -18706,6 +22260,8 @@ namespace MiNET.Blocks
 			record.Id = 323;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15266;
 	} // class
 
 	public partial class Element58 // minecraft:element_58
@@ -18742,6 +22298,8 @@ namespace MiNET.Blocks
 			record.Id = 324;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15261;
 	} // class
 
 	public partial class Element59 // minecraft:element_59
@@ -18778,6 +22336,8 @@ namespace MiNET.Blocks
 			record.Id = 325;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15262;
 	} // class
 
 	public partial class Element6 // minecraft:element_6
@@ -18814,6 +22374,8 @@ namespace MiNET.Blocks
 			record.Id = 272;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14644;
 	} // class
 
 	public partial class Element60 // minecraft:element_60
@@ -18850,6 +22412,8 @@ namespace MiNET.Blocks
 			record.Id = 326;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15296;
 	} // class
 
 	public partial class Element61 // minecraft:element_61
@@ -18886,6 +22450,8 @@ namespace MiNET.Blocks
 			record.Id = 327;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15295;
 	} // class
 
 	public partial class Element62 // minecraft:element_62
@@ -18922,6 +22488,8 @@ namespace MiNET.Blocks
 			record.Id = 328;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15298;
 	} // class
 
 	public partial class Element63 // minecraft:element_63
@@ -18958,6 +22526,8 @@ namespace MiNET.Blocks
 			record.Id = 329;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15297;
 	} // class
 
 	public partial class Element64 // minecraft:element_64
@@ -18994,6 +22564,8 @@ namespace MiNET.Blocks
 			record.Id = 330;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15292;
 	} // class
 
 	public partial class Element65 // minecraft:element_65
@@ -19030,6 +22602,8 @@ namespace MiNET.Blocks
 			record.Id = 331;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15291;
 	} // class
 
 	public partial class Element66 // minecraft:element_66
@@ -19066,6 +22640,8 @@ namespace MiNET.Blocks
 			record.Id = 332;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15294;
 	} // class
 
 	public partial class Element67 // minecraft:element_67
@@ -19102,6 +22678,8 @@ namespace MiNET.Blocks
 			record.Id = 333;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15293;
 	} // class
 
 	public partial class Element68 // minecraft:element_68
@@ -19138,6 +22716,8 @@ namespace MiNET.Blocks
 			record.Id = 334;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15300;
 	} // class
 
 	public partial class Element69 // minecraft:element_69
@@ -19174,6 +22754,8 @@ namespace MiNET.Blocks
 			record.Id = 335;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15299;
 	} // class
 
 	public partial class Element7 // minecraft:element_7
@@ -19210,6 +22792,8 @@ namespace MiNET.Blocks
 			record.Id = 273;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14643;
 	} // class
 
 	public partial class Element70 // minecraft:element_70
@@ -19246,6 +22830,8 @@ namespace MiNET.Blocks
 			record.Id = 336;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15283;
 	} // class
 
 	public partial class Element71 // minecraft:element_71
@@ -19282,6 +22868,8 @@ namespace MiNET.Blocks
 			record.Id = 337;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15284;
 	} // class
 
 	public partial class Element72 // minecraft:element_72
@@ -19318,6 +22906,8 @@ namespace MiNET.Blocks
 			record.Id = 338;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15281;
 	} // class
 
 	public partial class Element73 // minecraft:element_73
@@ -19354,6 +22944,8 @@ namespace MiNET.Blocks
 			record.Id = 339;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15282;
 	} // class
 
 	public partial class Element74 // minecraft:element_74
@@ -19390,6 +22982,8 @@ namespace MiNET.Blocks
 			record.Id = 340;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15287;
 	} // class
 
 	public partial class Element75 // minecraft:element_75
@@ -19426,6 +23020,8 @@ namespace MiNET.Blocks
 			record.Id = 341;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15288;
 	} // class
 
 	public partial class Element76 // minecraft:element_76
@@ -19462,6 +23058,8 @@ namespace MiNET.Blocks
 			record.Id = 342;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15285;
 	} // class
 
 	public partial class Element77 // minecraft:element_77
@@ -19498,6 +23096,8 @@ namespace MiNET.Blocks
 			record.Id = 343;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15286;
 	} // class
 
 	public partial class Element78 // minecraft:element_78
@@ -19534,6 +23134,8 @@ namespace MiNET.Blocks
 			record.Id = 344;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15289;
 	} // class
 
 	public partial class Element79 // minecraft:element_79
@@ -19570,6 +23172,8 @@ namespace MiNET.Blocks
 			record.Id = 345;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15290;
 	} // class
 
 	public partial class Element8 // minecraft:element_8
@@ -19606,6 +23210,8 @@ namespace MiNET.Blocks
 			record.Id = 274;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14646;
 	} // class
 
 	public partial class Element80 // minecraft:element_80
@@ -19642,6 +23248,8 @@ namespace MiNET.Blocks
 			record.Id = 346;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15316;
 	} // class
 
 	public partial class Element81 // minecraft:element_81
@@ -19678,6 +23286,8 @@ namespace MiNET.Blocks
 			record.Id = 347;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15315;
 	} // class
 
 	public partial class Element82 // minecraft:element_82
@@ -19714,6 +23324,8 @@ namespace MiNET.Blocks
 			record.Id = 348;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15314;
 	} // class
 
 	public partial class Element83 // minecraft:element_83
@@ -19750,6 +23362,8 @@ namespace MiNET.Blocks
 			record.Id = 349;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15313;
 	} // class
 
 	public partial class Element84 // minecraft:element_84
@@ -19786,6 +23400,8 @@ namespace MiNET.Blocks
 			record.Id = 350;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15320;
 	} // class
 
 	public partial class Element85 // minecraft:element_85
@@ -19822,6 +23438,8 @@ namespace MiNET.Blocks
 			record.Id = 351;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15319;
 	} // class
 
 	public partial class Element86 // minecraft:element_86
@@ -19858,6 +23476,8 @@ namespace MiNET.Blocks
 			record.Id = 352;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15318;
 	} // class
 
 	public partial class Element87 // minecraft:element_87
@@ -19894,6 +23514,8 @@ namespace MiNET.Blocks
 			record.Id = 353;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15317;
 	} // class
 
 	public partial class Element88 // minecraft:element_88
@@ -19930,6 +23552,8 @@ namespace MiNET.Blocks
 			record.Id = 354;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15312;
 	} // class
 
 	public partial class Element89 // minecraft:element_89
@@ -19966,6 +23590,8 @@ namespace MiNET.Blocks
 			record.Id = 355;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15311;
 	} // class
 
 	public partial class Element9 // minecraft:element_9
@@ -20002,6 +23628,8 @@ namespace MiNET.Blocks
 			record.Id = 275;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14645;
 	} // class
 
 	public partial class Element90 // minecraft:element_90
@@ -20038,6 +23666,8 @@ namespace MiNET.Blocks
 			record.Id = 356;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15303;
 	} // class
 
 	public partial class Element91 // minecraft:element_91
@@ -20074,6 +23704,8 @@ namespace MiNET.Blocks
 			record.Id = 357;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15304;
 	} // class
 
 	public partial class Element92 // minecraft:element_92
@@ -20110,6 +23742,8 @@ namespace MiNET.Blocks
 			record.Id = 358;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15305;
 	} // class
 
 	public partial class Element93 // minecraft:element_93
@@ -20146,6 +23780,8 @@ namespace MiNET.Blocks
 			record.Id = 359;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15306;
 	} // class
 
 	public partial class Element94 // minecraft:element_94
@@ -20182,6 +23818,8 @@ namespace MiNET.Blocks
 			record.Id = 360;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15307;
 	} // class
 
 	public partial class Element95 // minecraft:element_95
@@ -20218,6 +23856,8 @@ namespace MiNET.Blocks
 			record.Id = 361;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15308;
 	} // class
 
 	public partial class Element96 // minecraft:element_96
@@ -20254,6 +23894,8 @@ namespace MiNET.Blocks
 			record.Id = 362;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15309;
 	} // class
 
 	public partial class Element97 // minecraft:element_97
@@ -20290,6 +23932,8 @@ namespace MiNET.Blocks
 			record.Id = 363;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15310;
 	} // class
 
 	public partial class Element98 // minecraft:element_98
@@ -20326,6 +23970,8 @@ namespace MiNET.Blocks
 			record.Id = 364;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15301;
 	} // class
 
 	public partial class Element99 // minecraft:element_99
@@ -20362,6 +24008,8 @@ namespace MiNET.Blocks
 			record.Id = 365;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15302;
 	} // class
 
 	public partial class ElementConstructor // minecraft:element_constructor
@@ -20403,6 +24051,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+
+			return 7300 + d0;
+		} // method
 	} // class
 
 	public partial class EmeraldBlock // minecraft:emerald_block
@@ -20439,6 +24095,8 @@ namespace MiNET.Blocks
 			record.Id = 133;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3785;
 	} // class
 
 	public partial class EmeraldOre // minecraft:emerald_ore
@@ -20475,6 +24133,8 @@ namespace MiNET.Blocks
 			record.Id = 129;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14733;
 	} // class
 
 	public partial class EnchantingTable // minecraft:enchanting_table
@@ -20511,6 +24171,8 @@ namespace MiNET.Blocks
 			record.Id = 116;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13163;
 	} // class
 
 	public partial class EndBrickStairs // minecraft:end_brick_stairs
@@ -20557,6 +24219,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12771 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class EndBricks // minecraft:end_bricks
@@ -20593,6 +24264,8 @@ namespace MiNET.Blocks
 			record.Id = 206;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1543;
 	} // class
 
 	public partial class EndGateway // minecraft:end_gateway
@@ -20629,6 +24302,8 @@ namespace MiNET.Blocks
 			record.Id = 209;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 844;
 	} // class
 
 	public partial class EndPortal // minecraft:end_portal
@@ -20665,6 +24340,8 @@ namespace MiNET.Blocks
 			record.Id = 119;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15164;
 	} // class
 
 	public partial class EndPortalFrame // minecraft:end_portal_frame
@@ -20711,6 +24388,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = EndPortalEyeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 12385 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class EndRod // minecraft:end_rod
@@ -20752,6 +24445,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 11534 + d0;
+		} // method
 	} // class
 
 	public partial class EndStone // minecraft:end_stone
@@ -20788,6 +24489,8 @@ namespace MiNET.Blocks
 			record.Id = 121;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5994;
 	} // class
 
 	public partial class EndStoneBrickDoubleSlab // minecraft:end_stone_brick_double_slab
@@ -20829,6 +24532,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12825 + d0;
+		} // method
 	} // class
 
 	public partial class EndStoneBrickSlab // minecraft:end_stone_brick_slab
@@ -20869,6 +24585,19 @@ namespace MiNET.Blocks
 			record.Id = 417;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2258 + d0;
 		} // method
 	} // class
 
@@ -20931,6 +24660,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 122 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class EnderChest // minecraft:ender_chest
@@ -20972,6 +24740,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6870 + d0;
+		} // method
 	} // class
 
 	public partial class ExposedChiseledCopper // minecraft:exposed_chiseled_copper
@@ -21008,6 +24791,8 @@ namespace MiNET.Blocks
 			record.Id = 1016;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13021;
 	} // class
 
 	public partial class ExposedCopper // minecraft:exposed_copper
@@ -21044,6 +24829,8 @@ namespace MiNET.Blocks
 			record.Id = 596;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2222;
 	} // class
 
 	public partial class ExposedCopperBars // minecraft:exposed_copper_bars
@@ -21080,6 +24867,8 @@ namespace MiNET.Blocks
 			record.Id = 1322;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12654;
 	} // class
 
 	public partial class ExposedCopperBulb // minecraft:exposed_copper_bulb
@@ -21126,6 +24915,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 12650 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class ExposedCopperChain // minecraft:exposed_copper_chain
@@ -21167,6 +24964,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9305 + d0;
+		} // method
 	} // class
 
 	public partial class ExposedCopperChest // minecraft:exposed_copper_chest
@@ -21207,6 +25018,21 @@ namespace MiNET.Blocks
 			record.Id = 1287;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9301 + d0;
 		} // method
 	} // class
 
@@ -21264,6 +25090,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 7916 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class ExposedCopperGolemStatue // minecraft:exposed_copper_golem_statue
@@ -21305,6 +25149,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15022 + d0;
+		} // method
 	} // class
 
 	public partial class ExposedCopperGrate // minecraft:exposed_copper_grate
@@ -21341,6 +25200,8 @@ namespace MiNET.Blocks
 			record.Id = 1024;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9255;
 	} // class
 
 	public partial class ExposedCopperLantern // minecraft:exposed_copper_lantern
@@ -21381,6 +25242,13 @@ namespace MiNET.Blocks
 			record.Id = 1339;
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 6120 + d0;
 		} // method
 	} // class
 
@@ -21433,6 +25301,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 12412 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class ExposedCutCopper // minecraft:exposed_cut_copper
@@ -21469,6 +25347,8 @@ namespace MiNET.Blocks
 			record.Id = 603;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12556;
 	} // class
 
 	public partial class ExposedCutCopperSlab // minecraft:exposed_cut_copper_slab
@@ -21509,6 +25389,19 @@ namespace MiNET.Blocks
 			record.Id = 617;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13038 + d0;
 		} // method
 	} // class
 
@@ -21556,6 +25449,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 7334 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class ExposedDoubleCutCopperSlab // minecraft:exposed_double_cut_copper_slab
@@ -21596,6 +25498,19 @@ namespace MiNET.Blocks
 			record.Id = 624;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2245 + d0;
 		} // method
 	} // class
 
@@ -21643,6 +25558,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 5418 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class Farmland // minecraft:farmland
@@ -21683,6 +25607,14 @@ namespace MiNET.Blocks
 			record.Id = 60;
 			record.States.Add(new BlockStateInt {Name = "moisturized_amount", Value = MoisturizedAmount});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (MoisturizedAmount < 0 || MoisturizedAmount > 7) return -1;
+			int d0 = MoisturizedAmount;
+
+			return 6122 + d0;
 		} // method
 	} // class
 
@@ -21735,6 +25667,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 286 + d0 * 8 + d1 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class Fern // minecraft:fern
@@ -21771,6 +25720,8 @@ namespace MiNET.Blocks
 			record.Id = 1103;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12215;
 	} // class
 
 	public partial class Fire // minecraft:fire
@@ -21812,6 +25763,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "age", Value = Age});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 15) return -1;
+			int d0 = Age;
+
+			return 12199 + d0;
+		} // method
 	} // class
 
 	public partial class FireCoral // minecraft:fire_coral
@@ -21848,6 +25807,8 @@ namespace MiNET.Blocks
 			record.Id = 838;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2705;
 	} // class
 
 	public partial class FireCoralBlock // minecraft:fire_coral_block
@@ -21884,6 +25845,8 @@ namespace MiNET.Blocks
 			record.Id = 1106;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6993;
 	} // class
 
 	public partial class FireCoralFan // minecraft:fire_coral_fan
@@ -21924,6 +25887,14 @@ namespace MiNET.Blocks
 			record.Id = 1097;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 12988 + d0;
 		} // method
 	} // class
 
@@ -21966,6 +25937,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 9235 + d0;
+		} // method
 	} // class
 
 	public partial class FireflyBush // minecraft:firefly_bush
@@ -22002,6 +25981,8 @@ namespace MiNET.Blocks
 			record.Id = 1280;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1516;
 	} // class
 
 	public partial class FletchingTable // minecraft:fletching_table
@@ -22038,6 +26019,8 @@ namespace MiNET.Blocks
 			record.Id = 456;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10982;
 	} // class
 
 	public partial class FlowerPot // minecraft:flower_pot
@@ -22079,6 +26062,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpdateBit ? 1 : 0;
+
+			return 1603 + d0;
+		} // method
 	} // class
 
 	public partial class FloweringAzalea // minecraft:flowering_azalea
@@ -22115,6 +26105,8 @@ namespace MiNET.Blocks
 			record.Id = 593;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9394;
 	} // class
 
 	public partial class FlowingLava // minecraft:flowing_lava
@@ -22156,6 +26148,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "liquid_depth", Value = LiquidDepth});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
+			int d0 = LiquidDepth;
+
+			return 14549 + d0;
+		} // method
 	} // class
 
 	public partial class FlowingWater // minecraft:flowing_water
@@ -22196,6 +26196,14 @@ namespace MiNET.Blocks
 			record.Id = 8;
 			record.States.Add(new BlockStateInt {Name = "liquid_depth", Value = LiquidDepth});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
+			int d0 = LiquidDepth;
+
+			return 7972 + d0;
 		} // method
 	} // class
 
@@ -22248,6 +26256,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "item_frame_photo_bit", Value = Convert.ToByte(ItemFramePhotoBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = ItemFrameMapBit ? 1 : 0;
+			int d2 = ItemFramePhotoBit ? 1 : 0;
+
+			return 6477 + d0 + d1 * 6 + d2 * 12;
+		} // method
 	} // class
 
 	public partial class FrogSpawn // minecraft:frog_spawn
@@ -22284,6 +26302,8 @@ namespace MiNET.Blocks
 			record.Id = 723;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6941;
 	} // class
 
 	public partial class FrostedIce // minecraft:frosted_ice
@@ -22324,6 +26344,14 @@ namespace MiNET.Blocks
 			record.Id = 207;
 			record.States.Add(new BlockStateInt {Name = "age", Value = Age});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 3) return -1;
+			int d0 = Age;
+
+			return 7902 + d0;
 		} // method
 	} // class
 
@@ -22366,6 +26394,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15688 + d0;
+		} // method
 	} // class
 
 	public partial class GildedBlackstone // minecraft:gilded_blackstone
@@ -22402,6 +26445,8 @@ namespace MiNET.Blocks
 			record.Id = 536;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7331;
 	} // class
 
 	public partial class Glass // minecraft:glass
@@ -22438,6 +26483,8 @@ namespace MiNET.Blocks
 			record.Id = 20;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12552;
 	} // class
 
 	public partial class GlassPane // minecraft:glass_pane
@@ -22474,6 +26521,8 @@ namespace MiNET.Blocks
 			record.Id = 102;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9064;
 	} // class
 
 	public partial class GlowFrame // minecraft:glow_frame
@@ -22525,6 +26574,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "item_frame_photo_bit", Value = Convert.ToByte(ItemFramePhotoBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = ItemFrameMapBit ? 1 : 0;
+			int d2 = ItemFramePhotoBit ? 1 : 0;
+
+			return 1047 + d0 + d1 * 6 + d2 * 12;
+		} // method
 	} // class
 
 	public partial class GlowLichen // minecraft:glow_lichen
@@ -22566,6 +26625,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "multi_face_direction_bits", Value = MultiFaceDirectionBits});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (MultiFaceDirectionBits < 0 || MultiFaceDirectionBits > 63) return -1;
+			int d0 = MultiFaceDirectionBits;
+
+			return 10254 + d0;
+		} // method
 	} // class
 
 	public partial class Glowingobsidian // minecraft:glowingobsidian
@@ -22602,6 +26669,8 @@ namespace MiNET.Blocks
 			record.Id = 246;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5133;
 	} // class
 
 	public partial class Glowstone // minecraft:glowstone
@@ -22638,6 +26707,8 @@ namespace MiNET.Blocks
 			record.Id = 89;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6080;
 	} // class
 
 	public partial class GoldBlock // minecraft:gold_block
@@ -22674,6 +26745,8 @@ namespace MiNET.Blocks
 			record.Id = 41;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1602;
 	} // class
 
 	public partial class GoldOre // minecraft:gold_ore
@@ -22710,6 +26783,8 @@ namespace MiNET.Blocks
 			record.Id = 14;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3378;
 	} // class
 
 	public partial class GoldenDandelion // minecraft:golden_dandelion
@@ -22746,6 +26821,8 @@ namespace MiNET.Blocks
 			record.Id = 1346;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1877;
 	} // class
 
 	public partial class GoldenRail // minecraft:golden_rail
@@ -22792,6 +26869,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "rail_direction", Value = RailDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = RailDataBit ? 1 : 0;
+			if (RailDirection < 0 || RailDirection > 5) return -1;
+			int d1 = RailDirection;
+
+			return 9190 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class Granite // minecraft:granite
@@ -22828,6 +26914,8 @@ namespace MiNET.Blocks
 			record.Id = 845;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 284;
 	} // class
 
 	public partial class GraniteDoubleSlab // minecraft:granite_double_slab
@@ -22869,6 +26957,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13161 + d0;
+		} // method
 	} // class
 
 	public partial class GraniteSlab // minecraft:granite_slab
@@ -22909,6 +27010,19 @@ namespace MiNET.Blocks
 			record.Id = 1151;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7324 + d0;
 		} // method
 	} // class
 
@@ -22955,6 +27069,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 4740 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -23017,6 +27140,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 10434 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class GrassBlock // minecraft:grass_block
@@ -23053,6 +27215,8 @@ namespace MiNET.Blocks
 			record.Id = 2;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11608;
 	} // class
 
 	public partial class GrassPath // minecraft:grass_path
@@ -23089,6 +27253,8 @@ namespace MiNET.Blocks
 			record.Id = 198;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16138;
 	} // class
 
 	public partial class Gravel // minecraft:gravel
@@ -23125,6 +27291,8 @@ namespace MiNET.Blocks
 			record.Id = 13;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16874;
 	} // class
 
 	public partial class GrayCandle // minecraft:gray_candle
@@ -23171,6 +27339,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 3419 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class GrayCandleCake // minecraft:gray_candle_cake
@@ -23212,6 +27389,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 432 + d0;
+		} // method
 	} // class
 
 	public partial class GrayCarpet // minecraft:gray_carpet
@@ -23248,6 +27432,8 @@ namespace MiNET.Blocks
 			record.Id = 858;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1274;
 	} // class
 
 	public partial class GrayConcrete // minecraft:gray_concrete
@@ -23284,6 +27470,8 @@ namespace MiNET.Blocks
 			record.Id = 889;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14753;
 	} // class
 
 	public partial class GrayConcretePowder // minecraft:gray_concrete_powder
@@ -23320,6 +27508,8 @@ namespace MiNET.Blocks
 			record.Id = 970;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14750;
 	} // class
 
 	public partial class GrayGlazedTerracotta // minecraft:gray_glazed_terracotta
@@ -23361,6 +27551,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 16828 + d0;
+		} // method
 	} // class
 
 	public partial class GrayShulkerBox // minecraft:gray_shulker_box
@@ -23397,6 +27595,8 @@ namespace MiNET.Blocks
 			record.Id = 874;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9219;
 	} // class
 
 	public partial class GrayStainedGlass // minecraft:gray_stained_glass
@@ -23433,6 +27633,8 @@ namespace MiNET.Blocks
 			record.Id = 934;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5455;
 	} // class
 
 	public partial class GrayStainedGlassPane // minecraft:gray_stained_glass_pane
@@ -23469,6 +27671,8 @@ namespace MiNET.Blocks
 			record.Id = 904;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13513;
 	} // class
 
 	public partial class GrayTerracotta // minecraft:gray_terracotta
@@ -23505,6 +27709,8 @@ namespace MiNET.Blocks
 			record.Id = 985;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7307;
 	} // class
 
 	public partial class GrayWool // minecraft:gray_wool
@@ -23541,6 +27747,8 @@ namespace MiNET.Blocks
 			record.Id = 808;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1271;
 	} // class
 
 	public partial class GreenCandle // minecraft:green_candle
@@ -23587,6 +27795,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 2892 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class GreenCandleCake // minecraft:green_candle_cake
@@ -23628,6 +27845,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 5241 + d0;
+		} // method
 	} // class
 
 	public partial class GreenCarpet // minecraft:green_carpet
@@ -23664,6 +27888,8 @@ namespace MiNET.Blocks
 			record.Id = 864;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5489;
 	} // class
 
 	public partial class GreenConcrete // minecraft:green_concrete
@@ -23700,6 +27926,8 @@ namespace MiNET.Blocks
 			record.Id = 895;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11543;
 	} // class
 
 	public partial class GreenConcretePowder // minecraft:green_concrete_powder
@@ -23736,6 +27964,8 @@ namespace MiNET.Blocks
 			record.Id = 976;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13804;
 	} // class
 
 	public partial class GreenGlazedTerracotta // minecraft:green_glazed_terracotta
@@ -23777,6 +28007,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 13048 + d0;
+		} // method
 	} // class
 
 	public partial class GreenShulkerBox // minecraft:green_shulker_box
@@ -23813,6 +28051,8 @@ namespace MiNET.Blocks
 			record.Id = 880;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12900;
 	} // class
 
 	public partial class GreenStainedGlass // minecraft:green_stained_glass
@@ -23849,6 +28089,8 @@ namespace MiNET.Blocks
 			record.Id = 940;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6552;
 	} // class
 
 	public partial class GreenStainedGlassPane // minecraft:green_stained_glass_pane
@@ -23885,6 +28127,8 @@ namespace MiNET.Blocks
 			record.Id = 910;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6330;
 	} // class
 
 	public partial class GreenTerracotta // minecraft:green_terracotta
@@ -23921,6 +28165,8 @@ namespace MiNET.Blocks
 			record.Id = 991;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5456;
 	} // class
 
 	public partial class GreenWool // minecraft:green_wool
@@ -23957,6 +28203,8 @@ namespace MiNET.Blocks
 			record.Id = 815;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5488;
 	} // class
 
 	public partial class Grindstone // minecraft:grindstone
@@ -24003,6 +28251,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Attachment switch
+			{
+				"standing" => 0,
+				"hanging" => 1,
+				"side" => 2,
+				"multiple" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			if (Direction < 0 || Direction > 3) return -1;
+			int d1 = Direction;
+
+			return 15902 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class HangingRoots // minecraft:hanging_roots
@@ -24039,6 +28304,8 @@ namespace MiNET.Blocks
 			record.Id = 574;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1073;
 	} // class
 
 	public partial class HardBlackStainedGlass // minecraft:hard_black_stained_glass
@@ -24075,6 +28342,8 @@ namespace MiNET.Blocks
 			record.Id = 957;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11699;
 	} // class
 
 	public partial class HardBlackStainedGlassPane // minecraft:hard_black_stained_glass_pane
@@ -24111,6 +28380,8 @@ namespace MiNET.Blocks
 			record.Id = 927;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1273;
 	} // class
 
 	public partial class HardBlueStainedGlass // minecraft:hard_blue_stained_glass
@@ -24147,6 +28418,8 @@ namespace MiNET.Blocks
 			record.Id = 953;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6858;
 	} // class
 
 	public partial class HardBlueStainedGlassPane // minecraft:hard_blue_stained_glass_pane
@@ -24183,6 +28456,8 @@ namespace MiNET.Blocks
 			record.Id = 923;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16842;
 	} // class
 
 	public partial class HardBrownStainedGlass // minecraft:hard_brown_stained_glass
@@ -24219,6 +28494,8 @@ namespace MiNET.Blocks
 			record.Id = 954;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1266;
 	} // class
 
 	public partial class HardBrownStainedGlassPane // minecraft:hard_brown_stained_glass_pane
@@ -24255,6 +28532,8 @@ namespace MiNET.Blocks
 			record.Id = 924;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3778;
 	} // class
 
 	public partial class HardCyanStainedGlass // minecraft:hard_cyan_stained_glass
@@ -24291,6 +28570,8 @@ namespace MiNET.Blocks
 			record.Id = 951;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6847;
 	} // class
 
 	public partial class HardCyanStainedGlassPane // minecraft:hard_cyan_stained_glass_pane
@@ -24327,6 +28608,8 @@ namespace MiNET.Blocks
 			record.Id = 921;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14586;
 	} // class
 
 	public partial class HardGlass // minecraft:hard_glass
@@ -24363,6 +28646,8 @@ namespace MiNET.Blocks
 			record.Id = 253;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7989;
 	} // class
 
 	public partial class HardGlassPane // minecraft:hard_glass_pane
@@ -24399,6 +28684,8 @@ namespace MiNET.Blocks
 			record.Id = 190;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2712;
 	} // class
 
 	public partial class HardGrayStainedGlass // minecraft:hard_gray_stained_glass
@@ -24435,6 +28722,8 @@ namespace MiNET.Blocks
 			record.Id = 949;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1528;
 	} // class
 
 	public partial class HardGrayStainedGlassPane // minecraft:hard_gray_stained_glass_pane
@@ -24471,6 +28760,8 @@ namespace MiNET.Blocks
 			record.Id = 919;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12891;
 	} // class
 
 	public partial class HardGreenStainedGlass // minecraft:hard_green_stained_glass
@@ -24507,6 +28798,8 @@ namespace MiNET.Blocks
 			record.Id = 955;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12944;
 	} // class
 
 	public partial class HardGreenStainedGlassPane // minecraft:hard_green_stained_glass_pane
@@ -24543,6 +28836,8 @@ namespace MiNET.Blocks
 			record.Id = 925;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 382;
 	} // class
 
 	public partial class HardLightBlueStainedGlass // minecraft:hard_light_blue_stained_glass
@@ -24579,6 +28874,8 @@ namespace MiNET.Blocks
 			record.Id = 945;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3784;
 	} // class
 
 	public partial class HardLightBlueStainedGlassPane // minecraft:hard_light_blue_stained_glass_pane
@@ -24615,6 +28912,8 @@ namespace MiNET.Blocks
 			record.Id = 915;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9257;
 	} // class
 
 	public partial class HardLightGrayStainedGlass // minecraft:hard_light_gray_stained_glass
@@ -24651,6 +28950,8 @@ namespace MiNET.Blocks
 			record.Id = 950;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15867;
 	} // class
 
 	public partial class HardLightGrayStainedGlassPane // minecraft:hard_light_gray_stained_glass_pane
@@ -24687,6 +28988,8 @@ namespace MiNET.Blocks
 			record.Id = 920;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7306;
 	} // class
 
 	public partial class HardLimeStainedGlass // minecraft:hard_lime_stained_glass
@@ -24723,6 +29026,8 @@ namespace MiNET.Blocks
 			record.Id = 947;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12827;
 	} // class
 
 	public partial class HardLimeStainedGlassPane // minecraft:hard_lime_stained_glass_pane
@@ -24759,6 +29064,8 @@ namespace MiNET.Blocks
 			record.Id = 917;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7295;
 	} // class
 
 	public partial class HardMagentaStainedGlass // minecraft:hard_magenta_stained_glass
@@ -24795,6 +29102,8 @@ namespace MiNET.Blocks
 			record.Id = 944;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6316;
 	} // class
 
 	public partial class HardMagentaStainedGlassPane // minecraft:hard_magenta_stained_glass_pane
@@ -24831,6 +29140,8 @@ namespace MiNET.Blocks
 			record.Id = 914;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12726;
 	} // class
 
 	public partial class HardOrangeStainedGlass // minecraft:hard_orange_stained_glass
@@ -24867,6 +29178,8 @@ namespace MiNET.Blocks
 			record.Id = 943;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12519;
 	} // class
 
 	public partial class HardOrangeStainedGlassPane // minecraft:hard_orange_stained_glass_pane
@@ -24903,6 +29216,8 @@ namespace MiNET.Blocks
 			record.Id = 913;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1258;
 	} // class
 
 	public partial class HardPinkStainedGlass // minecraft:hard_pink_stained_glass
@@ -24939,6 +29254,8 @@ namespace MiNET.Blocks
 			record.Id = 948;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1;
 	} // class
 
 	public partial class HardPinkStainedGlassPane // minecraft:hard_pink_stained_glass_pane
@@ -24975,6 +29292,8 @@ namespace MiNET.Blocks
 			record.Id = 918;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15115;
 	} // class
 
 	public partial class HardPurpleStainedGlass // minecraft:hard_purple_stained_glass
@@ -25011,6 +29330,8 @@ namespace MiNET.Blocks
 			record.Id = 952;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6859;
 	} // class
 
 	public partial class HardPurpleStainedGlassPane // minecraft:hard_purple_stained_glass_pane
@@ -25047,6 +29368,8 @@ namespace MiNET.Blocks
 			record.Id = 922;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13839;
 	} // class
 
 	public partial class HardRedStainedGlass // minecraft:hard_red_stained_glass
@@ -25083,6 +29406,8 @@ namespace MiNET.Blocks
 			record.Id = 956;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13526;
 	} // class
 
 	public partial class HardRedStainedGlassPane // minecraft:hard_red_stained_glass_pane
@@ -25119,6 +29444,8 @@ namespace MiNET.Blocks
 			record.Id = 926;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13819;
 	} // class
 
 	public partial class HardWhiteStainedGlass // minecraft:hard_white_stained_glass
@@ -25155,6 +29482,8 @@ namespace MiNET.Blocks
 			record.Id = 254;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6105;
 	} // class
 
 	public partial class HardWhiteStainedGlassPane // minecraft:hard_white_stained_glass_pane
@@ -25191,6 +29520,8 @@ namespace MiNET.Blocks
 			record.Id = 191;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14573;
 	} // class
 
 	public partial class HardYellowStainedGlass // minecraft:hard_yellow_stained_glass
@@ -25227,6 +29558,8 @@ namespace MiNET.Blocks
 			record.Id = 946;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7332;
 	} // class
 
 	public partial class HardYellowStainedGlassPane // minecraft:hard_yellow_stained_glass_pane
@@ -25263,6 +29596,8 @@ namespace MiNET.Blocks
 			record.Id = 916;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6416;
 	} // class
 
 	public partial class HardenedClay // minecraft:hardened_clay
@@ -25299,6 +29634,8 @@ namespace MiNET.Blocks
 			record.Id = 172;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2260;
 	} // class
 
 	public partial class HayBlock // minecraft:hay_block
@@ -25345,6 +29682,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Deprecated < 0 || Deprecated > 3) return -1;
+			int d0 = Deprecated;
+			int d1 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 2907 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class HeavyCore // minecraft:heavy_core
@@ -25381,6 +29734,8 @@ namespace MiNET.Blocks
 			record.Id = 571;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14664;
 	} // class
 
 	public partial class HeavyWeightedPressurePlate // minecraft:heavy_weighted_pressure_plate
@@ -25422,6 +29777,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 3956 + d0;
+		} // method
 	} // class
 
 	public partial class HoneyBlock // minecraft:honey_block
@@ -25458,6 +29821,8 @@ namespace MiNET.Blocks
 			record.Id = 475;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3338;
 	} // class
 
 	public partial class HoneycombBlock // minecraft:honeycomb_block
@@ -25494,6 +29859,8 @@ namespace MiNET.Blocks
 			record.Id = 476;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7027;
 	} // class
 
 	public partial class Hopper // minecraft:hopper
@@ -25540,6 +29907,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "toggle_bit", Value = Convert.ToByte(ToggleBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = ToggleBit ? 1 : 0;
+
+			return 13514 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class HornCoral // minecraft:horn_coral
@@ -25576,6 +29952,8 @@ namespace MiNET.Blocks
 			record.Id = 839;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5278;
 	} // class
 
 	public partial class HornCoralBlock // minecraft:horn_coral_block
@@ -25612,6 +29990,8 @@ namespace MiNET.Blocks
 			record.Id = 1107;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9130;
 	} // class
 
 	public partial class HornCoralFan // minecraft:horn_coral_fan
@@ -25652,6 +30032,14 @@ namespace MiNET.Blocks
 			record.Id = 1098;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 12898 + d0;
 		} // method
 	} // class
 
@@ -25694,6 +30082,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 8486 + d0;
+		} // method
 	} // class
 
 	public partial class Ice // minecraft:ice
@@ -25730,6 +30126,8 @@ namespace MiNET.Blocks
 			record.Id = 79;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13093;
 	} // class
 
 	public partial class InfestedChiseledStoneBricks // minecraft:infested_chiseled_stone_bricks
@@ -25766,6 +30164,8 @@ namespace MiNET.Blocks
 			record.Id = 1117;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6557;
 	} // class
 
 	public partial class InfestedCobblestone // minecraft:infested_cobblestone
@@ -25802,6 +30202,8 @@ namespace MiNET.Blocks
 			record.Id = 1113;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6346;
 	} // class
 
 	public partial class InfestedCrackedStoneBricks // minecraft:infested_cracked_stone_bricks
@@ -25838,6 +30240,8 @@ namespace MiNET.Blocks
 			record.Id = 1116;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2923;
 	} // class
 
 	public partial class InfestedDeepslate // minecraft:infested_deepslate
@@ -25879,6 +30283,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7816 + d0;
+		} // method
 	} // class
 
 	public partial class InfestedMossyStoneBricks // minecraft:infested_mossy_stone_bricks
@@ -25915,6 +30333,8 @@ namespace MiNET.Blocks
 			record.Id = 1115;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3168;
 	} // class
 
 	public partial class InfestedStone // minecraft:infested_stone
@@ -25951,6 +30371,8 @@ namespace MiNET.Blocks
 			record.Id = 97;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12220;
 	} // class
 
 	public partial class InfestedStoneBricks // minecraft:infested_stone_bricks
@@ -25987,6 +30409,8 @@ namespace MiNET.Blocks
 			record.Id = 1114;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9074;
 	} // class
 
 	public partial class InfoUpdate // minecraft:info_update
@@ -26023,6 +30447,8 @@ namespace MiNET.Blocks
 			record.Id = 248;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1301;
 	} // class
 
 	public partial class InfoUpdate2 // minecraft:info_update2
@@ -26059,6 +30485,8 @@ namespace MiNET.Blocks
 			record.Id = 249;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15692;
 	} // class
 
 	public partial class InvisibleBedrock // minecraft:invisible_bedrock
@@ -26095,6 +30523,8 @@ namespace MiNET.Blocks
 			record.Id = 95;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3429;
 	} // class
 
 	public partial class IronBars // minecraft:iron_bars
@@ -26131,6 +30561,8 @@ namespace MiNET.Blocks
 			record.Id = 101;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8041;
 	} // class
 
 	public partial class IronBlock // minecraft:iron_block
@@ -26167,6 +30599,8 @@ namespace MiNET.Blocks
 			record.Id = 42;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16846;
 	} // class
 
 	public partial class IronChain // minecraft:iron_chain
@@ -26207,6 +30641,20 @@ namespace MiNET.Blocks
 			record.Id = 541;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14659 + d0;
 		} // method
 	} // class
 
@@ -26264,6 +30712,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 6995 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class IronOre // minecraft:iron_ore
@@ -26300,6 +30766,8 @@ namespace MiNET.Blocks
 			record.Id = 15;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7869;
 	} // class
 
 	public partial class IronTrapdoor // minecraft:iron_trapdoor
@@ -26351,6 +30819,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 1890 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class Jigsaw // minecraft:jigsaw
@@ -26397,6 +30875,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "rotation", Value = Rotation});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			if (Rotation < 0 || Rotation > 3) return -1;
+			int d1 = Rotation;
+
+			return 8520 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class Jukebox // minecraft:jukebox
@@ -26433,6 +30921,8 @@ namespace MiNET.Blocks
 			record.Id = 84;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8516;
 	} // class
 
 	public partial class JungleButton // minecraft:jungle_button
@@ -26478,6 +30968,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 362 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -26535,6 +31034,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 12520 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class JungleDoubleSlab // minecraft:jungle_double_slab
@@ -26576,6 +31093,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15174 + d0;
+		} // method
 	} // class
 
 	public partial class JungleFence // minecraft:jungle_fence
@@ -26612,6 +31142,8 @@ namespace MiNET.Blocks
 			record.Id = 833;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1989;
 	} // class
 
 	public partial class JungleFenceGate // minecraft:jungle_fence_gate
@@ -26662,6 +31194,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 9239 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -26719,6 +31268,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 5601 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class JungleLeaves // minecraft:jungle_leaves
@@ -26765,6 +31326,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 9215 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class JungleLog // minecraft:jungle_log
@@ -26806,6 +31375,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1261 + d0;
+		} // method
 	} // class
 
 	public partial class JunglePlanks // minecraft:jungle_planks
@@ -26842,6 +31425,8 @@ namespace MiNET.Blocks
 			record.Id = 996;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13054;
 	} // class
 
 	public partial class JunglePressurePlate // minecraft:jungle_pressure_plate
@@ -26883,6 +31468,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 5355 + d0;
+		} // method
 	} // class
 
 	public partial class JungleSapling // minecraft:jungle_sapling
@@ -26923,6 +31516,13 @@ namespace MiNET.Blocks
 			record.Id = 1082;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 12155 + d0;
 		} // method
 	} // class
 
@@ -26975,6 +31575,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 6045 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class JungleSlab // minecraft:jungle_slab
@@ -27015,6 +31633,19 @@ namespace MiNET.Blocks
 			record.Id = 1061;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6077 + d0;
 		} // method
 	} // class
 
@@ -27062,6 +31693,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 13588 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class JungleStandingSign // minecraft:jungle_standing_sign
@@ -27102,6 +31742,14 @@ namespace MiNET.Blocks
 			record.Id = 443;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 12171 + d0;
 		} // method
 	} // class
 
@@ -27154,6 +31802,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 9258 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class JungleWallSign // minecraft:jungle_wall_sign
@@ -27194,6 +31852,14 @@ namespace MiNET.Blocks
 			record.Id = 444;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 6883 + d0;
 		} // method
 	} // class
 
@@ -27236,6 +31902,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2919 + d0;
+		} // method
 	} // class
 
 	public partial class Kelp // minecraft:kelp
@@ -27276,6 +31956,14 @@ namespace MiNET.Blocks
 			record.Id = 393;
 			record.States.Add(new BlockStateInt {Name = "kelp_age", Value = KelpAge});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (KelpAge < 0 || KelpAge > 25) return -1;
+			int d0 = KelpAge;
+
+			return 9319 + d0;
 		} // method
 	} // class
 
@@ -27318,6 +32006,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+
+			return 7362 + d0;
+		} // method
 	} // class
 
 	public partial class Ladder // minecraft:ladder
@@ -27358,6 +32054,14 @@ namespace MiNET.Blocks
 			record.Id = 65;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 16847 + d0;
 		} // method
 	} // class
 
@@ -27400,6 +32104,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 13880 + d0;
+		} // method
 	} // class
 
 	public partial class LapisBlock // minecraft:lapis_block
@@ -27436,6 +32147,8 @@ namespace MiNET.Blocks
 			record.Id = 22;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6504;
 	} // class
 
 	public partial class LapisOre // minecraft:lapis_ore
@@ -27472,6 +32185,8 @@ namespace MiNET.Blocks
 			record.Id = 21;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15325;
 	} // class
 
 	public partial class LargeAmethystBud // minecraft:large_amethyst_bud
@@ -27512,6 +32227,23 @@ namespace MiNET.Blocks
 			record.Id = 585;
 			record.States.Add(new BlockStateString {Name = "minecraft:block_face", Value = BlockFace});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = BlockFace switch
+			{
+				"down" => 0,
+				"up" => 1,
+				"north" => 2,
+				"south" => 3,
+				"west" => 4,
+				"east" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7910 + d0;
 		} // method
 	} // class
 
@@ -27554,6 +32286,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpperBlockBit ? 1 : 0;
+
+			return 12901 + d0;
+		} // method
 	} // class
 
 	public partial class Lava // minecraft:lava
@@ -27594,6 +32333,14 @@ namespace MiNET.Blocks
 			record.Id = 11;
 			record.States.Add(new BlockStateInt {Name = "liquid_depth", Value = LiquidDepth});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
+			int d0 = LiquidDepth;
+
+			return 5585 + d0;
 		} // method
 	} // class
 
@@ -27641,6 +32388,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 46 + d0 + d1 * 8;
+		} // method
 	} // class
 
 	public partial class Lectern // minecraft:lectern
@@ -27686,6 +32450,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 13559 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -27733,6 +32513,26 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = LeverDirection switch
+			{
+				"down_east_west" => 0,
+				"east" => 1,
+				"west" => 2,
+				"south" => 3,
+				"north" => 4,
+				"up_north_south" => 5,
+				"up_east_west" => 6,
+				"down_north_south" => 7,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = OpenBit ? 1 : 0;
+
+			return 12918 + d0 + d1 * 8;
+		} // method
 	} // class
 
 	public partial class LightBlock0 // minecraft:light_block_0
@@ -27769,6 +32569,8 @@ namespace MiNET.Blocks
 			record.Id = 470;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2661;
 	} // class
 
 	public partial class LightBlock1 // minecraft:light_block_1
@@ -27805,6 +32607,8 @@ namespace MiNET.Blocks
 			record.Id = 1184;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2660;
 	} // class
 
 	public partial class LightBlock10 // minecraft:light_block_10
@@ -27841,6 +32645,8 @@ namespace MiNET.Blocks
 			record.Id = 1193;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12881;
 	} // class
 
 	public partial class LightBlock11 // minecraft:light_block_11
@@ -27877,6 +32683,8 @@ namespace MiNET.Blocks
 			record.Id = 1194;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12882;
 	} // class
 
 	public partial class LightBlock12 // minecraft:light_block_12
@@ -27913,6 +32721,8 @@ namespace MiNET.Blocks
 			record.Id = 1195;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12879;
 	} // class
 
 	public partial class LightBlock13 // minecraft:light_block_13
@@ -27949,6 +32759,8 @@ namespace MiNET.Blocks
 			record.Id = 1196;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12880;
 	} // class
 
 	public partial class LightBlock14 // minecraft:light_block_14
@@ -27985,6 +32797,8 @@ namespace MiNET.Blocks
 			record.Id = 1197;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12883;
 	} // class
 
 	public partial class LightBlock15 // minecraft:light_block_15
@@ -28021,6 +32835,8 @@ namespace MiNET.Blocks
 			record.Id = 1198;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12884;
 	} // class
 
 	public partial class LightBlock2 // minecraft:light_block_2
@@ -28057,6 +32873,8 @@ namespace MiNET.Blocks
 			record.Id = 1185;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2659;
 	} // class
 
 	public partial class LightBlock3 // minecraft:light_block_3
@@ -28093,6 +32911,8 @@ namespace MiNET.Blocks
 			record.Id = 1186;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2658;
 	} // class
 
 	public partial class LightBlock4 // minecraft:light_block_4
@@ -28129,6 +32949,8 @@ namespace MiNET.Blocks
 			record.Id = 1187;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2657;
 	} // class
 
 	public partial class LightBlock5 // minecraft:light_block_5
@@ -28165,6 +32987,8 @@ namespace MiNET.Blocks
 			record.Id = 1188;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2656;
 	} // class
 
 	public partial class LightBlock6 // minecraft:light_block_6
@@ -28201,6 +33025,8 @@ namespace MiNET.Blocks
 			record.Id = 1189;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2655;
 	} // class
 
 	public partial class LightBlock7 // minecraft:light_block_7
@@ -28237,6 +33063,8 @@ namespace MiNET.Blocks
 			record.Id = 1190;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2654;
 	} // class
 
 	public partial class LightBlock8 // minecraft:light_block_8
@@ -28273,6 +33101,8 @@ namespace MiNET.Blocks
 			record.Id = 1191;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2653;
 	} // class
 
 	public partial class LightBlock9 // minecraft:light_block_9
@@ -28309,6 +33139,8 @@ namespace MiNET.Blocks
 			record.Id = 1192;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2652;
 	} // class
 
 	public partial class LightBlueCandle // minecraft:light_blue_candle
@@ -28355,6 +33187,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 7287 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class LightBlueCandleCake // minecraft:light_blue_candle_cake
@@ -28396,6 +33237,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 1547 + d0;
+		} // method
 	} // class
 
 	public partial class LightBlueCarpet // minecraft:light_blue_carpet
@@ -28432,6 +33280,8 @@ namespace MiNET.Blocks
 			record.Id = 854;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8046;
 	} // class
 
 	public partial class LightBlueConcrete // minecraft:light_blue_concrete
@@ -28468,6 +33318,8 @@ namespace MiNET.Blocks
 			record.Id = 885;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15021;
 	} // class
 
 	public partial class LightBlueConcretePowder // minecraft:light_blue_concrete_powder
@@ -28504,6 +33356,8 @@ namespace MiNET.Blocks
 			record.Id = 966;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 110;
 	} // class
 
 	public partial class LightBlueGlazedTerracotta // minecraft:light_blue_glazed_terracotta
@@ -28545,6 +33399,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 9386 + d0;
+		} // method
 	} // class
 
 	public partial class LightBlueShulkerBox // minecraft:light_blue_shulker_box
@@ -28581,6 +33443,8 @@ namespace MiNET.Blocks
 			record.Id = 870;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13587;
 	} // class
 
 	public partial class LightBlueStainedGlass // minecraft:light_blue_stained_glass
@@ -28617,6 +33481,8 @@ namespace MiNET.Blocks
 			record.Id = 930;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10431;
 	} // class
 
 	public partial class LightBlueStainedGlassPane // minecraft:light_blue_stained_glass_pane
@@ -28653,6 +33519,8 @@ namespace MiNET.Blocks
 			record.Id = 900;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6079;
 	} // class
 
 	public partial class LightBlueTerracotta // minecraft:light_blue_terracotta
@@ -28689,6 +33557,8 @@ namespace MiNET.Blocks
 			record.Id = 981;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6852;
 	} // class
 
 	public partial class LightBlueWool // minecraft:light_blue_wool
@@ -28725,6 +33595,8 @@ namespace MiNET.Blocks
 			record.Id = 817;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13966;
 	} // class
 
 	public partial class LightGrayCandle // minecraft:light_gray_candle
@@ -28771,6 +33643,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 12596 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class LightGrayCandleCake // minecraft:light_gray_candle_cake
@@ -28812,6 +33693,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 9171 + d0;
+		} // method
 	} // class
 
 	public partial class LightGrayCarpet // minecraft:light_gray_carpet
@@ -28848,6 +33736,8 @@ namespace MiNET.Blocks
 			record.Id = 859;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16844;
 	} // class
 
 	public partial class LightGrayConcrete // minecraft:light_gray_concrete
@@ -28884,6 +33774,8 @@ namespace MiNET.Blocks
 			record.Id = 890;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2891;
 	} // class
 
 	public partial class LightGrayConcretePowder // minecraft:light_gray_concrete_powder
@@ -28920,6 +33812,8 @@ namespace MiNET.Blocks
 			record.Id = 971;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14605;
 	} // class
 
 	public partial class LightGrayShulkerBox // minecraft:light_gray_shulker_box
@@ -28956,6 +33850,8 @@ namespace MiNET.Blocks
 			record.Id = 875;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11552;
 	} // class
 
 	public partial class LightGrayStainedGlass // minecraft:light_gray_stained_glass
@@ -28992,6 +33888,8 @@ namespace MiNET.Blocks
 			record.Id = 935;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2052;
 	} // class
 
 	public partial class LightGrayStainedGlassPane // minecraft:light_gray_stained_glass_pane
@@ -29028,6 +33926,8 @@ namespace MiNET.Blocks
 			record.Id = 905;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2054;
 	} // class
 
 	public partial class LightGrayTerracotta // minecraft:light_gray_terracotta
@@ -29064,6 +33964,8 @@ namespace MiNET.Blocks
 			record.Id = 986;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2698;
 	} // class
 
 	public partial class LightGrayWool // minecraft:light_gray_wool
@@ -29100,6 +34002,8 @@ namespace MiNET.Blocks
 			record.Id = 807;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15922;
 	} // class
 
 	public partial class LightWeightedPressurePlate // minecraft:light_weighted_pressure_plate
@@ -29140,6 +34044,14 @@ namespace MiNET.Blocks
 			record.Id = 147;
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 5399 + d0;
 		} // method
 	} // class
 
@@ -29187,6 +34099,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 3973 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class Lilac // minecraft:lilac
@@ -29228,6 +34149,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpperBlockBit ? 1 : 0;
+
+			return 14667 + d0;
+		} // method
 	} // class
 
 	public partial class LilyOfTheValley // minecraft:lily_of_the_valley
@@ -29264,6 +34192,8 @@ namespace MiNET.Blocks
 			record.Id = 1094;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1275;
 	} // class
 
 	public partial class LimeCandle // minecraft:lime_candle
@@ -29310,6 +34240,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 12757 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class LimeCandleCake // minecraft:lime_candle_cake
@@ -29351,6 +34290,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 16111 + d0;
+		} // method
 	} // class
 
 	public partial class LimeCarpet // minecraft:lime_carpet
@@ -29387,6 +34333,8 @@ namespace MiNET.Blocks
 			record.Id = 856;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13153;
 	} // class
 
 	public partial class LimeConcrete // minecraft:lime_concrete
@@ -29423,6 +34371,8 @@ namespace MiNET.Blocks
 			record.Id = 887;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7327;
 	} // class
 
 	public partial class LimeConcretePowder // minecraft:lime_concrete_powder
@@ -29459,6 +34409,8 @@ namespace MiNET.Blocks
 			record.Id = 968;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15872;
 	} // class
 
 	public partial class LimeGlazedTerracotta // minecraft:lime_glazed_terracotta
@@ -29500,6 +34452,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 1276 + d0;
+		} // method
 	} // class
 
 	public partial class LimeShulkerBox // minecraft:lime_shulker_box
@@ -29536,6 +34496,8 @@ namespace MiNET.Blocks
 			record.Id = 872;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1869;
 	} // class
 
 	public partial class LimeStainedGlass // minecraft:lime_stained_glass
@@ -29572,6 +34534,8 @@ namespace MiNET.Blocks
 			record.Id = 932;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 360;
 	} // class
 
 	public partial class LimeStainedGlassPane // minecraft:lime_stained_glass_pane
@@ -29608,6 +34572,8 @@ namespace MiNET.Blocks
 			record.Id = 902;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15163;
 	} // class
 
 	public partial class LimeTerracotta // minecraft:lime_terracotta
@@ -29644,6 +34610,8 @@ namespace MiNET.Blocks
 			record.Id = 983;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16811;
 	} // class
 
 	public partial class LimeWool // minecraft:lime_wool
@@ -29680,6 +34648,8 @@ namespace MiNET.Blocks
 			record.Id = 814;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12121;
 	} // class
 
 	public partial class LitBlastFurnace // minecraft:lit_blast_furnace
@@ -29721,6 +34691,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13947 + d0;
+		} // method
 	} // class
 
 	public partial class LitDeepslateRedstoneOre // minecraft:lit_deepslate_redstone_ore
@@ -29757,6 +34742,8 @@ namespace MiNET.Blocks
 			record.Id = 659;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15198;
 	} // class
 
 	public partial class LitFurnace // minecraft:lit_furnace
@@ -29797,6 +34784,21 @@ namespace MiNET.Blocks
 			record.Id = 62;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14587 + d0;
 		} // method
 	} // class
 
@@ -29839,6 +34841,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13089 + d0;
+		} // method
 	} // class
 
 	public partial class LitRedstoneLamp // minecraft:lit_redstone_lamp
@@ -29875,6 +34892,8 @@ namespace MiNET.Blocks
 			record.Id = 124;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6853;
 	} // class
 
 	public partial class LitRedstoneOre // minecraft:lit_redstone_ore
@@ -29911,6 +34930,8 @@ namespace MiNET.Blocks
 			record.Id = 74;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7827;
 	} // class
 
 	public partial class LitSmoker // minecraft:lit_smoker
@@ -29952,6 +34973,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15321 + d0;
+		} // method
 	} // class
 
 	public partial class Lodestone // minecraft:lodestone
@@ -29988,6 +35024,8 @@ namespace MiNET.Blocks
 			record.Id = 477;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16840;
 	} // class
 
 	public partial class Loom // minecraft:loom
@@ -30028,6 +35066,14 @@ namespace MiNET.Blocks
 			record.Id = 459;
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+
+			return 5987 + d0;
 		} // method
 	} // class
 
@@ -30075,6 +35121,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 2040 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class MagentaCandleCake // minecraft:magenta_candle_cake
@@ -30116,6 +35171,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 12410 + d0;
+		} // method
 	} // class
 
 	public partial class MagentaCarpet // minecraft:magenta_carpet
@@ -30152,6 +35214,8 @@ namespace MiNET.Blocks
 			record.Id = 853;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1314;
 	} // class
 
 	public partial class MagentaConcrete // minecraft:magenta_concrete
@@ -30188,6 +35252,8 @@ namespace MiNET.Blocks
 			record.Id = 884;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6862;
 	} // class
 
 	public partial class MagentaConcretePowder // minecraft:magenta_concrete_powder
@@ -30224,6 +35290,8 @@ namespace MiNET.Blocks
 			record.Id = 965;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6994;
 	} // class
 
 	public partial class MagentaGlazedTerracotta // minecraft:magenta_glazed_terracotta
@@ -30265,6 +35333,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 3600 + d0;
+		} // method
 	} // class
 
 	public partial class MagentaShulkerBox // minecraft:magenta_shulker_box
@@ -30301,6 +35377,8 @@ namespace MiNET.Blocks
 			record.Id = 869;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1544;
 	} // class
 
 	public partial class MagentaStainedGlass // minecraft:magenta_stained_glass
@@ -30337,6 +35415,8 @@ namespace MiNET.Blocks
 			record.Id = 929;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14572;
 	} // class
 
 	public partial class MagentaStainedGlassPane // minecraft:magenta_stained_glass_pane
@@ -30373,6 +35453,8 @@ namespace MiNET.Blocks
 			record.Id = 899;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8040;
 	} // class
 
 	public partial class MagentaTerracotta // minecraft:magenta_terracotta
@@ -30409,6 +35491,8 @@ namespace MiNET.Blocks
 			record.Id = 980;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7333;
 	} // class
 
 	public partial class MagentaWool // minecraft:magenta_wool
@@ -30445,6 +35529,8 @@ namespace MiNET.Blocks
 			record.Id = 820;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3598;
 	} // class
 
 	public partial class Magma // minecraft:magma
@@ -30481,6 +35567,8 @@ namespace MiNET.Blocks
 			record.Id = 213;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15885;
 	} // class
 
 	public partial class MangroveButton // minecraft:mangrove_button
@@ -30526,6 +35614,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 13865 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -30583,6 +35680,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 12793 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class MangroveDoubleSlab // minecraft:mangrove_double_slab
@@ -30624,6 +35739,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2048 + d0;
+		} // method
 	} // class
 
 	public partial class MangroveFence // minecraft:mangrove_fence
@@ -30660,6 +35788,8 @@ namespace MiNET.Blocks
 			record.Id = 746;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13057;
 	} // class
 
 	public partial class MangroveFenceGate // minecraft:mangrove_fence_gate
@@ -30710,6 +35840,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 7382 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -30767,6 +35914,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 11118 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class MangroveLeaves // minecraft:mangrove_leaves
@@ -30813,6 +35972,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 13080 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class MangroveLog // minecraft:mangrove_log
@@ -30854,6 +36021,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1938 + d0;
+		} // method
 	} // class
 
 	public partial class MangrovePlanks // minecraft:mangrove_planks
@@ -30890,6 +36071,8 @@ namespace MiNET.Blocks
 			record.Id = 741;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3428;
 	} // class
 
 	public partial class MangrovePressurePlate // minecraft:mangrove_pressure_plate
@@ -30930,6 +36113,14 @@ namespace MiNET.Blocks
 			record.Id = 745;
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 6029 + d0;
 		} // method
 	} // class
 
@@ -30977,6 +36168,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "propagule_stage", Value = PropaguleStage});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+			if (PropaguleStage < 0 || PropaguleStage > 4) return -1;
+			int d1 = PropaguleStage;
+
+			return 13596 + d0 * 5 + d1;
+		} // method
 	} // class
 
 	public partial class MangroveRoots // minecraft:mangrove_roots
@@ -31013,6 +36213,8 @@ namespace MiNET.Blocks
 			record.Id = 737;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12565;
 	} // class
 
 	public partial class MangroveShelf // minecraft:mangrove_shelf
@@ -31064,6 +36266,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 5280 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class MangroveSlab // minecraft:mangrove_slab
@@ -31104,6 +36324,19 @@ namespace MiNET.Blocks
 			record.Id = 744;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 3770 + d0;
 		} // method
 	} // class
 
@@ -31151,6 +36384,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 7342 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class MangroveStandingSign // minecraft:mangrove_standing_sign
@@ -31191,6 +36433,14 @@ namespace MiNET.Blocks
 			record.Id = 749;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 6438 + d0;
 		} // method
 	} // class
 
@@ -31243,6 +36493,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 7036 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class MangroveWallSign // minecraft:mangrove_wall_sign
@@ -31283,6 +36543,14 @@ namespace MiNET.Blocks
 			record.Id = 750;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 9120 + d0;
 		} // method
 	} // class
 
@@ -31325,6 +36593,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6354 + d0;
+		} // method
 	} // class
 
 	public partial class MaterialReducer // minecraft:material_reducer
@@ -31365,6 +36647,14 @@ namespace MiNET.Blocks
 			record.Id = 1241;
 			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+
+			return 16121 + d0;
 		} // method
 	} // class
 
@@ -31407,6 +36697,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:block_face", Value = BlockFace});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = BlockFace switch
+			{
+				"down" => 0,
+				"up" => 1,
+				"north" => 2,
+				"south" => 3,
+				"west" => 4,
+				"east" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6874 + d0;
+		} // method
 	} // class
 
 	public partial class MelonBlock // minecraft:melon_block
@@ -31443,6 +36750,8 @@ namespace MiNET.Blocks
 			record.Id = 103;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2001;
 	} // class
 
 	public partial class MelonStem // minecraft:melon_stem
@@ -31489,6 +36798,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			if (Growth < 0 || Growth > 7) return -1;
+			int d1 = Growth;
+
+			return 8432 + d0 * 8 + d1;
+		} // method
 	} // class
 
 	public partial class MobSpawner // minecraft:mob_spawner
@@ -31525,6 +36844,8 @@ namespace MiNET.Blocks
 			record.Id = 52;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2014;
 	} // class
 
 	public partial class MossBlock // minecraft:moss_block
@@ -31561,6 +36882,8 @@ namespace MiNET.Blocks
 			record.Id = 575;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12977;
 	} // class
 
 	public partial class MossCarpet // minecraft:moss_carpet
@@ -31597,6 +36920,8 @@ namespace MiNET.Blocks
 			record.Id = 590;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1549;
 	} // class
 
 	public partial class MossyCobblestone // minecraft:mossy_cobblestone
@@ -31633,6 +36958,8 @@ namespace MiNET.Blocks
 			record.Id = 48;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1310;
 	} // class
 
 	public partial class MossyCobblestoneDoubleSlab // minecraft:mossy_cobblestone_double_slab
@@ -31674,6 +37001,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15686 + d0;
+		} // method
 	} // class
 
 	public partial class MossyCobblestoneSlab // minecraft:mossy_cobblestone_slab
@@ -31714,6 +37054,19 @@ namespace MiNET.Blocks
 			record.Id = 1143;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6390 + d0;
 		} // method
 	} // class
 
@@ -31760,6 +37113,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6308 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -31822,6 +37184,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 3794 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class MossyStoneBrickDoubleSlab // minecraft:mossy_stone_brick_double_slab
@@ -31863,6 +37264,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6508 + d0;
+		} // method
 	} // class
 
 	public partial class MossyStoneBrickSlab // minecraft:mossy_stone_brick_slab
@@ -31903,6 +37317,19 @@ namespace MiNET.Blocks
 			record.Id = 421;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1958 + d0;
 		} // method
 	} // class
 
@@ -31949,6 +37376,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 11526 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -32011,6 +37447,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 16479 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class MossyStoneBricks // minecraft:mossy_stone_bricks
@@ -32047,6 +37522,8 @@ namespace MiNET.Blocks
 			record.Id = 1123;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5487;
 	} // class
 
 	public partial class MovingBlock // minecraft:moving_block
@@ -32083,6 +37560,8 @@ namespace MiNET.Blocks
 			record.Id = 250;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10208;
 	} // class
 
 	public partial class Mud // minecraft:mud
@@ -32119,6 +37598,8 @@ namespace MiNET.Blocks
 			record.Id = 728;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13088;
 	} // class
 
 	public partial class MudBrickDoubleSlab // minecraft:mud_brick_double_slab
@@ -32160,6 +37641,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1071 + d0;
+		} // method
 	} // class
 
 	public partial class MudBrickSlab // minecraft:mud_brick_slab
@@ -32200,6 +37694,19 @@ namespace MiNET.Blocks
 			record.Id = 733;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6106 + d0;
 		} // method
 	} // class
 
@@ -32246,6 +37753,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 9824 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -32308,6 +37824,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 3176 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class MudBricks // minecraft:mud_bricks
@@ -32344,6 +37899,8 @@ namespace MiNET.Blocks
 			record.Id = 730;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13335;
 	} // class
 
 	public partial class MuddyMangroveRoots // minecraft:muddy_mangrove_roots
@@ -32384,6 +37941,20 @@ namespace MiNET.Blocks
 			record.Id = 738;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1914 + d0;
 		} // method
 	} // class
 
@@ -32426,6 +37997,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "huge_mushroom_bits", Value = HugeMushroomBits});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (HugeMushroomBits < 0 || HugeMushroomBits > 15) return -1;
+			int d0 = HugeMushroomBits;
+
+			return 12428 + d0;
+		} // method
 	} // class
 
 	public partial class Mycelium // minecraft:mycelium
@@ -32462,6 +38041,8 @@ namespace MiNET.Blocks
 			record.Id = 110;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5417;
 	} // class
 
 	public partial class NetherBrick // minecraft:nether_brick
@@ -32498,6 +38079,8 @@ namespace MiNET.Blocks
 			record.Id = 112;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14635;
 	} // class
 
 	public partial class NetherBrickDoubleSlab // minecraft:nether_brick_double_slab
@@ -32539,6 +38122,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12554 + d0;
+		} // method
 	} // class
 
 	public partial class NetherBrickFence // minecraft:nether_brick_fence
@@ -32575,6 +38171,8 @@ namespace MiNET.Blocks
 			record.Id = 113;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6720;
 	} // class
 
 	public partial class NetherBrickSlab // minecraft:nether_brick_slab
@@ -32615,6 +38213,19 @@ namespace MiNET.Blocks
 			record.Id = 1132;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12197 + d0;
 		} // method
 	} // class
 
@@ -32661,6 +38272,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 349 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -32723,6 +38343,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 13636 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class NetherGoldOre // minecraft:nether_gold_ore
@@ -32759,6 +38418,8 @@ namespace MiNET.Blocks
 			record.Id = 543;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 32;
 	} // class
 
 	public partial class NetherSprouts // minecraft:nether_sprouts
@@ -32795,6 +38456,8 @@ namespace MiNET.Blocks
 			record.Id = 493;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12885;
 	} // class
 
 	public partial class NetherWart // minecraft:nether_wart
@@ -32836,6 +38499,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "age", Value = Age});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 3) return -1;
+			int d0 = Age;
+
+			return 15380 + d0;
+		} // method
 	} // class
 
 	public partial class NetherWartBlock // minecraft:nether_wart_block
@@ -32872,6 +38543,8 @@ namespace MiNET.Blocks
 			record.Id = 214;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6733;
 	} // class
 
 	public partial class NetheriteBlock // minecraft:netherite_block
@@ -32908,6 +38581,8 @@ namespace MiNET.Blocks
 			record.Id = 525;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5546;
 	} // class
 
 	public partial class Netherrack // minecraft:netherrack
@@ -32944,6 +38619,8 @@ namespace MiNET.Blocks
 			record.Id = 87;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13840;
 	} // class
 
 	public partial class Netherreactor // minecraft:netherreactor
@@ -32980,6 +38657,8 @@ namespace MiNET.Blocks
 			record.Id = 247;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14971;
 	} // class
 
 	public partial class NormalStoneDoubleSlab // minecraft:normal_stone_double_slab
@@ -33021,6 +38700,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6848 + d0;
+		} // method
 	} // class
 
 	public partial class NormalStoneSlab // minecraft:normal_stone_slab
@@ -33061,6 +38753,19 @@ namespace MiNET.Blocks
 			record.Id = 1154;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6406 + d0;
 		} // method
 	} // class
 
@@ -33108,6 +38813,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 2248 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class Noteblock // minecraft:noteblock
@@ -33144,6 +38858,8 @@ namespace MiNET.Blocks
 			record.Id = 25;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1936;
 	} // class
 
 	public partial class OakDoubleSlab // minecraft:oak_double_slab
@@ -33185,6 +38901,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5345 + d0;
+		} // method
 	} // class
 
 	public partial class OakFence // minecraft:oak_fence
@@ -33221,6 +38950,8 @@ namespace MiNET.Blocks
 			record.Id = 85;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10388;
 	} // class
 
 	public partial class OakHangingSign // minecraft:oak_hanging_sign
@@ -33277,6 +39008,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 8047 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class OakLeaves // minecraft:oak_leaves
@@ -33323,6 +39066,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 2926 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class OakLog // minecraft:oak_log
@@ -33364,6 +39115,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1529 + d0;
+		} // method
 	} // class
 
 	public partial class OakPlanks // minecraft:oak_planks
@@ -33400,6 +39165,8 @@ namespace MiNET.Blocks
 			record.Id = 5;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15120;
 	} // class
 
 	public partial class OakSapling // minecraft:oak_sapling
@@ -33440,6 +39207,13 @@ namespace MiNET.Blocks
 			record.Id = 6;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 2694 + d0;
 		} // method
 	} // class
 
@@ -33492,6 +39266,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 6897 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class OakSlab // minecraft:oak_slab
@@ -33532,6 +39324,19 @@ namespace MiNET.Blocks
 			record.Id = 158;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6722 + d0;
 		} // method
 	} // class
 
@@ -33579,6 +39384,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 1520 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class OakWood // minecraft:oak_wood
@@ -33619,6 +39433,20 @@ namespace MiNET.Blocks
 			record.Id = 467;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 8490 + d0;
 		} // method
 	} // class
 
@@ -33666,6 +39494,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = FacingDirection switch
+			{
+				"down" => 0,
+				"up" => 1,
+				"north" => 2,
+				"south" => 3,
+				"west" => 4,
+				"east" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 4716 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class Obsidian // minecraft:obsidian
@@ -33702,6 +39548,8 @@ namespace MiNET.Blocks
 			record.Id = 49;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2053;
 	} // class
 
 	public partial class OchreFroglight // minecraft:ochre_froglight
@@ -33743,6 +39591,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 4551 + d0;
+		} // method
 	} // class
 
 	public partial class OpenEyeblossom // minecraft:open_eyeblossom
@@ -33779,6 +39641,8 @@ namespace MiNET.Blocks
 			record.Id = 1273;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2013;
 	} // class
 
 	public partial class OrangeCandle // minecraft:orange_candle
@@ -33825,6 +39689,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 1965 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class OrangeCandleCake // minecraft:orange_candle_cake
@@ -33866,6 +39739,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 16476 + d0;
+		} // method
 	} // class
 
 	public partial class OrangeCarpet // minecraft:orange_carpet
@@ -33902,6 +39782,8 @@ namespace MiNET.Blocks
 			record.Id = 852;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13877;
 	} // class
 
 	public partial class OrangeConcrete // minecraft:orange_concrete
@@ -33938,6 +39820,8 @@ namespace MiNET.Blocks
 			record.Id = 883;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13151;
 	} // class
 
 	public partial class OrangeConcretePowder // minecraft:orange_concrete_powder
@@ -33974,6 +39858,8 @@ namespace MiNET.Blocks
 			record.Id = 964;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16475;
 	} // class
 
 	public partial class OrangeGlazedTerracotta // minecraft:orange_glazed_terracotta
@@ -34015,6 +39901,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 3772 + d0;
+		} // method
 	} // class
 
 	public partial class OrangeShulkerBox // minecraft:orange_shulker_box
@@ -34051,6 +39945,8 @@ namespace MiNET.Blocks
 			record.Id = 868;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12595;
 	} // class
 
 	public partial class OrangeStainedGlass // minecraft:orange_stained_glass
@@ -34087,6 +39983,8 @@ namespace MiNET.Blocks
 			record.Id = 928;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7091;
 	} // class
 
 	public partial class OrangeStainedGlassPane // minecraft:orange_stained_glass_pane
@@ -34123,6 +40021,8 @@ namespace MiNET.Blocks
 			record.Id = 898;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1272;
 	} // class
 
 	public partial class OrangeTerracotta // minecraft:orange_terracotta
@@ -34159,6 +40059,8 @@ namespace MiNET.Blocks
 			record.Id = 979;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15116;
 	} // class
 
 	public partial class OrangeTulip // minecraft:orange_tulip
@@ -34195,6 +40097,8 @@ namespace MiNET.Blocks
 			record.Id = 1089;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13332;
 	} // class
 
 	public partial class OrangeWool // minecraft:orange_wool
@@ -34231,6 +40135,8 @@ namespace MiNET.Blocks
 			record.Id = 812;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2881;
 	} // class
 
 	public partial class OxeyeDaisy // minecraft:oxeye_daisy
@@ -34267,6 +40173,8 @@ namespace MiNET.Blocks
 			record.Id = 1092;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14647;
 	} // class
 
 	public partial class OxidizedChiseledCopper // minecraft:oxidized_chiseled_copper
@@ -34303,6 +40211,8 @@ namespace MiNET.Blocks
 			record.Id = 1018;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9119;
 	} // class
 
 	public partial class OxidizedCopper // minecraft:oxidized_copper
@@ -34339,6 +40249,8 @@ namespace MiNET.Blocks
 			record.Id = 598;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5196;
 	} // class
 
 	public partial class OxidizedCopperBars // minecraft:oxidized_copper_bars
@@ -34375,6 +40287,8 @@ namespace MiNET.Blocks
 			record.Id = 1324;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3599;
 	} // class
 
 	public partial class OxidizedCopperBulb // minecraft:oxidized_copper_bulb
@@ -34421,6 +40335,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 3594 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class OxidizedCopperChain // minecraft:oxidized_copper_chain
@@ -34462,6 +40384,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13123 + d0;
+		} // method
 	} // class
 
 	public partial class OxidizedCopperChest // minecraft:oxidized_copper_chest
@@ -34502,6 +40438,21 @@ namespace MiNET.Blocks
 			record.Id = 1289;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13119 + d0;
 		} // method
 	} // class
 
@@ -34559,6 +40510,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 16876 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class OxidizedCopperGolemStatue // minecraft:oxidized_copper_golem_statue
@@ -34600,6 +40569,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2648 + d0;
+		} // method
 	} // class
 
 	public partial class OxidizedCopperGrate // minecraft:oxidized_copper_grate
@@ -34636,6 +40620,8 @@ namespace MiNET.Blocks
 			record.Id = 1026;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13058;
 	} // class
 
 	public partial class OxidizedCopperLantern // minecraft:oxidized_copper_lantern
@@ -34676,6 +40662,13 @@ namespace MiNET.Blocks
 			record.Id = 1341;
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 12191 + d0;
 		} // method
 	} // class
 
@@ -34728,6 +40721,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 7308 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class OxidizedCutCopper // minecraft:oxidized_cut_copper
@@ -34764,6 +40767,8 @@ namespace MiNET.Blocks
 			record.Id = 605;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9395;
 	} // class
 
 	public partial class OxidizedCutCopperSlab // minecraft:oxidized_cut_copper_slab
@@ -34804,6 +40809,19 @@ namespace MiNET.Blocks
 			record.Id = 619;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9128 + d0;
 		} // method
 	} // class
 
@@ -34851,6 +40869,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 1941 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class OxidizedDoubleCutCopperSlab // minecraft:oxidized_double_cut_copper_slab
@@ -34891,6 +40918,19 @@ namespace MiNET.Blocks
 			record.Id = 626;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2220 + d0;
 		} // method
 	} // class
 
@@ -34938,6 +40978,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 1551 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class PackedIce // minecraft:packed_ice
@@ -34974,6 +41023,8 @@ namespace MiNET.Blocks
 			record.Id = 174;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1545;
 	} // class
 
 	public partial class PackedMud // minecraft:packed_mud
@@ -35010,6 +41061,8 @@ namespace MiNET.Blocks
 			record.Id = 732;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1546;
 	} // class
 
 	public partial class PaleHangingMoss // minecraft:pale_hanging_moss
@@ -35051,6 +41104,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "tip", Value = Convert.ToByte(Tip)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Tip ? 1 : 0;
+
+			return 12221 + d0;
+		} // method
 	} // class
 
 	public partial class PaleMossBlock // minecraft:pale_moss_block
@@ -35087,6 +41147,8 @@ namespace MiNET.Blocks
 			record.Id = 1264;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10389;
 	} // class
 
 	public partial class PaleMossCarpet // minecraft:pale_moss_carpet
@@ -35148,6 +41210,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PaleMossCarpetSideEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PaleMossCarpetSideNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = PaleMossCarpetSideSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = PaleMossCarpetSideWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = UpperBlockBit ? 1 : 0;
+
+			return 12223 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class PaleOakButton // minecraft:pale_oak_button
@@ -35193,6 +41294,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 15008 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -35250,6 +41360,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 2662 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class PaleOakDoubleSlab // minecraft:pale_oak_double_slab
@@ -35291,6 +41419,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 16809 + d0;
+		} // method
 	} // class
 
 	public partial class PaleOakFence // minecraft:pale_oak_fence
@@ -35327,6 +41468,8 @@ namespace MiNET.Blocks
 			record.Id = 1246;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1949;
 	} // class
 
 	public partial class PaleOakFenceGate // minecraft:pale_oak_fence_gate
@@ -35377,6 +41520,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 416 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -35434,6 +41594,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 9397 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class PaleOakLeaves // minecraft:pale_oak_leaves
@@ -35480,6 +41652,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 1950 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class PaleOakLog // minecraft:pale_oak_log
@@ -35521,6 +41701,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12168 + d0;
+		} // method
 	} // class
 
 	public partial class PaleOakPlanks // minecraft:pale_oak_planks
@@ -35557,6 +41751,8 @@ namespace MiNET.Blocks
 			record.Id = 1251;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5445;
 	} // class
 
 	public partial class PaleOakPressurePlate // minecraft:pale_oak_pressure_plate
@@ -35598,6 +41794,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 1917 + d0;
+		} // method
 	} // class
 
 	public partial class PaleOakSapling // minecraft:pale_oak_sapling
@@ -35638,6 +41842,13 @@ namespace MiNET.Blocks
 			record.Id = 1261;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 2015 + d0;
 		} // method
 	} // class
 
@@ -35690,6 +41901,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 11080 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class PaleOakSlab // minecraft:pale_oak_slab
@@ -35730,6 +41959,19 @@ namespace MiNET.Blocks
 			record.Id = 1253;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6730 + d0;
 		} // method
 	} // class
 
@@ -35777,6 +42019,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 14725 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class PaleOakStandingSign // minecraft:pale_oak_standing_sign
@@ -35817,6 +42068,14 @@ namespace MiNET.Blocks
 			record.Id = 1256;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 13126 + d0;
 		} // method
 	} // class
 
@@ -35869,6 +42128,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 14669 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class PaleOakWallSign // minecraft:pale_oak_wall_sign
@@ -35909,6 +42178,14 @@ namespace MiNET.Blocks
 			record.Id = 1258;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 2018 + d0;
 		} // method
 	} // class
 
@@ -35951,6 +42228,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9071 + d0;
+		} // method
 	} // class
 
 	public partial class PearlescentFroglight // minecraft:pearlescent_froglight
@@ -35991,6 +42282,20 @@ namespace MiNET.Blocks
 			record.Id = 724;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12860 + d0;
 		} // method
 	} // class
 
@@ -36033,6 +42338,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpperBlockBit ? 1 : 0;
+
+			return 15611 + d0;
+		} // method
 	} // class
 
 	public partial class PetrifiedOakDoubleSlab // minecraft:petrified_oak_double_slab
@@ -36073,6 +42385,19 @@ namespace MiNET.Blocks
 			record.Id = 1158;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9203 + d0;
 		} // method
 	} // class
 
@@ -36115,6 +42440,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14751 + d0;
+		} // method
 	} // class
 
 	public partial class PiglinHead // minecraft:piglin_head
@@ -36155,6 +42493,14 @@ namespace MiNET.Blocks
 			record.Id = 1225;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 13832 + d0;
 		} // method
 	} // class
 
@@ -36202,6 +42548,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 14754 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class PinkCandleCake // minecraft:pink_candle_cake
@@ -36243,6 +42598,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 6347 + d0;
+		} // method
 	} // class
 
 	public partial class PinkCarpet // minecraft:pink_carpet
@@ -36279,6 +42641,8 @@ namespace MiNET.Blocks
 			record.Id = 857;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15327;
 	} // class
 
 	public partial class PinkConcrete // minecraft:pink_concrete
@@ -36315,6 +42679,8 @@ namespace MiNET.Blocks
 			record.Id = 888;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 4748;
 	} // class
 
 	public partial class PinkConcretePowder // minecraft:pink_concrete_powder
@@ -36351,6 +42717,8 @@ namespace MiNET.Blocks
 			record.Id = 969;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6729;
 	} // class
 
 	public partial class PinkGlazedTerracotta // minecraft:pink_glazed_terracotta
@@ -36391,6 +42759,14 @@ namespace MiNET.Blocks
 			record.Id = 226;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 12979 + d0;
 		} // method
 	} // class
 
@@ -36438,6 +42814,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 7400 + d0 + d1 * 8;
+		} // method
 	} // class
 
 	public partial class PinkShulkerBox // minecraft:pink_shulker_box
@@ -36474,6 +42867,8 @@ namespace MiNET.Blocks
 			record.Id = 873;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6880;
 	} // class
 
 	public partial class PinkStainedGlass // minecraft:pink_stained_glass
@@ -36510,6 +42905,8 @@ namespace MiNET.Blocks
 			record.Id = 933;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6811;
 	} // class
 
 	public partial class PinkStainedGlassPane // minecraft:pink_stained_glass_pane
@@ -36546,6 +42943,8 @@ namespace MiNET.Blocks
 			record.Id = 903;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13965;
 	} // class
 
 	public partial class PinkTerracotta // minecraft:pink_terracotta
@@ -36582,6 +42981,8 @@ namespace MiNET.Blocks
 			record.Id = 984;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6343;
 	} // class
 
 	public partial class PinkTulip // minecraft:pink_tulip
@@ -36618,6 +43019,8 @@ namespace MiNET.Blocks
 			record.Id = 1091;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6721;
 	} // class
 
 	public partial class PinkWool // minecraft:pink_wool
@@ -36654,6 +43057,8 @@ namespace MiNET.Blocks
 			record.Id = 821;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5547;
 	} // class
 
 	public partial class Piston // minecraft:piston
@@ -36695,6 +43100,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 3403 + d0;
+		} // method
 	} // class
 
 	public partial class PistonArmCollision // minecraft:piston_arm_collision
@@ -36735,6 +43148,14 @@ namespace MiNET.Blocks
 			record.Id = 34;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 114 + d0;
 		} // method
 	} // class
 
@@ -36782,6 +43203,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+			int d1 = UpperBlockBit ? 1 : 0;
+
+			return 1315 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class PitcherPlant // minecraft:pitcher_plant
@@ -36822,6 +43252,13 @@ namespace MiNET.Blocks
 			record.Id = 867;
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpperBlockBit ? 1 : 0;
+
+			return 5524 + d0;
 		} // method
 	} // class
 
@@ -36864,6 +43301,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 5468 + d0;
+		} // method
 	} // class
 
 	public partial class Podzol // minecraft:podzol
@@ -36900,6 +43345,8 @@ namespace MiNET.Blocks
 			record.Id = 243;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7825;
 	} // class
 
 	public partial class PointedDripstone // minecraft:pointed_dripstone
@@ -36946,6 +43393,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DripstoneThickness switch
+			{
+				"tip" => 0,
+				"frustum" => 1,
+				"middle" => 2,
+				"base" => 3,
+				"merge" => 4,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = Hanging ? 1 : 0;
+
+			return 14960 + d0 + d1 * 5;
+		} // method
 	} // class
 
 	public partial class PolishedAndesite // minecraft:polished_andesite
@@ -36982,6 +43446,8 @@ namespace MiNET.Blocks
 			record.Id = 850;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15126;
 	} // class
 
 	public partial class PolishedAndesiteDoubleSlab // minecraft:polished_andesite_double_slab
@@ -37023,6 +43489,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14529 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedAndesiteSlab // minecraft:polished_andesite_slab
@@ -37063,6 +43542,19 @@ namespace MiNET.Blocks
 			record.Id = 1147;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14958 + d0;
 		} // method
 	} // class
 
@@ -37110,6 +43602,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 13820 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class PolishedBasalt // minecraft:polished_basalt
@@ -37151,6 +43652,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 29 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedBlackstone // minecraft:polished_blackstone
@@ -37187,6 +43702,8 @@ namespace MiNET.Blocks
 			record.Id = 546;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5416;
 	} // class
 
 	public partial class PolishedBlackstoneBrickDoubleSlab // minecraft:polished_blackstone_brick_double_slab
@@ -37228,6 +43745,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2882 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedBlackstoneBrickSlab // minecraft:polished_blackstone_brick_slab
@@ -37268,6 +43798,19 @@ namespace MiNET.Blocks
 			record.Id = 539;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6404 + d0;
 		} // method
 	} // class
 
@@ -37314,6 +43857,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 7028 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -37376,6 +43928,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 3608 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class PolishedBlackstoneBricks // minecraft:polished_blackstone_bricks
@@ -37412,6 +44003,8 @@ namespace MiNET.Blocks
 			record.Id = 529;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7855;
 	} // class
 
 	public partial class PolishedBlackstoneButton // minecraft:polished_blackstone_button
@@ -37458,6 +44051,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 15625 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class PolishedBlackstoneDoubleSlab // minecraft:polished_blackstone_double_slab
@@ -37498,6 +44100,19 @@ namespace MiNET.Blocks
 			record.Id = 549;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2696 + d0;
 		} // method
 	} // class
 
@@ -37540,6 +44155,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 12604 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedBlackstoneSlab // minecraft:polished_blackstone_slab
@@ -37580,6 +44203,19 @@ namespace MiNET.Blocks
 			record.Id = 548;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12132 + d0;
 		} // method
 	} // class
 
@@ -37626,6 +44262,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6779 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -37688,6 +44333,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 13164 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class PolishedCinnabar // minecraft:polished_cinnabar
@@ -37724,6 +44408,8 @@ namespace MiNET.Blocks
 			record.Id = 1369;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14531;
 	} // class
 
 	public partial class PolishedCinnabarDoubleSlab // minecraft:polished_cinnabar_double_slab
@@ -37765,6 +44451,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7095 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedCinnabarSlab // minecraft:polished_cinnabar_slab
@@ -37805,6 +44504,19 @@ namespace MiNET.Blocks
 			record.Id = 1370;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 8549 + d0;
 		} // method
 	} // class
 
@@ -37851,6 +44563,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 15166 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -37913,6 +44634,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 6558 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class PolishedDeepslate // minecraft:polished_deepslate
@@ -37949,6 +44709,8 @@ namespace MiNET.Blocks
 			record.Id = 638;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15389;
 	} // class
 
 	public partial class PolishedDeepslateDoubleSlab // minecraft:polished_deepslate_double_slab
@@ -37990,6 +44752,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2223 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedDeepslateSlab // minecraft:polished_deepslate_slab
@@ -38030,6 +44805,19 @@ namespace MiNET.Blocks
 			record.Id = 639;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1563 + d0;
 		} // method
 	} // class
 
@@ -38076,6 +44864,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 1861 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -38138,6 +44935,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 15702 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class PolishedDiorite // minecraft:polished_diorite
@@ -38174,6 +45010,8 @@ namespace MiNET.Blocks
 			record.Id = 848;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10980;
 	} // class
 
 	public partial class PolishedDioriteDoubleSlab // minecraft:polished_diorite_double_slab
@@ -38215,6 +45053,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13626 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedDioriteSlab // minecraft:polished_diorite_slab
@@ -38255,6 +45106,19 @@ namespace MiNET.Blocks
 			record.Id = 1150;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7350 + d0;
 		} // method
 	} // class
 
@@ -38302,6 +45166,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 13142 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class PolishedGranite // minecraft:polished_granite
@@ -38338,6 +45211,8 @@ namespace MiNET.Blocks
 			record.Id = 846;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2017;
 	} // class
 
 	public partial class PolishedGraniteDoubleSlab // minecraft:polished_granite_double_slab
@@ -38379,6 +45254,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15176 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedGraniteSlab // minecraft:polished_granite_slab
@@ -38419,6 +45307,19 @@ namespace MiNET.Blocks
 			record.Id = 1152;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12636 + d0;
 		} // method
 	} // class
 
@@ -38466,6 +45367,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6331 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class PolishedSulfur // minecraft:polished_sulfur
@@ -38502,6 +45412,8 @@ namespace MiNET.Blocks
 			record.Id = 1352;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1010;
 	} // class
 
 	public partial class PolishedSulfurDoubleSlab // minecraft:polished_sulfur_double_slab
@@ -38543,6 +45455,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9068 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedSulfurSlab // minecraft:polished_sulfur_slab
@@ -38583,6 +45508,19 @@ namespace MiNET.Blocks
 			record.Id = 1353;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14622 + d0;
 		} // method
 	} // class
 
@@ -38629,6 +45567,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6803 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -38691,6 +45638,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 16647 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class PolishedTuff // minecraft:polished_tuff
@@ -38727,6 +45713,8 @@ namespace MiNET.Blocks
 			record.Id = 1003;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14571;
 	} // class
 
 	public partial class PolishedTuffDoubleSlab // minecraft:polished_tuff_double_slab
@@ -38768,6 +45756,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5995 + d0;
+		} // method
 	} // class
 
 	public partial class PolishedTuffSlab // minecraft:polished_tuff_slab
@@ -38808,6 +45809,19 @@ namespace MiNET.Blocks
 			record.Id = 1004;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 434 + d0;
 		} // method
 	} // class
 
@@ -38854,6 +45868,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 14625 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -38916,6 +45939,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 2998 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Poppy // minecraft:poppy
@@ -38952,6 +46014,8 @@ namespace MiNET.Blocks
 			record.Id = 38;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5475;
 	} // class
 
 	public partial class Portal // minecraft:portal
@@ -38992,6 +46056,20 @@ namespace MiNET.Blocks
 			record.Id = 90;
 			record.States.Add(new BlockStateString {Name = "portal_axis", Value = PortalAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PortalAxis switch
+			{
+				"unknown" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15434 + d0;
 		} // method
 	} // class
 
@@ -39034,6 +46112,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+
+			return 1906 + d0;
+		} // method
 	} // class
 
 	public partial class PotentSulfur // minecraft:potent_sulfur
@@ -39075,6 +46161,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "potent_sulfur_state", Value = PotentSulfurState});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PotentSulfurState switch
+			{
+				"dry" => 0,
+				"wet" => 1,
+				"dormant" => 2,
+				"erupting" => 3,
+				"continuous" => 4,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11112 + d0;
+		} // method
 	} // class
 
 	public partial class PowderSnow // minecraft:powder_snow
@@ -39111,6 +46213,8 @@ namespace MiNET.Blocks
 			record.Id = 561;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 334;
 	} // class
 
 	public partial class PoweredComparator // minecraft:powered_comparator
@@ -39162,6 +46266,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "output_subtract_bit", Value = Convert.ToByte(OutputSubtractBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = OutputLitBit ? 1 : 0;
+			int d2 = OutputSubtractBit ? 1 : 0;
+
+			return 1973 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class PoweredRepeater // minecraft:powered_repeater
@@ -39208,6 +46329,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "repeater_delay", Value = RepeaterDelay});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			if (RepeaterDelay < 0 || RepeaterDelay > 3) return -1;
+			int d1 = RepeaterDelay;
+
+			return 7271 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class Prismarine // minecraft:prismarine
@@ -39244,6 +46382,8 @@ namespace MiNET.Blocks
 			record.Id = 168;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12409;
 	} // class
 
 	public partial class PrismarineBrickDoubleSlab // minecraft:prismarine_brick_double_slab
@@ -39284,6 +46424,19 @@ namespace MiNET.Blocks
 			record.Id = 1169;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15864 + d0;
 		} // method
 	} // class
 
@@ -39326,6 +46479,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5490 + d0;
+		} // method
 	} // class
 
 	public partial class PrismarineBricks // minecraft:prismarine_bricks
@@ -39362,6 +46528,8 @@ namespace MiNET.Blocks
 			record.Id = 1203;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15931;
 	} // class
 
 	public partial class PrismarineBricksStairs // minecraft:prismarine_bricks_stairs
@@ -39408,6 +46576,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 1236 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class PrismarineDoubleSlab // minecraft:prismarine_double_slab
@@ -39449,6 +46626,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6736 + d0;
+		} // method
 	} // class
 
 	public partial class PrismarineSlab // minecraft:prismarine_slab
@@ -39489,6 +46679,19 @@ namespace MiNET.Blocks
 			record.Id = 1140;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6734 + d0;
 		} // method
 	} // class
 
@@ -39535,6 +46738,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 14613 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -39597,6 +46809,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 8551 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Pumpkin // minecraft:pumpkin
@@ -39637,6 +46888,21 @@ namespace MiNET.Blocks
 			record.Id = 86;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7296 + d0;
 		} // method
 	} // class
 
@@ -39684,6 +46950,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			if (Growth < 0 || Growth > 7) return -1;
+			int d1 = Growth;
+
+			return 12674 + d0 * 8 + d1;
+		} // method
 	} // class
 
 	public partial class PurpleCandle // minecraft:purple_candle
@@ -39730,6 +47006,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 13841 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class PurpleCandleCake // minecraft:purple_candle_cake
@@ -39771,6 +47056,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 13114 + d0;
+		} // method
 	} // class
 
 	public partial class PurpleCarpet // minecraft:purple_carpet
@@ -39807,6 +47099,8 @@ namespace MiNET.Blocks
 			record.Id = 861;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15384;
 	} // class
 
 	public partial class PurpleConcrete // minecraft:purple_concrete
@@ -39843,6 +47137,8 @@ namespace MiNET.Blocks
 			record.Id = 892;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6399;
 	} // class
 
 	public partial class PurpleConcretePowder // minecraft:purple_concrete_powder
@@ -39879,6 +47175,8 @@ namespace MiNET.Blocks
 			record.Id = 973;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12978;
 	} // class
 
 	public partial class PurpleGlazedTerracotta // minecraft:purple_glazed_terracotta
@@ -39920,6 +47218,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 13798 + d0;
+		} // method
 	} // class
 
 	public partial class PurpleShulkerBox // minecraft:purple_shulker_box
@@ -39956,6 +47262,8 @@ namespace MiNET.Blocks
 			record.Id = 877;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14924;
 	} // class
 
 	public partial class PurpleStainedGlass // minecraft:purple_stained_glass
@@ -39992,6 +47300,8 @@ namespace MiNET.Blocks
 			record.Id = 937;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3972;
 	} // class
 
 	public partial class PurpleStainedGlassPane // minecraft:purple_stained_glass_pane
@@ -40028,6 +47338,8 @@ namespace MiNET.Blocks
 			record.Id = 907;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8493;
 	} // class
 
 	public partial class PurpleTerracotta // minecraft:purple_terracotta
@@ -40064,6 +47376,8 @@ namespace MiNET.Blocks
 			record.Id = 988;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12779;
 	} // class
 
 	public partial class PurpleWool // minecraft:purple_wool
@@ -40100,6 +47414,8 @@ namespace MiNET.Blocks
 			record.Id = 819;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16845;
 	} // class
 
 	public partial class PurpurBlock // minecraft:purpur_block
@@ -40140,6 +47456,20 @@ namespace MiNET.Blocks
 			record.Id = 201;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15344 + d0;
 		} // method
 	} // class
 
@@ -40182,6 +47512,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12216 + d0;
+		} // method
 	} // class
 
 	public partial class PurpurPillar // minecraft:purpur_pillar
@@ -40223,6 +47566,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10318 + d0;
+		} // method
 	} // class
 
 	public partial class PurpurSlab // minecraft:purpur_slab
@@ -40263,6 +47620,19 @@ namespace MiNET.Blocks
 			record.Id = 1139;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2875 + d0;
 		} // method
 	} // class
 
@@ -40310,6 +47680,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 15393 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class QuartzBlock // minecraft:quartz_block
@@ -40351,6 +47730,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5442 + d0;
+		} // method
 	} // class
 
 	public partial class QuartzBricks // minecraft:quartz_bricks
@@ -40387,6 +47780,8 @@ namespace MiNET.Blocks
 			record.Id = 559;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12738;
 	} // class
 
 	public partial class QuartzDoubleSlab // minecraft:quartz_double_slab
@@ -40428,6 +47823,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 3606 + d0;
+		} // method
 	} // class
 
 	public partial class QuartzOre // minecraft:quartz_ore
@@ -40464,6 +47872,8 @@ namespace MiNET.Blocks
 			record.Id = 153;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7052;
 	} // class
 
 	public partial class QuartzPillar // minecraft:quartz_pillar
@@ -40505,6 +47915,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5581 + d0;
+		} // method
 	} // class
 
 	public partial class QuartzSlab // minecraft:quartz_slab
@@ -40545,6 +47969,19 @@ namespace MiNET.Blocks
 			record.Id = 1131;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13085 + d0;
 		} // method
 	} // class
 
@@ -40592,6 +48029,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 8006 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class Rail // minecraft:rail
@@ -40633,6 +48079,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "rail_direction", Value = RailDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RailDirection < 0 || RailDirection > 9) return -1;
+			int d0 = RailDirection;
+
+			return 6135 + d0;
+		} // method
 	} // class
 
 	public partial class RawCopperBlock // minecraft:raw_copper_block
@@ -40669,6 +48123,8 @@ namespace MiNET.Blocks
 			record.Id = 707;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9126;
 	} // class
 
 	public partial class RawGoldBlock // minecraft:raw_gold_block
@@ -40705,6 +48161,8 @@ namespace MiNET.Blocks
 			record.Id = 708;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1960;
 	} // class
 
 	public partial class RawIronBlock // minecraft:raw_iron_block
@@ -40741,6 +48199,8 @@ namespace MiNET.Blocks
 			record.Id = 706;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16843;
 	} // class
 
 	public partial class RedCandle // minecraft:red_candle
@@ -40787,6 +48247,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 7856 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class RedCandleCake // minecraft:red_candle_cake
@@ -40828,6 +48297,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 15336 + d0;
+		} // method
 	} // class
 
 	public partial class RedCarpet // minecraft:red_carpet
@@ -40864,6 +48340,8 @@ namespace MiNET.Blocks
 			record.Id = 865;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14970;
 	} // class
 
 	public partial class RedConcrete // minecraft:red_concrete
@@ -40900,6 +48378,8 @@ namespace MiNET.Blocks
 			record.Id = 896;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15326;
 	} // class
 
 	public partial class RedConcretePowder // minecraft:red_concrete_powder
@@ -40936,6 +48416,8 @@ namespace MiNET.Blocks
 			record.Id = 977;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14604;
 	} // class
 
 	public partial class RedGlazedTerracotta // minecraft:red_glazed_terracotta
@@ -40977,6 +48459,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 6361 + d0;
+		} // method
 	} // class
 
 	public partial class RedMushroom // minecraft:red_mushroom
@@ -41013,6 +48503,8 @@ namespace MiNET.Blocks
 			record.Id = 40;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7330;
 	} // class
 
 	public partial class RedMushroomBlock // minecraft:red_mushroom_block
@@ -41054,6 +48546,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "huge_mushroom_bits", Value = HugeMushroomBits});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (HugeMushroomBits < 0 || HugeMushroomBits > 15) return -1;
+			int d0 = HugeMushroomBits;
+
+			return 5246 + d0;
+		} // method
 	} // class
 
 	public partial class RedNetherBrick // minecraft:red_nether_brick
@@ -41090,6 +48590,8 @@ namespace MiNET.Blocks
 			record.Id = 215;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 847;
 	} // class
 
 	public partial class RedNetherBrickDoubleSlab // minecraft:red_nether_brick_double_slab
@@ -41131,6 +48633,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2238 + d0;
+		} // method
 	} // class
 
 	public partial class RedNetherBrickSlab // minecraft:red_nether_brick_slab
@@ -41171,6 +48686,19 @@ namespace MiNET.Blocks
 			record.Id = 1145;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13019 + d0;
 		} // method
 	} // class
 
@@ -41217,6 +48745,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 13040 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -41279,6 +48816,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 14762 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class RedSand // minecraft:red_sand
@@ -41315,6 +48891,8 @@ namespace MiNET.Blocks
 			record.Id = 1204;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2906;
 	} // class
 
 	public partial class RedSandstone // minecraft:red_sandstone
@@ -41351,6 +48929,8 @@ namespace MiNET.Blocks
 			record.Id = 179;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13018;
 	} // class
 
 	public partial class RedSandstoneDoubleSlab // minecraft:red_sandstone_double_slab
@@ -41392,6 +48972,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2901 + d0;
+		} // method
 	} // class
 
 	public partial class RedSandstoneSlab // minecraft:red_sandstone_slab
@@ -41432,6 +49025,19 @@ namespace MiNET.Blocks
 			record.Id = 182;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 3358 + d0;
 		} // method
 	} // class
 
@@ -41478,6 +49084,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 9220 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -41540,6 +49155,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 1074 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class RedShulkerBox // minecraft:red_shulker_box
@@ -41576,6 +49230,8 @@ namespace MiNET.Blocks
 			record.Id = 881;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6976;
 	} // class
 
 	public partial class RedStainedGlass // minecraft:red_stained_glass
@@ -41612,6 +49268,8 @@ namespace MiNET.Blocks
 			record.Id = 941;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9070;
 	} // class
 
 	public partial class RedStainedGlassPane // minecraft:red_stained_glass_pane
@@ -41648,6 +49306,8 @@ namespace MiNET.Blocks
 			record.Id = 911;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13946;
 	} // class
 
 	public partial class RedTerracotta // minecraft:red_terracotta
@@ -41684,6 +49344,8 @@ namespace MiNET.Blocks
 			record.Id = 992;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3430;
 	} // class
 
 	public partial class RedTulip // minecraft:red_tulip
@@ -41720,6 +49382,8 @@ namespace MiNET.Blocks
 			record.Id = 1088;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15026;
 	} // class
 
 	public partial class RedWool // minecraft:red_wool
@@ -41756,6 +49420,8 @@ namespace MiNET.Blocks
 			record.Id = 811;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 361;
 	} // class
 
 	public partial class RedstoneBlock // minecraft:redstone_block
@@ -41792,6 +49458,8 @@ namespace MiNET.Blocks
 			record.Id = 152;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5548;
 	} // class
 
 	public partial class RedstoneLamp // minecraft:redstone_lamp
@@ -41828,6 +49496,8 @@ namespace MiNET.Blocks
 			record.Id = 123;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1309;
 	} // class
 
 	public partial class RedstoneOre // minecraft:redstone_ore
@@ -41864,6 +49534,8 @@ namespace MiNET.Blocks
 			record.Id = 73;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6545;
 	} // class
 
 	public partial class RedstoneTorch // minecraft:redstone_torch
@@ -41904,6 +49576,23 @@ namespace MiNET.Blocks
 			record.Id = 76;
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 4728 + d0;
 		} // method
 	} // class
 
@@ -41946,6 +49635,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 5565 + d0;
+		} // method
 	} // class
 
 	public partial class Reeds // minecraft:reeds
@@ -41987,6 +49684,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "age", Value = Age});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 15) return -1;
+			int d0 = Age;
+
+			return 12134 + d0;
+		} // method
 	} // class
 
 	public partial class ReinforcedDeepslate // minecraft:reinforced_deepslate
@@ -42023,6 +49728,8 @@ namespace MiNET.Blocks
 			record.Id = 721;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10981;
 	} // class
 
 	public partial class RepeatingCommandBlock // minecraft:repeating_command_block
@@ -42069,6 +49776,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ConditionalBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 15362 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class Reserved6 // minecraft:reserved6
@@ -42105,6 +49821,8 @@ namespace MiNET.Blocks
 			record.Id = 255;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7352;
 	} // class
 
 	public partial class ResinBlock // minecraft:resin_block
@@ -42141,6 +49859,8 @@ namespace MiNET.Blocks
 			record.Id = 1276;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12892;
 	} // class
 
 	public partial class ResinBrickDoubleSlab // minecraft:resin_brick_double_slab
@@ -42182,6 +49902,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5194 + d0;
+		} // method
 	} // class
 
 	public partial class ResinBrickSlab // minecraft:resin_brick_slab
@@ -42222,6 +49955,19 @@ namespace MiNET.Blocks
 			record.Id = 1269;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14662 + d0;
 		} // method
 	} // class
 
@@ -42268,6 +50014,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12445 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -42330,6 +50085,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 16139 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class ResinBricks // minecraft:resin_bricks
@@ -42366,6 +50160,8 @@ namespace MiNET.Blocks
 			record.Id = 1268;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11553;
 	} // class
 
 	public partial class ResinClump // minecraft:resin_clump
@@ -42406,6 +50202,14 @@ namespace MiNET.Blocks
 			record.Id = 1277;
 			record.States.Add(new BlockStateInt {Name = "multi_face_direction_bits", Value = MultiFaceDirectionBits});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (MultiFaceDirectionBits < 0 || MultiFaceDirectionBits > 63) return -1;
+			int d0 = MultiFaceDirectionBits;
+
+			return 2930 + d0;
 		} // method
 	} // class
 
@@ -42448,6 +50252,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "respawn_anchor_charge", Value = RespawnAnchorCharge});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RespawnAnchorCharge < 0 || RespawnAnchorCharge > 4) return -1;
+			int d0 = RespawnAnchorCharge;
+
+			return 2886 + d0;
+		} // method
 	} // class
 
 	public partial class RoseBush // minecraft:rose_bush
@@ -42489,6 +50301,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpperBlockBit ? 1 : 0;
+
+			return 9392 + d0;
+		} // method
 	} // class
 
 	public partial class Sand // minecraft:sand
@@ -42525,6 +50344,8 @@ namespace MiNET.Blocks
 			record.Id = 12;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6421;
 	} // class
 
 	public partial class Sandstone // minecraft:sandstone
@@ -42561,6 +50382,8 @@ namespace MiNET.Blocks
 			record.Id = 24;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5390;
 	} // class
 
 	public partial class SandstoneDoubleSlab // minecraft:sandstone_double_slab
@@ -42602,6 +50425,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2003 + d0;
+		} // method
 	} // class
 
 	public partial class SandstoneSlab // minecraft:sandstone_slab
@@ -42642,6 +50478,19 @@ namespace MiNET.Blocks
 			record.Id = 1127;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1956 + d0;
 		} // method
 	} // class
 
@@ -42688,6 +50537,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 5233 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -42750,6 +50608,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 15948 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Scaffolding // minecraft:scaffolding
@@ -42796,6 +50693,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "stability_check", Value = Convert.ToByte(StabilityCheck)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Stability < 0 || Stability > 7) return -1;
+			int d0 = Stability;
+			int d1 = StabilityCheck ? 1 : 0;
+
+			return 5217 + d0 + d1 * 8;
+		} // method
 	} // class
 
 	public partial class Sculk // minecraft:sculk
@@ -42832,6 +50738,8 @@ namespace MiNET.Blocks
 			record.Id = 713;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13838;
 	} // class
 
 	public partial class SculkCatalyst // minecraft:sculk_catalyst
@@ -42873,6 +50781,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "bloom", Value = Convert.ToByte(Bloom)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Bloom ? 1 : 0;
+
+			return 5263 + d0;
+		} // method
 	} // class
 
 	public partial class SculkSensor // minecraft:sculk_sensor
@@ -42913,6 +50828,14 @@ namespace MiNET.Blocks
 			record.Id = 562;
 			record.States.Add(new BlockStateInt {Name = "sculk_sensor_phase", Value = SculkSensorPhase});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (SculkSensorPhase < 0 || SculkSensorPhase > 2) return -1;
+			int d0 = SculkSensorPhase;
+
+			return 6889 + d0;
 		} // method
 	} // class
 
@@ -42960,6 +50883,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "can_summon", Value = Convert.ToByte(CanSummon)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Active ? 1 : 0;
+			int d1 = CanSummon ? 1 : 0;
+
+			return 1267 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class SculkVein // minecraft:sculk_vein
@@ -43001,6 +50932,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "multi_face_direction_bits", Value = MultiFaceDirectionBits});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (MultiFaceDirectionBits < 0 || MultiFaceDirectionBits > 63) return -1;
+			int d0 = MultiFaceDirectionBits;
+
+			return 14446 + d0;
+		} // method
 	} // class
 
 	public partial class SeaLantern // minecraft:sea_lantern
@@ -43037,6 +50976,8 @@ namespace MiNET.Blocks
 			record.Id = 169;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15127;
 	} // class
 
 	public partial class SeaPickle // minecraft:sea_pickle
@@ -43083,6 +51024,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "dead_bit", Value = Convert.ToByte(DeadBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (ClusterCount < 0 || ClusterCount > 3) return -1;
+			int d0 = ClusterCount;
+			int d1 = DeadBit ? 1 : 0;
+
+			return 11056 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class Seagrass // minecraft:seagrass
@@ -43124,6 +51074,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "sea_grass_type", Value = SeaGrassType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = SeaGrassType switch
+			{
+				"default" => 0,
+				"double_top" => 1,
+				"double_bot" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1302 + d0;
+		} // method
 	} // class
 
 	public partial class ShortDryGrass // minecraft:short_dry_grass
@@ -43160,6 +51124,8 @@ namespace MiNET.Blocks
 			record.Id = 1283;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12219;
 	} // class
 
 	public partial class ShortGrass // minecraft:short_grass
@@ -43196,6 +51162,8 @@ namespace MiNET.Blocks
 			record.Id = 31;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12985;
 	} // class
 
 	public partial class Shroomlight // minecraft:shroomlight
@@ -43232,6 +51200,8 @@ namespace MiNET.Blocks
 			record.Id = 485;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8875;
 	} // class
 
 	public partial class SilverGlazedTerracotta // minecraft:silver_glazed_terracotta
@@ -43272,6 +51242,14 @@ namespace MiNET.Blocks
 			record.Id = 228;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 4734 + d0;
 		} // method
 	} // class
 
@@ -43314,6 +51292,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 9295 + d0;
+		} // method
 	} // class
 
 	public partial class Slime // minecraft:slime
@@ -43350,6 +51336,8 @@ namespace MiNET.Blocks
 			record.Id = 165;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6458;
 	} // class
 
 	public partial class SmallAmethystBud // minecraft:small_amethyst_bud
@@ -43390,6 +51378,23 @@ namespace MiNET.Blocks
 			record.Id = 587;
 			record.States.Add(new BlockStateString {Name = "minecraft:block_face", Value = BlockFace});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = BlockFace switch
+			{
+				"down" => 0,
+				"up" => 1,
+				"north" => 2,
+				"south" => 3,
+				"west" => 4,
+				"east" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1871 + d0;
 		} // method
 	} // class
 
@@ -43437,6 +51442,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = UpperBlockBit ? 1 : 0;
+
+			return 6795 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class SmithingTable // minecraft:smithing_table
@@ -43473,6 +51494,8 @@ namespace MiNET.Blocks
 			record.Id = 457;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5467;
 	} // class
 
 	public partial class Smoker // minecraft:smoker
@@ -43514,6 +51537,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2699 + d0;
+		} // method
 	} // class
 
 	public partial class SmoothBasalt // minecraft:smooth_basalt
@@ -43550,6 +51588,8 @@ namespace MiNET.Blocks
 			record.Id = 632;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3779;
 	} // class
 
 	public partial class SmoothQuartz // minecraft:smooth_quartz
@@ -43590,6 +51630,20 @@ namespace MiNET.Blocks
 			record.Id = 1210;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7081 + d0;
 		} // method
 	} // class
 
@@ -43632,6 +51686,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2050 + d0;
+		} // method
 	} // class
 
 	public partial class SmoothQuartzSlab // minecraft:smooth_quartz_slab
@@ -43672,6 +51739,19 @@ namespace MiNET.Blocks
 			record.Id = 1153;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15154 + d0;
 		} // method
 	} // class
 
@@ -43719,6 +51799,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 15328 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class SmoothRedSandstone // minecraft:smooth_red_sandstone
@@ -43755,6 +51844,8 @@ namespace MiNET.Blocks
 			record.Id = 1213;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15392;
 	} // class
 
 	public partial class SmoothRedSandstoneDoubleSlab // minecraft:smooth_red_sandstone_double_slab
@@ -43796,6 +51887,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12639 + d0;
+		} // method
 	} // class
 
 	public partial class SmoothRedSandstoneSlab // minecraft:smooth_red_sandstone_slab
@@ -43836,6 +51940,19 @@ namespace MiNET.Blocks
 			record.Id = 1146;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12975 + d0;
 		} // method
 	} // class
 
@@ -43883,6 +52000,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 10010 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class SmoothSandstone // minecraft:smooth_sandstone
@@ -43919,6 +52045,8 @@ namespace MiNET.Blocks
 			record.Id = 1201;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1019;
 	} // class
 
 	public partial class SmoothSandstoneDoubleSlab // minecraft:smooth_sandstone_double_slab
@@ -43960,6 +52088,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6974 + d0;
+		} // method
 	} // class
 
 	public partial class SmoothSandstoneSlab // minecraft:smooth_sandstone_slab
@@ -44000,6 +52141,19 @@ namespace MiNET.Blocks
 			record.Id = 1144;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2707 + d0;
 		} // method
 	} // class
 
@@ -44047,6 +52201,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 5347 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class SmoothStone // minecraft:smooth_stone
@@ -44083,6 +52246,8 @@ namespace MiNET.Blocks
 			record.Id = 438;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7305;
 	} // class
 
 	public partial class SmoothStoneDoubleSlab // minecraft:smooth_stone_double_slab
@@ -44123,6 +52288,19 @@ namespace MiNET.Blocks
 			record.Id = 43;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10429 + d0;
 		} // method
 	} // class
 
@@ -44165,6 +52343,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15124 + d0;
+		} // method
 	} // class
 
 	public partial class SnifferEgg // minecraft:sniffer_egg
@@ -44206,6 +52397,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "cracked_state", Value = CrackedState});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CrackedState switch
+			{
+				"no_cracks" => 0,
+				"cracked" => 1,
+				"max_cracked" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13623 + d0;
+		} // method
 	} // class
 
 	public partial class Snow // minecraft:snow
@@ -44242,6 +52447,8 @@ namespace MiNET.Blocks
 			record.Id = 80;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6420;
 	} // class
 
 	public partial class SnowLayer // minecraft:snow_layer
@@ -44287,6 +52494,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "covered_bit", Value = Convert.ToByte(CoveredBit)});
 			record.States.Add(new BlockStateInt {Name = "height", Value = Height});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CoveredBit ? 1 : 0;
+			if (Height < 0 || Height > 7) return -1;
+			int d1 = Height;
+
+			return 1020 + d0 * 8 + d1;
 		} // method
 	} // class
 
@@ -44334,6 +52550,22 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Extinguished ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 15923 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class SoulFire // minecraft:soul_fire
@@ -44374,6 +52606,14 @@ namespace MiNET.Blocks
 			record.Id = 492;
 			record.States.Add(new BlockStateInt {Name = "age", Value = Age});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Age < 0 || Age > 15) return -1;
+			int d0 = Age;
+
+			return 2024 + d0;
 		} // method
 	} // class
 
@@ -44416,6 +52656,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 10390 + d0;
+		} // method
 	} // class
 
 	public partial class SoulSand // minecraft:soul_sand
@@ -44452,6 +52699,8 @@ namespace MiNET.Blocks
 			record.Id = 88;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10433;
 	} // class
 
 	public partial class SoulSoil // minecraft:soul_soil
@@ -44488,6 +52737,8 @@ namespace MiNET.Blocks
 			record.Id = 491;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 10432;
 	} // class
 
 	public partial class SoulTorch // minecraft:soul_torch
@@ -44529,6 +52780,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7819 + d0;
+		} // method
 	} // class
 
 	public partial class Sponge // minecraft:sponge
@@ -44565,6 +52833,8 @@ namespace MiNET.Blocks
 			record.Id = 19;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2244;
 	} // class
 
 	public partial class SporeBlossom // minecraft:spore_blossom
@@ -44601,6 +52871,8 @@ namespace MiNET.Blocks
 			record.Id = 576;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14688;
 	} // class
 
 	public partial class SpruceButton // minecraft:spruce_button
@@ -44646,6 +52918,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 6813 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -44703,6 +52984,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 7870 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class SpruceDoubleSlab // minecraft:spruce_double_slab
@@ -44744,6 +53043,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 4160 + d0;
+		} // method
 	} // class
 
 	public partial class SpruceFence // minecraft:spruce_fence
@@ -44780,6 +53092,8 @@ namespace MiNET.Blocks
 			record.Id = 834;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1998;
 	} // class
 
 	public partial class SpruceFenceGate // minecraft:spruce_fence_gate
@@ -44830,6 +53144,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 13022 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -44887,6 +53218,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 10596 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class SpruceLeaves // minecraft:spruce_leaves
@@ -44933,6 +53276,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 6937 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class SpruceLog // minecraft:spruce_log
@@ -44974,6 +53325,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6501 + d0;
+		} // method
 	} // class
 
 	public partial class SprucePlanks // minecraft:spruce_planks
@@ -45010,6 +53375,8 @@ namespace MiNET.Blocks
 			record.Id = 994;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15685;
 	} // class
 
 	public partial class SprucePressurePlate // minecraft:spruce_pressure_plate
@@ -45051,6 +53418,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 5530 + d0;
+		} // method
 	} // class
 
 	public partial class SpruceSapling // minecraft:spruce_sapling
@@ -45091,6 +53466,13 @@ namespace MiNET.Blocks
 			record.Id = 1080;
 			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 6417 + d0;
 		} // method
 	} // class
 
@@ -45143,6 +53525,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 5162 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class SpruceSlab // minecraft:spruce_slab
@@ -45183,6 +53583,19 @@ namespace MiNET.Blocks
 			record.Id = 1059;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13807 + d0;
 		} // method
 	} // class
 
@@ -45230,6 +53643,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 374 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class SpruceStandingSign // minecraft:spruce_standing_sign
@@ -45270,6 +53692,14 @@ namespace MiNET.Blocks
 			record.Id = 436;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 13849 + d0;
 		} // method
 	} // class
 
@@ -45322,6 +53752,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 12990 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class SpruceWallSign // minecraft:spruce_wall_sign
@@ -45362,6 +53802,14 @@ namespace MiNET.Blocks
 			record.Id = 437;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 14941 + d0;
 		} // method
 	} // class
 
@@ -45404,6 +53852,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15178 + d0;
+		} // method
 	} // class
 
 	public partial class StandingBanner // minecraft:standing_banner
@@ -45444,6 +53906,14 @@ namespace MiNET.Blocks
 			record.Id = 176;
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 13571 + d0;
 		} // method
 	} // class
 
@@ -45486,6 +53956,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 10237 + d0;
+		} // method
 	} // class
 
 	public partial class StickyPiston // minecraft:sticky_piston
@@ -45526,6 +54004,14 @@ namespace MiNET.Blocks
 			record.Id = 29;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 6864 + d0;
 		} // method
 	} // class
 
@@ -45568,6 +54054,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 12727 + d0;
+		} // method
 	} // class
 
 	public partial class Stone // minecraft:stone
@@ -45604,6 +54098,8 @@ namespace MiNET.Blocks
 			record.Id = 1;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2706;
 	} // class
 
 	public partial class StoneBrickDoubleSlab // minecraft:stone_brick_double_slab
@@ -45645,6 +54141,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6850 + d0;
+		} // method
 	} // class
 
 	public partial class StoneBrickSlab // minecraft:stone_brick_slab
@@ -45685,6 +54194,19 @@ namespace MiNET.Blocks
 			record.Id = 1130;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12656 + d0;
 		} // method
 	} // class
 
@@ -45731,6 +54253,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 3410 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -45793,6 +54324,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 9848 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class StoneBricks // minecraft:stone_bricks
@@ -45829,6 +54399,8 @@ namespace MiNET.Blocks
 			record.Id = 98;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6307;
 	} // class
 
 	public partial class StoneButton // minecraft:stone_button
@@ -45875,6 +54447,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 2226 + d0 * 6 + d1;
+		} // method
 	} // class
 
 	public partial class StonePressurePlate // minecraft:stone_pressure_plate
@@ -45915,6 +54496,14 @@ namespace MiNET.Blocks
 			record.Id = 70;
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 6081 + d0;
 		} // method
 	} // class
 
@@ -45962,6 +54551,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 5446 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class Stonecutter // minecraft:stonecutter
@@ -45998,6 +54596,8 @@ namespace MiNET.Blocks
 			record.Id = 245;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3385;
 	} // class
 
 	public partial class StonecutterBlock // minecraft:stonecutter_block
@@ -46038,6 +54638,21 @@ namespace MiNET.Blocks
 			record.Id = 452;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15150 + d0;
 		} // method
 	} // class
 
@@ -46080,6 +54695,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11048 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedAcaciaWood // minecraft:stripped_acacia_wood
@@ -46120,6 +54749,20 @@ namespace MiNET.Blocks
 			record.Id = 1078;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1513 + d0;
 		} // method
 	} // class
 
@@ -46162,6 +54805,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5243 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedBirchLog // minecraft:stripped_birch_log
@@ -46202,6 +54859,20 @@ namespace MiNET.Blocks
 			record.Id = 261;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11700 + d0;
 		} // method
 	} // class
 
@@ -46244,6 +54915,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7267 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedCherryLog // minecraft:stripped_cherry_log
@@ -46284,6 +54969,20 @@ namespace MiNET.Blocks
 			record.Id = 790;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6977 + d0;
 		} // method
 	} // class
 
@@ -46326,6 +55025,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 8517 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedCrimsonHyphae // minecraft:stripped_crimson_hyphae
@@ -46366,6 +55079,20 @@ namespace MiNET.Blocks
 			record.Id = 555;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12903 + d0;
 		} // method
 	} // class
 
@@ -46408,6 +55135,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13568 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedDarkOakLog // minecraft:stripped_dark_oak_log
@@ -46448,6 +55189,20 @@ namespace MiNET.Blocks
 			record.Id = 264;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1255 + d0;
 		} // method
 	} // class
 
@@ -46490,6 +55245,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 8481 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedJungleLog // minecraft:stripped_jungle_log
@@ -46530,6 +55299,20 @@ namespace MiNET.Blocks
 			record.Id = 262;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2645 + d0;
 		} // method
 	} // class
 
@@ -46572,6 +55355,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1933 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedMangroveLog // minecraft:stripped_mangrove_log
@@ -46612,6 +55409,20 @@ namespace MiNET.Blocks
 			record.Id = 740;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 16869 + d0;
 		} // method
 	} // class
 
@@ -46654,6 +55465,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6454 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedOakLog // minecraft:stripped_oak_log
@@ -46694,6 +55519,20 @@ namespace MiNET.Blocks
 			record.Id = 265;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15121 + d0;
 		} // method
 	} // class
 
@@ -46736,6 +55575,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 8043 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedPaleOakLog // minecraft:stripped_pale_oak_log
@@ -46776,6 +55629,20 @@ namespace MiNET.Blocks
 			record.Id = 1249;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6724 + d0;
 		} // method
 	} // class
 
@@ -46818,6 +55685,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 3781 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedSpruceLog // minecraft:stripped_spruce_log
@@ -46858,6 +55739,20 @@ namespace MiNET.Blocks
 			record.Id = 260;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12667 + d0;
 		} // method
 	} // class
 
@@ -46900,6 +55795,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2878 + d0;
+		} // method
 	} // class
 
 	public partial class StrippedWarpedHyphae // minecraft:stripped_warped_hyphae
@@ -46940,6 +55849,20 @@ namespace MiNET.Blocks
 			record.Id = 556;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10205 + d0;
 		} // method
 	} // class
 
@@ -46982,6 +55905,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14947 + d0;
+		} // method
 	} // class
 
 	public partial class StructureBlock // minecraft:structure_block
@@ -47023,6 +55960,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "structure_block_type", Value = StructureBlockType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = StructureBlockType switch
+			{
+				"data" => 0,
+				"save" => 1,
+				"load" => 2,
+				"corner" => 3,
+				"invalid" => 4,
+				"export" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12765 + d0;
+		} // method
 	} // class
 
 	public partial class StructureVoid // minecraft:structure_void
@@ -47059,6 +56013,8 @@ namespace MiNET.Blocks
 			record.Id = 217;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6397;
 	} // class
 
 	public partial class Sulfur // minecraft:sulfur
@@ -47095,6 +56051,8 @@ namespace MiNET.Blocks
 			record.Id = 1347;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14658;
 	} // class
 
 	public partial class SulfurBrickDoubleSlab // minecraft:sulfur_brick_double_slab
@@ -47136,6 +56094,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5199 + d0;
+		} // method
 	} // class
 
 	public partial class SulfurBrickSlab // minecraft:sulfur_brick_slab
@@ -47176,6 +56147,19 @@ namespace MiNET.Blocks
 			record.Id = 1358;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15156 + d0;
 		} // method
 	} // class
 
@@ -47222,6 +56206,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 7259 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -47284,6 +56277,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 13351 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class SulfurBricks // minecraft:sulfur_bricks
@@ -47320,6 +56352,8 @@ namespace MiNET.Blocks
 			record.Id = 1357;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3175;
 	} // class
 
 	public partial class SulfurDoubleSlab // minecraft:sulfur_double_slab
@@ -47361,6 +56395,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9345 + d0;
+		} // method
 	} // class
 
 	public partial class SulfurSlab // minecraft:sulfur_slab
@@ -47401,6 +56448,19 @@ namespace MiNET.Blocks
 			record.Id = 1348;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5476 + d0;
 		} // method
 	} // class
 
@@ -47448,6 +56508,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DripstoneThickness switch
+			{
+				"tip" => 0,
+				"frustum" => 1,
+				"middle" => 2,
+				"base" => 3,
+				"merge" => 4,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = Hanging ? 1 : 0;
+
+			return 1533 + d0 + d1 * 5;
+		} // method
 	} // class
 
 	public partial class SulfurStairs // minecraft:sulfur_stairs
@@ -47493,6 +56570,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6408 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -47555,6 +56641,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 7097 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class Sunflower // minecraft:sunflower
@@ -47595,6 +56720,13 @@ namespace MiNET.Blocks
 			record.Id = 175;
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpperBlockBit ? 1 : 0;
+
+			return 7398 + d0;
 		} // method
 	} // class
 
@@ -47642,6 +56774,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (BrushedProgress < 0 || BrushedProgress > 3) return -1;
+			int d0 = BrushedProgress;
+			int d1 = Hanging ? 1 : 0;
+
+			return 7948 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class SuspiciousSand // minecraft:suspicious_sand
@@ -47688,6 +56829,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (BrushedProgress < 0 || BrushedProgress > 3) return -1;
+			int d0 = BrushedProgress;
+			int d1 = Hanging ? 1 : 0;
+
+			return 3786 + d0 * 2 + d1;
+		} // method
 	} // class
 
 	public partial class SweetBerryBush // minecraft:sweet_berry_bush
@@ -47729,6 +56879,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+
+			return 12124 + d0;
+		} // method
 	} // class
 
 	public partial class TallDryGrass // minecraft:tall_dry_grass
@@ -47765,6 +56923,8 @@ namespace MiNET.Blocks
 			record.Id = 1284;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9127;
 	} // class
 
 	public partial class TallGrass // minecraft:tall_grass
@@ -47806,6 +56966,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpperBlockBit ? 1 : 0;
+
+			return 12875 + d0;
+		} // method
 	} // class
 
 	public partial class Target // minecraft:target
@@ -47842,6 +57009,8 @@ namespace MiNET.Blocks
 			record.Id = 494;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12780;
 	} // class
 
 	public partial class TintedGlass // minecraft:tinted_glass
@@ -47878,6 +57047,8 @@ namespace MiNET.Blocks
 			record.Id = 589;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11703;
 	} // class
 
 	public partial class Tnt // minecraft:tnt
@@ -47918,6 +57089,13 @@ namespace MiNET.Blocks
 			record.Id = 46;
 			record.States.Add(new BlockStateByte {Name = "explode_bit", Value = Convert.ToByte(ExplodeBit)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ExplodeBit ? 1 : 0;
+
+			return 13112 + d0;
 		} // method
 	} // class
 
@@ -47960,6 +57138,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 3169 + d0;
+		} // method
 	} // class
 
 	public partial class Torchflower // minecraft:torchflower
@@ -47996,6 +57191,8 @@ namespace MiNET.Blocks
 			record.Id = 823;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12218;
 	} // class
 
 	public partial class TorchflowerCrop // minecraft:torchflower_crop
@@ -48036,6 +57233,14 @@ namespace MiNET.Blocks
 			record.Id = 822;
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+
+			return 12159 + d0;
 		} // method
 	} // class
 
@@ -48088,6 +57293,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 1282 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class TrappedChest // minecraft:trapped_chest
@@ -48128,6 +57343,21 @@ namespace MiNET.Blocks
 			record.Id = 146;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10209 + d0;
 		} // method
 	} // class
 
@@ -48174,6 +57404,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "ominous", Value = Convert.ToByte(Ominous)});
 			record.States.Add(new BlockStateInt {Name = "trial_spawner_state", Value = TrialSpawnerState});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Ominous ? 1 : 0;
+			if (TrialSpawnerState < 0 || TrialSpawnerState > 5) return -1;
+			int d1 = TrialSpawnerState;
+
+			return 16125 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -48231,6 +57470,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "suspended_bit", Value = Convert.ToByte(SuspendedBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			int d1 = DisarmedBit ? 1 : 0;
+			int d2 = PoweredBit ? 1 : 0;
+			int d3 = SuspendedBit ? 1 : 0;
+
+			return 15028 + d0 * 4 + d1 * 8 + d2 + d3 * 2;
+		} // method
 	} // class
 
 	public partial class TripwireHook // minecraft:tripwire_hook
@@ -48282,6 +57531,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (Direction < 0 || Direction > 3) return -1;
+			int d1 = Direction;
+			int d2 = PoweredBit ? 1 : 0;
+
+			return 11609 + d0 * 4 + d1 + d2 * 8;
+		} // method
 	} // class
 
 	public partial class TubeCoral // minecraft:tube_coral
@@ -48318,6 +57577,8 @@ namespace MiNET.Blocks
 			record.Id = 386;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15401;
 	} // class
 
 	public partial class TubeCoralBlock // minecraft:tube_coral_block
@@ -48354,6 +57615,8 @@ namespace MiNET.Blocks
 			record.Id = 387;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15091;
 	} // class
 
 	public partial class TubeCoralFan // minecraft:tube_coral_fan
@@ -48394,6 +57657,14 @@ namespace MiNET.Blocks
 			record.Id = 388;
 			record.States.Add(new BlockStateInt {Name = "coral_fan_direction", Value = CoralFanDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
+			int d0 = CoralFanDirection;
+
+			return 1305 + d0;
 		} // method
 	} // class
 
@@ -48436,6 +57707,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "coral_direction", Value = CoralDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (CoralDirection < 0 || CoralDirection > 3) return -1;
+			int d0 = CoralDirection;
+
+			return 16908 + d0;
+		} // method
 	} // class
 
 	public partial class Tuff // minecraft:tuff
@@ -48472,6 +57751,8 @@ namespace MiNET.Blocks
 			record.Id = 588;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1937;
 	} // class
 
 	public partial class TuffBrickDoubleSlab // minecraft:tuff_brick_double_slab
@@ -48513,6 +57794,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11544 + d0;
+		} // method
 	} // class
 
 	public partial class TuffBrickSlab // minecraft:tuff_brick_slab
@@ -48553,6 +57847,19 @@ namespace MiNET.Blocks
 			record.Id = 1010;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 5478 + d0;
 		} // method
 	} // class
 
@@ -48599,6 +57906,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12641 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -48661,6 +57977,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 2713 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class TuffBricks // minecraft:tuff_bricks
@@ -48697,6 +58052,8 @@ namespace MiNET.Blocks
 			record.Id = 1009;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13079;
 	} // class
 
 	public partial class TuffDoubleSlab // minecraft:tuff_double_slab
@@ -48738,6 +58095,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15390 + d0;
+		} // method
 	} // class
 
 	public partial class TuffSlab // minecraft:tuff_slab
@@ -48778,6 +58148,19 @@ namespace MiNET.Blocks
 			record.Id = 999;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1333 + d0;
 		} // method
 	} // class
 
@@ -48824,6 +58207,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 11562 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -48886,6 +58278,45 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "wall_post_bit", Value = Convert.ToByte(WallPostBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = WallConnectionTypeEast switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = WallConnectionTypeNorth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = WallConnectionTypeSouth switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+			int d3 = WallConnectionTypeWest switch
+			{
+				"none" => 0,
+				"short" => 1,
+				"tall" => 2,
+				_ => -1
+			};
+			if (d3 < 0) return -1;
+			int d4 = WallPostBit ? 1 : 0;
+
+			return 4554 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
 	} // class
 
 	public partial class TurtleEgg // minecraft:turtle_egg
@@ -48932,6 +58363,29 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "turtle_egg_count", Value = TurtleEggCount});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CrackedState switch
+			{
+				"no_cracks" => 0,
+				"cracked" => 1,
+				"max_cracked" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = TurtleEggCount switch
+			{
+				"one_egg" => 0,
+				"two_egg" => 1,
+				"three_egg" => 2,
+				"four_egg" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 15873 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class TwistingVines // minecraft:twisting_vines
@@ -48972,6 +58426,14 @@ namespace MiNET.Blocks
 			record.Id = 542;
 			record.States.Add(new BlockStateInt {Name = "twisting_vines_age", Value = TwistingVinesAge});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (TwistingVinesAge < 0 || TwistingVinesAge > 25) return -1;
+			int d0 = TwistingVinesAge;
+
+			return 10327 + d0;
 		} // method
 	} // class
 
@@ -49014,6 +58476,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "explode_bit", Value = Convert.ToByte(ExplodeBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ExplodeBit ? 1 : 0;
+
+			return 3339 + d0;
+		} // method
 	} // class
 
 	public partial class UnderwaterTorch // minecraft:underwater_torch
@@ -49055,6 +58524,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 4152 + d0;
+		} // method
 	} // class
 
 	public partial class UndyedShulkerBox // minecraft:undyed_shulker_box
@@ -49091,6 +58577,8 @@ namespace MiNET.Blocks
 			record.Id = 205;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5415;
 	} // class
 
 	public partial class Unknown // minecraft:unknown
@@ -49127,6 +58615,8 @@ namespace MiNET.Blocks
 			record.Id = 560;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7361;
 	} // class
 
 	public partial class UnlitRedstoneTorch // minecraft:unlit_redstone_torch
@@ -49167,6 +58657,23 @@ namespace MiNET.Blocks
 			record.Id = 75;
 			record.States.Add(new BlockStateString {Name = "torch_facing_direction", Value = TorchFacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = TorchFacingDirection switch
+			{
+				"unknown" => 0,
+				"west" => 1,
+				"east" => 2,
+				"north" => 3,
+				"south" => 4,
+				"top" => 5,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 16641 + d0;
 		} // method
 	} // class
 
@@ -49219,6 +58726,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "output_subtract_bit", Value = Convert.ToByte(OutputSubtractBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = OutputLitBit ? 1 : 0;
+			int d2 = OutputSubtractBit ? 1 : 0;
+
+			return 12741 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class UnpoweredRepeater // minecraft:unpowered_repeater
@@ -49264,6 +58788,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			record.States.Add(new BlockStateInt {Name = "repeater_delay", Value = RepeaterDelay});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			if (RepeaterDelay < 0 || RepeaterDelay > 3) return -1;
+			int d1 = RepeaterDelay;
+
+			return 9832 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -49316,6 +58857,31 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "vault_state", Value = VaultState});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = Ominous ? 1 : 0;
+			int d2 = VaultState switch
+			{
+				"inactive" => 0,
+				"active" => 1,
+				"unlocking" => 2,
+				"ejecting" => 3,
+				_ => -1
+			};
+			if (d2 < 0) return -1;
+
+			return 12463 + d0 + d1 * 16 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class VerdantFroglight // minecraft:verdant_froglight
@@ -49356,6 +58922,20 @@ namespace MiNET.Blocks
 			record.Id = 725;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12888 + d0;
 		} // method
 	} // class
 
@@ -49398,6 +58978,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "vine_direction_bits", Value = VineDirectionBits});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (VineDirectionBits < 0 || VineDirectionBits > 15) return -1;
+			int d0 = VineDirectionBits;
+
+			return 3342 + d0;
+		} // method
 	} // class
 
 	public partial class WallBanner // minecraft:wall_banner
@@ -49439,6 +59027,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 10321 + d0;
+		} // method
 	} // class
 
 	public partial class WallSign // minecraft:wall_sign
@@ -49479,6 +59075,14 @@ namespace MiNET.Blocks
 			record.Id = 68;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 8510 + d0;
 		} // method
 	} // class
 
@@ -49525,6 +59129,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 14592 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -49582,6 +59195,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 78 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class WarpedDoubleSlab // minecraft:warped_double_slab
@@ -49623,6 +59254,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6881 + d0;
+		} // method
 	} // class
 
 	public partial class WarpedFence // minecraft:warped_fence
@@ -49659,6 +59303,8 @@ namespace MiNET.Blocks
 			record.Id = 512;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11054;
 	} // class
 
 	public partial class WarpedFenceGate // minecraft:warped_fence_gate
@@ -49710,6 +59356,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 9277 + d0 * 8 + d1 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class WarpedFungus // minecraft:warped_fungus
@@ -49746,6 +59409,8 @@ namespace MiNET.Blocks
 			record.Id = 484;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1550;
 	} // class
 
 	public partial class WarpedHangingSign // minecraft:warped_hanging_sign
@@ -49802,6 +59467,18 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 11737 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
 	} // class
 
 	public partial class WarpedHyphae // minecraft:warped_hyphae
@@ -49843,6 +59520,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 11548 + d0;
+		} // method
 	} // class
 
 	public partial class WarpedNylium // minecraft:warped_nylium
@@ -49879,6 +59570,8 @@ namespace MiNET.Blocks
 			record.Id = 488;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12734;
 	} // class
 
 	public partial class WarpedPlanks // minecraft:warped_planks
@@ -49915,6 +59608,8 @@ namespace MiNET.Blocks
 			record.Id = 498;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3402;
 	} // class
 
 	public partial class WarpedPressurePlate // minecraft:warped_pressure_plate
@@ -49956,6 +59651,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 1497 + d0;
+		} // method
 	} // class
 
 	public partial class WarpedRoots // minecraft:warped_roots
@@ -49992,6 +59695,8 @@ namespace MiNET.Blocks
 			record.Id = 479;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6861;
 	} // class
 
 	public partial class WarpedShelf // minecraft:warped_shelf
@@ -50043,6 +59748,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 5313 + d0 * 8 + d1 * 4 + d2;
+		} // method
 	} // class
 
 	public partial class WarpedSlab // minecraft:warped_slab
@@ -50083,6 +59806,19 @@ namespace MiNET.Blocks
 			record.Id = 520;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12893 + d0;
 		} // method
 	} // class
 
@@ -50130,6 +59866,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 5459 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class WarpedStandingSign // minecraft:warped_standing_sign
@@ -50171,6 +59916,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 14513 + d0;
+		} // method
 	} // class
 
 	public partial class WarpedStem // minecraft:warped_stem
@@ -50211,6 +59964,20 @@ namespace MiNET.Blocks
 			record.Id = 481;
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12895 + d0;
 		} // method
 	} // class
 
@@ -50263,6 +60030,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 7956 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class WarpedWallSign // minecraft:warped_wall_sign
@@ -50304,6 +60081,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 1992 + d0;
+		} // method
 	} // class
 
 	public partial class WarpedWartBlock // minecraft:warped_wart_block
@@ -50340,6 +60125,8 @@ namespace MiNET.Blocks
 			record.Id = 482;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11551;
 	} // class
 
 	public partial class Water // minecraft:water
@@ -50381,6 +60168,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "liquid_depth", Value = LiquidDepth});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
+			int d0 = LiquidDepth;
+
+			return 9808 + d0;
+		} // method
 	} // class
 
 	public partial class Waterlily // minecraft:waterlily
@@ -50417,6 +60212,8 @@ namespace MiNET.Blocks
 			record.Id = 111;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 3780;
 	} // class
 
 	public partial class WaxedChiseledCopper // minecraft:waxed_chiseled_copper
@@ -50453,6 +60250,8 @@ namespace MiNET.Blocks
 			record.Id = 1019;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15699;
 	} // class
 
 	public partial class WaxedCopper // minecraft:waxed_copper
@@ -50489,6 +60288,8 @@ namespace MiNET.Blocks
 			record.Id = 599;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15361;
 	} // class
 
 	public partial class WaxedCopperBars // minecraft:waxed_copper_bars
@@ -50525,6 +60326,8 @@ namespace MiNET.Blocks
 			record.Id = 1325;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2225;
 	} // class
 
 	public partial class WaxedCopperBulb // minecraft:waxed_copper_bulb
@@ -50571,6 +60374,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 2240 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class WaxedCopperChain // minecraft:waxed_copper_chain
@@ -50612,6 +60423,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6553 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedCopperChest // minecraft:waxed_copper_chest
@@ -50652,6 +60477,21 @@ namespace MiNET.Blocks
 			record.Id = 1290;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6548 + d0;
 		} // method
 	} // class
 
@@ -50709,6 +60549,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 15402 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class WaxedCopperGolemStatue // minecraft:waxed_copper_golem_statue
@@ -50750,6 +60608,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15918 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedCopperGrate // minecraft:waxed_copper_grate
@@ -50786,6 +60659,8 @@ namespace MiNET.Blocks
 			record.Id = 1027;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9256;
 	} // class
 
 	public partial class WaxedCopperLantern // minecraft:waxed_copper_lantern
@@ -50826,6 +60701,13 @@ namespace MiNET.Blocks
 			record.Id = 1342;
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 15338 + d0;
 		} // method
 	} // class
 
@@ -50878,6 +60760,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 5146 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class WaxedCutCopper // minecraft:waxed_cut_copper
@@ -50914,6 +60806,8 @@ namespace MiNET.Blocks
 			record.Id = 606;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14657;
 	} // class
 
 	public partial class WaxedCutCopperSlab // minecraft:waxed_cut_copper_slab
@@ -50954,6 +60848,19 @@ namespace MiNET.Blocks
 			record.Id = 620;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15700 + d0;
 		} // method
 	} // class
 
@@ -51001,6 +60908,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 2005 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class WaxedDoubleCutCopperSlab // minecraft:waxed_double_cut_copper_slab
@@ -51042,6 +60958,19 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 9317 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedExposedChiseledCopper // minecraft:waxed_exposed_chiseled_copper
@@ -51078,6 +61007,8 @@ namespace MiNET.Blocks
 			record.Id = 1020;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1332;
 	} // class
 
 	public partial class WaxedExposedCopper // minecraft:waxed_exposed_copper
@@ -51114,6 +61045,8 @@ namespace MiNET.Blocks
 			record.Id = 600;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2900;
 	} // class
 
 	public partial class WaxedExposedCopperBars // minecraft:waxed_exposed_copper_bars
@@ -51150,6 +61083,8 @@ namespace MiNET.Blocks
 			record.Id = 1326;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6398;
 	} // class
 
 	public partial class WaxedExposedCopperBulb // minecraft:waxed_exposed_copper_bulb
@@ -51196,6 +61131,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 6400 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class WaxedExposedCopperChain // minecraft:waxed_exposed_copper_chain
@@ -51237,6 +61180,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1245 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedExposedCopperChest // minecraft:waxed_exposed_copper_chest
@@ -51277,6 +61234,21 @@ namespace MiNET.Blocks
 			record.Id = 1291;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1248 + d0;
 		} // method
 	} // class
 
@@ -51334,6 +61306,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 9347 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class WaxedExposedCopperGolemStatue // minecraft:waxed_exposed_copper_golem_statue
@@ -51375,6 +61365,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6357 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedExposedCopperGrate // minecraft:waxed_exposed_copper_grate
@@ -51411,6 +61416,8 @@ namespace MiNET.Blocks
 			record.Id = 1028;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2219;
 	} // class
 
 	public partial class WaxedExposedCopperLantern // minecraft:waxed_exposed_copper_lantern
@@ -51451,6 +61458,13 @@ namespace MiNET.Blocks
 			record.Id = 1343;
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 14689 + d0;
 		} // method
 	} // class
 
@@ -51503,6 +61517,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 11502 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class WaxedExposedCutCopper // minecraft:waxed_exposed_cut_copper
@@ -51539,6 +61563,8 @@ namespace MiNET.Blocks
 			record.Id = 607;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5584;
 	} // class
 
 	public partial class WaxedExposedCutCopperSlab // minecraft:waxed_exposed_cut_copper_slab
@@ -51579,6 +61605,19 @@ namespace MiNET.Blocks
 			record.Id = 621;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 1307 + d0;
 		} // method
 	} // class
 
@@ -51626,6 +61665,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6097 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class WaxedExposedDoubleCutCopperSlab // minecraft:waxed_exposed_double_cut_copper_slab
@@ -51666,6 +61714,19 @@ namespace MiNET.Blocks
 			record.Id = 628;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13326 + d0;
 		} // method
 	} // class
 
@@ -51713,6 +61774,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 6108 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class WaxedLightningRod // minecraft:waxed_lightning_rod
@@ -51759,6 +61829,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 5266 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class WaxedOxidizedChiseledCopper // minecraft:waxed_oxidized_chiseled_copper
@@ -51795,6 +61874,8 @@ namespace MiNET.Blocks
 			record.Id = 1021;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 120;
 	} // class
 
 	public partial class WaxedOxidizedCopper // minecraft:waxed_oxidized_copper
@@ -51831,6 +61912,8 @@ namespace MiNET.Blocks
 			record.Id = 701;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15119;
 	} // class
 
 	public partial class WaxedOxidizedCopperBars // minecraft:waxed_oxidized_copper_bars
@@ -51867,6 +61950,8 @@ namespace MiNET.Blocks
 			record.Id = 1328;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12666;
 	} // class
 
 	public partial class WaxedOxidizedCopperBulb // minecraft:waxed_oxidized_copper_bulb
@@ -51913,6 +61998,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 12670 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class WaxedOxidizedCopperChain // minecraft:waxed_oxidized_copper_chain
@@ -51954,6 +62047,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6371 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedOxidizedCopperChest // minecraft:waxed_oxidized_copper_chest
@@ -51994,6 +62101,21 @@ namespace MiNET.Blocks
 			record.Id = 1293;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 6367 + d0;
 		} // method
 	} // class
 
@@ -52051,6 +62173,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 11573 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class WaxedOxidizedCopperGolemStatue // minecraft:waxed_oxidized_copper_golem_statue
@@ -52092,6 +62232,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 8544 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedOxidizedCopperGrate // minecraft:waxed_oxidized_copper_grate
@@ -52128,6 +62283,8 @@ namespace MiNET.Blocks
 			record.Id = 1030;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16113;
 	} // class
 
 	public partial class WaxedOxidizedCopperLantern // minecraft:waxed_oxidized_copper_lantern
@@ -52168,6 +62325,13 @@ namespace MiNET.Blocks
 			record.Id = 1345;
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 7366 + d0;
 		} // method
 	} // class
 
@@ -52220,6 +62384,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 8494 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class WaxedOxidizedCutCopper // minecraft:waxed_oxidized_cut_copper
@@ -52256,6 +62430,8 @@ namespace MiNET.Blocks
 			record.Id = 702;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1244;
 	} // class
 
 	public partial class WaxedOxidizedCutCopperSlab // minecraft:waxed_oxidized_cut_copper_slab
@@ -52296,6 +62472,19 @@ namespace MiNET.Blocks
 			record.Id = 704;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2924 + d0;
 		} // method
 	} // class
 
@@ -52343,6 +62532,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 10999 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class WaxedOxidizedDoubleCutCopperSlab // minecraft:waxed_oxidized_double_cut_copper_slab
@@ -52383,6 +62581,19 @@ namespace MiNET.Blocks
 			record.Id = 705;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 15385 + d0;
 		} // method
 	} // class
 
@@ -52430,6 +62641,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 13951 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class WaxedWeatheredChiseledCopper // minecraft:waxed_weathered_chiseled_copper
@@ -52466,6 +62686,8 @@ namespace MiNET.Blocks
 			record.Id = 1022;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5454;
 	} // class
 
 	public partial class WaxedWeatheredCopper // minecraft:waxed_weathered_copper
@@ -52502,6 +62724,8 @@ namespace MiNET.Blocks
 			record.Id = 601;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 2922;
 	} // class
 
 	public partial class WaxedWeatheredCopperBars // minecraft:waxed_weathered_copper_bars
@@ -52538,6 +62762,8 @@ namespace MiNET.Blocks
 			record.Id = 1327;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11017;
 	} // class
 
 	public partial class WaxedWeatheredCopperBulb // minecraft:waxed_weathered_copper_bulb
@@ -52584,6 +62810,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 11007 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class WaxedWeatheredCopperChain // minecraft:waxed_weathered_copper_chain
@@ -52625,6 +62859,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 39 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedWeatheredCopperChest // minecraft:waxed_weathered_copper_chest
@@ -52665,6 +62913,21 @@ namespace MiNET.Blocks
 			record.Id = 1292;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 42 + d0;
 		} // method
 	} // class
 
@@ -52722,6 +62985,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 13914 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class WaxedWeatheredCopperGolemStatue // minecraft:waxed_weathered_copper_golem_statue
@@ -52763,6 +63044,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7865 + d0;
+		} // method
 	} // class
 
 	public partial class WaxedWeatheredCopperGrate // minecraft:waxed_weathered_copper_grate
@@ -52799,6 +63095,8 @@ namespace MiNET.Blocks
 			record.Id = 1029;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6812;
 	} // class
 
 	public partial class WaxedWeatheredCopperLantern // minecraft:waxed_weathered_copper_lantern
@@ -52839,6 +63137,13 @@ namespace MiNET.Blocks
 			record.Id = 1344;
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 5991 + d0;
 		} // method
 	} // class
 
@@ -52891,6 +63196,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 7990 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class WaxedWeatheredCutCopper // minecraft:waxed_weathered_cut_copper
@@ -52927,6 +63242,8 @@ namespace MiNET.Blocks
 			record.Id = 608;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8484;
 	} // class
 
 	public partial class WaxedWeatheredCutCopperSlab // minecraft:waxed_weathered_cut_copper_slab
@@ -52967,6 +63284,19 @@ namespace MiNET.Blocks
 			record.Id = 622;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12986 + d0;
 		} // method
 	} // class
 
@@ -53014,6 +63344,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 12557 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class WaxedWeatheredDoubleCutCopperSlab // minecraft:waxed_weathered_double_cut_copper_slab
@@ -53054,6 +63393,19 @@ namespace MiNET.Blocks
 			record.Id = 629;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 7853 + d0;
 		} // method
 	} // class
 
@@ -53101,6 +63453,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 16463 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class WeatheredChiseledCopper // minecraft:weathered_chiseled_copper
@@ -53137,6 +63498,8 @@ namespace MiNET.Blocks
 			record.Id = 1017;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1870;
 	} // class
 
 	public partial class WeatheredCopper // minecraft:weathered_copper
@@ -53173,6 +63536,8 @@ namespace MiNET.Blocks
 			record.Id = 597;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16478;
 	} // class
 
 	public partial class WeatheredCopperBars // minecraft:weathered_copper_bars
@@ -53209,6 +63574,8 @@ namespace MiNET.Blocks
 			record.Id = 1323;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15142;
 	} // class
 
 	public partial class WeatheredCopperBulb // minecraft:weathered_copper_bulb
@@ -53255,6 +63622,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 15138 + d0 + d1 * 2;
+		} // method
 	} // class
 
 	public partial class WeatheredCopperChain // minecraft:weathered_copper_chain
@@ -53296,6 +63671,20 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10234 + d0;
+		} // method
 	} // class
 
 	public partial class WeatheredCopperChest // minecraft:weathered_copper_chest
@@ -53336,6 +63725,21 @@ namespace MiNET.Blocks
 			record.Id = 1288;
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 10229 + d0;
 		} // method
 	} // class
 
@@ -53393,6 +63797,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 12828 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class WeatheredCopperGolemStatue // minecraft:weathered_copper_golem_statue
@@ -53434,6 +63856,21 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12151 + d0;
+		} // method
 	} // class
 
 	public partial class WeatheredCopperGrate // minecraft:weathered_copper_grate
@@ -53470,6 +63907,8 @@ namespace MiNET.Blocks
 			record.Id = 1025;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5474;
 	} // class
 
 	public partial class WeatheredCopperLantern // minecraft:weathered_copper_lantern
@@ -53510,6 +63949,13 @@ namespace MiNET.Blocks
 			record.Id = 1340;
 			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Hanging ? 1 : 0;
+
+			return 12877 + d0;
 		} // method
 	} // class
 
@@ -53562,6 +64008,16 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 12959 + d0 + d1 * 8 + d2 * 4;
+		} // method
 	} // class
 
 	public partial class WeatheredCutCopper // minecraft:weathered_cut_copper
@@ -53598,6 +64054,8 @@ namespace MiNET.Blocks
 			record.Id = 604;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14512;
 	} // class
 
 	public partial class WeatheredCutCopperSlab // minecraft:weathered_cut_copper_slab
@@ -53638,6 +64096,19 @@ namespace MiNET.Blocks
 			record.Id = 618;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 12189 + d0;
 		} // method
 	} // class
 
@@ -53685,6 +64156,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 6787 + d0 * 4 + d1;
+		} // method
 	} // class
 
 	public partial class WeatheredDoubleCutCopperSlab // minecraft:weathered_double_cut_copper_slab
@@ -53725,6 +64205,19 @@ namespace MiNET.Blocks
 			record.Id = 625;
 			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 14723 + d0;
 		} // method
 	} // class
 
@@ -53772,6 +64265,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+			int d1 = PoweredBit ? 1 : 0;
+
+			return 9091 + d0 + d1 * 6;
+		} // method
 	} // class
 
 	public partial class Web // minecraft:web
@@ -53808,6 +64310,8 @@ namespace MiNET.Blocks
 			record.Id = 30;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 13116;
 	} // class
 
 	public partial class WeepingVines // minecraft:weeping_vines
@@ -53849,6 +64353,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "weeping_vines_age", Value = WeepingVinesAge});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (WeepingVinesAge < 0 || WeepingVinesAge > 25) return -1;
+			int d0 = WeepingVinesAge;
+
+			return 9781 + d0;
+		} // method
 	} // class
 
 	public partial class WetSponge // minecraft:wet_sponge
@@ -53885,6 +64397,8 @@ namespace MiNET.Blocks
 			record.Id = 1239;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 121;
 	} // class
 
 	public partial class Wheat // minecraft:wheat
@@ -53925,6 +64439,14 @@ namespace MiNET.Blocks
 			record.Id = 59;
 			record.States.Add(new BlockStateInt {Name = "growth", Value = Growth});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+
+			return 14649 + d0;
 		} // method
 	} // class
 
@@ -53972,6 +64494,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 9173 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class WhiteCandleCake // minecraft:white_candle_cake
@@ -54013,6 +64544,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 15159 + d0;
+		} // method
 	} // class
 
 	public partial class WhiteCarpet // minecraft:white_carpet
@@ -54049,6 +64587,8 @@ namespace MiNET.Blocks
 			record.Id = 171;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 14621;
 	} // class
 
 	public partial class WhiteConcrete // minecraft:white_concrete
@@ -54085,6 +64625,8 @@ namespace MiNET.Blocks
 			record.Id = 236;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 16120;
 	} // class
 
 	public partial class WhiteConcretePowder // minecraft:white_concrete_powder
@@ -54121,6 +64663,8 @@ namespace MiNET.Blocks
 			record.Id = 237;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8431;
 	} // class
 
 	public partial class WhiteGlazedTerracotta // minecraft:white_glazed_terracotta
@@ -54162,6 +64706,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 10199 + d0;
+		} // method
 	} // class
 
 	public partial class WhiteShulkerBox // minecraft:white_shulker_box
@@ -54198,6 +64750,8 @@ namespace MiNET.Blocks
 			record.Id = 218;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 1962;
 	} // class
 
 	public partial class WhiteStainedGlass // minecraft:white_stained_glass
@@ -54234,6 +64788,8 @@ namespace MiNET.Blocks
 			record.Id = 241;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8485;
 	} // class
 
 	public partial class WhiteStainedGlassPane // minecraft:white_stained_glass_pane
@@ -54270,6 +64826,8 @@ namespace MiNET.Blocks
 			record.Id = 160;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7092;
 	} // class
 
 	public partial class WhiteTerracotta // minecraft:white_terracotta
@@ -54306,6 +64864,8 @@ namespace MiNET.Blocks
 			record.Id = 159;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 8042;
 	} // class
 
 	public partial class WhiteTulip // minecraft:white_tulip
@@ -54342,6 +64902,8 @@ namespace MiNET.Blocks
 			record.Id = 1090;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 7326;
 	} // class
 
 	public partial class WhiteWool // minecraft:white_wool
@@ -54378,6 +64940,8 @@ namespace MiNET.Blocks
 			record.Id = 35;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 9276;
 	} // class
 
 	public partial class Wildflowers // minecraft:wildflowers
@@ -54424,6 +64988,23 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Growth < 0 || Growth > 7) return -1;
+			int d0 = Growth;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+
+			return 15199 + d0 + d1 * 8;
+		} // method
 	} // class
 
 	public partial class WitherRose // minecraft:wither_rose
@@ -54460,6 +65041,8 @@ namespace MiNET.Blocks
 			record.Id = 471;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 12553;
 	} // class
 
 	public partial class WitherSkeletonSkull // minecraft:wither_skeleton_skull
@@ -54500,6 +65083,14 @@ namespace MiNET.Blocks
 			record.Id = 1220;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 14565 + d0;
 		} // method
 	} // class
 
@@ -54546,6 +65137,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 12781 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -54603,6 +65203,24 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 5492 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
 	} // class
 
 	public partial class WoodenPressurePlate // minecraft:wooden_pressure_plate
@@ -54643,6 +65261,14 @@ namespace MiNET.Blocks
 			record.Id = 72;
 			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 15932 + d0;
 		} // method
 	} // class
 
@@ -54690,6 +65316,15 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Candles < 0 || Candles > 3) return -1;
+			int d0 = Candles;
+			int d1 = Lit ? 1 : 0;
+
+			return 12566 + d0 + d1 * 4;
+		} // method
 	} // class
 
 	public partial class YellowCandleCake // minecraft:yellow_candle_cake
@@ -54731,6 +65366,13 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateByte {Name = "lit", Value = Convert.ToByte(Lit)});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = Lit ? 1 : 0;
+
+			return 7380 + d0;
+		} // method
 	} // class
 
 	public partial class YellowCarpet // minecraft:yellow_carpet
@@ -54767,6 +65409,8 @@ namespace MiNET.Blocks
 			record.Id = 855;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 11570;
 	} // class
 
 	public partial class YellowConcrete // minecraft:yellow_concrete
@@ -54803,6 +65447,8 @@ namespace MiNET.Blocks
 			record.Id = 886;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 5279;
 	} // class
 
 	public partial class YellowConcretePowder // minecraft:yellow_concrete_powder
@@ -54839,6 +65485,8 @@ namespace MiNET.Blocks
 			record.Id = 967;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15158;
 	} // class
 
 	public partial class YellowGlazedTerracotta // minecraft:yellow_glazed_terracotta
@@ -54880,6 +65528,14 @@ namespace MiNET.Blocks
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
 		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 3379 + d0;
+		} // method
 	} // class
 
 	public partial class YellowShulkerBox // minecraft:yellow_shulker_box
@@ -54916,6 +65572,8 @@ namespace MiNET.Blocks
 			record.Id = 871;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 357;
 	} // class
 
 	public partial class YellowStainedGlass // minecraft:yellow_stained_glass
@@ -54952,6 +65610,8 @@ namespace MiNET.Blocks
 			record.Id = 931;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 15165;
 	} // class
 
 	public partial class YellowStainedGlassPane // minecraft:yellow_stained_glass_pane
@@ -54988,6 +65648,8 @@ namespace MiNET.Blocks
 			record.Id = 901;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 843;
 	} // class
 
 	public partial class YellowTerracotta // minecraft:yellow_terracotta
@@ -55024,6 +65686,8 @@ namespace MiNET.Blocks
 			record.Id = 982;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 6419;
 	} // class
 
 	public partial class YellowWool // minecraft:yellow_wool
@@ -55060,6 +65724,8 @@ namespace MiNET.Blocks
 			record.Id = 813;
 			return record;
 		} // method
+
+		public override int GetRuntimeId() => 836;
 	} // class
 
 	public partial class ZombieHead // minecraft:zombie_head
@@ -55100,6 +65766,14 @@ namespace MiNET.Blocks
 			record.Id = 1221;
 			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
 			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 33 + d0;
 		} // method
 	} // class
 }

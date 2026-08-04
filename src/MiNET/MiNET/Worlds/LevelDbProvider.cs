@@ -225,7 +225,9 @@ namespace MiNET.Worlds
 
 				//Log.Debug($"Read chunk from LevelDB {coordinates.X}, {coordinates.Z} in {sw.ElapsedMilliseconds} ms.");
 
-				if (blockEntityBytes != null)
+				// A chunk with no block entities still carries this record, written as zero bytes
+				// because MiNET.LevelDB throws on Delete.
+				if (blockEntityBytes is {Length: > 0})
 				{
 					Memory<byte> data = blockEntityBytes.AsMemory();
 
@@ -235,7 +237,7 @@ namespace MiNET.Worlds
 						UseVarInt = false
 					};
 					int position = 0;
-					do
+					while (position < data.Length)
 					{
 						position += (int) file.LoadFromStream(new MemoryStreamReader(data.Slice(position)), NbtCompression.None);
 
@@ -245,7 +247,7 @@ namespace MiNET.Worlds
 						int z = blockEntityTag["z"].IntValue;
 
 						chunkColumn.SetBlockEntity(new BlockCoordinates(x, y, z), (NbtCompound) blockEntityTag);
-					} while (position < data.Length);
+					}
 				}
 			}
 

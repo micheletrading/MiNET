@@ -722,7 +722,8 @@ namespace MiNET.Worlds
 
 		public Vector3 GetSpawnPoint()
 		{
-			var spawnPoint = new Vector3(LevelInfo.SpawnX, LevelInfo.SpawnY + 2 /* + WaterOffsetY*/, LevelInfo.SpawnZ);
+			// level.dat's spawn as-is: it is a feet position, and Level snaps it to the ground.
+			var spawnPoint = new Vector3(LevelInfo.SpawnX, LevelInfo.SpawnY, LevelInfo.SpawnZ);
 			if (Dimension == Dimension.TheEnd)
 			{
 				spawnPoint = new Vector3(100, 49, 0);
@@ -774,9 +775,28 @@ namespace MiNET.Worlds
 			file.SaveToFile(leveldat, NbtCompression.GZip);
 		}
 
+		private bool _warnedAboutSaving;
+
 		public int SaveChunks()
 		{
 			if (!Config.GetProperty("Save.Enabled", false)) return 0;
+
+			// Anvil is read-only on purpose. Its block storage is a byte id plus a nibble of
+			// metadata, 4096 identities for a palette of 16913 states, so a save cannot represent
+			// what the world holds and hands back a different world on load. Reading old maps is
+			// the direction that matters and stays supported. Anvil.AllowSave exists only so the
+			// legacy writer can still be exercised deliberately; it is lossy whatever you set.
+			if (!Config.GetProperty("Anvil.AllowSave", false))
+			{
+				if (!_warnedAboutSaving)
+				{
+					_warnedAboutSaving = true;
+					Log.Warn("Not saving: the Anvil provider is read-only, because its legacy block ids cannot represent modern block "
+						+ "states. The world on disk is unchanged. Use WorldProvider=leveldb to save.");
+				}
+
+				return 0;
+			}
 
 			int count = 0;
 			try

@@ -99,8 +99,8 @@ namespace MiNET.Items
 		{
 			Block currentBlock = world.GetBlock(targetCoordinates);
 
-			// By name. The legacy id maps every wood type and colour onto one pre-flattening class,
-			// whose state the palette no longer has, and the placement would be dropped.
+			// By name: the legacy id maps every wood type and colour onto one pre-flattening class,
+			// whose state has no palette entry and so cannot be written to the world.
 			Block newBlock = BlockFactory.GetBlockByName(Block.Name) ?? BlockFactory.GetBlockById(Block.Id);
 			newBlock.Coordinates = currentBlock.IsReplaceable ? targetCoordinates : GetNewCoordinatesFromFace(targetCoordinates, face);
 

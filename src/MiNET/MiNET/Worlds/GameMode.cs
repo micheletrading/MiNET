@@ -26,9 +26,9 @@
 namespace MiNET.Worlds
 {
 	/// <summary>
-	///     The wire values of Bedrock's GameType. All seven exist on the protocol, and a packet
-	///     carrying one of the four that used to be missing here would be cast into a GameMode
-	///     matching nothing at all, which reads as "no game mode" to every comparison in the server.
+	///     The wire values of Bedrock's GameType, all seven of them. A value with no member here
+	///     casts into a GameMode that matches nothing, which every comparison in the server reads
+	///     as "not this mode", so the set has to stay complete.
 	/// </summary>
 	public enum GameMode
 	{

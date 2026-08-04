@@ -139,7 +139,13 @@ namespace MiNET.Blocks
 			return blockstate;
 		}
 
-		public int GetRuntimeId()
+		/// <summary>
+		///     Overridden by the generated partial with closed-form arithmetic, because a block's
+		///     position in the palette is a mixed-radix encoding of its state values and is known
+		///     when the code is generated. This lookup is the fallback for classes that write their
+		///     own GetState by hand.
+		/// </summary>
+		public virtual int GetRuntimeId()
 		{
 			BlockStateContainer currentState = GetState();
 			if (currentState == null || !BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))

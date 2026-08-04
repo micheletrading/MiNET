@@ -169,6 +169,21 @@ namespace MiNET.Worlds
 			return bid == -1 ? 0 : bid;
 		}
 
+		/// <summary>
+		///     The block's palette index, which is its identity here. Anything asking a question about
+		///     the block itself wants this: GetBlockId projects onto a legacy id and answers air for
+		///     every block that has none.
+		/// </summary>
+		public int GetBlockRuntimeId(int bx, int by, int bz)
+		{
+			if (_runtimeIds.Count == 0) return 0;
+
+			int paletteIndex = _blocks[GetIndex(bx, by, bz)];
+			if (paletteIndex < 0 || paletteIndex >= _runtimeIds.Count) return 0;
+
+			return _runtimeIds[paletteIndex];
+		}
+
 		public Block GetBlockObject(int bx, int @by, int bz)
 		{
 			if (_runtimeIds.Count == 0) return new Air();

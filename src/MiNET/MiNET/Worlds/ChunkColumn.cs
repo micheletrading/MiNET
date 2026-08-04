@@ -129,6 +129,12 @@ namespace MiNET.Worlds
 			return subChunk.GetBlockId(bx, by & 0xf, bz);
 		}
 
+		public int GetBlockRuntimeId(int bx, int by, int bz)
+		{
+			var subChunk = GetSubChunk(by);
+			return subChunk.GetBlockRuntimeId(bx, by & 0xf, bz);
+		}
+
 		public Block GetBlockObject(int bx, int @by, int bz)
 		{
 			var subChunk = GetSubChunk(by);
@@ -390,19 +396,20 @@ namespace MiNET.Worlds
 					if (isInAir && chunk.IsAllAir())
 					{
 						if (chunk.IsDirty) Array.Fill<byte>(chunk._skylight.Data, 0xff);
-						y -= 15;
+
+						// Drop to this subchunk's floor and let the loop step below it. y is not
+						// aligned to a subchunk boundary, so it has to be floored rather than
+						// decremented by a fixed 16.
+						y = (y >> 4) << 4;
 						continue;
 					}
 
 					isInAir = false;
 
-					// TransparentBlocks is indexed by legacy id, and a post-flattening block can carry
-					// an id past the end of it. Out of range means "not a legacy transparent block",
-					// which is opaque; indexing anyway threw and aborted SetBlock before it could
-					// tell the client anything.
-					int bid = GetBlockId(x, y, z);
-					bool isTransparent = bid >= 0 && bid < BlockFactory.TransparentBlocks.Length && BlockFactory.TransparentBlocks[bid] == 1;
-					if (bid == 0 || (isTransparent && bid != 18 && bid != 30 && bid != 8 && bid != 9))
+					// By runtime id: a block's identity here is its palette entry, and GetBlockId
+					// answers air for anything without a legacy id. Air, glass, leaves, water and
+					// cobweb differ only in how much light they dampen, which the block data holds.
+					if (BlockFactory.SkyLightPasses(GetBlockRuntimeId(x, y, z)))
 					{
 						SetSkyLight(x, y, z, 15);
 					}
@@ -431,14 +438,17 @@ namespace MiNET.Worlds
 					if (isInAir && chunk.IsAllAir())
 					{
 						if (chunk.IsDirty) Array.Fill<byte>(chunk._skylight.Data, 0xff);
-						y -= 15;
+
+						// Drop to this subchunk's floor and let the loop step below it. y is not
+						// aligned to a subchunk boundary, so it has to be floored rather than
+						// decremented by a fixed 16.
+						y = (y >> 4) << 4;
 						continue;
 					}
 
 					isInAir = false;
 
-					int bid = GetBlockId(x, y, z);
-					if (bid == 0 || (BlockFactory.TransparentBlocks[bid] == 1 && bid != 18 && bid != 30))
+					if (BlockFactory.SkyLightPasses(GetBlockRuntimeId(x, y, z)))
 					{
 						continue;
 					}
