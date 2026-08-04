@@ -25,6 +25,11 @@
 
 namespace MiNET.Worlds
 {
+	/// <summary>
+	///     The wire values of Bedrock's GameType. All seven exist on the protocol, and a packet
+	///     carrying one of the four that used to be missing here would be cast into a GameMode
+	///     matching nothing at all, which reads as "no game mode" to every comparison in the server.
+	/// </summary>
 	public enum GameMode
 	{
 		/// <summary>
@@ -48,9 +53,26 @@ namespace MiNET.Worlds
 		Adventure = 2,
 
 		/// <summary>
-		///     Similar to creative, with the exception that players may
-		///     not place or remove blocks.
+		///     The pre-1.16 spectator, which is survival without the ability to interact. Superseded
+		///     by <see cref="Spectator" />, and kept because the value is still on the wire.
 		/// </summary>
-		Spectator = 3
+		SurvivalSpectator = 3,
+
+		/// <summary>
+		///     The pre-1.16 creative spectator. Superseded by <see cref="Spectator" />.
+		/// </summary>
+		CreativeSpectator = 4,
+
+		/// <summary>
+		///     Not a mode: the "use the level's game mode" sentinel. StartGame sends it as the
+		///     player's mode, and the client acknowledges it verbatim, so it arrives at the server
+		///     and has to be resolved rather than stored.
+		/// </summary>
+		Fallback = 5,
+
+		/// <summary>
+		///     Players move through blocks and cannot interact with the world at all.
+		/// </summary>
+		Spectator = 6
 	}
 }

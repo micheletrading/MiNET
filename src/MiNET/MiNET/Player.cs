@@ -314,7 +314,18 @@ namespace MiNET
 
 		public virtual void HandleMcpeSetPlayerGameType(McpeSetPlayerGameType message)
 		{
-			SetGameMode((GameMode) message.gamemode);
+			// Fallback is the "inherit the level's mode" sentinel StartGame sends, and the client
+			// acknowledges it verbatim. It is not a mode: storing it leaves GameMode matching
+			// nothing at all, which silently disables every creative-gated path.
+			var requested = (GameMode) message.gamemode;
+			GameMode gameMode = requested == GameMode.Fallback ? Level.GameMode : requested;
+			if (!Enum.IsDefined(gameMode))
+			{
+				Log.Warn($"Ignoring SetPlayerGameType with unknown game mode {message.gamemode}");
+				return;
+			}
+
+			SetGameMode(gameMode);
 		}
 
 		public virtual void HandleMcpeLabTable(McpeLabTable message)

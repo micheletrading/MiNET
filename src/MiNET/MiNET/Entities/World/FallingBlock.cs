@@ -101,7 +101,7 @@ namespace MiNET.Entities.World
 			{
 				var updateBlock = McpeUpdateBlockSynced.CreateObject();
 				updateBlock.coordinates = (BlockCoordinates) KnownPosition;
-				updateBlock.blockRuntimeId = (uint) new Air().GetRuntimeId();
+				updateBlock.blockRuntimeId = BlockFactory.GetNetworkId(new Air());
 				updateBlock.blockPriority = 3;
 				updateBlock.dataLayerId = 0;
 				updateBlock.unknown0 = EntityId;
@@ -141,7 +141,7 @@ namespace MiNET.Entities.World
 			{
 				var updateBlock = McpeUpdateBlockSynced.CreateObject();
 				updateBlock.coordinates = new BlockCoordinates(KnownPosition);
-				updateBlock.blockRuntimeId = (uint) _original;
+				updateBlock.blockRuntimeId = BlockFactory.GetNetworkId(_original);
 				updateBlock.blockPriority = 3;
 				updateBlock.dataLayerId = 0;
 				updateBlock.unknown0 = EntityId;

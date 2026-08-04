@@ -396,9 +396,13 @@ namespace MiNET.Worlds
 
 					isInAir = false;
 
+					// TransparentBlocks is indexed by legacy id, and a post-flattening block can carry
+					// an id past the end of it. Out of range means "not a legacy transparent block",
+					// which is opaque; indexing anyway threw and aborted SetBlock before it could
+					// tell the client anything.
 					int bid = GetBlockId(x, y, z);
-					if (bid < 0 || bid >= BlockFactory.TransparentBlocks.Length) Log.Warn($"{bid}");
-					if (bid == 0 || (BlockFactory.TransparentBlocks[bid] == 1 && bid != 18 && bid != 30 && bid != 8 && bid != 9))
+					bool isTransparent = bid >= 0 && bid < BlockFactory.TransparentBlocks.Length && BlockFactory.TransparentBlocks[bid] == 1;
+					if (bid == 0 || (isTransparent && bid != 18 && bid != 30 && bid != 8 && bid != 9))
 					{
 						SetSkyLight(x, y, z, 15);
 					}

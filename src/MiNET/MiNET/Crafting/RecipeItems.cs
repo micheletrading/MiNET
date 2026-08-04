@@ -144,15 +144,16 @@ namespace MiNET.Crafting
 			return item;
 		}
 
-		// Block-state reference -> the block's FNV-1a network hash, which is what an item stack's "block
-		// runtime id" field carries while StartGame.blockNetworkIdsAreHashes is set.
+		// Block-state reference -> whatever the protocol's single "block runtime id" field carries,
+		// which BlockFactory decides. This used to hash unconditionally, which is only right in one
+		// of the two modes.
 		private static int ResolveBlockStateHash(string name, Dictionary<string, string> states)
 		{
 			if (states == null || states.Count == 0)
 			{
-				uint defaultHash = BlockFactory.GetDefaultStateHash(name);
-				if (defaultHash == 0) Log.Warn($"Recipe result references unknown block '{name}'");
-				return unchecked((int) defaultHash);
+				BlockStateContainer defaultState = BlockFactory.GetDefaultState(name);
+				if (defaultState == null) Log.Warn($"Recipe result references unknown block '{name}'");
+				return defaultState == null ? 0 : unchecked((int) BlockFactory.GetNetworkId(defaultState));
 			}
 
 			foreach (BlockStateContainer state in BlockFactory.BlockPalette)
@@ -161,11 +162,12 @@ namespace MiNET.Crafting
 				if (state.States.Count != states.Count) continue;
 				if (!state.States.All(s => states.TryGetValue(s.Name, out string value) && string.Equals(StateValue(s), value, StringComparison.OrdinalIgnoreCase))) continue;
 
-				return unchecked((int) BlockFactory.GetNetworkHash(state.RuntimeId));
+				return unchecked((int) BlockFactory.GetNetworkId(state));
 			}
 
 			Log.Warn($"Recipe result references block state '{name}' that is not in the palette; falling back to its default state");
-			return unchecked((int) BlockFactory.GetDefaultStateHash(name));
+			BlockStateContainer fallback = BlockFactory.GetDefaultState(name);
+			return fallback == null ? 0 : unchecked((int) BlockFactory.GetNetworkId(fallback));
 		}
 
 		private static string StateValue(IBlockState state)

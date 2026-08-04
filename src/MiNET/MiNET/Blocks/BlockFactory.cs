@@ -105,12 +105,76 @@ namespace MiNET.Blocks
 
 		public static bool IsValidNetworkHash(uint hash) => _validHashes.Value.Contains(hash);
 
-		// Network hash of a block name's default (first palette) state; 0 if the name is unknown.
-		public static uint GetDefaultStateHash(string name)
+		private static readonly Lazy<Dictionary<uint, int>> _runtimeIdByHash = new Lazy<Dictionary<uint, int>>(() =>
 		{
-			if (string.IsNullOrEmpty(name)) return 0;
+			uint[] hashes = _networkHashes.Value;
+			var map = new Dictionary<uint, int>(hashes.Length);
+			for (int i = 0; i < hashes.Length; i++)
+			{
+				map[hashes[i]] = i;
+			}
+			return map;
+		});
+
+		/// <summary>
+		///     Which of the two forms the single protocol "block runtime id" field carries. There is
+		///     one such field, never two: this only decides what number goes in it. StartGame tells
+		///     the client which, and after that the whole session reads it one way.
+		///     False, the vanilla-incompatible but cheaper form, means the raw palette index, which
+		///     works because our palette is compiled in the client's own order. True means the
+		///     order-independent FNV-1a hash of the state, which costs about four extra bytes per
+		///     sub-chunk palette entry.
+		/// </summary>
+		public static bool BlockNetworkIdsAreHashes { get; set; } = Config.GetProperty("BlockNetworkIdsAreHashes", false);
+
+		/// <summary>
+		///     Internal identity to the wire. The ONLY place that turns a block into the number the
+		///     protocol carries: nothing else may look at <see cref="BlockNetworkIdsAreHashes" />.
+		/// </summary>
+		public static uint GetNetworkId(int runtimeId)
+		{
+			if (runtimeId < 0 || runtimeId >= BlockPalette.Count) return 0;
+
+			return BlockNetworkIdsAreHashes ? _networkHashes.Value[runtimeId] : (uint) runtimeId;
+		}
+
+		public static uint GetNetworkId(Block block)
+		{
+			return GetNetworkId(block.GetRuntimeId());
+		}
+
+		public static uint GetNetworkId(BlockStateContainer state)
+		{
+			return GetNetworkId(state.RuntimeId);
+		}
+
+		/// <summary>
+		///     The wire back to internal identity, and the only inverse of <see cref="GetNetworkId" />.
+		///     Returns -1 for a number in neither form, which is a protocol error, not air.
+		/// </summary>
+		public static int GetRuntimeIdFromNetworkId(uint networkId)
+		{
+			if (BlockNetworkIdsAreHashes)
+			{
+				return _runtimeIdByHash.Value.TryGetValue(networkId, out int runtimeId) ? runtimeId : -1;
+			}
+
+			return networkId < BlockPalette.Count ? (int) networkId : -1;
+		}
+
+		public static Block GetBlockByNetworkId(uint networkId)
+		{
+			int runtimeId = GetRuntimeIdFromNetworkId(networkId);
+			return runtimeId < 0 ? null : GetBlockByRuntimeId(runtimeId);
+		}
+
+		// A block name's default (first palette) state; null if the name is unknown. Callers that
+		// want a wire id take this to GetNetworkId, so the id form stays decided in one place.
+		public static BlockStateContainer GetDefaultState(string name)
+		{
+			if (string.IsNullOrEmpty(name)) return null;
 			if (!name.StartsWith("minecraft:")) name = "minecraft:" + name;
-			return _defaultStateByName.Value.TryGetValue(name, out var state) ? GetNetworkHash(state.RuntimeId) : 0;
+			return _defaultStateByName.Value.TryGetValue(name, out var state) ? state : null;
 		}
 
 		// FNV-1a 32 over the standard little-endian (non-varint) NBT of {name, states}, states

@@ -98,7 +98,10 @@ namespace MiNET.Items
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates targetCoordinates, BlockFace face, Vector3 faceCoords)
 		{
 			Block currentBlock = world.GetBlock(targetCoordinates);
-			Block newBlock = BlockFactory.GetBlockById(Block.Id);
+
+			// By name. The legacy id maps every wood type and colour onto one pre-flattening class,
+			// whose state the palette no longer has, and the placement would be dropped.
+			Block newBlock = BlockFactory.GetBlockByName(Block.Name) ?? BlockFactory.GetBlockById(Block.Id);
 			newBlock.Coordinates = currentBlock.IsReplaceable ? targetCoordinates : GetNewCoordinatesFromFace(targetCoordinates, face);
 
 			// This won't work without explicit mapping where an item dictates
