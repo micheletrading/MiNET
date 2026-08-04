@@ -38,7 +38,10 @@ namespace MiNET.Net
 		public string command; // = null;
 		public string lastOutput; // = null;
 		public string name; // = null;
+		public string filteredName; // = null;
 		public bool shouldTrackOutput; // = null;
+		public uint tickDelay; // = null;
+		public bool executeOnFirstTick; // = null;
 
 		partial void AfterEncode()
 		{
@@ -57,7 +60,10 @@ namespace MiNET.Net
 			Write(command);
 			Write(lastOutput);
 			Write(name);
+			Write(filteredName);
 			Write(shouldTrackOutput);
+			Write(tickDelay);
+			Write(executeOnFirstTick);
 		}
 
 		partial void AfterDecode()
@@ -77,7 +83,10 @@ namespace MiNET.Net
 			command = ReadString();
 			lastOutput = ReadString();
 			name = ReadString();
+			filteredName = ReadString();
 			shouldTrackOutput = ReadBool();
+			tickDelay = ReadUint();
+			executeOnFirstTick = ReadBool();
 		}
 
 		public override void Reset()
@@ -90,7 +99,10 @@ namespace MiNET.Net
 			command = default;
 			lastOutput = default;
 			name = default;
+			filteredName = default;
 			shouldTrackOutput = default;
+			tickDelay = default;
+			executeOnFirstTick = default;
 
 			base.Reset();
 		}

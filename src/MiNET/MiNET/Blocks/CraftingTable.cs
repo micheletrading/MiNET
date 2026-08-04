@@ -46,7 +46,7 @@ namespace MiNET.Blocks
 			containerOpen.windowId = 13;
 			containerOpen.type = 1;
 			containerOpen.coordinates = Coordinates;
-			containerOpen.runtimeEntityId = EntityManager.EntityIdSelf;
+			containerOpen.actorUniqueId = EntityManager.EntityIdSelf;
 			player.SendPacket(containerOpen);
 
 			//var sendSlot = McpeInventorySlot.CreateObject();

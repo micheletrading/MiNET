@@ -108,11 +108,15 @@ namespace MiNET.Utils
 	public class CraftAction : ItemStackAction
 	{
 		public uint RecipeNetworkId { get; set; }
+		public byte TimesCrafted { get; set; }
 	}
 
 	public class CraftAutoAction : ItemStackAction
 	{
 		public uint RecipeNetworkId { get; set; }
+		public byte NumberOfRequestedCrafts { get; set; }
+		public byte TimesCrafted { get; set; }
+		public List<Item> Ingredients { get; set; } = new List<Item>();
 	}
 
 	public class CraftCreativeAction : ItemStackAction
@@ -128,17 +132,22 @@ namespace MiNET.Utils
 
 	public class MineBlockAction : ItemStackAction
 	{
+		public int HotbarSlot { get; set; }
+		public int PredictedDurability { get; set; }
+		public int StackNetworkId { get; set; }
 	}
 
 	public class GrindstoneStackRequestAction : ItemStackAction
 	{
 		public uint RecipeNetworkId { get; set; }
+		public byte TimesCrafted { get; set; }
 		public int RepairCost { get; set; }
 	}
 
 	public class LoomStackRequestAction : ItemStackAction
 	{
 		public string PatternId { get; set; }
+		public byte TimesCrafted { get; set; }
 	}
 
 	public class PlaceIntoBundleAction : ItemStackAction

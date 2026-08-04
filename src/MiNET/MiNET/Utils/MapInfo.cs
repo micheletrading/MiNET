@@ -32,6 +32,7 @@ namespace MiNET.Utils
 	{
 		public long MapId;
 		public byte UpdateType;
+		public BlockCoordinates Origin;
 		public MapDecorator[] Decorators = new MapDecorator[0];
 		public byte X;
 		public byte Z;

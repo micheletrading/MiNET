@@ -30,6 +30,7 @@ namespace MiNET.Net
 		public int MaxHeight { get; set; }
 		public int MinHeight { get; set; }
 		public int Generator { get; set; }
+		public int DimensionType { get; set; }
 	}
 
 	public class DimensionDefinitions : Dictionary<string, DimensionData>

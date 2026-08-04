@@ -72,7 +72,7 @@ namespace MiNET.Blocks
 			containerOpen.windowId = 5 + 9;
 			containerOpen.type = 13;
 			containerOpen.coordinates = blockCoordinates;
-			containerOpen.runtimeEntityId = -1;
+			containerOpen.actorUniqueId = -1;
 			player.SendPacket(containerOpen);
 
 			return true;

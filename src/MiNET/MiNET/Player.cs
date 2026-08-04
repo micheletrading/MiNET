@@ -413,11 +413,6 @@ namespace MiNET
 			SendPacket(packStack);
 		}
 
-		public virtual void HandleMcpePlayerInput(McpePlayerInput message)
-		{
-			Log.Debug($"Player input: x={message.motionX}, z={message.motionZ}, jumping={message.jumping}, sneaking={message.sneaking}");
-		}
-
 		public virtual void HandleMcpeRiderJump(McpeRiderJump message)
 		{
 			if (IsRiding && Vehicle > 0)
@@ -1282,7 +1277,7 @@ namespace MiNET
 
 		public virtual void HandleMcpeCommandRequest(McpeCommandRequest message)
 		{
-			Log.Debug($"UUID: {message.unknownUuid}");
+			Log.Debug($"UUID: {message.origin?.UUID}");
 
 			var result = Server.PluginManager.HandleCommand(this, message.command);
 			if (result is string)
@@ -2834,16 +2829,6 @@ namespace MiNET
 		{
 		}
 
-		public virtual void HandleMcpeItemFrameDropItem(McpeItemFrameDropItem message)
-		{
-			Log.Debug($"Drops item frame at {message.coordinates}");
-			if (Level.GetBlock(message.coordinates) is Frame frame)
-			{
-				Log.Debug($"Drops from frame {frame}");
-				frame.ClearItem(Level);
-			}
-		}
-
 		public virtual void HandleMcpeMobEquipment(McpeMobEquipment message)
 		{
 			if (HealthManager.IsDead) return;
@@ -2931,7 +2916,7 @@ namespace MiNET
 				containerOpen.windowId = inventory.WindowsId;
 				containerOpen.type = inventory.Type;
 				containerOpen.coordinates = inventoryCoord;
-				containerOpen.runtimeEntityId = -1;
+				containerOpen.actorUniqueId = -1;
 				SendPacket(containerOpen);
 
 				var containerSetContent = McpeInventoryContent.CreateObject();
@@ -3453,7 +3438,7 @@ namespace MiNET
 						containerOpen.windowId = 2;
 						containerOpen.type = 255;
 						containerOpen.coordinates = (BlockCoordinates) KnownPosition;
-						containerOpen.runtimeEntityId = -1;
+						containerOpen.actorUniqueId = -1;
 						SendPacket(containerOpen);
 					}
 					else if (IsRiding) // Riding; Open inventory

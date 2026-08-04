@@ -504,13 +504,13 @@ namespace MiNET.Net
 		public void Write(BlockCoordinates coord)
 		{
 			WriteSignedVarInt(coord.X);
-			WriteUnsignedVarInt((uint) coord.Y);
+			WriteSignedVarInt(coord.Y);
 			WriteSignedVarInt(coord.Z);
 		}
 
 		public BlockCoordinates ReadBlockCoordinates()
 		{
-			return new BlockCoordinates(ReadSignedVarInt(), (int) ReadUnsignedVarInt(), ReadSignedVarInt());
+			return new BlockCoordinates(ReadSignedVarInt(), ReadSignedVarInt(), ReadSignedVarInt());
 		}
 
 		public void Write(PlayerRecords records)
@@ -651,8 +651,8 @@ namespace MiNET.Net
 			Write(location.Z);
 			var d = 256f / 360f;
 			Write((byte) Math.Round(location.Pitch * d)); // 256/360
-			Write((byte) Math.Round(location.HeadYaw * d)); // 256/360
 			Write((byte) Math.Round(location.Yaw * d)); // 256/360
+			Write((byte) Math.Round(location.HeadYaw * d)); // 256/360
 		}
 
 		public PlayerLocation ReadPlayerLocation()
@@ -662,8 +662,8 @@ namespace MiNET.Net
 			location.Y = ReadFloat();
 			location.Z = ReadFloat();
 			location.Pitch = ReadByte() * 1f / 0.71f;
-			location.HeadYaw = ReadByte() * 1f / 0.71f;
 			location.Yaw = ReadByte() * 1f / 0.71f;
+			location.HeadYaw = ReadByte() * 1f / 0.71f;
 
 			return location;
 		}
@@ -757,9 +757,29 @@ namespace MiNET.Net
 			return uuid;
 		}
 
+		public void Write(CommandOriginData originData)
+		{
+			if (originData == null) throw new Exception("Expected CommandOriginData, required");
+
+			Write(CommandOriginData.GetTypeName(originData.Type));
+			Write(originData.UUID);
+			Write(originData.RequestId);
+			Write((ulong) originData.EntityUniqueId);
+		}
+
+		public CommandOriginData ReadCommandOriginData()
+		{
+			CommandOriginType type = CommandOriginData.GetTypeFromName(ReadString());
+			UUID uuid = ReadUUID();
+			string requestId = ReadString();
+			long entityUniqueId = (long) ReadUlong();
+
+			return new CommandOriginData(type, uuid, requestId, entityUniqueId);
+		}
+
 		public void Write(Nbt nbt)
 		{
-			Write(nbt, _writer.BaseStream, nbt.NbtFile.UseVarInt || this is McpeBlockEntityData || this is McpeUpdateEquipment);
+			Write(nbt, _writer.BaseStream, nbt.NbtFile.UseVarInt || this is McpeBlockEntityData || this is McpeUpdateEquipment || this is McpeUpdateTrade);
 		}
 
 		public static void Write(Nbt nbt, Stream stream, bool useVarInt)
@@ -989,21 +1009,23 @@ namespace MiNET.Net
 				{
 					case ContainerTransactionRecord r:
 						WriteVarInt((int) McpeInventoryTransaction.InventorySourceType.Container);
-						WriteSignedVarInt(r.InventoryId);
+						WriteInventorySource(r.InventoryId, null);
 						break;
 					case GlobalTransactionRecord _:
 						WriteVarInt((int) McpeInventoryTransaction.InventorySourceType.Global);
+						WriteInventorySource(null, null);
 						break;
 					case WorldInteractionTransactionRecord r:
 						WriteVarInt((int) McpeInventoryTransaction.InventorySourceType.WorldInteraction);
-						WriteVarInt(r.Flags);
+						WriteInventorySource(null, (uint) r.Flags);
 						break;
 					case CreativeTransactionRecord _:
 						WriteVarInt((int) McpeInventoryTransaction.InventorySourceType.Creative);
+						WriteInventorySource(null, null);
 						break;
 					case CraftTransactionRecord r:
 						WriteVarInt((int) McpeInventoryTransaction.InventorySourceType.Crafting);
-						WriteVarInt((int) r.Action);
+						WriteInventorySource((int) r.Action, null);
 						break;
 				}
 
@@ -1052,6 +1074,26 @@ namespace MiNET.Net
 			}
 		}
 
+		// Protocol 1001 encodes the inventory source flat and independent of the source type:
+		// a dummy state byte (vanilla always 1) plus an optional signed BYTE container id, then
+		// another dummy state byte plus optional unsigned varint flags.
+		private void WriteInventorySource(int? containerId, uint? flags)
+		{
+			Write(true);
+			Write(containerId.HasValue);
+			if (containerId.HasValue)
+			{
+				Write((byte) containerId.Value);
+			}
+
+			Write(true);
+			Write(flags.HasValue);
+			if (flags.HasValue)
+			{
+				WriteUnsignedVarInt(flags.Value);
+			}
+		}
+
 		public Transaction ReadTransaction()
 		{
 			var requestId = ReadSignedVarInt(); // request id
@@ -1086,23 +1128,33 @@ namespace MiNET.Net
 			{
 				TransactionRecord record;
 				int sourceType = ReadVarInt();
+
+				// Flat inventory source, see WriteInventorySource.
+				ReadBool(); // dummy optional state for the container id, always 1
+				bool hasContainerId = ReadBool();
+				int containerId = hasContainerId ? (sbyte) ReadByte() : 0;
+
+				ReadBool(); // dummy optional state for the flags, always 1
+				bool hasFlags = ReadBool();
+				int flags = hasFlags ? (int) ReadUnsignedVarInt() : 0;
+
 				switch ((McpeInventoryTransaction.InventorySourceType) sourceType)
 				{
 					case McpeInventoryTransaction.InventorySourceType.Container:
-						record = new ContainerTransactionRecord() {InventoryId = ReadSignedVarInt()};
+						record = new ContainerTransactionRecord() {InventoryId = containerId};
 						break;
 					case McpeInventoryTransaction.InventorySourceType.Global:
 						record = new GlobalTransactionRecord();
 						break;
 					case McpeInventoryTransaction.InventorySourceType.WorldInteraction:
-						record = new WorldInteractionTransactionRecord() {Flags = ReadVarInt()};
+						record = new WorldInteractionTransactionRecord() {Flags = flags};
 						break;
 					case McpeInventoryTransaction.InventorySourceType.Creative:
-						record = new CreativeTransactionRecord() {InventoryId = 0x79};
+						record = new CreativeTransactionRecord() {InventoryId = hasContainerId ? containerId : 0x79};
 						break;
 					case McpeInventoryTransaction.InventorySourceType.Unspecified:
 					case McpeInventoryTransaction.InventorySourceType.Crafting:
-						record = new CraftTransactionRecord() {Action = (McpeInventoryTransaction.CraftingAction) ReadSignedVarInt()};
+						record = new CraftTransactionRecord() {Action = (McpeInventoryTransaction.CraftingAction) containerId};
 						break;
 					default:
 						Log.Error($"Unknown inventory source type={sourceType}");
@@ -1293,10 +1345,20 @@ namespace MiNET.Net
 							break;
 						}
 						
+						case MineBlockAction ta:
+						{
+							Write((byte) McpeItemStackRequest.ActionType.MineBlock);
+							WriteSignedVarInt(ta.HotbarSlot);
+							WriteSignedVarInt(ta.PredictedDurability);
+							WriteSignedVarInt(ta.StackNetworkId);
+							break;
+						}
+
 						case CraftAction ta:
 						{
 							Write((byte) McpeItemStackRequest.ActionType.CraftRecipe);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
+							Write(ta.TimesCrafted); // repetitions (protocol 1001)
 							break;
 						}
 
@@ -1304,6 +1366,13 @@ namespace MiNET.Net
 						{
 							Write((byte) McpeItemStackRequest.ActionType.CraftRecipeAuto);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
+							Write(ta.NumberOfRequestedCrafts); // repetitions, sent twice by vanilla
+							Write(ta.TimesCrafted);
+							Write((byte) ta.Ingredients.Count);
+							foreach (Item ingredient in ta.Ingredients)
+							{
+								WriteRecipeIngredient(ingredient);
+							}
 							break;
 						}
 						
@@ -1327,14 +1396,16 @@ namespace MiNET.Net
 						{
 							Write((byte) McpeItemStackRequest.ActionType.CraftGrindstone);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
-							WriteVarInt(ta.RepairCost);
+							Write(ta.TimesCrafted); // repetitions (protocol 1001)
+							WriteSignedVarInt(ta.RepairCost);
 							break;
 						}
-						
+
 						case LoomStackRequestAction ta:
 						{
 							Write((byte) McpeItemStackRequest.ActionType.CraftLoom);
 							Write(ta.PatternId);
+							Write(ta.TimesCrafted); // repetitions (protocol 1001)
 							break;
 						}
 
@@ -1347,7 +1418,13 @@ namespace MiNET.Net
 						case CraftResultDeprecatedAction ta:
 						{
 							Write((byte) McpeItemStackRequest.ActionType.CraftResultsDeprecated);
-							Write(ta.ResultItems);
+							// The result items are the legacy zigzag stacks without stack ids
+							// (PMMP putItemStackWithoutStackId), matching ReadItems() on decode.
+							WriteUnsignedVarInt((uint) ta.ResultItems.Count);
+							foreach (Item resultItem in ta.ResultItems)
+							{
+								WriteItemLegacy(resultItem);
+							}
 							Write(ta.TimesCrafted);
 							break;
 						}
@@ -1482,10 +1559,11 @@ namespace MiNET.Net
 						case McpeItemStackRequest.ActionType.MineBlock:
 						{
 							// hotbar slot, predicted durability, stack net id (all zigzag).
-							ReadSignedVarInt();
-							ReadSignedVarInt();
-							ReadSignedVarInt();
-							actions.Add(new MineBlockAction());
+							var action = new MineBlockAction();
+							action.HotbarSlot = ReadSignedVarInt();
+							action.PredictedDurability = ReadSignedVarInt();
+							action.StackNetworkId = ReadSignedVarInt();
+							actions.Add(action);
 							break;
 						}
 						case McpeItemStackRequest.ActionType.LabTableCombine:
@@ -1506,7 +1584,7 @@ namespace MiNET.Net
 						{
 							var action = new CraftAction();
 							action.RecipeNetworkId = ReadUnsignedVarInt();
-							ReadByte(); // repetitions (protocol 1001)
+							action.TimesCrafted = ReadByte(); // repetitions (protocol 1001)
 							actions.Add(action);
 							break;
 						}
@@ -1514,12 +1592,12 @@ namespace MiNET.Net
 						{
 							var action = new CraftAutoAction();
 							action.RecipeNetworkId = ReadUnsignedVarInt();
-							ReadByte(); // repetitions (protocol 1001)
-							ReadByte(); // repetitions, sent twice by vanilla
+							action.NumberOfRequestedCrafts = ReadByte(); // repetitions (protocol 1001)
+							action.TimesCrafted = ReadByte(); // repetitions, sent twice by vanilla
 							byte ingredientCount = ReadByte();
 							for (int ii = 0; ii < ingredientCount; ii++)
 							{
-								ReadRecipeIngredient();
+								action.Ingredients.Add(ReadRecipeIngredient());
 							}
 							actions.Add(action);
 							break;
@@ -1542,9 +1620,12 @@ namespace MiNET.Net
 						}
 						case McpeItemStackRequest.ActionType.CraftGrindstone:
 						{
+							// recipe network id, repetitions, repair cost. The recipe id was missing
+							// entirely, desyncing everything after the action.
 							var action = new GrindstoneStackRequestAction();
+							action.RecipeNetworkId = ReadUnsignedVarInt();
+							action.TimesCrafted = ReadByte();
 							action.RepairCost = ReadSignedVarInt();
-							ReadByte(); // repetitions (protocol 1001)
 
 							actions.Add(action);
 							break;
@@ -1553,7 +1634,7 @@ namespace MiNET.Net
 						{
 							var action = new LoomStackRequestAction();
 							action.PatternId = ReadString();
-							ReadByte(); // repetitions (protocol 1001)
+							action.TimesCrafted = ReadByte(); // repetitions (protocol 1001)
 							actions.Add(action);
 							break;
 						}
@@ -1727,7 +1808,7 @@ namespace MiNET.Net
 			WriteUnsignedVarInt((uint) options.Count);
 			foreach (EnchantOption option in options)
 			{
-				WriteUnsignedVarInt(option.Cost);
+				Write((byte) option.Cost); // u8, not a varint
 				Write(option.Flags);
 				WriteEnchants(option.EquipActivatedEnchantments);
 				WriteEnchants(option.HeldActivatedEnchantments);
@@ -1742,8 +1823,8 @@ namespace MiNET.Net
 			WriteUnsignedVarInt((uint) enchants.Count);
 			foreach (Enchant enchant in enchants)
 			{
-				Write(enchant.Id);	
-				Write(enchant.Level);	
+				WriteUnsignedVarInt((uint) enchant.Id); // enchant type id, unsigned varint since protocol 975
+				Write(enchant.Level);
 			}
 		}
 
@@ -1754,7 +1835,7 @@ namespace MiNET.Net
 
 			for (int i = 0; i < count; i++)
 			{
-				Enchant enchant = new Enchant(ReadByte(), ReadByte());
+				Enchant enchant = new Enchant((int) ReadUnsignedVarInt(), ReadByte());
 				enchants.Add(enchant);
 			}
 
@@ -1769,7 +1850,7 @@ namespace MiNET.Net
 			for (int i = 0; i < count; i++)
 			{
 				EnchantOption option = new EnchantOption();
-				option.Cost = ReadUnsignedVarInt();
+				option.Cost = ReadByte(); // u8, not a varint
 				option.Flags = ReadInt();
 				option.EquipActivatedEnchantments = ReadEnchants();
 				option.HeldActivatedEnchantments = ReadEnchants();
@@ -1781,39 +1862,6 @@ namespace MiNET.Net
 			}
 			
 			return options;
-		}
-
-		public void Write(AnimationKey[] keys)
-		{
-			WriteUnsignedVarInt((uint) keys.Length);
-			foreach (AnimationKey key in keys)
-			{
-				Write(key.ExecuteImmediate);
-				Write(key.ResetBefore);
-				Write(key.ResetAfter);
-				Write(key.StartRotation);
-				Write(key.EndRotation);
-				WriteUnsignedVarInt(key.Duration);
-			}
-		}
-
-		public AnimationKey[] ReadAnimationKeys()
-		{
-			var count = ReadUnsignedVarInt();
-			var keys = new AnimationKey[count];
-			for (int i = 0; i < count; i++)
-			{
-				AnimationKey key = new AnimationKey();
-				key.ExecuteImmediate = ReadBool();
-				key.ResetBefore = ReadBool();
-				key.ResetAfter = ReadBool();
-				key.StartRotation = ReadVector3();
-				key.EndRotation = ReadVector3();
-				key.Duration = ReadUnsignedVarInt();
-				keys[i] = key;
-			}
-
-			return keys;
 		}
 
 
@@ -2502,24 +2550,29 @@ namespace MiNET.Net
 			}
 		}
 
+		// ActorLink: both ids are actor unique ids (zigzag varint64), and the element ends with a
+		// little-endian float vehicle angular velocity. Confirmed against PMMP
+		// CommonTypes::putEntityLink/getEntityLink and minecraft-data types.Link.
 		public void Write(EntityLink link)
 		{
-			WriteVarLong(link.FromEntityId);
-			WriteVarLong(link.ToEntityId);
+			WriteSignedVarLong(link.FromEntityId);
+			WriteSignedVarLong(link.ToEntityId);
 			Write((byte)link.Type);
 			Write(link.Immediate);
 			Write(link.CausedByRider);
+			Write(link.VehicleAngularVelocity);
 		}
 
 		public EntityLink ReadEntityLink()
 		{
-			var from = ReadVarLong();
-			var to = ReadVarLong();
+			var from = ReadSignedVarLong();
+			var to = ReadSignedVarLong();
 			var type = (EntityLink.EntityLinkType) ReadByte();
 			var immediate = ReadBool();
 			var causedByRider = ReadBool();
+			var vehicleAngularVelocity = ReadFloat();
 
-			return new EntityLink(from, to, type, immediate, causedByRider);
+			return new EntityLink(from, to, type, immediate, causedByRider, vehicleAngularVelocity);
 		}
 		
 		public void Write(EntityLinks links)
@@ -2926,7 +2979,17 @@ namespace MiNET.Net
 		// ReadItemLegacy), not the newer ItemNew shape used by inventory content packets.
 		public void Write(Recipes recipes)
 		{
-			WriteUnsignedVarInt((uint) recipes.Count);
+			// The furnace entry types (2 and 3) were removed from the protocol at 962, so a smelting
+			// recipe has no wire representation any more and a 1001 client fails to decode the whole
+			// packet if one shows up. Smelting recipes stay server-side only and are left out here.
+			int count = 0;
+			foreach (Recipe recipe in recipes)
+			{
+				if (recipe is SmeltingRecipe) continue;
+				count++;
+			}
+
+			WriteUnsignedVarInt((uint) count);
 
 			foreach (Recipe recipe in recipes)
 			{
@@ -2980,19 +3043,6 @@ namespace MiNET.Net
 						Write(rec.AssumeSymmetry);
 						WriteUnlockingRequirement(rec.Unlocking);
 						WriteVarInt(rec.NetworkId); // network id
-						break;
-					}
-					case SmeltingRecipe smeltingRecipe:
-					{
-						var rec = smeltingRecipe;
-						WriteSignedVarInt(rec.Input.Metadata == 0 ? Furnace : FurnaceData); // Type
-						WriteSignedVarInt(ItemFactory.GetNetworkIdByName(rec.Input.Name));
-						if (rec.Input.Metadata != 0)
-						{
-							WriteSignedVarInt(rec.Input.Metadata);
-						}
-						WriteItemLegacy(rec.Result);
-						Write(rec.Block);
 						break;
 					}
 					case MultiRecipe multiRecipe:
@@ -3474,6 +3524,7 @@ namespace MiNET.Net
 			WriteUnsignedVarInt((uint) map.UpdateType);
 			Write((byte) 0); // dimension
 			Write(false); // Locked
+			Write(map.Origin);
 
 			if ((map.UpdateType & MapUpdateFlagInitialisation) != 0)
 			{
@@ -3495,10 +3546,12 @@ namespace MiNET.Net
 				{
 					if (decorator is EntityMapDecorator entity)
 					{
+						Write(0); // type: entity
 						WriteSignedVarLong(entity.EntityId);
 					}
 					else if (decorator is BlockMapDecorator block)
 					{
+						Write(1); // type: block
 						Write(block.Coordinates);
 					}
 				}
@@ -3525,9 +3578,9 @@ namespace MiNET.Net
 
 				WriteUnsignedVarInt((uint) (map.Col * map.Row));
 				int i = 0;
-				for (int col = 0; col < map.Col; col++)
+				for (int row = 0; row < map.Row; row++)
 				{
-					for (int row = 0; row < map.Row; row++)
+					for (int col = 0; col < map.Col; col++)
 					{
 						byte r = map.Data[i++];
 						byte g = map.Data[i++];
@@ -3548,6 +3601,7 @@ namespace MiNET.Net
 			map.UpdateType = (byte) ReadUnsignedVarInt();
 			ReadByte(); // Dimension (waste)
 			ReadBool(); // Locked (waste)
+			map.Origin = ReadBlockCoordinates();
 
 			if ((map.UpdateType & MapUpdateFlagInitialisation) == MapUpdateFlagInitialisation)
 			{
@@ -3619,9 +3673,9 @@ namespace MiNET.Net
 					map.XOffset = ReadSignedVarInt(); //
 					map.ZOffset = ReadSignedVarInt(); //
 					ReadUnsignedVarInt(); // size
-					for (int col = 0; col < map.Col; col++)
+					for (int row = 0; row < map.Row; row++)
 					{
-						for (int row = 0; row < map.Row; row++)
+						for (int col = 0; col < map.Col; col++)
 						{
 							ReadUnsignedVarInt();
 						}
@@ -3853,6 +3907,45 @@ namespace MiNET.Net
 			return new EducationUriResource(name, uri);
 		}
 
+		public void Write(StructureSettings settings)
+		{
+			Write(settings.PaletteName);
+			Write(settings.IgnoreEntities);
+			Write(settings.IgnoreBlocks);
+			Write(settings.AllowNonTickingChunks);
+			Write(settings.Size);
+			Write(settings.Offset);
+			WriteSignedVarLong(settings.LastEditingPlayerUniqueId);
+			Write(settings.Rotation);
+			Write(settings.Mirror);
+			Write(settings.AnimationMode);
+			Write(settings.AnimationSeconds);
+			Write(settings.IntegrityValue);
+			Write(settings.IntegritySeed);
+			Write(settings.Pivot);
+		}
+
+		public StructureSettings ReadStructureSettings()
+		{
+			return new StructureSettings
+			{
+				PaletteName = ReadString(),
+				IgnoreEntities = ReadBool(),
+				IgnoreBlocks = ReadBool(),
+				AllowNonTickingChunks = ReadBool(),
+				Size = ReadBlockCoordinates(),
+				Offset = ReadBlockCoordinates(),
+				LastEditingPlayerUniqueId = ReadSignedVarLong(),
+				Rotation = ReadByte(),
+				Mirror = ReadByte(),
+				AnimationMode = ReadByte(),
+				AnimationSeconds = ReadFloat(),
+				IntegrityValue = ReadFloat(),
+				IntegritySeed = ReadUint(),
+				Pivot = ReadVector3()
+			};
+		}
+
 		public void Write(UpdateSubChunkBlocksPacketEntry entry)
 		{
 			Write(entry.Coordinates);
@@ -3925,7 +4018,7 @@ namespace MiNET.Net
 
 			for (int i = 0; i < heights.Length; i++)
 			{
-				heights[i] = (short) ReadByte();
+				heights[i] = (sbyte) ReadByte();
 			}
 
 			return new HeightMapData(heights);
@@ -3973,18 +4066,20 @@ namespace MiNET.Net
 		public DimensionData ReadDimensionData()
 		{
 			DimensionData data = new DimensionData();
-			data.MaxHeight = ReadVarInt();
-			data.MinHeight = ReadVarInt();
-			data.Generator = ReadVarInt();
+			data.MaxHeight = ReadSignedVarInt();
+			data.MinHeight = ReadSignedVarInt();
+			data.Generator = ReadSignedVarInt();
+			data.DimensionType = ReadSignedVarInt();
 
 			return data;
 		}
 
 		public void Write(DimensionData data)
 		{
-			WriteVarInt(data.MaxHeight);
-			WriteVarInt(data.MinHeight);
-			WriteVarInt(data.Generator);
+			WriteSignedVarInt(data.MaxHeight);
+			WriteSignedVarInt(data.MinHeight);
+			WriteSignedVarInt(data.Generator);
+			WriteSignedVarInt(data.DimensionType);
 		}
 		
 		public void Write(DimensionDefinitions definitions)

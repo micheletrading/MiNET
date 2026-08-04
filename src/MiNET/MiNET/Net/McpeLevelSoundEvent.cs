@@ -36,14 +36,14 @@ namespace MiNET.Net
 
 		partial void AfterEncode()
 		{
-			Write(entityUniqueId);
+			WriteLe(entityUniqueId);
 			Write(hasFireAtPosition);
 			if (hasFireAtPosition) Write(fireAtPosition);
 		}
 
 		partial void AfterDecode()
 		{
-			entityUniqueId = ReadLong();
+			entityUniqueId = ReadLeLong();
 			hasFireAtPosition = ReadBool();
 			if (hasFireAtPosition) fireAtPosition = ReadVector3();
 		}

@@ -178,10 +178,13 @@ namespace MiNET.Worlds
 
 			int index = _blocks[GetIndex(bx, by, bz)];
 			int runtimeId = _runtimeIds[index];
-			BlockStateContainer blockState = BlockFactory.BlockPalette[runtimeId];
-			Block block = BlockFactory.GetBlockById(blockState.Id);
-			block.SetState(blockState.States);
-			block.Metadata = (byte) blockState.Data; //TODO: REMOVE metadata. Not needed.
+
+			// By name, not by legacy id: the id predates flattening and hands back a class whose
+			// state no longer exists in the palette, so the block could not be written back.
+			Block block = BlockFactory.GetBlockByRuntimeId(runtimeId);
+			if (block == null) return new Air();
+
+			block.Metadata = (byte) BlockFactory.BlockPalette[runtimeId].Data; //TODO: REMOVE metadata. Not needed.
 
 			return block;
 		}
@@ -189,7 +192,14 @@ namespace MiNET.Worlds
 		public void SetBlock(int bx, int by, int bz, Block block)
 		{
 			int runtimeId = block.GetRuntimeId();
-			if (runtimeId < 0) return;
+			if (runtimeId < 0)
+			{
+				// Dropping the write silently leaves the world holding air where the client has
+				// already drawn a block, and the next placement against it overwrites the block
+				// that was aimed at. Loud, because there is no correct way to continue.
+				Log.Error($"Refusing to write {block.Name} at {bx},{by},{bz}: its state has no runtime id. State={block.GetState()}");
+				return;
+			}
 
 			SetBlockByRuntimeId(bx, by, bz, runtimeId);
 		}

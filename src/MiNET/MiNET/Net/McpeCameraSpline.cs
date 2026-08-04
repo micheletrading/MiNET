@@ -28,21 +28,22 @@ using System.Numerics;
 
 namespace MiNET.Net
 {
-	// "Easing" is the easing_function enum (int32), not a string - confirmed against
-	// Mojang's bedrock-protocol-docs CameraSplineProgressKeyFrame/RotationKeyFrame (protocol 2169).
+	// "Easing" is an unconditional string naming the easing function (e.g. "linear", "spring",
+	// "in_quad", ...), confirmed against PMMP CameraProgressOption/CameraRotationOption and
+	// Cloudburst CameraSplineSerializer_v944 (both protocol 1001-effective implementations).
 
 	public class CameraProgressOption
 	{
 		public float Value { get; set; }
 		public float Time { get; set; }
-		public int? Easing { get; set; }
+		public string Easing { get; set; }
 	}
 
 	public class CameraRotationOption
 	{
 		public Vector3 Value { get; set; }
 		public float Time { get; set; }
-		public int? Easing { get; set; }
+		public string Easing { get; set; }
 	}
 
 	public class CameraSplineDefinition
@@ -78,16 +79,14 @@ namespace MiNET.Net
 				uint progressCount = ReadUnsignedVarInt();
 				for (int j = 0; j < progressCount; j++)
 				{
-					var option = new CameraProgressOption {Value = ReadFloat(), Time = ReadFloat()};
-					if (ReadBool()) option.Easing = ReadInt();
+					var option = new CameraProgressOption {Value = ReadFloat(), Time = ReadFloat(), Easing = ReadString()};
 					spline.ProgressKeyFrames.Add(option);
 				}
 
 				uint rotationCount = ReadUnsignedVarInt();
 				for (int j = 0; j < rotationCount; j++)
 				{
-					var option = new CameraRotationOption {Value = ReadVector3(), Time = ReadFloat()};
-					if (ReadBool()) option.Easing = ReadInt();
+					var option = new CameraRotationOption {Value = ReadVector3(), Time = ReadFloat(), Easing = ReadString()};
 					spline.RotationKeyFrames.Add(option);
 				}
 
@@ -114,8 +113,7 @@ namespace MiNET.Net
 				{
 					Write(option.Value);
 					Write(option.Time);
-					Write(option.Easing.HasValue);
-					if (option.Easing.HasValue) Write(option.Easing.Value);
+					Write(option.Easing);
 				}
 
 				WriteUnsignedVarInt((uint) spline.RotationKeyFrames.Count);
@@ -123,8 +121,7 @@ namespace MiNET.Net
 				{
 					Write(option.Value);
 					Write(option.Time);
-					Write(option.Easing.HasValue);
-					if (option.Easing.HasValue) Write(option.Easing.Value);
+					Write(option.Easing);
 				}
 			}
 		}

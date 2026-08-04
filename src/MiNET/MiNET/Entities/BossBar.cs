@@ -79,7 +79,8 @@ namespace MiNET.Entities
 			var bossEvent = McpeBossEvent.CreateObject();
 			bossEvent.bossEntityId = EntityId;
 			bossEvent.title = NameTag;
-			bossEvent.eventType = 5;
+			bossEvent.filteredTitle = NameTag;
+			bossEvent.eventType = (byte) McpeBossEvent.Type.UpdateName;
 			Level?.RelayBroadcast(bossEvent);
 		}
 
@@ -92,7 +93,7 @@ namespace MiNET.Entities
 			var bossEvent = McpeBossEvent.CreateObject();
 			bossEvent.bossEntityId = EntityId;
 			bossEvent.healthPercent = (float) Progress / MaxProgress;
-			bossEvent.eventType = 4;
+			bossEvent.eventType = (byte) McpeBossEvent.Type.UpdateProgress;
 			Level?.RelayBroadcast(bossEvent);
 		}
 
@@ -102,8 +103,9 @@ namespace MiNET.Entities
 
 			var bossEvent = McpeBossEvent.CreateObject();
 			bossEvent.bossEntityId = EntityId;
-			bossEvent.eventType = (uint) (IsVisible ? 0 : 2);
+			bossEvent.eventType = (byte) (IsVisible ? McpeBossEvent.Type.AddBoss : McpeBossEvent.Type.RemoveBoss);
 			bossEvent.title = NameTag;
+			bossEvent.filteredTitle = NameTag;
 			bossEvent.healthPercent = (float)Progress / MaxProgress;
 			Level?.RelayBroadcast(players, bossEvent);
 		}
@@ -114,7 +116,7 @@ namespace MiNET.Entities
 
 			var bossEvent = McpeBossEvent.CreateObject();
 			bossEvent.bossEntityId = EntityId;
-			bossEvent.eventType = 2;
+			bossEvent.eventType = (byte) McpeBossEvent.Type.RemoveBoss;
 			Level?.RelayBroadcast(players, bossEvent);
 		}
 

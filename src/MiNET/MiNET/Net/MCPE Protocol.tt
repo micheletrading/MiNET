@@ -255,6 +255,10 @@ foreach (XmlNode pdu in doc.SelectNodes("//pdu"))
 		{
 			WriteLine(string.Format("		public {0} {1}; // = {2};", "NbtCompound", CodeName(field.Attributes["name"].Value), "null"));
 		}
+		else if(field.Attributes["type"].Value == "ItemInstance")
+		{
+			WriteLine(string.Format("\t\tpublic {0} {1}; // = {2};", "Item", CodeName(field.Attributes["name"].Value), "null"));
+		}
 		else 
 		{
 			WriteLine(string.Format("\t\tpublic {0} {1}; // = {2};", field.Attributes["type"].Value, CodeName(field.Attributes["name"].Value), "null"));
@@ -322,6 +326,10 @@ foreach (XmlNode pdu in doc.SelectNodes("//pdu"))
 		{
 			WriteLine(string.Format("			WriteNbtBody({0});", CodeName(field.Attributes["name"].Value)));
 		}
+		else if(field.Attributes["type"].Value == "ItemInstance")
+		{
+			WriteLine(string.Format("\t\t\tWriteItemInstance({0});", CodeName(field.Attributes["name"].Value)));
+		}
 		else if(field.Attributes["endianess"] != null && field.Attributes["endianess"].Value == "BE")
 		{
 			WriteLine(string.Format("\t\t\tWriteBe({0});", CodeName(field.Attributes["name"].Value)));
@@ -386,6 +394,10 @@ foreach (XmlNode pdu in doc.SelectNodes("//pdu"))
 		else if(field.Attributes["type"].Value == "FixedString")
 		{
 			WriteLine(string.Format("\t\t\t{0} = Read{1}({2});", CodeFieldName(field.Attributes["name"].Value), "FixedString", SafeToString(field.Attributes["size"])));
+		}
+		else if(field.Attributes["type"].Value == "ItemInstance")
+		{
+			WriteLine(string.Format("\t\t\t{0} = ReadItemInstance();", CodeFieldName(field.Attributes["name"].Value)));
 		}
 		else if(field.Attributes["endianess"] != null && field.Attributes["endianess"].Value == "BE")
 		{
@@ -466,6 +478,10 @@ foreach (XmlNode pdu in doc.SelectNodes("//pdu"))
 		else if(field.Attributes["type"].Value == "NbtBody")
 		{
 			Write("NbtCompound");
+		}
+		else if(field.Attributes["type"].Value == "ItemInstance")
+		{
+			Write("Item");
 		}
 		else
 		{

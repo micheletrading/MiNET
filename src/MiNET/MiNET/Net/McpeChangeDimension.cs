@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -8,37 +8,37 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
 
-using System.Numerics;
-
-namespace MiNET.Utils
+namespace MiNET.Net
 {
-
-	//<field name="Start rotation" type="Vector3" />
-	//<field name="End rotation" type="Vector3" />
-	//<field name="Duration" type="UnsignedVarInt" />
-
-	public class AnimationKey
+	public partial class McpeChangeDimension
 	{
-		public bool ExecuteImmediate { get; set; }
-		public bool ResetBefore { get; set; }
-		public bool ResetAfter { get; set; }
-		public Vector3 StartRotation { get; set; }
-		public Vector3 EndRotation { get; set; }
-		public uint Duration { get; set; }
+		// Optional loadingScreenId (bool present-flag + LE uint32), written unconditionally after Respawn.
+		public uint? loadingScreenId;
+
+		partial void AfterEncode()
+		{
+			Write(loadingScreenId.HasValue);
+			if (loadingScreenId.HasValue) Write(loadingScreenId.Value);
+		}
+
+		partial void AfterDecode()
+		{
+			if (ReadBool()) loadingScreenId = ReadUint();
+		}
 	}
 }

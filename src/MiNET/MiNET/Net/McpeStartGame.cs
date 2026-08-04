@@ -64,6 +64,7 @@ namespace MiNET.Net
     		public int limitedWorldLength; // = null;
     		public bool isNewNether; // = null;
     		public EducationUriResource eduSharedUriResource = null;
+    		public bool hasExperimentalGameplayOverride; // = null; // optional<bool> has-value flag
     		public bool experimentalGameplayOverride; // = null;
     		public byte chatRestrictionLevel; // = null;
     		public bool disablePlayerInteractions; // = null;
@@ -110,7 +111,7 @@ namespace MiNET.Net
 			packet.Write(false); // experiments_previously_used
 			packet.Write(bonusChest);
 			packet.Write(mapEnabled);
-			packet.Write((byte) permissionLevel);
+			packet.WriteSignedVarInt(permissionLevel);
 			packet.Write(serverChunkTickRange);
 			packet.Write(hasLockedBehaviorPack);
 			packet.Write(hasLockedResourcePack);
@@ -127,7 +128,8 @@ namespace MiNET.Net
 			packet.Write(limitedWorldLength);
 			packet.Write(isNewNether);
 			packet.Write(eduSharedUriResource ?? new EducationUriResource("", ""));
-			packet.Write(experimentalGameplayOverride);
+			packet.Write(hasExperimentalGameplayOverride); // optional<bool>: value only follows when set
+			if (hasExperimentalGameplayOverride) packet.Write(experimentalGameplayOverride);
 			packet.Write(chatRestrictionLevel);
 			packet.Write(disablePlayerInteractions);
 			packet.WriteSignedVarInt(serverEditorConnectionPolicy);
@@ -174,7 +176,7 @@ namespace MiNET.Net
 			packet.ReadBool(); // experiments_previously_used
 			bonusChest = packet.ReadBool();
 			mapEnabled = packet.ReadBool();
-			permissionLevel = packet.ReadByte();
+			permissionLevel = packet.ReadSignedVarInt();
 			serverChunkTickRange = packet.ReadInt();
 			hasLockedBehaviorPack = packet.ReadBool();
 			hasLockedResourcePack = packet.ReadBool();
@@ -191,7 +193,8 @@ namespace MiNET.Net
 			limitedWorldLength = packet.ReadInt();
 			isNewNether = packet.ReadBool();
 			eduSharedUriResource = packet.ReadEducationUriResource();
-			experimentalGameplayOverride = packet.ReadBool();
+			hasExperimentalGameplayOverride = packet.ReadBool();
+			experimentalGameplayOverride = hasExperimentalGameplayOverride && packet.ReadBool();
 			chatRestrictionLevel = packet.ReadByte();
 			disablePlayerInteractions = packet.ReadBool();
 			serverEditorConnectionPolicy = packet.ReadSignedVarInt();
@@ -373,7 +376,7 @@ namespace MiNET.Net
 			{
 				if (ReadBool()) ReadString(); // experience_name
 				if (ReadBool()) ReadString(); // world_name
-				if (ReadBool()) ReadString(); // rich_presence_id
+				ReadString(); // rich_presence_id (not optional)
 			}
 		}
 

@@ -438,10 +438,6 @@ namespace MiNET.Client
 		{
 		}
 
-		public virtual void HandleMcpeItemFrameDropItem(McpeItemFrameDropItem message)
-		{
-		}
-
 		public virtual void HandleMcpeGameRulesChanged(McpeGameRulesChanged message)
 		{
 		}
@@ -744,10 +740,6 @@ namespace MiNET.Client
 		public void HandleMcpeDimensionData(McpeDimensionData message)
 		{
 			
-		}
-
-		public virtual void HandleMcpeAlexEntityAnimation(McpeAlexEntityAnimation message)
-		{
 		}
 
 		public virtual void HandleFtlCreatePlayer(FtlCreatePlayer message)

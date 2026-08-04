@@ -71,14 +71,16 @@ namespace MiNET
 		public EntityLinkType Type { get; set; }
 		public bool Immediate { get; set; }
 		public bool CausedByRider { get; set; }
+		public float VehicleAngularVelocity { get; set; }
 
-		public EntityLink(long fromEntityId, long toEntityId, EntityLinkType type, bool immediate, bool causedByRider)
+		public EntityLink(long fromEntityId, long toEntityId, EntityLinkType type, bool immediate, bool causedByRider, float vehicleAngularVelocity = 0f)
 		{
 			FromEntityId = fromEntityId;
 			ToEntityId = toEntityId;
 			Type = type;
 			Immediate = immediate;
 			CausedByRider = causedByRider;
+			VehicleAngularVelocity = vehicleAngularVelocity;
 		}
 		
 		public enum EntityLinkType : byte

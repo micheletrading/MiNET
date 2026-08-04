@@ -45,24 +45,50 @@ namespace MiNET.Net
 
 	public enum CommandOutputType
 	{
+		None = 0,
 		Last = 1,
 		Silent = 2,
 		All = 3,
 		DataSet = 4,
 	}
-	
+
 	public partial class McpeCommandOutput
 	{
+		// The wire carries the output type as a name, not as the enum ordinal. Indexed by CommandOutputType.
+		private static readonly string[] OutputTypeNames = {"none", "lastoutput", "silent", "alloutput", "dataset"};
+
 		public CommandOriginData OriginData { get; set; }
 		public CommandOutputType OutputType { get; set; }
 		public uint SuccessCount { get; set; }
 		public CommandOutputMessage[] Messages { get; set; }
-		public string UnknownString { get; set; }
+		public string Data { get; set; }
+
+		partial void AfterEncode()
+		{
+			Write(OriginData);
+			Write(GetOutputTypeName(OutputType));
+			Write(SuccessCount);
+
+			CommandOutputMessage[] messages = Messages ?? Array.Empty<CommandOutputMessage>();
+			WriteUnsignedVarInt((uint) messages.Length);
+
+			foreach (CommandOutputMessage message in messages)
+			{
+				WriteCommandOutputMessage(message);
+			}
+
+			Write(Data != null);
+			if (Data != null)
+			{
+				Write(Data);
+			}
+		}
+
 		partial void AfterDecode()
 		{
-			OriginData = ReadOriginData();
-			OutputType = (CommandOutputType)ReadByte();
-			SuccessCount = ReadUnsignedVarInt();
+			OriginData = ReadCommandOriginData();
+			OutputType = GetOutputType(ReadString());
+			SuccessCount = ReadUint();
 
 			var messageCount = ReadUnsignedVarInt();
 			Messages = new CommandOutputMessage[messageCount];
@@ -72,31 +98,47 @@ namespace MiNET.Net
 				Messages[i] = ReadCommandOutputMessage();
 			}
 
-			if (OutputType == CommandOutputType.DataSet)
+			if (ReadBool())
 			{
-				UnknownString = ReadString();
+				Data = ReadString();
 			}
 		}
 
-		private CommandOriginData ReadOriginData()
+		private static string GetOutputTypeName(CommandOutputType type)
 		{
-			var type = (CommandOriginType)ReadUnsignedVarInt();
-			var uuid = ReadUUID();
-			var requestId = ReadString();
-			var entityId = 0L;
-			if (type == CommandOriginType.DevConsole || type == CommandOriginType.Test)
+			int index = (int) type;
+			return index >= 0 && index < OutputTypeNames.Length ? OutputTypeNames[index] : OutputTypeNames[0];
+		}
+
+		private static CommandOutputType GetOutputType(string name)
+		{
+			for (int i = 0; i < OutputTypeNames.Length; i++)
 			{
-				entityId = ReadVarLong();
+				if (OutputTypeNames[i] == name) return (CommandOutputType) i;
 			}
 
-			return new CommandOriginData(type, uuid, requestId, entityId);
+			return CommandOutputType.None;
 		}
-		
+
+		private void WriteCommandOutputMessage(CommandOutputMessage message)
+		{
+			Write(message.MessageId);
+			Write(message.IsInternal);
+
+			string[] parameters = message.Parameters ?? Array.Empty<string>();
+			WriteUnsignedVarInt((uint) parameters.Length);
+
+			foreach (string parameter in parameters)
+			{
+				Write(parameter);
+			}
+		}
+
 		private CommandOutputMessage ReadCommandOutputMessage()
 		{
 			CommandOutputMessage result = new CommandOutputMessage();
-			result.IsInternal = ReadBool();
 			result.MessageId = ReadString();
+			result.IsInternal = ReadBool();
 
 			var count = ReadUnsignedVarInt();
 			result.Parameters = new string[count];

@@ -38,11 +38,36 @@ namespace MiNET.Net
 		Entity = 8,
 		Virtual = 9,
 		GameArgument = 10,
-		EntityServer = 11
+		EntityServer = 11,
+		Precompiled = 12,
+		GameDirectorEntityServer = 13,
+		Scripting = 14,
+		ExecuteContext = 15
 	}
-	
+
 	public class CommandOriginData
 	{
+		// The wire carries the origin as a name, not as the enum ordinal. Indexed by CommandOriginType.
+		private static readonly string[] TypeNames =
+		{
+			"player",
+			"commandblock",
+			"minecartcommandblock",
+			"devconsole",
+			"test",
+			"automationplayer",
+			"clientautomation",
+			"dedicatedserver",
+			"entity",
+			"virtual",
+			"gameargument",
+			"entityserver",
+			"precompiled",
+			"gamedirectorentityserver",
+			"scripting",
+			"executecontext"
+		};
+
 		public CommandOriginType Type { get; set; }
 		public UUID UUID { get; set; }
 		public string RequestId { get; set; }
@@ -54,6 +79,22 @@ namespace MiNET.Net
 			UUID = uuid;
 			RequestId = requestId;
 			EntityUniqueId = entityUniqueId;
+		}
+
+		public static string GetTypeName(CommandOriginType type)
+		{
+			int index = (int) type;
+			return index >= 0 && index < TypeNames.Length ? TypeNames[index] : TypeNames[0];
+		}
+
+		public static CommandOriginType GetTypeFromName(string name)
+		{
+			for (int i = 0; i < TypeNames.Length; i++)
+			{
+				if (TypeNames[i] == name) return (CommandOriginType) i;
+			}
+
+			return CommandOriginType.Player;
 		}
 	}
 }

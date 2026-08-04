@@ -82,11 +82,9 @@ namespace MiNET.Net
 		void HandleMcpeInventorySlot(McpeInventorySlot message);
 		void HandleMcpeCraftingEvent(McpeCraftingEvent message);
 		void HandleMcpeBlockEntityData(McpeBlockEntityData message);
-		void HandleMcpePlayerInput(McpePlayerInput message);
 		void HandleMcpeSetPlayerGameType(McpeSetPlayerGameType message);
 		void HandleMcpeMapInfoRequest(McpeMapInfoRequest message);
 		void HandleMcpeRequestChunkRadius(McpeRequestChunkRadius message);
-		void HandleMcpeItemFrameDropItem(McpeItemFrameDropItem message);
 		void HandleMcpeCommandRequest(McpeCommandRequest message);
 		void HandleMcpeCommandBlockUpdate(McpeCommandBlockUpdate message);
 		void HandleMcpeResourcePackChunkRequest(McpeResourcePackChunkRequest message);
@@ -181,7 +179,6 @@ namespace MiNET.Net
 		void HandleMcpeMapInfoRequest(McpeMapInfoRequest message);
 		void HandleMcpeRequestChunkRadius(McpeRequestChunkRadius message);
 		void HandleMcpeChunkRadiusUpdate(McpeChunkRadiusUpdate message);
-		void HandleMcpeItemFrameDropItem(McpeItemFrameDropItem message);
 		void HandleMcpeGameRulesChanged(McpeGameRulesChanged message);
 		void HandleMcpeCamera(McpeCamera message);
 		void HandleMcpeBossEvent(McpeBossEvent message);
@@ -250,7 +247,6 @@ namespace MiNET.Net
 		void HandleMcpeUpdateAbilities(McpeUpdateAbilities message);
 		void HandleMcpeUpdateAdventureSettings(McpeUpdateAdventureSettings message);
 		void HandleMcpeCameraPresets(McpeCameraPresets message);
-		void HandleMcpeAlexEntityAnimation(McpeAlexEntityAnimation message);
 		void HandleMcpeTrimData(McpeTrimData message);
 		void HandleMcpeJigsawStructureData(McpeJigsawStructureData message);
 		void HandleMcpeCurrentStructureFeature(McpeCurrentStructureFeature message);
@@ -458,9 +454,6 @@ namespace MiNET.Net
 				case McpeChunkRadiusUpdate msg:
 					_messageHandler.HandleMcpeChunkRadiusUpdate(msg);
 					break;
-				case McpeItemFrameDropItem msg:
-					_messageHandler.HandleMcpeItemFrameDropItem(msg);
-					break;
 				case McpeGameRulesChanged msg:
 					_messageHandler.HandleMcpeGameRulesChanged(msg);
 					break;
@@ -664,9 +657,6 @@ namespace MiNET.Net
 					break;
 				case McpeCameraPresets msg:
 					_messageHandler.HandleMcpeCameraPresets(msg);
-					break;
-				case McpeAlexEntityAnimation msg:
-					_messageHandler.HandleMcpeAlexEntityAnimation(msg);
 					break;
 				case McpeTrimData msg:
 					_messageHandler.HandleMcpeTrimData(msg);
@@ -877,8 +867,6 @@ namespace MiNET.Net
 						return McpeGuiDataPickItem.CreateObject().Decode(buffer);
 					case 0x38:
 						return McpeBlockEntityData.CreateObject().Decode(buffer);
-					case 0x39:
-						return McpePlayerInput.CreateObject().Decode(buffer);
 					case 0x3a:
 						return McpeLevelChunk.CreateObject().Decode(buffer);
 					case 0x3b:
@@ -905,8 +893,6 @@ namespace MiNET.Net
 						return McpeRequestChunkRadius.CreateObject().Decode(buffer);
 					case 0x46:
 						return McpeChunkRadiusUpdate.CreateObject().Decode(buffer);
-					case 0x47:
-						return McpeItemFrameDropItem.CreateObject().Decode(buffer);
 					case 0x48:
 						return McpeGameRulesChanged.CreateObject().Decode(buffer);
 					case 0x49:
@@ -1075,8 +1061,6 @@ namespace MiNET.Net
 						return McpeRequestNetworkSettings.CreateObject().Decode(buffer);
 					case 0xc6:
 						return McpeCameraPresets.CreateObject().Decode(buffer);
-					case 0xe0:
-						return McpeAlexEntityAnimation.CreateObject().Decode(buffer);
 					case 0x12e:
 						return McpeTrimData.CreateObject().Decode(buffer);
 					case 0x133:
@@ -2887,7 +2871,7 @@ namespace MiNET.Net
 
 			WriteSignedVarLong(entityIdSelf);
 			WriteUnsignedVarLong(runtimeEntityId);
-			Write(item);
+			WriteItemInstance(item);
 			Write(x);
 			Write(y);
 			Write(z);
@@ -2911,7 +2895,7 @@ namespace MiNET.Net
 
 			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
-			item = ReadItem();
+			item = ReadItemInstance();
 			x = ReadFloat();
 			y = ReadFloat();
 			z = ReadFloat();
@@ -3277,7 +3261,7 @@ namespace MiNET.Net
 
 		public long entityIdSelf; // = null;
 		public long runtimeEntityId; // = null;
-		public BlockCoordinates coordinates; // = null;
+		public Vector3 coordinates; // = null;
 		public int direction; // = null;
 		public string title; // = null;
 
@@ -3313,7 +3297,7 @@ namespace MiNET.Net
 
 			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
-			coordinates = ReadBlockCoordinates();
+			coordinates = ReadVector3();
 			direction = ReadSignedVarInt();
 			title = ReadString();
 
@@ -3329,7 +3313,7 @@ namespace MiNET.Net
 
 			entityIdSelf=default(long);
 			runtimeEntityId=default(long);
-			coordinates=default(BlockCoordinates);
+			coordinates=default(Vector3);
 			direction=default(int);
 			title=default(string);
 		}
@@ -3925,6 +3909,7 @@ namespace MiNET.Net
 		public Item chestplate; // = null;
 		public Item leggings; // = null;
 		public Item boots; // = null;
+		public Item body; // = null;
 
 		public McpeMobArmorEquipment()
 		{
@@ -3943,6 +3928,7 @@ namespace MiNET.Net
 			Write(chestplate);
 			Write(leggings);
 			Write(boots);
+			Write(body);
 
 			AfterEncode();
 		}
@@ -3961,6 +3947,7 @@ namespace MiNET.Net
 			chestplate = ReadItem();
 			leggings = ReadItem();
 			boots = ReadItem();
+			body = ReadItem();
 
 			AfterDecode();
 		}
@@ -3977,6 +3964,7 @@ namespace MiNET.Net
 			chestplate=default(Item);
 			leggings=default(Item);
 			boots=default(Item);
+			body=default(Item);
 		}
 
 	}
@@ -4245,7 +4233,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			WriteVarInt(cause);
+			WriteSignedVarInt(cause);
 			WriteSignedVarInt(health);
 			WriteUnsignedVarLong(armorSlotFlags);
 
@@ -4261,7 +4249,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			cause = ReadVarInt();
+			cause = ReadSignedVarInt();
 			health = ReadSignedVarInt();
 			armorSlotFlags = ReadUnsignedVarLong();
 
@@ -4398,7 +4386,9 @@ namespace MiNET.Net
 		public long riddenId; // = null;
 		public long riderId; // = null;
 		public byte linkType; // = null;
-		public byte unknown; // = null;
+		public bool immediate; // = null;
+		public bool riderInitiated; // = null;
+		public float vehicleAngularVelocity; // = null;
 
 		public McpeSetEntityLink()
 		{
@@ -4415,7 +4405,9 @@ namespace MiNET.Net
 			WriteSignedVarLong(riddenId);
 			WriteSignedVarLong(riderId);
 			Write(linkType);
-			Write(unknown);
+			Write(immediate);
+			Write(riderInitiated);
+			Write(vehicleAngularVelocity);
 
 			AfterEncode();
 		}
@@ -4432,7 +4424,9 @@ namespace MiNET.Net
 			riddenId = ReadSignedVarLong();
 			riderId = ReadSignedVarLong();
 			linkType = ReadByte();
-			unknown = ReadByte();
+			immediate = ReadBool();
+			riderInitiated = ReadBool();
+			vehicleAngularVelocity = ReadFloat();
 
 			AfterDecode();
 		}
@@ -4447,7 +4441,9 @@ namespace MiNET.Net
 			riddenId=default(long);
 			riderId=default(long);
 			linkType=default(byte);
-			unknown=default(byte);
+			immediate=default(bool);
+			riderInitiated=default(bool);
+			vehicleAngularVelocity=default(float);
 		}
 
 	}
@@ -4688,7 +4684,7 @@ namespace MiNET.Net
 		public byte windowId; // = null;
 		public byte type; // = null;
 		public BlockCoordinates coordinates; // = null;
-		public long runtimeEntityId; // = null;
+		public long actorUniqueId; // = null;
 
 		public McpeContainerOpen()
 		{
@@ -4705,7 +4701,7 @@ namespace MiNET.Net
 			Write(windowId);
 			Write(type);
 			Write(coordinates);
-			WriteSignedVarLong(runtimeEntityId);
+			WriteSignedVarLong(actorUniqueId);
 
 			AfterEncode();
 		}
@@ -4722,7 +4718,7 @@ namespace MiNET.Net
 			windowId = ReadByte();
 			type = ReadByte();
 			coordinates = ReadBlockCoordinates();
-			runtimeEntityId = ReadSignedVarLong();
+			actorUniqueId = ReadSignedVarLong();
 
 			AfterDecode();
 		}
@@ -4737,7 +4733,7 @@ namespace MiNET.Net
 			windowId=default(byte);
 			type=default(byte);
 			coordinates=default(BlockCoordinates);
-			runtimeEntityId=default(long);
+			actorUniqueId=default(long);
 		}
 
 	}
@@ -5156,6 +5152,9 @@ namespace MiNET.Net
 	public partial class McpeGuiDataPickItem : Packet<McpeGuiDataPickItem>
 	{
 
+		public string itemName; // = null;
+		public string itemEffects; // = null;
+		public int hotbarSlot; // = null;
 
 		public McpeGuiDataPickItem()
 		{
@@ -5169,6 +5168,9 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			Write(itemName);
+			Write(itemEffects);
+			Write(hotbarSlot);
 
 			AfterEncode();
 		}
@@ -5182,6 +5184,9 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			itemName = ReadString();
+			itemEffects = ReadString();
+			hotbarSlot = ReadInt();
 
 			AfterDecode();
 		}
@@ -5193,6 +5198,9 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			itemName=default(string);
+			itemEffects=default(string);
+			hotbarSlot=default(int);
 		}
 
 	}
@@ -5245,66 +5253,6 @@ namespace MiNET.Net
 
 			coordinates=default(BlockCoordinates);
 			namedtag=default(Nbt);
-		}
-
-	}
-
-	public partial class McpePlayerInput : Packet<McpePlayerInput>
-	{
-
-		public float motionX; // = null;
-		public float motionZ; // = null;
-		public bool jumping; // = null;
-		public bool sneaking; // = null;
-
-		public McpePlayerInput()
-		{
-			Id = 0x39;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(motionX);
-			Write(motionZ);
-			Write(jumping);
-			Write(sneaking);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			motionX = ReadFloat();
-			motionZ = ReadFloat();
-			jumping = ReadBool();
-			sneaking = ReadBool();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			motionX=default(float);
-			motionZ=default(float);
-			jumping=default(bool);
-			sneaking=default(bool);
 		}
 
 	}
@@ -5969,54 +5917,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeItemFrameDropItem : Packet<McpeItemFrameDropItem>
-	{
-
-		public BlockCoordinates coordinates; // = null;
-
-		public McpeItemFrameDropItem()
-		{
-			Id = 0x47;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(coordinates);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			coordinates = ReadBlockCoordinates();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			coordinates=default(BlockCoordinates);
-		}
-
-	}
-
 	public partial class McpeGameRulesChanged : Packet<McpeGameRulesChanged>
 	{
 
@@ -6129,7 +6029,13 @@ namespace MiNET.Net
 		}
 
 		public long bossEntityId; // = null;
-		public uint eventType; // = null;
+		public long playerId; // = null;
+		public byte eventType; // = null;
+		public string title; // = null;
+		public string filteredTitle; // = null;
+		public float healthPercent; // = null;
+		public byte color; // = null;
+		public byte overlay; // = null;
 
 		public McpeBossEvent()
 		{
@@ -6144,7 +6050,13 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			WriteSignedVarLong(bossEntityId);
-			WriteUnsignedVarInt(eventType);
+			WriteSignedVarLong(playerId);
+			Write(eventType);
+			Write(title);
+			Write(filteredTitle);
+			Write(healthPercent);
+			Write(color);
+			Write(overlay);
 
 			AfterEncode();
 		}
@@ -6159,7 +6071,13 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			bossEntityId = ReadSignedVarLong();
-			eventType = ReadUnsignedVarInt();
+			playerId = ReadSignedVarLong();
+			eventType = ReadByte();
+			title = ReadString();
+			filteredTitle = ReadString();
+			healthPercent = ReadFloat();
+			color = ReadByte();
+			overlay = ReadByte();
 
 			AfterDecode();
 		}
@@ -6172,7 +6090,13 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			bossEntityId=default(long);
-			eventType=default(uint);
+			playerId=default(long);
+			eventType=default(byte);
+			title=default(string);
+			filteredTitle=default(string);
+			healthPercent=default(float);
+			color=default(byte);
+			overlay=default(byte);
 		}
 
 	}
@@ -6277,10 +6201,9 @@ namespace MiNET.Net
 	{
 
 		public string command; // = null;
-		public uint commandType; // = null;
-		public UUID unknownUuid; // = null;
-		public string requestId; // = null;
-		public bool unknown; // = null;
+		public CommandOriginData origin; // = null;
+		public bool isInternal; // = null;
+		public string version; // = null;
 
 		public McpeCommandRequest()
 		{
@@ -6295,10 +6218,9 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			Write(command);
-			WriteUnsignedVarInt(commandType);
-			Write(unknownUuid);
-			Write(requestId);
-			Write(unknown);
+			Write(origin);
+			Write(isInternal);
+			Write(version);
 
 			AfterEncode();
 		}
@@ -6313,10 +6235,9 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			command = ReadString();
-			commandType = ReadUnsignedVarInt();
-			unknownUuid = ReadUUID();
-			requestId = ReadString();
-			unknown = ReadBool();
+			origin = ReadCommandOriginData();
+			isInternal = ReadBool();
+			version = ReadString();
 
 			AfterDecode();
 		}
@@ -6329,10 +6250,9 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			command=default(string);
-			commandType=default(uint);
-			unknownUuid=default(UUID);
-			requestId=default(string);
-			unknown=default(bool);
+			origin=default(CommandOriginData);
+			isInternal=default(bool);
+			version=default(string);
 		}
 
 	}
@@ -6434,13 +6354,13 @@ namespace MiNET.Net
 
 		public byte windowId; // = null;
 		public byte windowType; // = null;
-		public int unknown0; // = null;
-		public int unknown1; // = null;
-		public int unknown2; // = null;
-		public bool isWilling; // = null;
+		public int size; // = null;
+		public int tradeTier; // = null;
 		public long traderEntityId; // = null;
 		public long playerEntityId; // = null;
 		public string displayName; // = null;
+		public bool useNewTradeScreen; // = null;
+		public bool usingEconomyTrade; // = null;
 		public Nbt namedtag; // = null;
 
 		public McpeUpdateTrade()
@@ -6457,13 +6377,13 @@ namespace MiNET.Net
 
 			Write(windowId);
 			Write(windowType);
-			WriteVarInt(unknown0);
-			WriteVarInt(unknown1);
-			WriteVarInt(unknown2);
-			Write(isWilling);
+			WriteSignedVarInt(size);
+			WriteSignedVarInt(tradeTier);
 			WriteSignedVarLong(traderEntityId);
 			WriteSignedVarLong(playerEntityId);
 			Write(displayName);
+			Write(useNewTradeScreen);
+			Write(usingEconomyTrade);
 			Write(namedtag);
 
 			AfterEncode();
@@ -6480,13 +6400,13 @@ namespace MiNET.Net
 
 			windowId = ReadByte();
 			windowType = ReadByte();
-			unknown0 = ReadVarInt();
-			unknown1 = ReadVarInt();
-			unknown2 = ReadVarInt();
-			isWilling = ReadBool();
+			size = ReadSignedVarInt();
+			tradeTier = ReadSignedVarInt();
 			traderEntityId = ReadSignedVarLong();
 			playerEntityId = ReadSignedVarLong();
 			displayName = ReadString();
+			useNewTradeScreen = ReadBool();
+			usingEconomyTrade = ReadBool();
 			namedtag = ReadNbt();
 
 			AfterDecode();
@@ -6501,13 +6421,13 @@ namespace MiNET.Net
 
 			windowId=default(byte);
 			windowType=default(byte);
-			unknown0=default(int);
-			unknown1=default(int);
-			unknown2=default(int);
-			isWilling=default(bool);
+			size=default(int);
+			tradeTier=default(int);
 			traderEntityId=default(long);
 			playerEntityId=default(long);
 			displayName=default(string);
+			useNewTradeScreen=default(bool);
+			usingEconomyTrade=default(bool);
 			namedtag=default(Nbt);
 		}
 
@@ -6518,7 +6438,7 @@ namespace MiNET.Net
 
 		public byte windowId; // = null;
 		public byte windowType; // = null;
-		public byte unknown; // = null;
+		public int size; // = null;
 		public long entityId; // = null;
 		public Nbt namedtag; // = null;
 
@@ -6536,7 +6456,7 @@ namespace MiNET.Net
 
 			Write(windowId);
 			Write(windowType);
-			Write(unknown);
+			WriteSignedVarInt(size);
 			WriteSignedVarLong(entityId);
 			Write(namedtag);
 
@@ -6554,7 +6474,7 @@ namespace MiNET.Net
 
 			windowId = ReadByte();
 			windowType = ReadByte();
-			unknown = ReadByte();
+			size = ReadSignedVarInt();
 			entityId = ReadSignedVarLong();
 			namedtag = ReadNbt();
 
@@ -6570,7 +6490,7 @@ namespace MiNET.Net
 
 			windowId=default(byte);
 			windowType=default(byte);
-			unknown=default(byte);
+			size=default(int);
 			entityId=default(long);
 			namedtag=default(Nbt);
 		}
@@ -6766,6 +6686,7 @@ namespace MiNET.Net
 
 		public string serverAddress; // = null;
 		public ushort port; // = null;
+		public bool reloadWorld; // = null;
 
 		public McpeTransfer()
 		{
@@ -6781,6 +6702,7 @@ namespace MiNET.Net
 
 			Write(serverAddress);
 			Write(port);
+			Write(reloadWorld);
 
 			AfterEncode();
 		}
@@ -6796,6 +6718,7 @@ namespace MiNET.Net
 
 			serverAddress = ReadString();
 			port = ReadUshort();
+			reloadWorld = ReadBool();
 
 			AfterDecode();
 		}
@@ -6809,6 +6732,7 @@ namespace MiNET.Net
 
 			serverAddress=default(string);
 			port=default(ushort);
+			reloadWorld=default(bool);
 		}
 
 	}
@@ -6878,6 +6802,7 @@ namespace MiNET.Net
 
 		public string name; // = null;
 		public bool stopAll; // = null;
+		public bool stopMusicLegacy; // = null;
 
 		public McpeStopSound()
 		{
@@ -6893,6 +6818,7 @@ namespace MiNET.Net
 
 			Write(name);
 			Write(stopAll);
+			Write(stopMusicLegacy);
 
 			AfterEncode();
 		}
@@ -6908,6 +6834,7 @@ namespace MiNET.Net
 
 			name = ReadString();
 			stopAll = ReadBool();
+			stopMusicLegacy = ReadBool();
 
 			AfterDecode();
 		}
@@ -6921,6 +6848,7 @@ namespace MiNET.Net
 
 			name=default(string);
 			stopAll=default(bool);
+			stopMusicLegacy=default(bool);
 		}
 
 	}
@@ -7096,8 +7024,8 @@ namespace MiNET.Net
 	public partial class McpeShowStoreOffer : Packet<McpeShowStoreOffer>
 	{
 
-		public string unknown0; // = null;
-		public bool unknown1; // = null;
+		public UUID offerId; // = null;
+		public byte redirectType; // = null;
 
 		public McpeShowStoreOffer()
 		{
@@ -7111,8 +7039,8 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(unknown0);
-			Write(unknown1);
+			Write(offerId);
+			Write(redirectType);
 
 			AfterEncode();
 		}
@@ -7126,8 +7054,8 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			unknown0 = ReadString();
-			unknown1 = ReadBool();
+			offerId = ReadUUID();
+			redirectType = ReadByte();
 
 			AfterDecode();
 		}
@@ -7139,8 +7067,8 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			unknown0=default(string);
-			unknown1=default(bool);
+			offerId=default(UUID);
+			redirectType=default(byte);
 		}
 
 	}
@@ -7256,6 +7184,7 @@ namespace MiNET.Net
 	public partial class McpeSubClientLogin : Packet<McpeSubClientLogin>
 	{
 
+		public byte[] connectionRequest; // = null;
 
 		public McpeSubClientLogin()
 		{
@@ -7269,6 +7198,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			WriteByteArray(connectionRequest);
 
 			AfterEncode();
 		}
@@ -7282,6 +7212,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			connectionRequest = ReadByteArray();
 
 			AfterDecode();
 		}
@@ -7293,6 +7224,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			connectionRequest=default(byte[]);
 		}
 
 	}
@@ -7396,6 +7328,8 @@ namespace MiNET.Net
 	public partial class McpeBookEdit : Packet<McpeBookEdit>
 	{
 
+		public int inventorySlot; // = null;
+		public uint type; // = null;
 
 		public McpeBookEdit()
 		{
@@ -7409,6 +7343,8 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			WriteSignedVarInt(inventorySlot);
+			WriteUnsignedVarInt(type);
 
 			AfterEncode();
 		}
@@ -7422,6 +7358,8 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			inventorySlot = ReadSignedVarInt();
+			type = ReadUnsignedVarInt();
 
 			AfterDecode();
 		}
@@ -7433,6 +7371,8 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			inventorySlot=default(int);
+			type=default(uint);
 		}
 
 	}
@@ -7444,6 +7384,7 @@ namespace MiNET.Net
 		public byte unknown0; // = null;
 		public string unknown1; // = null;
 		public byte unknown2; // = null;
+		public string sceneName; // = null;
 
 		public McpeNpcRequest()
 		{
@@ -7461,6 +7402,7 @@ namespace MiNET.Net
 			Write(unknown0);
 			Write(unknown1);
 			Write(unknown2);
+			Write(sceneName);
 
 			AfterEncode();
 		}
@@ -7478,6 +7420,7 @@ namespace MiNET.Net
 			unknown0 = ReadByte();
 			unknown1 = ReadString();
 			unknown2 = ReadByte();
+			sceneName = ReadString();
 
 			AfterDecode();
 		}
@@ -7493,6 +7436,7 @@ namespace MiNET.Net
 			unknown0=default(byte);
 			unknown1=default(string);
 			unknown2=default(byte);
+			sceneName=default(string);
 		}
 
 	}
@@ -7503,6 +7447,10 @@ namespace MiNET.Net
 		public string fileName; // = null;
 		public string imageData; // = null;
 		public string unknown2; // = null;
+		public byte type; // = null;
+		public byte sourceType; // = null;
+		public long ownerUniqueId; // = null;
+		public string newPhotoName; // = null;
 
 		public McpePhotoTransfer()
 		{
@@ -7519,6 +7467,10 @@ namespace MiNET.Net
 			Write(fileName);
 			Write(imageData);
 			Write(unknown2);
+			Write(type);
+			Write(sourceType);
+			WriteLe(ownerUniqueId);
+			Write(newPhotoName);
 
 			AfterEncode();
 		}
@@ -7535,6 +7487,10 @@ namespace MiNET.Net
 			fileName = ReadString();
 			imageData = ReadString();
 			unknown2 = ReadString();
+			type = ReadByte();
+			sourceType = ReadByte();
+			ownerUniqueId = ReadLongLe();
+			newPhotoName = ReadString();
 
 			AfterDecode();
 		}
@@ -7549,6 +7505,10 @@ namespace MiNET.Net
 			fileName=default(string);
 			imageData=default(string);
 			unknown2=default(string);
+			type=default(byte);
+			sourceType=default(byte);
+			ownerUniqueId=default(long);
+			newPhotoName=default(string);
 		}
 
 	}
@@ -7609,7 +7569,6 @@ namespace MiNET.Net
 	{
 
 		public uint formId; // = null;
-		public string data; // = null;
 
 		public McpeModalFormResponse()
 		{
@@ -7624,7 +7583,6 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			WriteUnsignedVarInt(formId);
-			Write(data);
 
 			AfterEncode();
 		}
@@ -7639,7 +7597,6 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			formId = ReadUnsignedVarInt();
-			data = ReadString();
 
 			AfterDecode();
 		}
@@ -7652,7 +7609,6 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			formId=default(uint);
-			data=default(string);
 		}
 
 	}
@@ -7704,7 +7660,7 @@ namespace MiNET.Net
 	public partial class McpeServerSettingsResponse : Packet<McpeServerSettingsResponse>
 	{
 
-		public long formId; // = null;
+		public uint formId; // = null;
 		public string data; // = null;
 
 		public McpeServerSettingsResponse()
@@ -7719,7 +7675,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			WriteUnsignedVarLong(formId);
+			WriteUnsignedVarInt(formId);
 			Write(data);
 
 			AfterEncode();
@@ -7734,7 +7690,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			formId = ReadUnsignedVarLong();
+			formId = ReadUnsignedVarInt();
 			data = ReadString();
 
 			AfterDecode();
@@ -7747,7 +7703,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			formId=default(long);
+			formId=default(uint);
 			data=default(string);
 		}
 
@@ -7818,7 +7774,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			WriteVarInt(gamemode);
+			WriteSignedVarInt(gamemode);
 
 			AfterEncode();
 		}
@@ -7832,7 +7788,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			gamemode = ReadVarInt();
+			gamemode = ReadSignedVarInt();
 
 			AfterDecode();
 		}
@@ -8042,9 +7998,9 @@ namespace MiNET.Net
 			BeforeEncode();
 
 			Write(uselessByte);
-			WriteVarInt(labTableX);
-			WriteVarInt(labTableY);
-			WriteVarInt(labTableZ);
+			WriteSignedVarInt(labTableX);
+			WriteSignedVarInt(labTableY);
+			WriteSignedVarInt(labTableZ);
 			Write(reactionType);
 
 			AfterEncode();
@@ -8060,9 +8016,9 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			uselessByte = ReadByte();
-			labTableX = ReadVarInt();
-			labTableY = ReadVarInt();
-			labTableZ = ReadVarInt();
+			labTableX = ReadSignedVarInt();
+			labTableY = ReadSignedVarInt();
+			labTableZ = ReadSignedVarInt();
 			reactionType = ReadByte();
 
 			AfterDecode();
@@ -8460,7 +8416,6 @@ namespace MiNET.Net
 		public long entityId; // = null;
 		public Vector3 position; // = null;
 		public string particleName; // = null;
-		public string molangVariablesJson; // = null;
 
 		public McpeSpawnParticleEffect()
 		{
@@ -8478,7 +8433,6 @@ namespace MiNET.Net
 			WriteSignedVarLong(entityId);
 			Write(position);
 			Write(particleName);
-			Write(molangVariablesJson);
 
 			AfterEncode();
 		}
@@ -8496,7 +8450,6 @@ namespace MiNET.Net
 			entityId = ReadSignedVarLong();
 			position = ReadVector3();
 			particleName = ReadString();
-			molangVariablesJson = ReadString();
 
 			AfterDecode();
 		}
@@ -8512,7 +8465,6 @@ namespace MiNET.Net
 			entityId=default(long);
 			position=default(Vector3);
 			particleName=default(string);
-			molangVariablesJson=default(string);
 		}
 
 	}
@@ -8852,6 +8804,9 @@ namespace MiNET.Net
 	public partial class McpeLecternUpdate : Packet<McpeLecternUpdate>
 	{
 
+		public byte page; // = null;
+		public byte totalPages; // = null;
+		public BlockCoordinates blockPosition; // = null;
 
 		public McpeLecternUpdate()
 		{
@@ -8865,6 +8820,9 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			Write(page);
+			Write(totalPages);
+			Write(blockPosition);
 
 			AfterEncode();
 		}
@@ -8878,6 +8836,9 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			page = ReadByte();
+			totalPages = ReadByte();
+			blockPosition = ReadBlockCoordinates();
 
 			AfterDecode();
 		}
@@ -8889,6 +8850,9 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			page=default(byte);
+			totalPages=default(byte);
+			blockPosition=default(BlockCoordinates);
 		}
 
 	}
@@ -9008,6 +8972,7 @@ namespace MiNET.Net
 	public partial class McpeOnScreenTextureAnimation : Packet<McpeOnScreenTextureAnimation>
 	{
 
+		public uint effectId; // = null;
 
 		public McpeOnScreenTextureAnimation()
 		{
@@ -9021,6 +8986,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			Write(effectId);
 
 			AfterEncode();
 		}
@@ -9034,6 +9000,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			effectId = ReadUint();
 
 			AfterDecode();
 		}
@@ -9045,6 +9012,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			effectId=default(uint);
 		}
 
 	}
@@ -9052,6 +9020,8 @@ namespace MiNET.Net
 	public partial class McpeMapCreateLockedCopy : Packet<McpeMapCreateLockedCopy>
 	{
 
+		public long originalMapId; // = null;
+		public long newMapId; // = null;
 
 		public McpeMapCreateLockedCopy()
 		{
@@ -9065,6 +9035,8 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			WriteSignedVarLong(originalMapId);
+			WriteSignedVarLong(newMapId);
 
 			AfterEncode();
 		}
@@ -9078,6 +9050,8 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			originalMapId = ReadSignedVarLong();
+			newMapId = ReadSignedVarLong();
 
 			AfterDecode();
 		}
@@ -9089,6 +9063,8 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			originalMapId=default(long);
+			newMapId=default(long);
 		}
 
 	}
@@ -9096,6 +9072,10 @@ namespace MiNET.Net
 	public partial class McpeStructureTemplateDataExportRequest : Packet<McpeStructureTemplateDataExportRequest>
 	{
 
+		public string name; // = null;
+		public BlockCoordinates position; // = null;
+		public StructureSettings settings; // = null;
+		public byte requestType; // = null;
 
 		public McpeStructureTemplateDataExportRequest()
 		{
@@ -9109,6 +9089,10 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			Write(name);
+			Write(position);
+			Write(settings);
+			Write(requestType);
 
 			AfterEncode();
 		}
@@ -9122,6 +9106,10 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			name = ReadString();
+			position = ReadBlockCoordinates();
+			settings = ReadStructureSettings();
+			requestType = ReadByte();
 
 			AfterDecode();
 		}
@@ -9133,6 +9121,10 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			name=default(string);
+			position=default(BlockCoordinates);
+			settings=default(StructureSettings);
+			requestType=default(byte);
 		}
 
 	}
@@ -9140,6 +9132,7 @@ namespace MiNET.Net
 	public partial class McpeStructureTemplateDataExportResponse : Packet<McpeStructureTemplateDataExportResponse>
 	{
 
+		public string name; // = null;
 
 		public McpeStructureTemplateDataExportResponse()
 		{
@@ -9153,6 +9146,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			Write(name);
 
 			AfterEncode();
 		}
@@ -9166,6 +9160,7 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			name = ReadString();
 
 			AfterDecode();
 		}
@@ -9177,6 +9172,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			name=default(string);
 		}
 
 	}
@@ -9645,6 +9641,9 @@ namespace MiNET.Net
 	public partial class McpeUpdatePlayerGameType : Packet<McpeUpdatePlayerGameType>
 	{
 
+		public int playerGameType; // = null;
+		public long targetPlayerUniqueId; // = null;
+		public long tick; // = null;
 
 		public McpeUpdatePlayerGameType()
 		{
@@ -9658,6 +9657,9 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
+			WriteSignedVarInt(playerGameType);
+			WriteSignedVarLong(targetPlayerUniqueId);
+			WriteUnsignedVarLong(tick);
 
 			AfterEncode();
 		}
@@ -9671,6 +9673,9 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
+			playerGameType = ReadSignedVarInt();
+			targetPlayerUniqueId = ReadSignedVarLong();
+			tick = ReadUnsignedVarLong();
 
 			AfterDecode();
 		}
@@ -9682,6 +9687,9 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
+			playerGameType=default(int);
+			targetPlayerUniqueId=default(long);
+			tick=default(long);
 		}
 
 	}
@@ -10470,62 +10478,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-		}
-
-	}
-
-	public partial class McpeAlexEntityAnimation : Packet<McpeAlexEntityAnimation>
-	{
-
-		public long runtimeEntityId; // = null;
-		public string boneId; // = null;
-		public AnimationKey[] keys; // = null;
-
-		public McpeAlexEntityAnimation()
-		{
-			Id = 0xe0;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			WriteUnsignedVarLong(runtimeEntityId);
-			Write(boneId);
-			Write(keys);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			runtimeEntityId = ReadUnsignedVarLong();
-			boneId = ReadString();
-			keys = ReadAnimationKeys();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			runtimeEntityId=default(long);
-			boneId=default(string);
-			keys=default(AnimationKey[]);
 		}
 
 	}

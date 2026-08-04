@@ -68,6 +68,16 @@ namespace MiNET.Blocks
 		public static readonly byte[] TransparentBlocks = new byte[600];
 		public static readonly byte[] LuminousBlocks = new byte[600];
 		public static Dictionary<string, int> NameToId { get; private set; }
+
+		/// <summary>
+		///     Block identity by its Minecraft name, which is what the palette, the wire and items all
+		///     use. The legacy numeric id predates flattening: one id covered every wood type, every
+		///     colour, and the variant lived in a data value. Looking a block up by that id hands back
+		///     the pre-flattening class, whose state does not exist in the palette any more, so the
+		///     block cannot be written to the world. Anything that is not translating stored data
+		///     should come through here.
+		/// </summary>
+		private static Dictionary<string, Type> NameToBlockType { get; set; } = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 		public static BlockPalette BlockPalette { get; set; } = null;
 		public static HashSet<BlockStateContainer> BlockStates { get; set; } = null;
 
@@ -185,6 +195,7 @@ namespace MiNET.Blocks
 			}
 
 			NameToId = BuildNameToId();
+			NameToBlockType = BuildNameToBlockType();
 
 			for (int i = 0; i < LegacyToRuntimeId.Length; ++i)
 			{
@@ -403,6 +414,41 @@ namespace MiNET.Blocks
 
 		private static object lockObj = new object();
 
+		/// <summary>
+		///     Every Block subclass that can be constructed, keyed on the name it reports. Generated
+		///     classes win over hand-written ones claiming the same name: the generated set is the
+		///     one that matches the current palette.
+		/// </summary>
+		private static Dictionary<string, Type> BuildNameToBlockType()
+		{
+			var map = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+
+			foreach (Type type in Assembly.GetAssembly(typeof(Block)).GetTypes())
+			{
+				if (type.IsAbstract || !typeof(Block).IsAssignableFrom(type)) continue;
+				if (type.GetConstructor(Type.EmptyTypes) == null) continue;
+
+				Block block;
+				try
+				{
+					block = (Block) Activator.CreateInstance(type);
+				}
+				catch (Exception e)
+				{
+					Log.Debug($"Could not construct block type {type.Name} for the name map", e);
+					continue;
+				}
+
+				if (string.IsNullOrEmpty(block?.Name)) continue;
+
+				if (map.ContainsKey(block.Name) && !block.IsGenerated) continue;
+
+				map[block.Name] = type;
+			}
+
+			return map;
+		}
+
 		private static Dictionary<string, int> BuildNameToId()
 		{
 			//TODO: Refactor to use the Item.Name in hashed set instead.
@@ -510,18 +556,44 @@ namespace MiNET.Blocks
 			return block;
 		}
 
+		/// <summary>
+		///     The block for a Minecraft name, e.g. minecraft:oak_planks. This is the lookup to use:
+		///     it returns the class whose state round-trips through the palette.
+		/// </summary>
 		public static Block GetBlockByName(string blockName)
 		{
 			if (string.IsNullOrEmpty(blockName)) return null;
 
-			blockName = blockName.ToLowerInvariant().Replace("_", "").Replace("minecraft:", "");
+			if (!blockName.Contains(':')) blockName = "minecraft:" + blockName;
 
-			if (NameToId.ContainsKey(blockName))
-			{
-				return GetBlockById(NameToId[blockName]);
-			}
+			if (NameToBlockType.TryGetValue(blockName, out Type type)) return (Block) Activator.CreateInstance(type);
+
+			// Older callers passed the C# type name with the underscores stripped.
+			string legacyKey = blockName.ToLowerInvariant().Replace("_", "").Replace("minecraft:", "");
+			if (NameToId.TryGetValue(legacyKey, out int legacyId)) return GetBlockById(legacyId);
 
 			return null;
+		}
+
+		/// <summary>
+		///     The block for a palette index, with its state applied. Goes by name, so the block that
+		///     comes back can be asked for its state again and resolve to the same runtime id.
+		/// </summary>
+		public static Block GetBlockByRuntimeId(int runtimeId)
+		{
+			if (runtimeId < 0 || runtimeId >= BlockPalette.Count) return null;
+
+			BlockStateContainer blockState = BlockPalette[runtimeId];
+
+			Block block = GetBlockByName(blockState.Name);
+			if (block == null)
+			{
+				Log.Warn($"No block class for palette name {blockState.Name} (runtime id {runtimeId})");
+				return null;
+			}
+
+			block.SetState(blockState.States);
+			return block;
 		}
 
 		public static Block GetBlockById(int blockId, byte metadata)
@@ -529,7 +601,9 @@ namespace MiNET.Blocks
 			int runtimeId = (int) GetRuntimeId(blockId, metadata);
 			if (runtimeId < 0 || runtimeId >= BlockPalette.Count) return null;
 			BlockStateContainer blockState = BlockPalette[runtimeId];
-			Block block = GetBlockById(blockState.Id);
+			// By name, so the class round-trips through the palette. The legacy switch is the
+			// fallback for palette names we have no class for, and never returns null.
+			Block block = GetBlockByName(blockState.Name) ?? GetBlockById(blockState.Id);
 			block.SetState(blockState.States);
 			return block;
 		}

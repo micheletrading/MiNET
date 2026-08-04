@@ -753,10 +753,6 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpePlayerInput(McpePlayerInput message)
-		{
-		}
-
 		public void HandleMcpeSetPlayerGameType(McpeSetPlayerGameType message)
 		{
 		}
@@ -766,10 +762,6 @@ namespace MiNET
 		}
 
 		public void HandleMcpeRequestChunkRadius(McpeRequestChunkRadius message)
-		{
-		}
-
-		public void HandleMcpeItemFrameDropItem(McpeItemFrameDropItem message)
 		{
 		}
 

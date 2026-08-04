@@ -445,7 +445,8 @@ namespace MiNET.Client
 		{
 			var request = McpeCommandRequest.CreateObject();
 			request.command = command;
-			request.unknownUuid = new UUID(Guid.NewGuid().ToString());
+			request.origin = new CommandOriginData(CommandOriginType.Player, new UUID(Guid.NewGuid().ToString()), string.Empty, 0);
+			request.version = "latest";
 			client.SendPacket(request);
 		}
 

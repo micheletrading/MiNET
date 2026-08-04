@@ -8,52 +8,55 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
+//
 // All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
 
 using System.Numerics;
-using MiNET.Net;
-using MiNET.Utils;
-using MiNET.Utils.Vectors;
-using MiNET.Worlds;
 
-namespace MiNET.Blocks
+namespace MiNET.Net
 {
-	public partial class Loom : Block
+	public partial class McpeEntityEvent : Packet<McpeEntityEvent>
 	{
-		public Loom() : base(459)
+		// Trailing optional fire position (bool present-flag + vec3f). Matches PMMP
+		// ActorEventPacket (CommonTypes::readOptional(getVector3), firePosition) and
+		// minecraft-data 1.26.30 packet_entity_event fire_at_position ["option","vec3f"].
+		public Vector3? FirePosition;
+
+		partial void AfterDecode()
 		{
+			if (ReadBool())
+			{
+				FirePosition = ReadVector3();
+			}
 		}
 
-		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
+		partial void AfterEncode()
 		{
-			Direction = player.GetOppositeDirection();
-
-			return false;
+			Write(FirePosition.HasValue);
+			if (FirePosition.HasValue)
+			{
+				Write(FirePosition.Value);
+			}
 		}
 
-		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
+		/// <inheritdoc />
+		public override void Reset()
 		{
-			var containerOpen = McpeContainerOpen.CreateObject();
-			containerOpen.windowId = 24;
-			containerOpen.type = 24;
-			containerOpen.coordinates = blockCoordinates;
-			containerOpen.actorUniqueId = EntityManager.EntityIdSelf;
-			player.SendPacket(containerOpen);
+			base.Reset();
 
-			return true;
+			FirePosition = default;
 		}
 	}
 }
