@@ -185,10 +185,6 @@ namespace MiNET
 			//MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
 		}
 
-		public virtual void HandleMcpeScriptCustomEvent(McpeScriptCustomEvent message)
-		{
-		}
-
 		public virtual void HandleMcpeCommandBlockUpdate(McpeCommandBlockUpdate message)
 		{
 		}
@@ -411,27 +407,6 @@ namespace MiNET
 			}
 
 			SendPacket(packStack);
-		}
-
-		public virtual void HandleMcpeRiderJump(McpeRiderJump message)
-		{
-			if (IsRiding && Vehicle > 0)
-			{
-				if (Level.TryGetEntity(Vehicle, out Mob mob))
-				{
-					mob.IsRearing = true;
-					mob.BroadcastSetEntityData();
-				}
-			}
-		}
-
-		public void HandleMcpeTickSync(McpeTickSync message)
-		{
-			var msg = McpeTickSync.CreateObject();
-			msg.requestTime = message.requestTime;
-			msg.responseTime = message.responseTime;
-
-			SendPacket(msg);
 		}
 
 		public virtual void HandleMcpeSetEntityData(McpeSetEntityData message)
@@ -2352,18 +2327,6 @@ namespace MiNET
 			return false;
 		}
 
-		public virtual void HandleMcpeLevelSoundEventOld(McpeLevelSoundEventOld message)
-		{
-			var sound = McpeLevelSoundEventOld.CreateObject();
-			sound.soundId = message.soundId;
-			sound.position = message.position;
-			sound.blockId = message.blockId;
-			sound.entityType = message.entityType;
-			sound.isBabyMob = message.isBabyMob;
-			sound.isGlobal = message.isGlobal;
-			Level.RelayBroadcast(sound);
-		}
-
 		public virtual void HandleMcpeLevelSoundEvent(McpeLevelSoundEvent message)
 		{
 			//TODO: This will require that sounds are sent by the server.
@@ -2426,6 +2389,22 @@ namespace MiNET
 		}
 
 		public void HandleMcpeNetworkSettings(McpeNetworkSettings message)
+		{
+		}
+
+		public void HandleMcpeEmote(McpeEmote message)
+		{
+		}
+
+		public void HandleMcpeMultiplayerSettings(McpeMultiplayerSettings message)
+		{
+		}
+
+		public void HandleMcpeSettingsCommand(McpeSettingsCommand message)
+		{
+		}
+
+		public void HandleMcpeAnvilDamage(McpeAnvilDamage message)
 		{
 		}
 
@@ -2574,6 +2553,10 @@ namespace MiNET
 			}
 		}
 
+		public virtual void HandleMcpePlayerToggleCrafterSlotRequest(McpePlayerToggleCrafterSlotRequest message)
+		{
+		}
+
 		public virtual void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message)
 		{
 			// Client informs the server which loading screen it is on. No server action needed.
@@ -2589,9 +2572,51 @@ namespace MiNET
 			// Client-side aim assist state report. Ignored.
 		}
 
+		public virtual void HandleMcpeClientMovementPredictionSync(McpeClientMovementPredictionSync message)
+		{
+			// Client-authoritative movement correction sync. No server action needed.
+		}
+
+		public virtual void HandleMcpeUpdateClientOptions(McpeUpdateClientOptions message)
+		{
+			// Client graphics/profanity-filter option change notification. Ignored.
+		}
+
+		public virtual void HandleMcpeServerboundPackSettingChange(McpeServerboundPackSettingChange message)
+		{
+			// Client resource pack setting (slider/toggle) change. Ignored.
+		}
+
+		public virtual void HandleMcpeServerboundDataStore(McpeServerboundDataStore message)
+		{
+			// Client data store update request. Ignored.
+		}
+
+		public virtual void HandleMcpePartyDestinationCookieResponse(McpePartyDestinationCookieResponse message)
+		{
+			// Client response to a party destination cookie. Ignored.
+		}
+
+		public virtual void HandleMcpeResourcePacksReadyForValidation(McpeResourcePacksReadyForValidation message)
+		{
+		}
+
+		public virtual void HandleMcpePartyChanged(McpePartyChanged message)
+		{
+		}
+
+		public virtual void HandleMcpeServerboundDataDrivenScreenClosed(McpeServerboundDataDrivenScreenClosed message)
+		{
+		}
+
 		public virtual void HandleMcpeSetPlayerInventoryOptions(McpeSetPlayerInventoryOptions message)
 		{
 			// Client UI preferences (tabs, filtering, layout). Nothing to do server-side.
+		}
+
+		public virtual void HandleMcpeCreatePhoto(McpeCreatePhoto message)
+		{
+			// Client notification that it captured a portfolio/education photo. Ignored.
 		}
 
 
@@ -2759,20 +2784,17 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpePositionTrackingDbClientRequest(McpePositionTrackingDbClientRequest message)
+		{
+		}
+
+		public void HandleMcpeDebugInfo(McpeDebugInfo message)
+		{
+		}
+
 		public void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
 		{
 			Log.Error($"Client reported a level {message.severity} packet violation of type {message.violationType} for packet 0x{message.packetId:X2}: {message.reason}");
-		}
-
-		/// <inheritdoc />
-		public void HandleMcpeFilterTextPacket(McpeFilterTextPacket message)
-		{
-			// Allow anvil renaming to work - this packet must be sent in response
-			// You could also modify the contents to change the outcome.
-			var packet = McpeFilterTextPacket.CreateObject();
-			packet.text = message.text;
-			packet.fromServer = true;
-			SendPacket(packet);
 		}
 
 		/// <inheritdoc />
@@ -2952,11 +2974,6 @@ namespace MiNET
 
 		public void HandleMcpeInventorySlot(McpeInventorySlot message)
 		{
-		}
-
-		public virtual void HandleMcpeCraftingEvent(McpeCraftingEvent message)
-		{
-			Log.Debug($"Player {Username} crafted item on window 0x{message.windowId:X2} on type: {message.recipeType}");
 		}
 
 		public virtual void HandleMcpeInventoryTransaction(McpeInventoryTransaction message)
@@ -4444,7 +4461,31 @@ namespace MiNET
 			SendPacket(packet);
 		}
 
-		public virtual void HandleMcpeLevelSoundEventV2(McpeLevelSoundEventV2 message)
+		public virtual void HandleMcpeScriptMessage(McpeScriptMessage message)
+		{
+		}
+
+		public virtual void HandleMcpeCodeBuilderSource(McpeCodeBuilderSource message)
+		{
+		}
+
+		public virtual void HandleMcpeChangeMobProperty(McpeChangeMobProperty message)
+		{
+		}
+
+		public virtual void HandleMcpeRequestAbility(McpeRequestAbility message)
+		{
+		}
+
+		public virtual void HandleMcpeRequestPermissions(McpeRequestPermissions message)
+		{
+		}
+
+		public virtual void HandleMcpeEditorNetwork(McpeEditorNetwork message)
+		{
+		}
+
+		public virtual void HandleMcpeGameTestRequest(McpeGameTestRequest message)
 		{
 		}
 	}

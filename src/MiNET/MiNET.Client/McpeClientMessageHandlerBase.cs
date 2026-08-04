@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -229,6 +229,10 @@ namespace MiNET.Client
 		{
 		}
 
+		public virtual void HandleMcpeServerPlayerPostMovePosition(McpeServerPlayerPostMovePosition message)
+		{
+		}
+
 		public virtual void HandleMcpeMoveEntity(McpeMoveEntity message)
 		{
 		}
@@ -246,23 +250,11 @@ namespace MiNET.Client
 			//Client.SendMcpeMovePlayer();
 		}
 
-		public virtual void HandleMcpeRiderJump(McpeRiderJump message)
-		{
-		}
-
 		public virtual void HandleMcpeUpdateBlock(McpeUpdateBlock message)
 		{
 		}
 
 		public virtual void HandleMcpeAddPainting(McpeAddPainting message)
-		{
-		}
-
-		public virtual void HandleMcpeTickSync(McpeTickSync message)
-		{
-		}
-
-		public virtual void HandleMcpeLevelSoundEventOld(McpeLevelSoundEventOld message)
 		{
 		}
 
@@ -364,10 +356,6 @@ namespace MiNET.Client
 		}
 
 		public virtual void HandleMcpeCraftingData(McpeCraftingData message)
-		{
-		}
-
-		public virtual void HandleMcpeCraftingEvent(McpeCraftingEvent message)
 		{
 		}
 
@@ -612,19 +600,11 @@ namespace MiNET.Client
 			Client.SendPacket(packet);
 		}
 
-		public virtual void HandleMcpeScriptCustomEvent(McpeScriptCustomEvent message)
-		{
-		}
-
 		public virtual void HandleMcpeSpawnParticleEffect(McpeSpawnParticleEffect message)
 		{
 		}
 
 		public virtual void HandleMcpeAvailableEntityIdentifiers(McpeAvailableEntityIdentifiers message)
-		{
-		}
-
-		public virtual void HandleMcpeLevelSoundEventV2(McpeLevelSoundEventV2 message)
 		{
 		}
 
@@ -648,10 +628,6 @@ namespace MiNET.Client
 		{
 		}
 
-		public virtual void HandleMcpeVideoStreamConnect(McpeVideoStreamConnect message)
-		{
-		}
-
 		public virtual void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
 		{
 		}
@@ -672,15 +648,27 @@ namespace MiNET.Client
 		{
 		}
 
-		public virtual void HandleMcpeUpdateBlockProperties(McpeUpdateBlockProperties message)
-		{
-		}
-
 		public virtual void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
 		{
 		}
 
 		public virtual void HandleMcpeClientCacheMissResponse(McpeClientCacheMissResponse message)
+		{
+		}
+
+		public virtual void HandleMcpeEducationSettings(McpeEducationSettings message)
+		{
+		}
+
+		public virtual void HandleMcpeEmote(McpeEmote message)
+		{
+		}
+
+		public virtual void HandleMcpeMultiplayerSettings(McpeMultiplayerSettings message)
+		{
+		}
+
+		public virtual void HandleMcpeCompletedUsingItem(McpeCompletedUsingItem message)
 		{
 		}
 
@@ -707,6 +695,30 @@ namespace MiNET.Client
 		{
 		}
 
+		public virtual void HandleMcpePlayerArmorDamage(McpePlayerArmorDamage message)
+		{
+		}
+
+		public virtual void HandleMcpeCodeBuilder(McpeCodeBuilder message)
+		{
+		}
+
+		public virtual void HandleMcpePositionTrackingDbServerBroadcast(McpePositionTrackingDbServerBroadcast message)
+		{
+		}
+
+		public virtual void HandleMcpeDebugInfo(McpeDebugInfo message)
+		{
+		}
+
+		public virtual void HandleMcpeMotionPredictionHints(McpeMotionPredictionHints message)
+		{
+		}
+
+		public virtual void HandleMcpeAnimateEntity(McpeAnimateEntity message)
+		{
+		}
+
 		/// <inheritdoc />
 		public virtual void HandleMcpeCorrectPlayerMovePrediction(McpeCorrectPlayerMovePrediction message)
 		{
@@ -716,12 +728,6 @@ namespace MiNET.Client
 		public virtual void HandleMcpeItemComponent(McpeItemComponent message)
 		{
 
-		}
-
-		/// <inheritdoc />
-		public virtual void HandleMcpeFilterTextPacket(McpeFilterTextPacket message)
-		{
-			
 		}
 
 		/// <inheritdoc />
@@ -739,7 +745,47 @@ namespace MiNET.Client
 		/// <inheritdoc />
 		public void HandleMcpeDimensionData(McpeDimensionData message)
 		{
-			
+
+		}
+
+		public virtual void HandleMcpePlayerStartItemCooldown(McpePlayerStartItemCooldown message)
+		{
+		}
+
+		public virtual void HandleMcpeScriptMessage(McpeScriptMessage message)
+		{
+		}
+
+		public virtual void HandleMcpeTickingAreasLoadStatus(McpeTickingAreasLoadStatus message)
+		{
+		}
+
+		public virtual void HandleMcpeAgentActionEvent(McpeAgentActionEvent message)
+		{
+		}
+
+		public virtual void HandleMcpeLessonProgress(McpeLessonProgress message)
+		{
+		}
+
+		public virtual void HandleMcpeToastRequest(McpeToastRequest message)
+		{
+		}
+
+		public virtual void HandleMcpeDeathInfo(McpeDeathInfo message)
+		{
+		}
+
+		public virtual void HandleMcpeEditorNetwork(McpeEditorNetwork message)
+		{
+		}
+
+		public virtual void HandleMcpeFeatureRegistry(McpeFeatureRegistry message)
+		{
+		}
+
+		public virtual void HandleMcpeServerStats(McpeServerStats message)
+		{
 		}
 
 		public virtual void HandleFtlCreatePlayer(FtlCreatePlayer message)
@@ -758,7 +804,87 @@ namespace MiNET.Client
 		{
 		}
 
+		public virtual void HandleMcpeSetHud(McpeSetHud message)
+		{
+		}
+
+		public virtual void HandleMcpeAwardAchievement(McpeAwardAchievement message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundCloseForm(McpeClientboundCloseForm message)
+		{
+		}
+
+		public virtual void HandleMcpeCameraAimAssist(McpeCameraAimAssist message)
+		{
+		}
+
+		public virtual void HandleMcpeContainerRegistryCleanup(McpeContainerRegistryCleanup message)
+		{
+		}
+
+		public virtual void HandleMcpeMovementEffect(McpeMovementEffect message)
+		{
+		}
+
 		public virtual void HandleMcpeCameraAimAssistPresets(McpeCameraAimAssistPresets message)
+		{
+		}
+
+		public virtual void HandleMcpeCameraAimAssistActorPriority(McpeCameraAimAssistActorPriority message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundAttributeLayerSync(McpeClientboundAttributeLayerSync message)
+		{
+		}
+
+		public virtual void HandleMcpeServerStoreInfo(McpeServerStoreInfo message)
+		{
+		}
+
+		public virtual void HandleMcpeServerPresenceInfo(McpeServerPresenceInfo message)
+		{
+		}
+
+		public virtual void HandleMcpePlayerVideoCapture(McpePlayerVideoCapture message)
+		{
+		}
+
+		public virtual void HandleMcpePlayerUpdateEntityOverrides(McpePlayerUpdateEntityOverrides message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundControlSchemeSet(McpeClientboundControlSchemeSet message)
+		{
+		}
+
+		public virtual void HandleMcpePrimitiveShapes(McpePrimitiveShapes message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundDataStore(McpeClientboundDataStore message)
+		{
+		}
+
+		public virtual void HandleMcpeGraphicsOverrideParameter(McpeGraphicsOverrideParameter message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundDataDrivenUiShowScreen(McpeClientboundDataDrivenUiShowScreen message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundDataDrivenUiCloseScreen(McpeClientboundDataDrivenUiCloseScreen message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundDataDrivenUiReload(McpeClientboundDataDrivenUiReload message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundTextureShift(McpeClientboundTextureShift message)
 		{
 		}
 
@@ -767,6 +893,14 @@ namespace MiNET.Client
 		}
 
 		public virtual void HandleMcpeCameraSpline(McpeCameraSpline message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundUpdateSoundData(McpeClientboundUpdateSoundData message)
+		{
+		}
+
+		public virtual void HandleMcpeSendPartyDestinationCookie(McpeSendPartyDestinationCookie message)
 		{
 		}
 
@@ -788,6 +922,30 @@ namespace MiNET.Client
 		}
 
 		public virtual void HandleMcpeSyncEntityProperty(McpeSyncEntityProperty message)
+		{
+		}
+
+		public virtual void HandleMcpeClientboundDebugRenderer(McpeClientboundDebugRenderer message)
+		{
+		}
+
+		public virtual void HandleMcpeAddVolumeEntity(McpeAddVolumeEntity message)
+		{
+		}
+
+		public virtual void HandleMcpeRemoveVolumeEntity(McpeRemoveVolumeEntity message)
+		{
+		}
+
+		public virtual void HandleMcpeSimulationType(McpeSimulationType message)
+		{
+		}
+
+		public virtual void HandleMcpeNpcDialogue(McpeNpcDialogue message)
+		{
+		}
+
+		public virtual void HandleMcpeEduUriResource(McpeEduUriResource message)
 		{
 		}
 
@@ -817,6 +975,30 @@ namespace MiNET.Client
 		}
 
 		public virtual void HandleMcpeLocatorBar(McpeLocatorBar message)
+		{
+		}
+
+		public virtual void HandleMcpeGameTestResults(McpeGameTestResults message)
+		{
+		}
+
+		public virtual void HandleMcpeUpdateClientInputLocks(McpeUpdateClientInputLocks message)
+		{
+		}
+
+		public virtual void HandleMcpeUnlockedRecipes(McpeUnlockedRecipes message)
+		{
+		}
+
+		public virtual void HandleMcpeOpenSign(McpeOpenSign message)
+		{
+		}
+
+		public virtual void HandleMcpeAgentAnimation(McpeAgentAnimation message)
+		{
+		}
+
+		public virtual void HandleMcpeRefreshEntitlements(McpeRefreshEntitlements message)
 		{
 		}
 	}

@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -141,13 +141,13 @@ namespace MiNET.Worlds
 		public static McpeBiomeDefinitionList CreatePacket()
 		{
 			var strings = new List<string>();
-			var indexOf = new Dictionary<string, short>(StringComparer.Ordinal);
+			var indexOf = new Dictionary<string, ushort>(StringComparer.Ordinal);
 
-			short Intern(string value)
+			ushort Intern(string value)
 			{
-				if (indexOf.TryGetValue(value, out short existing)) return existing;
+				if (indexOf.TryGetValue(value, out ushort existing)) return existing;
 
-				var index = (short) strings.Count;
+				var index = (ushort) strings.Count;
 				strings.Add(value);
 				indexOf[value] = index;
 				return index;

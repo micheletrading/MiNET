@@ -152,12 +152,16 @@ namespace MiNET.Utils
 
 	public class PlaceIntoBundleAction : ItemStackAction
 	{
-		
+		public byte Count { get; set; }
+		public StackRequestSlotInfo Source { get; set; }
+		public StackRequestSlotInfo Destination { get; set; }
 	}
-	
+
 	public class TakeFromBundleAction : ItemStackAction
 	{
-		
+		public byte Count { get; set; }
+		public StackRequestSlotInfo Source { get; set; }
+		public StackRequestSlotInfo Destination { get; set; }
 	}
 
 	public class CraftNotImplementedDeprecatedAction : ItemStackAction

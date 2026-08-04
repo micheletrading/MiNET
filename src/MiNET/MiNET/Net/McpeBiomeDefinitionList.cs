@@ -35,7 +35,7 @@ namespace MiNET.Net
 	/// </summary>
 	public class BiomeDefinitionEntry
 	{
-		public short NameIndex { get; set; }
+		public ushort NameIndex { get; set; }
 		public ushort BiomeId { get; set; }
 		public float Temperature { get; set; }
 		public float Downfall { get; set; }
@@ -59,7 +59,7 @@ namespace MiNET.Net
 			{
 				var entry = new BiomeDefinitionEntry
 				{
-					NameIndex = ReadShort(),
+					NameIndex = ReadUshort(),
 					BiomeId = ReadUshort(),
 					Temperature = ReadFloat(),
 					Downfall = ReadFloat(),

@@ -94,9 +94,6 @@ namespace MiNET.Net
 				case McpeSetLocalPlayerAsInitialized msg:
 					handler.HandleMcpeSetLocalPlayerAsInitialized(msg);
 					break;
-				case McpeScriptCustomEvent msg:
-					handler.HandleMcpeScriptCustomEvent(msg);
-					break;
 				case McpeUpdateBlock _:
 					// DO NOT USE. Will dissapear from MCPE any release. 
 					// It is a bug that it leaks these messages.
@@ -146,8 +143,35 @@ namespace MiNET.Net
 				case McpeClientCameraAimAssist msg:
 					handler.HandleMcpeClientCameraAimAssist(msg);
 					break;
+				case McpeClientMovementPredictionSync msg:
+					handler.HandleMcpeClientMovementPredictionSync(msg);
+					break;
+				case McpeUpdateClientOptions msg:
+					handler.HandleMcpeUpdateClientOptions(msg);
+					break;
+				case McpeServerboundPackSettingChange msg:
+					handler.HandleMcpeServerboundPackSettingChange(msg);
+					break;
+				case McpeServerboundDataStore msg:
+					handler.HandleMcpeServerboundDataStore(msg);
+					break;
 				case McpeSetPlayerInventoryOptions msg:
 					handler.HandleMcpeSetPlayerInventoryOptions(msg);
+					break;
+				case McpeResourcePacksReadyForValidation msg:
+					handler.HandleMcpeResourcePacksReadyForValidation(msg);
+					break;
+				case McpePartyDestinationCookieResponse msg:
+					handler.HandleMcpePartyDestinationCookieResponse(msg);
+					break;
+				case McpePartyChanged msg:
+					handler.HandleMcpePartyChanged(msg);
+					break;
+				case McpeServerboundDataDrivenScreenClosed msg:
+					handler.HandleMcpeServerboundDataDrivenScreenClosed(msg);
+					break;
+				case McpePlayerToggleCrafterSlotRequest msg:
+					handler.HandleMcpePlayerToggleCrafterSlotRequest(msg);
 					break;
 				case McpeInteract msg:
 					handler.HandleMcpeInteract(msg);
@@ -169,9 +193,6 @@ namespace MiNET.Net
 					break;
 				case McpeMobArmorEquipment msg:
 					handler.HandleMcpeMobArmorEquipment(msg);
-					break;
-				case McpeCraftingEvent msg:
-					handler.HandleMcpeCraftingEvent(msg);
 					break;
 				case McpeInventoryTransaction msg:
 					handler.HandleMcpeInventoryTransaction(msg);
@@ -196,9 +217,6 @@ namespace MiNET.Net
 					break;
 				case McpeItemStackRequest nms:
 					handler.HandleMcpeItemStackRequest(nms);
-					break;
-				case McpeRiderJump msg:
-					handler.HandleMcpeRiderJump(msg);
 					break;
 				case McpeCommandRequest msg:
 					handler.HandleMcpeCommandRequest(msg);
@@ -227,9 +245,6 @@ namespace MiNET.Net
 				case McpeSetEntityData msg:
 					handler.HandleMcpeSetEntityData(msg);
 					break;
-				case McpeTickSync msg:
-					handler.HandleMcpeTickSync(msg);
-					break;
 				case McpeNpcRequest msg:
 					handler.HandleMcpeNpcRequest(msg);
 					break;
@@ -242,12 +257,61 @@ namespace MiNET.Net
 				case McpePlayerSkin msg:
 					handler.HandleMcpePlayerSkin(msg);
 					break;
-				case McpeFilterTextPacket msg:
-					handler.HandleMcpeFilterTextPacket(msg);
-					break;
 
 				case McpeRequestNetworkSettings msg:
 					handler.HandleMcpeRequestNetworkSettings(msg);
+					break;
+
+				case McpeGameTestRequest msg:
+					handler.HandleMcpeGameTestRequest(msg);
+					break;
+
+				case McpeScriptMessage msg:
+					handler.HandleMcpeScriptMessage(msg);
+					break;
+
+				case McpeCodeBuilderSource msg:
+					handler.HandleMcpeCodeBuilderSource(msg);
+					break;
+
+				case McpeChangeMobProperty msg:
+					handler.HandleMcpeChangeMobProperty(msg);
+					break;
+
+				case McpeRequestAbility msg:
+					handler.HandleMcpeRequestAbility(msg);
+					break;
+
+				case McpeRequestPermissions msg:
+					handler.HandleMcpeRequestPermissions(msg);
+					break;
+
+				case McpeEditorNetwork msg:
+					handler.HandleMcpeEditorNetwork(msg);
+					break;
+
+				case McpeEmote msg:
+					handler.HandleMcpeEmote(msg);
+					break;
+
+				case McpeMultiplayerSettings msg:
+					handler.HandleMcpeMultiplayerSettings(msg);
+					break;
+
+				case McpeSettingsCommand msg:
+					handler.HandleMcpeSettingsCommand(msg);
+					break;
+
+				case McpeAnvilDamage msg:
+					handler.HandleMcpeAnvilDamage(msg);
+					break;
+
+				case McpePositionTrackingDbClientRequest msg:
+					handler.HandleMcpePositionTrackingDbClientRequest(msg);
+					break;
+
+				case McpeDebugInfo msg:
+					handler.HandleMcpeDebugInfo(msg);
 					break;
 
 				default:

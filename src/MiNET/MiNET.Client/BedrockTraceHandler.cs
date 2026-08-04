@@ -220,11 +220,6 @@ namespace MiNET.Client
 				Log.Debug($"Executing command handler: {executioner.GetType().FullName}");
 				Task.Run(() => executioner.Execute(this, text));
 			}
-
-			if (text.Equals(".do"))
-			{
-				Client.SendCraftingEvent();
-			}
 		}
 
 		public override void HandleMcpeInventorySlot(McpeInventorySlot message)

@@ -748,20 +748,20 @@ namespace TestPlugin.NiceLobby
 			SendNameTag(player);
 			player.RemoveAllEffects();
 
-			player.SetEffect(new Speed
-			{
-				Level = 1,
-				Duration = Effect.MaxDuration
-			}); // 10s in ticks
-			//player.SetEffect(new Slowness { Level = 20, Duration = 20 * 10 });
-			//player.SetEffect(new Haste { Level = 20, Duration = 20 * 10 });
-			//player.SetEffect(new MiningFatigue { Level = 20, Duration = 20 * 10 });
-			//player.SetEffect(new Strength { Level = 20, Duration = 20 * 10 });
-			player.SetEffect(new JumpBoost
-			{
-				Level = 1,
-				Duration = Effect.MaxDuration
-			});
+			// player.SetEffect(new Speed
+			// {
+			// 	Level = 1,
+			// 	Duration = Effect.MaxDuration
+			// }); // 10s in ticks
+			// //player.SetEffect(new Slowness { Level = 20, Duration = 20 * 10 });
+			// //player.SetEffect(new Haste { Level = 20, Duration = 20 * 10 });
+			// //player.SetEffect(new MiningFatigue { Level = 20, Duration = 20 * 10 });
+			// //player.SetEffect(new Strength { Level = 20, Duration = 20 * 10 });
+			// player.SetEffect(new JumpBoost
+			// {
+			// 	Level = 1,
+			// 	Duration = Effect.MaxDuration
+			// });
 			//player.SetEffect(new Blindness { Level = 20, Duration = 20 * 10 });
 			//player.SetAutoJump(true);
 

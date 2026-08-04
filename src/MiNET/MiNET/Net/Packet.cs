@@ -433,6 +433,16 @@ namespace MiNET.Net
 			return _reader.ReadSingle();
 		}
 
+		public void Write(double value)
+		{
+			_writer.Write(value);
+		}
+
+		public double ReadDouble()
+		{
+			return _reader.ReadDouble();
+		}
+
 		public void Write(string value)
 		{
 			if (string.IsNullOrEmpty(value))
@@ -1322,12 +1332,18 @@ namespace MiNET.Net
 						case PlaceIntoBundleAction ta:
 						{
 							Write((byte) McpeItemStackRequest.ActionType.PlaceIntoBundle);
+							Write(ta.Count);
+							Write(ta.Source);
+							Write(ta.Destination);
 							break;
 						}
-						
+
 						case TakeFromBundleAction ta:
 						{
 							Write((byte) McpeItemStackRequest.ActionType.TakeFromBundle);
+							Write(ta.Count);
+							Write(ta.Source);
+							Write(ta.Destination);
 							break;
 						}
 						
@@ -1546,6 +1562,9 @@ namespace MiNET.Net
 						case McpeItemStackRequest.ActionType.PlaceIntoBundle:
 						{
 							var action = new PlaceIntoBundleAction();
+							action.Count = ReadByte();
+							action.Source = ReadStackRequestSlotInfo();
+							action.Destination = ReadStackRequestSlotInfo();
 							actions.Add(action);
 							break;
 						}
@@ -1553,6 +1572,9 @@ namespace MiNET.Net
 						case McpeItemStackRequest.ActionType.TakeFromBundle:
 						{
 							var action = new TakeFromBundleAction();
+							action.Count = ReadByte();
+							action.Source = ReadStackRequestSlotInfo();
+							action.Destination = ReadStackRequestSlotInfo();
 							actions.Add(action);
 							break;
 						}

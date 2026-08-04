@@ -88,10 +88,9 @@ namespace MiNET.Entities.Projectiles
 			KnownPosition.Yaw = (float) Velocity.GetYaw();
 			KnownPosition.Pitch = (float) Velocity.GetPitch();
 
-			var sound = McpeLevelSoundEventOld.CreateObject();
-			sound.soundId = 55;
+			var sound = McpeLevelSoundEvent.CreateObject();
+			sound.soundId = LevelSoundEventType.BreakBlock.ToString();
 			sound.blockId = -1;
-			sound.entityType = 1;
 			sound.position = KnownPosition;
 			Level.RelayBroadcast(sound);
 
@@ -108,10 +107,9 @@ namespace MiNET.Entities.Projectiles
 
 			base.DespawnEntity();
 
-			var sound = McpeLevelSoundEventOld.CreateObject();
-			sound.soundId = 56;
+			var sound = McpeLevelSoundEvent.CreateObject();
+			sound.soundId = LevelSoundEventType.Launch.ToString();
 			sound.blockId = -1;
-			sound.entityType = 1;
 			sound.position = KnownPosition;
 			Level.RelayBroadcast(sound);
 		}

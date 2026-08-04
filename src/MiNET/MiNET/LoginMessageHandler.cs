@@ -618,14 +618,6 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeRiderJump(McpeRiderJump message)
-		{
-		}
-
-		public void HandleMcpeTickSync(McpeTickSync message)
-		{
-		}
-
 		public void HandleMcpeLevelSoundEvent(McpeLevelSoundEvent message)
 		{
 		}
@@ -646,6 +638,22 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpeEmote(McpeEmote message)
+		{
+		}
+
+		public void HandleMcpeMultiplayerSettings(McpeMultiplayerSettings message)
+		{
+		}
+
+		public void HandleMcpeSettingsCommand(McpeSettingsCommand message)
+		{
+		}
+
+		public void HandleMcpeAnvilDamage(McpeAnvilDamage message)
+		{
+		}
+
 		/// <inheritdoc />
 		public void HandleMcpePlayerAuthInput(McpePlayerAuthInput message)
 		{
@@ -660,12 +668,15 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
+		public void HandleMcpePositionTrackingDbClientRequest(McpePositionTrackingDbClientRequest message)
 		{
 		}
 
-		/// <inheritdoc />
-		public void HandleMcpeFilterTextPacket(McpeFilterTextPacket message)
+		public void HandleMcpeDebugInfo(McpeDebugInfo message)
+		{
+		}
+
+		public void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
 		{
 		}
 
@@ -745,10 +756,6 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeCraftingEvent(McpeCraftingEvent message)
-		{
-		}
-
 		public void HandleMcpeBlockEntityData(McpeBlockEntityData message)
 		{
 		}
@@ -809,6 +816,10 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpePlayerToggleCrafterSlotRequest(McpePlayerToggleCrafterSlotRequest message)
+		{
+		}
+
 		public void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message)
 		{
 		}
@@ -821,11 +832,43 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpeClientMovementPredictionSync(McpeClientMovementPredictionSync message)
+		{
+		}
+
+		public void HandleMcpeUpdateClientOptions(McpeUpdateClientOptions message)
+		{
+		}
+
+		public void HandleMcpeServerboundPackSettingChange(McpeServerboundPackSettingChange message)
+		{
+		}
+
+		public void HandleMcpeServerboundDataStore(McpeServerboundDataStore message)
+		{
+		}
+
+		public void HandleMcpePartyDestinationCookieResponse(McpePartyDestinationCookieResponse message)
+		{
+		}
+
+		public void HandleMcpeResourcePacksReadyForValidation(McpeResourcePacksReadyForValidation message)
+		{
+		}
+
+		public void HandleMcpePartyChanged(McpePartyChanged message)
+		{
+		}
+
+		public void HandleMcpeServerboundDataDrivenScreenClosed(McpeServerboundDataDrivenScreenClosed message)
+		{
+		}
+
 		public void HandleMcpeSetPlayerInventoryOptions(McpeSetPlayerInventoryOptions message)
 		{
 		}
 
-		public void HandleMcpeLevelSoundEventOld(McpeLevelSoundEventOld message)
+		public void HandleMcpeCreatePhoto(McpeCreatePhoto message)
 		{
 		}
 
@@ -833,13 +876,34 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeLevelSoundEventV2(McpeLevelSoundEventV2 message)
+		public void HandleMcpeScriptMessage(McpeScriptMessage message)
 		{
 		}
 
-		public void HandleMcpeScriptCustomEvent(McpeScriptCustomEvent message)
+		public void HandleMcpeCodeBuilderSource(McpeCodeBuilderSource message)
 		{
 		}
+
+		public void HandleMcpeChangeMobProperty(McpeChangeMobProperty message)
+		{
+		}
+
+		public void HandleMcpeRequestAbility(McpeRequestAbility message)
+		{
+		}
+
+		public void HandleMcpeRequestPermissions(McpeRequestPermissions message)
+		{
+		}
+
+		public void HandleMcpeEditorNetwork(McpeEditorNetwork message)
+		{
+		}
+
+		public void HandleMcpeGameTestRequest(McpeGameTestRequest message)
+		{
+		}
+
 	}
 
 	public interface IServerManager
