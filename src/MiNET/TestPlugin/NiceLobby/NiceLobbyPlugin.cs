@@ -820,6 +820,21 @@ namespace TestPlugin.NiceLobby
 			return null;
 		}
 
+		[PacketHandler, Receive]
+		public Packet HandleIncoming(McpeMovePlayer packet, Player player)
+		{
+			if (_playerEntities.ContainsKey(player))
+			{
+				var entity = _playerEntities[player];
+				entity.KnownPosition = player.KnownPosition;
+				var message = McpeMoveEntity.CreateObject();
+				message.runtimeEntityId = entity.EntityId;
+				message.position = entity.KnownPosition;
+				player.Level.RelayBroadcast(message);
+			}
+
+			return packet; // Process
+		}
 
 		private void DoDevelopmentPopups(object state)
 		{
@@ -1010,22 +1025,6 @@ namespace TestPlugin.NiceLobby
 			_playerEntities[player] = entity;
 
 			level.BroadcastMessage($"Player {player.Username} spawned as {mobType}.", type: MessageType.Raw);
-		}
-
-		[PacketHandler, Receive]
-		public Packet HandleIncoming(McpeMovePlayer packet, Player player)
-		{
-			if (_playerEntities.ContainsKey(player))
-			{
-				var entity = _playerEntities[player];
-				entity.KnownPosition = player.KnownPosition;
-				var message = McpeMoveEntity.CreateObject();
-				message.runtimeEntityId = entity.EntityId;
-				message.position = entity.KnownPosition;
-				player.Level.RelayBroadcast(message);
-			}
-
-			return packet; // Process
 		}
 
 		[Command(Name = "w")]
