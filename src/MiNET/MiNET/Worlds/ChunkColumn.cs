@@ -496,9 +496,8 @@ namespace MiNET.Worlds
 
 				var fullChunkPacket = McpeLevelChunk.CreateObject();
 				fullChunkPacket.cacheEnabled = false;
-				fullChunkPacket.subChunkRequestMode = SubChunkRequestMode.SubChunkRequestModeLegacy;
-				fullChunkPacket.chunkX = X;
-				fullChunkPacket.chunkZ = Z;
+				fullChunkPacket.cacheMetadata = new List<ulong>();
+				fullChunkPacket.chunkPosition = new ChunkPos {x = X, z = Z};
 				fullChunkPacket.subChunkCount = (uint) topEmpty;
 				fullChunkPacket.chunkData = chunkData;
 				byte[] bytes = fullChunkPacket.Encode();
@@ -553,10 +552,8 @@ namespace MiNET.Worlds
 
 				var packet = McpeLevelChunk.CreateObject();
 				packet.cacheEnabled = true;
-				packet.blobHashes = hashes;
-				packet.subChunkRequestMode = SubChunkRequestMode.SubChunkRequestModeLegacy;
-				packet.chunkX = X;
-				packet.chunkZ = Z;
+				packet.cacheMetadata = new List<ulong>(hashes);
+				packet.chunkPosition = new ChunkPos {x = X, z = Z};
 				packet.subChunkCount = (uint) topEmpty;
 				packet.chunkData = GetTailBytes();
 				byte[] bytes = packet.Encode();

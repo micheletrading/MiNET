@@ -311,8 +311,8 @@ public class CerealPacket
 				ResolveType(owner, field, (JObject) prop.Value, schemas, overrides, structs);
 			}
 
-			if (field.Optional && field.Kind != FieldKind.Struct && field.Kind != FieldKind.Plain)
-				throw new NotImplementedException($"{owner}.{prop.Name}: optional {field.Kind} fields are not implemented yet");
+			if (field.Optional && field.Kind == FieldKind.Variant)
+				throw new NotImplementedException($"{owner}.{prop.Name}: optional variant fields are not implemented yet");
 
 			yield return field;
 		}
@@ -352,6 +352,22 @@ public class CerealPacket
 			}
 
 			JObject target = schemas.Get(name);
+
+			if (target["enum"] != null)
+			{
+				// A standalone enum schema (ActorLinkType and friends): value = declaration index,
+				// written as the underlying primitive.
+				field.Enum = new CerealEnum
+				{
+					Name = SanitizeTypeName((string) target["title"]),
+					Values = ((JArray) target["enum"]).Select(v => CodeNames.CodeName((string) v, true)).ToList(),
+				};
+				field.Kind = FieldKind.Plain;
+				bool refCompressed = ((JArray) target["x-serialization-options"])?.Any(o => (string) o == "Compression") ?? false;
+				field.Type = Primitive(owner, field.WireName, (string) target["x-underlying-type"], refCompressed);
+				return;
+			}
+
 			var targetProps = ((JObject) target["properties"])?.Properties().ToList();
 			if (targetProps != null && targetProps.Count == 1)
 			{
@@ -467,8 +483,9 @@ public class CerealPacket
 				return new TypeMapping {CsType = "string", Write = "Write({0});", Read = "{0} = ReadString();"};
 			case "int8":
 				// One byte is one byte; Compression cannot shrink it and BDS confirms it stays raw
-				// (Player Permissions in StartGame: 0x02 on the wire, not zigzag 0x04).
-				return new TypeMapping {CsType = "byte", Write = "Write({0});", Read = "{0} = ReadByte();"};
+				// (Player Permissions in StartGame: 0x02 on the wire, not zigzag 0x04). Signed,
+				// because subchunk offsets genuinely go negative.
+				return new TypeMapping {CsType = "sbyte", Write = "Write((byte) {0});", Read = "{0} = (sbyte) ReadByte();"};
 			case "int32" when compressed:
 				return new TypeMapping {CsType = "int", Write = "WriteSignedVarInt({0});", Read = "{0} = ReadSignedVarInt();"};
 			case "uint32" when compressed:

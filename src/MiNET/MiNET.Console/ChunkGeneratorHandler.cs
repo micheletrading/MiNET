@@ -185,12 +185,12 @@ namespace MiNET.Console
 
 		public override void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
-			if (message.blobHashes != null) 
+			if (message.cacheEnabled) 
 			{
 				var chunk = new CachedChunk
 				{
-					X = message.chunkX,
-					Z = message.chunkZ,
+					X = message.chunkPosition.x,
+					Z = message.chunkPosition.z,
 				};
 				chunk.Chunk.X = chunk.X;
 				chunk.Chunk.Z = chunk.Z;
@@ -198,7 +198,7 @@ namespace MiNET.Console
 				var hits = new List<ulong>();
 				var misses = new List<ulong>();
 
-				ulong biomeHash = message.blobHashes.Last();
+				ulong biomeHash = message.cacheMetadata.Last();
 				if (Client.BlobCache.TryGetValue(biomeHash, out byte[] biomes))
 				{
 					chunk.Chunk.biomeId = biomes;
@@ -210,9 +210,9 @@ namespace MiNET.Console
 					misses.Add(biomeHash);
 				}
 
-				for (int i = 0; i < message.blobHashes.Length - 1; i++)
+				for (int i = 0; i < message.cacheMetadata.Count - 1; i++)
 				{
-					ulong hash = message.blobHashes[i];
+					ulong hash = message.cacheMetadata[i];
 					if (Client.BlobCache.TryGetValue(hash, out byte[] data))
 					{
 						chunk.Chunk[i] = ClientUtils.DecodeChunkColumn(1, data, BlockPalette, _internalStates)[0];
@@ -235,7 +235,7 @@ namespace MiNET.Console
 			}
 			else
 			{
-				var coord = new ChunkCoordinates(message.chunkX, message.chunkZ);
+				var coord = new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z);
 				int chunkCount = (int) message.subChunkCount;
 				byte[] data = message.chunkData;
 

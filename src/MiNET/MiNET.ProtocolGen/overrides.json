@@ -31,9 +31,69 @@
 			"csType": "GameRules",
 			"write": "Write({0});",
 			"read": "{0} = ReadGameRules();"
+		},
+		"SynchedActorDataList": {
+			"csType": "MetadataDictionary",
+			"write": "Write({0});",
+			"read": "{0} = ReadMetadataDictionary();",
+			"reason": "The tagged-variant entry wire ([id][tag varint][type byte][value], tag==type validated by vanilla) is implemented inside MetadataDictionary, which the whole entity layer already uses."
 		}
 	},
 	"packets": {
+		"SetActorDataPacket": {
+			"fields": {
+				"Target Runtime ID": {"name": "runtimeEntityId"},
+				"Actor Data": {"name": "metadata"}
+			}
+		},
+		"AddActorPacket": {
+			"fields": {
+				"Target Actor ID": {"name": "entityIdSelf"},
+				"Target Runtime ID": {"name": "runtimeEntityId"},
+				"Actor Type": {"name": "entityType"},
+				"Actor Data": {"name": "metadata"},
+				"Actor Links": {"name": "links"},
+				"Attributes List": {
+					"name": "attributes",
+					"type": {"csType": "EntityAttributes", "write": "Write({0});", "read": "{0} = ReadEntityAttributes();"},
+					"reason": "The whole entity layer builds EntityAttributes; the house codec carries the same wire as the SyncedAttribute array."
+				}
+			}
+		},
+		"SubChunkHeightmapData": {
+			"fields": {
+				"Subchunk Height Map": {
+					"name": "heights",
+					"type": {"csType": "byte[]", "write": "Write({0});", "read": "{0} = ReadBytes(256);"},
+					"reason": "A fixed 16x16 int8 grid with no counts on the wire (minItems==maxItems); carried as the raw 256-byte blob like the old hand codec."
+				},
+				"Subchunk Render Height Map": {
+					"name": "renderHeights",
+					"type": {"csType": "byte[]", "write": "Write({0});", "read": "{0} = ReadBytes(256);"},
+					"reason": "Same fixed 16x16 int8 grid as the height map."
+				}
+			}
+		},
+		"SubChunkPacketData": {
+			"fields": {
+				"Serialized Sub Chunk": {
+					"type": {"csType": "byte[]", "write": "WriteByteArray({0});", "read": "{0} = ReadByteArray();"},
+					"reason": "The schema calls the serialized subchunk a string; it is raw bytes with a varint length, the house byte-array codec."
+				}
+			}
+		},
+		"LevelChunkPacket": {
+			"fields": {
+				"Dimension Id": {"name": "dimension"},
+				"Sub-chunks Count": {"name": "subChunkCount"},
+				"Cache Metadata": {"name": "cacheMetadata"},
+				"Serialized Chunk Data": {
+					"name": "chunkData",
+					"type": {"csType": "byte[]", "write": "WriteByteArray({0});", "read": "{0} = ReadByteArray();"},
+					"reason": "The schema calls the chunk payload a string; it is the raw serialized chunk bytes with a varint length, which is exactly the house byte-array codec."
+				}
+			}
+		},
 		"StartGamePacket": {
 			"fields": {
 				"Player Property Data": {"type": {"csType": "Nbt", "write": "Write({0});", "read": "{0} = ReadNbt();"}},

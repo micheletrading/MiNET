@@ -234,6 +234,7 @@ public static class CerealEmitter
 		sb.AppendLine("using System.Collections.Generic;");
 		sb.AppendLine("using System.Numerics;");
 		sb.AppendLine("using MiNET.Utils;");
+		sb.AppendLine("using MiNET.Utils.Metadata;");
 		sb.AppendLine("using MiNET.Utils.Nbt;");
 		sb.AppendLine("using MiNET.Utils.Vectors;");
 		sb.AppendLine();
@@ -465,9 +466,21 @@ public static class CerealEmitter
 
 		if (field.Kind == FieldKind.Array)
 		{
-			yield return $"WriteUnsignedVarInt((uint) {name}.Count);";
 			string writeItem = field.Element.Kind == FieldKind.Struct ? "Write(item);" : string.Format(field.Element.Type.Write, "item");
-			yield return $"foreach ({field.Element.CsType} item in {name}) {writeItem}";
+			if (field.Optional)
+			{
+				yield return $"Write({name} != null);";
+				yield return $"if ({name} != null)";
+				yield return "{";
+				yield return $"\tWriteUnsignedVarInt((uint) {name}.Count);";
+				yield return $"\tforeach ({field.Element.CsType} item in {name}) {writeItem}";
+				yield return "}";
+			}
+			else
+			{
+				yield return $"WriteUnsignedVarInt((uint) {name}.Count);";
+				yield return $"foreach ({field.Element.CsType} item in {name}) {writeItem}";
+			}
 			yield break;
 		}
 
@@ -501,9 +514,21 @@ public static class CerealEmitter
 
 		if (field.Kind == FieldKind.Array)
 		{
-			yield return $"uint {field.FieldName}Count = ReadUnsignedVarInt();";
-			yield return $"{name} = new List<{field.Element.CsType}>((int) {field.FieldName}Count);";
-			yield return $"for (int i = 0; i < {field.FieldName}Count; i++) {name}.Add({ReadExpression(field.Element)});";
+			if (field.Optional)
+			{
+				yield return $"if (ReadBool())";
+				yield return "{";
+				yield return $"\tuint {field.FieldName}Count = ReadUnsignedVarInt();";
+				yield return $"\t{name} = new List<{field.Element.CsType}>((int) {field.FieldName}Count);";
+				yield return $"\tfor (int i = 0; i < {field.FieldName}Count; i++) {name}.Add({ReadExpression(field.Element)});";
+				yield return "}";
+			}
+			else
+			{
+				yield return $"uint {field.FieldName}Count = ReadUnsignedVarInt();";
+				yield return $"{name} = new List<{field.Element.CsType}>((int) {field.FieldName}Count);";
+				yield return $"for (int i = 0; i < {field.FieldName}Count; i++) {name}.Add({ReadExpression(field.Element)});";
+			}
 			yield break;
 		}
 

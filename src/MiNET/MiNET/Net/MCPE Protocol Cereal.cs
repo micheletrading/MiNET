@@ -33,6 +33,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using MiNET.Utils;
+using MiNET.Utils.Metadata;
 using MiNET.Utils.Nbt;
 using MiNET.Utils.Vectors;
 
@@ -342,6 +343,101 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeAddEntity : Packet<McpeAddEntity>
+	{
+
+		public long entityIdSelf; // = null;
+		public long runtimeEntityId; // = null;
+		public string entityType; // = null;
+		public Vector3 position; // = null;
+		public Vector3 velocity; // = null;
+		public Vector2 rotation; // = null;
+		public float yHeadRotation; // = null;
+		public float yBodyRotation; // = null;
+		public EntityAttributes attributes; // = null;
+		public MetadataDictionary metadata; // = null;
+		public PropertySyncData synchedProperties; // = null;
+		public List<ActorLink> links; // = null;
+
+		public McpeAddEntity()
+		{
+			Id = 0x0d;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarLong(entityIdSelf);
+			WriteUnsignedVarLong(runtimeEntityId);
+			Write(entityType);
+			Write(position);
+			Write(velocity);
+			Write(rotation);
+			Write(yHeadRotation);
+			Write(yBodyRotation);
+			Write(attributes);
+			Write(metadata);
+			Write(synchedProperties);
+			WriteUnsignedVarInt((uint) links.Count);
+			foreach (ActorLink item in links) Write(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			entityIdSelf = ReadSignedVarLong();
+			runtimeEntityId = ReadUnsignedVarLong();
+			entityType = ReadString();
+			position = ReadVector3();
+			velocity = ReadVector3();
+			rotation = ReadVector2();
+			yHeadRotation = ReadFloat();
+			yBodyRotation = ReadFloat();
+			attributes = ReadEntityAttributes();
+			metadata = ReadMetadataDictionary();
+			synchedProperties = ReadPropertySyncData();
+			uint linksCount = ReadUnsignedVarInt();
+			links = new List<ActorLink>((int) linksCount);
+			for (int i = 0; i < linksCount; i++) links.Add(ReadActorLink());
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			entityIdSelf=default(long);
+			runtimeEntityId=default(long);
+			entityType=default(string);
+			position=default(Vector3);
+			velocity=default(Vector3);
+			rotation=default(Vector2);
+			yHeadRotation=default(float);
+			yBodyRotation=default(float);
+			attributes=default(EntityAttributes);
+			metadata=default(MetadataDictionary);
+			synchedProperties=default(PropertySyncData);
+			links=default(List<ActorLink>);
+		}
+
+	}
+
 	public partial class McpeMovePlayer : Packet<McpeMovePlayer>
 	{
 		public enum Mode
@@ -430,6 +526,142 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeSetEntityData : Packet<McpeSetEntityData>
+	{
+
+		public long runtimeEntityId; // = null;
+		public MetadataDictionary metadata; // = null;
+		public PropertySyncData synchedProperties; // = null;
+		public long tick; // = null;
+
+		public McpeSetEntityData()
+		{
+			Id = 0x27;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarLong(runtimeEntityId);
+			Write(metadata);
+			Write(synchedProperties);
+			WriteUnsignedVarLong(tick);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			runtimeEntityId = ReadUnsignedVarLong();
+			metadata = ReadMetadataDictionary();
+			synchedProperties = ReadPropertySyncData();
+			tick = ReadUnsignedVarLong();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			runtimeEntityId=default(long);
+			metadata=default(MetadataDictionary);
+			synchedProperties=default(PropertySyncData);
+			tick=default(long);
+		}
+
+	}
+
+	public partial class McpeLevelChunk : Packet<McpeLevelChunk>
+	{
+
+		public ChunkPos chunkPosition; // = null;
+		public int dimension; // = null;
+		public uint subChunkCount; // = null;
+		public int? clientRequestSubchunkLimit; // = null;
+		public bool cacheEnabled; // = null;
+		public List<ulong> cacheMetadata; // = null;
+		public byte[] chunkData; // = null;
+
+		public McpeLevelChunk()
+		{
+			Id = 0x3a;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(chunkPosition);
+			WriteSignedVarInt(dimension);
+			WriteUnsignedVarInt(subChunkCount);
+			Write(clientRequestSubchunkLimit != null);
+			if (clientRequestSubchunkLimit != null) WriteSignedVarInt(clientRequestSubchunkLimit.Value);
+			Write(cacheEnabled);
+			WriteUnsignedVarInt((uint) cacheMetadata.Count);
+			foreach (ulong item in cacheMetadata) Write(item);
+			WriteByteArray(chunkData);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			chunkPosition = ReadChunkPos();
+			dimension = ReadSignedVarInt();
+			subChunkCount = ReadUnsignedVarInt();
+			if (ReadBool()) clientRequestSubchunkLimit = ReadSignedVarInt();
+			cacheEnabled = ReadBool();
+			uint cacheMetadataCount = ReadUnsignedVarInt();
+			cacheMetadata = new List<ulong>((int) cacheMetadataCount);
+			for (int i = 0; i < cacheMetadataCount; i++) cacheMetadata.Add(ReadUlong());
+			chunkData = ReadByteArray();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			chunkPosition=default(ChunkPos);
+			dimension=default(int);
+			subChunkCount=default(uint);
+			clientRequestSubchunkLimit=default(int?);
+			cacheEnabled=default(bool);
+			cacheMetadata=default(List<ulong>);
+			chunkData=default(byte[]);
+		}
+
+	}
+
 	public partial class McpeAnvilDamage : Packet<McpeAnvilDamage>
 	{
 
@@ -478,8 +710,94 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeSubChunkPacket : Packet<McpeSubChunkPacket>
+	{
+
+		public bool cacheEnabled; // = null;
+		public int dimensionType; // = null;
+		public SubChunkPos centerPos; // = null;
+		public List<SubChunkPacketData> subchunkData; // = null;
+
+		public McpeSubChunkPacket()
+		{
+			Id = 0xae;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(cacheEnabled);
+			WriteSignedVarInt(dimensionType);
+			Write(centerPos);
+			WriteUnsignedVarInt((uint) subchunkData.Count);
+			foreach (SubChunkPacketData item in subchunkData) Write(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			cacheEnabled = ReadBool();
+			dimensionType = ReadSignedVarInt();
+			centerPos = ReadSubChunkPos();
+			uint subchunkDataCount = ReadUnsignedVarInt();
+			subchunkData = new List<SubChunkPacketData>((int) subchunkDataCount);
+			for (int i = 0; i < subchunkDataCount; i++) subchunkData.Add(ReadSubChunkPacketData());
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			cacheEnabled=default(bool);
+			dimensionType=default(int);
+			centerPos=default(SubChunkPos);
+			subchunkData=default(List<SubChunkPacketData>);
+		}
+
+	}
+
 	public abstract class ResourcePackClientResponse
 	{
+	}
+
+	public class ActorLink
+	{
+		public enum ActorLinkType
+		{
+			None = 0,
+			Riding = 1,
+			Passenger = 2,
+		}
+
+		public long targetA;
+		public long targetB;
+		public byte type;
+		public bool immediate;
+		public bool passengerInitiated;
+		public float vehicleAngularVelocity;
+	}
+
+	public class ChunkPos
+	{
+		public int x;
+		public int z;
 	}
 
 	public class ClientStoreEntryPointConfig
@@ -624,7 +942,7 @@ namespace MiNET.Net
 		public Experiments experiments;
 		public bool hasBonusChestEnabled;
 		public bool startWithMapEnabled;
-		public byte playerPermissions;
+		public sbyte playerPermissions;
 		public int serverChunkTickRange;
 		public bool hasLockedBehaviorPack;
 		public bool hasLockedResourcePack;
@@ -671,6 +989,24 @@ namespace MiNET.Net
 		public bool isAddonPack;
 		public bool isRayTracingCapable;
 		public string cdnUrl;
+	}
+
+	public class PropertySyncData
+	{
+		public List<PropertySyncDataPropertySyncIntEntry> intEntriesList;
+		public List<PropertySyncDataPropertySyncFloatEntry> floatEntriesList;
+	}
+
+	public class PropertySyncDataPropertySyncFloatEntry
+	{
+		public uint propertyIndex;
+		public float data;
+	}
+
+	public class PropertySyncDataPropertySyncIntEntry
+	{
+		public uint propertyIndex;
+		public int data;
 	}
 
 	public class ResourcePackClientResponseCancel : ResourcePackClientResponse
@@ -724,6 +1060,64 @@ namespace MiNET.Net
 		public int dimension;
 	}
 
+	public class SubChunkHeightmapData
+	{
+		public enum Heightmaptype
+		{
+			Nodata = 0,
+			Hasdata = 1,
+			Alltoohigh = 2,
+			Alltoolow = 3,
+		}
+
+		public enum Renderheightmaptype
+		{
+			Nodata = 0,
+			Hasdata = 1,
+			Alltoohigh = 2,
+			Alltoolow = 3,
+			Allcopied = 4,
+		}
+
+		public byte heightMapType;
+		public byte[] heights;
+		public byte renderHeightMapType;
+		public byte[] renderHeights;
+	}
+
+	public class SubChunkPacketData
+	{
+		public enum Subchunkrequestresult
+		{
+			Success = 0,
+			Levelchunkdoesntexist = 1,
+			Wrongdimension = 2,
+			Playerdoesntexist = 3,
+			Indexoutofbounds = 4,
+			Successallair = 5,
+		}
+
+		public SubChunkPosOffset subchunkPosOffset;
+		public byte subchunkRequestResult;
+		public byte[] serializedSubChunk;
+		public SubChunkHeightmapData heightMapData;
+		public ulong? blobId;
+	}
+
+	public class SubChunkPos
+	{
+		public int subchunkPositionX;
+		public int subchunkPositionY;
+		public int subchunkPositionZ;
+	}
+
+	public class SubChunkPosOffset
+	{
+		public sbyte subchunkOffsetX;
+		public sbyte subchunkOffsetY;
+		public sbyte subchunkOffsetZ;
+	}
+
 	public class SyncedPlayerMovementSettings
 	{
 		public int rewindHistorySize;
@@ -732,6 +1126,42 @@ namespace MiNET.Net
 
 	public abstract partial class Packet
 	{
+		public void Write(ActorLink data)
+		{
+			WriteSignedVarLong(data.targetA);
+			WriteSignedVarLong(data.targetB);
+			Write(data.type);
+			Write(data.immediate);
+			Write(data.passengerInitiated);
+			Write(data.vehicleAngularVelocity);
+		}
+
+		public ActorLink ReadActorLink()
+		{
+			var data = new ActorLink();
+			data.targetA = ReadSignedVarLong();
+			data.targetB = ReadSignedVarLong();
+			data.type = ReadByte();
+			data.immediate = ReadBool();
+			data.passengerInitiated = ReadBool();
+			data.vehicleAngularVelocity = ReadFloat();
+			return data;
+		}
+
+		public void Write(ChunkPos data)
+		{
+			WriteSignedVarInt(data.x);
+			WriteSignedVarInt(data.z);
+		}
+
+		public ChunkPos ReadChunkPos()
+		{
+			var data = new ChunkPos();
+			data.x = ReadSignedVarInt();
+			data.z = ReadSignedVarInt();
+			return data;
+		}
+
 		public void Write(ClientStoreEntryPointConfig data)
 		{
 			Write(data.storeid);
@@ -816,7 +1246,7 @@ namespace MiNET.Net
 			Write(data.experiments);
 			Write(data.hasBonusChestEnabled);
 			Write(data.startWithMapEnabled);
-			Write(data.playerPermissions);
+			Write((byte) data.playerPermissions);
 			Write(data.serverChunkTickRange);
 			Write(data.hasLockedBehaviorPack);
 			Write(data.hasLockedResourcePack);
@@ -872,7 +1302,7 @@ namespace MiNET.Net
 			data.experiments = ReadExperiments();
 			data.hasBonusChestEnabled = ReadBool();
 			data.startWithMapEnabled = ReadBool();
-			data.playerPermissions = ReadByte();
+			data.playerPermissions = (sbyte) ReadByte();
 			data.serverChunkTickRange = ReadInt();
 			data.hasLockedBehaviorPack = ReadBool();
 			data.hasLockedResourcePack = ReadBool();
@@ -950,6 +1380,54 @@ namespace MiNET.Net
 			data.isAddonPack = ReadBool();
 			data.isRayTracingCapable = ReadBool();
 			data.cdnUrl = ReadString();
+			return data;
+		}
+
+		public void Write(PropertySyncData data)
+		{
+			WriteUnsignedVarInt((uint) data.intEntriesList.Count);
+			foreach (PropertySyncDataPropertySyncIntEntry item in data.intEntriesList) Write(item);
+			WriteUnsignedVarInt((uint) data.floatEntriesList.Count);
+			foreach (PropertySyncDataPropertySyncFloatEntry item in data.floatEntriesList) Write(item);
+		}
+
+		public PropertySyncData ReadPropertySyncData()
+		{
+			var data = new PropertySyncData();
+			uint intEntriesListCount = ReadUnsignedVarInt();
+			data.intEntriesList = new List<PropertySyncDataPropertySyncIntEntry>((int) intEntriesListCount);
+			for (int i = 0; i < intEntriesListCount; i++) data.intEntriesList.Add(ReadPropertySyncDataPropertySyncIntEntry());
+			uint floatEntriesListCount = ReadUnsignedVarInt();
+			data.floatEntriesList = new List<PropertySyncDataPropertySyncFloatEntry>((int) floatEntriesListCount);
+			for (int i = 0; i < floatEntriesListCount; i++) data.floatEntriesList.Add(ReadPropertySyncDataPropertySyncFloatEntry());
+			return data;
+		}
+
+		public void Write(PropertySyncDataPropertySyncFloatEntry data)
+		{
+			WriteUnsignedVarInt(data.propertyIndex);
+			Write(data.data);
+		}
+
+		public PropertySyncDataPropertySyncFloatEntry ReadPropertySyncDataPropertySyncFloatEntry()
+		{
+			var data = new PropertySyncDataPropertySyncFloatEntry();
+			data.propertyIndex = ReadUnsignedVarInt();
+			data.data = ReadFloat();
+			return data;
+		}
+
+		public void Write(PropertySyncDataPropertySyncIntEntry data)
+		{
+			WriteUnsignedVarInt(data.propertyIndex);
+			WriteSignedVarInt(data.data);
+		}
+
+		public PropertySyncDataPropertySyncIntEntry ReadPropertySyncDataPropertySyncIntEntry()
+		{
+			var data = new PropertySyncDataPropertySyncIntEntry();
+			data.propertyIndex = ReadUnsignedVarInt();
+			data.data = ReadSignedVarInt();
 			return data;
 		}
 
@@ -1070,6 +1548,80 @@ namespace MiNET.Net
 			data.spawnBiomeType = ReadShort();
 			data.userDefinedBiomeName = ReadString();
 			data.dimension = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(SubChunkHeightmapData data)
+		{
+			Write(data.heightMapType);
+			Write(data.heights != null);
+			if (data.heights != null) Write(data.heights);
+			Write(data.renderHeightMapType);
+			Write(data.renderHeights != null);
+			if (data.renderHeights != null) Write(data.renderHeights);
+		}
+
+		public SubChunkHeightmapData ReadSubChunkHeightmapData()
+		{
+			var data = new SubChunkHeightmapData();
+			data.heightMapType = ReadByte();
+			if (ReadBool()) data.heights = ReadBytes(256);
+			data.renderHeightMapType = ReadByte();
+			if (ReadBool()) data.renderHeights = ReadBytes(256);
+			return data;
+		}
+
+		public void Write(SubChunkPacketData data)
+		{
+			Write(data.subchunkPosOffset);
+			Write(data.subchunkRequestResult);
+			Write(data.serializedSubChunk != null);
+			if (data.serializedSubChunk != null) WriteByteArray(data.serializedSubChunk);
+			Write(data.heightMapData);
+			Write(data.blobId != null);
+			if (data.blobId != null) Write(data.blobId.Value);
+		}
+
+		public SubChunkPacketData ReadSubChunkPacketData()
+		{
+			var data = new SubChunkPacketData();
+			data.subchunkPosOffset = ReadSubChunkPosOffset();
+			data.subchunkRequestResult = ReadByte();
+			if (ReadBool()) data.serializedSubChunk = ReadByteArray();
+			data.heightMapData = ReadSubChunkHeightmapData();
+			if (ReadBool()) data.blobId = ReadUlong();
+			return data;
+		}
+
+		public void Write(SubChunkPos data)
+		{
+			Write(data.subchunkPositionX);
+			Write(data.subchunkPositionY);
+			Write(data.subchunkPositionZ);
+		}
+
+		public SubChunkPos ReadSubChunkPos()
+		{
+			var data = new SubChunkPos();
+			data.subchunkPositionX = ReadInt();
+			data.subchunkPositionY = ReadInt();
+			data.subchunkPositionZ = ReadInt();
+			return data;
+		}
+
+		public void Write(SubChunkPosOffset data)
+		{
+			Write((byte) data.subchunkOffsetX);
+			Write((byte) data.subchunkOffsetY);
+			Write((byte) data.subchunkOffsetZ);
+		}
+
+		public SubChunkPosOffset ReadSubChunkPosOffset()
+		{
+			var data = new SubChunkPosOffset();
+			data.subchunkOffsetX = (sbyte) ReadByte();
+			data.subchunkOffsetY = (sbyte) ReadByte();
+			data.subchunkOffsetZ = (sbyte) ReadByte();
 			return data;
 		}
 

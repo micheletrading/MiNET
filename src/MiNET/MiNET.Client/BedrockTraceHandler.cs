@@ -72,17 +72,17 @@ namespace MiNET.Client
 		private static StreamWriter _positionalDump;
 		private static int _positionalCells;
 
-		private void DumpPositionalIds(McpeSubChunkPacket message, SubChunkEntryCommon entry)
+		private void DumpPositionalIds(McpeSubChunkPacket message, SubChunkPacketData entry)
 		{
-			int chunkX = message.originX + entry.Offset.XOffset;
-			int chunkZ = message.originZ + entry.Offset.ZOffset;
+			int chunkX = message.centerPos.subchunkPositionX + entry.subchunkPosOffset.subchunkOffsetX;
+			int chunkZ = message.centerPos.subchunkPositionZ + entry.subchunkPosOffset.subchunkOffsetZ;
 			if (chunkX < 0 || chunkX > 3 || chunkZ < 0 || chunkZ > 3) return;
 
-			int[] grid = ClientUtils.DecodeSubChunkGrid(entry.Data);
+			int[] grid = ClientUtils.DecodeSubChunkGrid(entry.serializedSubChunk);
 			if (grid == null) return;
 
 			int baseX = chunkX * 16;
-			int baseY = (message.originY + entry.Offset.YOffset) * 16;
+			int baseY = (message.centerPos.subchunkPositionY + entry.subchunkPosOffset.subchunkOffsetY) * 16;
 			int baseZ = chunkZ * 16;
 			lock (_positionalDumpLock)
 			{
@@ -100,17 +100,17 @@ namespace MiNET.Client
 		public override void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
 			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
-			foreach (SubChunkEntryCommon entry in message.entries)
+			foreach (SubChunkPacketData entry in message.subchunkData)
 			{
-				switch (entry.RequestResult)
+				switch ((SubChunkPacketData.Subchunkrequestresult) entry.subchunkRequestResult)
 				{
-					case SubChunkRequestResult.Success:
+					case SubChunkPacketData.Subchunkrequestresult.Success:
 						success++;
-						if (ClientUtils.TryParseSubChunkPayload(entry.Data, Client.BlockNetworkIdsAreHashes)) parsedOk++;
+						if (ClientUtils.TryParseSubChunkPayload(entry.serializedSubChunk, Client.BlockNetworkIdsAreHashes)) parsedOk++;
 						else parseFail++;
 						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
 						break;
-					case SubChunkRequestResult.SuccessAllAir:
+					case SubChunkPacketData.Subchunkrequestresult.Successallair:
 						allAir++;
 						break;
 					default:
@@ -125,9 +125,9 @@ namespace MiNET.Client
 			// the first time it meets a world.
 			if (message.cacheEnabled)
 			{
-				var misses = message.entries
-					.OfType<SubChunkEntryWithCache>()
-					.Select(entry => entry.usedBlobHash)
+				var misses = message.subchunkData
+					.Where(entry => entry.blobId != null)
+					.Select(entry => entry.blobId.Value)
 					.Where(hash => hash != 0)
 					.Distinct()
 					.ToArray();
@@ -143,7 +143,7 @@ namespace MiNET.Client
 
 			if (System.Threading.Interlocked.Increment(ref _subChunkPacketsLogged) <= 5 || parseFail > 0)
 			{
-				Log.Warn($"SubChunk response: origin=({message.originX},{message.originY},{message.originZ}) entries={message.entries.Length} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
+				Log.Warn($"SubChunk response: origin=({message.centerPos.subchunkPositionX},{message.centerPos.subchunkPositionY},{message.centerPos.subchunkPositionZ}) entries={message.subchunkData.Count} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
 			}
 		}
 
@@ -392,22 +392,17 @@ namespace MiNET.Client
 			{
 				var entity = new Entity(message.entityType, null);
 				entity.EntityId = message.runtimeEntityId;
-				entity.KnownPosition = new PlayerLocation(message.x, message.y, message.z, message.yaw, message.yaw, message.pitch);
-				entity.Velocity = new Vector3(message.speedX, message.speedY, message.speedZ);
+				entity.KnownPosition = new PlayerLocation(message.position.X, message.position.Y, message.position.Z, message.rotation.Y, message.rotation.Y, message.rotation.X);
+				entity.Velocity = message.velocity;
 				Client.Entities.TryAdd(entity.EntityId, entity);
 			}
 
 			Log.DebugFormat("McpeAddEntity Entity ID: {0}", message.entityIdSelf);
 			Log.DebugFormat("McpeAddEntity Runtime Entity ID: {0}", message.runtimeEntityId);
 			Log.DebugFormat("Entity Type: {0}", message.entityType);
-			Log.DebugFormat("X: {0}", message.x);
-			Log.DebugFormat("Y: {0}", message.y);
-			Log.DebugFormat("Z: {0}", message.z);
-			Log.DebugFormat("Yaw: {0}", message.yaw);
-			Log.DebugFormat("Pitch: {0}", message.pitch);
-			Log.DebugFormat("Velocity X: {0}", message.speedX);
-			Log.DebugFormat("Velocity Y: {0}", message.speedY);
-			Log.DebugFormat("Velocity Z: {0}", message.speedZ);
+			Log.DebugFormat("Position: {0}", message.position);
+			Log.DebugFormat("Rotation: {0}", message.rotation);
+			Log.DebugFormat("Velocity: {0}", message.velocity);
 			Log.DebugFormat("Metadata: {0}", Client.MetadataToCode(message.metadata));
 			Log.DebugFormat("Links count: {0}", message.links?.Count);
 
@@ -444,7 +439,7 @@ namespace MiNET.Client
 			if (message.entityType == "minecraft:horse")
 			{
 				var id = message.runtimeEntityId;
-				Vector3 pos = new Vector3(message.x, message.y, message.z);
+				Vector3 pos = message.position;
 				Task.Run(BotHelpers.DoWaitForSpawn(Client))
 					.ContinueWith(t => Task.Delay(3000).Wait())
 					//.ContinueWith(task =>
@@ -679,16 +674,16 @@ namespace MiNET.Client
 		/// </summary>
 		private void SendSubChunkRequest(McpeLevelChunk message)
 		{
-			int highest = message.subChunkRequestMode == SubChunkRequestMode.SubChunkRequestModeLimited ? (int) message.subChunkCount : 23;
+			int highest = message.clientRequestSubchunkLimit ?? 23;
 
 			var request = McpeSubChunkRequestPacket.CreateObject();
 			request.dimension = message.dimension;
-			request.originX = message.chunkX;
+			request.originX = message.chunkPosition.x;
 			request.originY = 0;
-			request.originZ = message.chunkZ;
+			request.originZ = message.chunkPosition.z;
 			for (int i = 0; i <= highest; i++)
 			{
-				request.offsets.Add(new SubChunkPositionOffset {XOffset = 0, YOffset = (sbyte) (i - 4), ZOffset = 0});
+				request.offsets.Add(new SubChunkPosOffset {subchunkOffsetX = 0, subchunkOffsetY = (sbyte) (i - 4), subchunkOffsetZ = 0});
 			}
 
 			Client.SendPacket(request);
@@ -699,7 +694,7 @@ namespace MiNET.Client
 			// TODO doesn't work anymore I guess
 			if (Client.IsEmulator) return;
 
-			if (message.blobHashes != null)
+			if (message.cacheEnabled)
 			{
 				// Client.BlobCache isn't wired up to any actual blob storage yet, so every hash is
 				// reported as a miss (matches a real client's behaviour before it has anything
@@ -709,9 +704,9 @@ namespace MiNET.Client
 				var hits = new List<ulong>();
 				var misses = new List<ulong>();
 
-				foreach (ulong hash in message.blobHashes)
+				foreach (ulong hash in message.cacheMetadata)
 				{
-					Log.Debug($"Got hashes for {message.chunkX}, {message.chunkZ}, {hash}");
+					Log.Debug($"Got hashes for {message.chunkPosition.x}, {message.chunkPosition.z}, {hash}");
 					if (Client.BlobCache.ContainsKey(hash)) hits.Add(hash);
 					else misses.Add(hash);
 				}
@@ -725,21 +720,21 @@ namespace MiNET.Client
 				// subchunks still have to be requested exactly as in the uncached case. Returning
 				// here left the chunk half fetched and, more to the point, meant we never saw the
 				// SubChunk entries that carry the per-section blob hashes.
-				if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
+				if (message.clientRequestSubchunkLimit != null)
 				{
 					SendSubChunkRequest(message);
 				}
 			}
 			else
 			{
-				Client.Chunks.GetOrAdd(new ChunkCoordinates(message.chunkX, message.chunkZ), coordinates =>
+				Client.Chunks.GetOrAdd(new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z), coordinates =>
 				{
-					Log.Debug($"Chunk X={message.chunkX}, Z={message.chunkZ}, size={message.chunkData.Length}, Count={Client.Chunks.Count}");
+					Log.Debug($"Chunk X={message.chunkPosition.x}, Z={message.chunkPosition.z}, size={message.chunkData.Length}, Count={Client.Chunks.Count}");
 
 					ChunkColumn chunk = null;
 					try
 					{
-						if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
+						if (message.clientRequestSubchunkLimit != null)
 						{
 							SendSubChunkRequest(message);
 							return null;

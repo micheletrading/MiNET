@@ -79,7 +79,11 @@ namespace MiNET.Utils.Metadata
 				for (int i = 0; i < count; i++)
 				{
 					int index = VarInt.ReadInt32(stream);
-					int type = VarInt.ReadInt32(stream);
+					// Since 2168 each entry carries the variant tag (varint) AND the type enum
+					// (one byte); they hold the same number and vanilla validates they agree.
+					int tag = VarInt.ReadInt32(stream);
+					int type = reader.ReadByte();
+					if (tag != type) throw new InvalidDataException($"Actor data entry {index}: variant tag {tag} does not match type {type}");
 					var entry = EntryTypes[type]();
 
 					entry.FromStream(reader);
@@ -100,7 +104,9 @@ namespace MiNET.Utils.Metadata
 			foreach (var entry in _entries)
 			{
 				VarInt.WriteInt32(stream, entry.Key);
+				// Variant tag (varint) + type enum (byte), same number twice, per the 2168 wire.
 				VarInt.WriteInt32(stream, entry.Value.Identifier);
+				writer.Write((byte) entry.Value.Identifier);
 				entry.Value.WriteTo(writer);
 			}
 		}

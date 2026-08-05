@@ -3617,7 +3617,7 @@ namespace MiNET
 				experiments = new Experiments(),
 				hasBonusChestEnabled = Level.BonusChest,
 				startWithMapEnabled = Level.MapEnabled,
-				playerPermissions = (byte) PermissionLevel,
+				playerPermissions = (sbyte) PermissionLevel,
 				// "*" is what vanilla sends here, not the version string and not empty.
 				baseGameVersion = "*",
 
@@ -3743,8 +3743,8 @@ namespace MiNET
 					for (int z = -1; z <= 1; z++)
 					{
 						var chunk = new McpeLevelChunk();
-						chunk.chunkX = chunkPosition.X + x;
-						chunk.chunkZ = chunkPosition.Z + z;
+						chunk.chunkPosition = new ChunkPos {x = chunkPosition.X + x, z = chunkPosition.Z + z};
+						chunk.cacheMetadata = new List<ulong>();
 						chunk.chunkData = new byte[0];
 						SendPacket(chunk);
 					}

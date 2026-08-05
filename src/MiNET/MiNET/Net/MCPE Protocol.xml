@@ -219,25 +219,6 @@
 				val1 float
 				val2 float
 		-->
-	<pdu id="0x0d" online="false" client="false" server="true" name="MCPE_ADD_ENTITY">
-		<field name="Entity ID Self" type="SignedVarLong" />
-		<field name="Runtime Entity ID" type="UnsignedVarLong" />
-		<field name="Entity Type" type="string" />
-		<field name="X" type="float" />
-		<field name="Y" type="float" />
-		<field name="Z" type="float" />
-		<field name="Speed X" type="float" />
-		<field name="Speed Y" type="float" />
-		<field name="Speed Z" type="float" />
-		<field name="Pitch" type="float" />
-		<field name="Yaw" type="float" />
-		<field name="Head Yaw" type="float" />
-		<field name="Body Yaw" type="float" />
-		<field name="Attributes" type="EntityAttributes" />
-		<field name="Metadata" type="MetadataDictionary" />
-		<!-- PropertySyncData and links handled in partial -->
-	</pdu>
-
 	<pdu id="0x0e" online="false" client="false" server="true" name="MCPE_REMOVE_ENTITY">
 		<field name="Entity ID Self" type="SignedVarLong" />
 	</pdu>
@@ -446,12 +427,6 @@
 		<field name="Armor slot flags" type="UnsignedVarLong" />
 	</pdu>
 
-	<pdu id="0x27" online="false" client="true" server="true" name="MCPE_SET_ENTITY_DATA">
-		<field name="Runtime Entity ID" type="UnsignedVarLong" />
-		<field name="Metadata" type="MetadataDictionary" />
-		<!-- PropertySyncData and tick handled in partial -->
-	</pdu>
-
 	<pdu id="0x28" online="false" client="true" server="true" name="MCPE_SET_ENTITY_MOTION">
 		<field name="Runtime Entity ID" type="UnsignedVarLong" />
 		<field name="Velocity" type="Vector3" />
@@ -585,16 +560,6 @@
 	<pdu id="0x38" online="false" client="true" server="true" name="MCPE_BLOCK_ENTITY_DATA">
 		<field name="Coordinates" type="BlockCoordinates" />
 		<field name="NamedTag" type="Nbt" />
-	</pdu>
-
-	<pdu id="0x3a" online="false" client="false" server="true" name="MCPE_LEVEL_CHUNK">
-		<field name="Chunk X" type="SignedVarInt" />
-		<field name="Chunk Z" type="SignedVarInt" />
-		<field name="Dimension" type="SignedVarInt" />
-		<!--<field name="Sub Chunk Count" type="UnsignedVarInt" />
-		<field name="Cache Enabled" type="bool" />-->
-		<!--<field name="Blob Hashes" type="ulong[]" />
-		<field name="Chunk Data" type="ByteArray" />-->
 	</pdu>
 
 	<pdu id="0x3b" online="false" client="false" server="true" name="MCPE_SET_COMMANDS_ENABLED">
@@ -1270,15 +1235,6 @@
 		<field name="Subchunk coordinates" type="BlockCoordinates"/>
 		<field name="Layer zero updates" type="UpdateSubChunkBlocksPacketEntry[]"/>
 		<field name="Layer one updates" type="UpdateSubChunkBlocksPacketEntry[]"/>
-	</pdu>
-
-	<pdu id="0xae" online="false" client="false" server="true" name="MCPE_SUB_CHUNK_PACKET">
-		<field name="Cache enabled" type="bool" />
-		<field name="Dimension" type="SignedVarInt" />
-		<field name="Origin X" type="SignedVarInt" />
-		<field name="Origin Y" type="SignedVarInt" />
-		<field name="Origin Z" type="SignedVarInt" />
-		<!-- entries handled in partial -->
 	</pdu>
 
 	<pdu id="0xaf" online="false" client="true" server="false" name="MCPE_SUB_CHUNK_REQUEST_PACKET">

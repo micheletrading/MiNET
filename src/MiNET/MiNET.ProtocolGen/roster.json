@@ -26,12 +26,44 @@
 			"schema": "ResourcePackClientResponsePacket"
 		},
 		{
+			"name": "MCPE_ADD_ENTITY",
+			"id": "0x0d",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "AddActorPacket"
+		},
+		{
+			"name": "MCPE_SET_ENTITY_DATA",
+			"id": "0x27",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "SetActorDataPacket"
+		},
+		{
+			"name": "MCPE_LEVEL_CHUNK",
+			"id": "0x3a",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "LevelChunkPacket"
+		},
+		{
 			"name": "MCPE_MOVE_PLAYER",
 			"id": "0x13",
 			"online": false,
 			"client": true,
 			"server": true,
 			"schema": "MovePlayerPacket"
+		},
+		{
+			"name": "MCPE_SUB_CHUNK_PACKET",
+			"id": "0xae",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "SubChunkPacket"
 		},
 		{
 			"name": "MCPE_ANVIL_DAMAGE",
