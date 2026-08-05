@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemRedstone : Item
 	{
-		public ItemRedstone() : base("minecraft:redstone", 331)
+		public ItemRedstone() : base("minecraft:redstone")
 		{
 		}
 	}

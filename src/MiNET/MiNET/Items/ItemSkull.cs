@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using MiNET.BlockEntities;
 using MiNET.Blocks;
@@ -35,33 +36,50 @@ namespace MiNET.Items
 {
 	public class ItemSkull : Item
 	{
-		public ItemSkull(short metadata) : base("minecraft:skull", 397, metadata)
+		public ItemSkull(short metadata) : base("minecraft:skull", metadata)
 		{
 			MaxStackSize = 1;
 		}
 
+		/// <summary>
+		///     The skull metadata used to pick which head; each is its own block now. The item is still
+		///     one identity carrying the type in its metadata, so this is the one place that splits.
+		/// </summary>
+		private static string SkullBlockName(short metadata)
+		{
+			return metadata switch
+			{
+				0 => "minecraft:skeleton_skull",
+				1 => "minecraft:wither_skeleton_skull",
+				2 => "minecraft:zombie_head",
+				3 => "minecraft:player_head",
+				4 => "minecraft:creeper_head",
+				5 => "minecraft:dragon_head",
+				6 => "minecraft:piglin_head",
+				_ => "minecraft:skeleton_skull"
+			};
+		}
+
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
+			if (face == BlockFace.Down) return; // Doesn't work, ignore if that happen.
+
 			var coor = GetNewCoordinatesFromFace(blockCoordinates, face);
-			if (face == BlockFace.Up) // On top of block
+
+			Block skull = BlockFactory.GetBlockByName(SkullBlockName(Metadata));
+			if (skull == null) return;
+
+			skull.Coordinates = coor;
+
+			// facing_direction by state, not by property: the six heads are separate blocks with no
+			// common type, so there is nothing to cast to. 1 is on the floor, where the rotation
+			// lives in the block entity instead.
+			skull.SetState(new List<IBlockState>
 			{
-				var skull = (Skull) BlockFactory.GetBlockById(144);
-				skull.Coordinates = coor;
-				skull.FacingDirection = 1; // Skull on floor, rotation in block entity
-				world.SetBlock(skull);
-			}
-			else if (face == BlockFace.Down) // At the bottom of block
-			{
-				// Doesn't work, ignore if that happen. 
-				return;
-			}
-			else
-			{
-				var skull = (Skull) BlockFactory.GetBlockById(144);
-				skull.Coordinates = coor;
-				skull.FacingDirection = (int) face; // Skull on floor, rotation in block entity
-				world.SetBlock(skull);
-			}
+				new BlockStateInt {Name = "facing_direction", Value = face == BlockFace.Up ? 1 : (int) face}
+			});
+
+			world.SetBlock(skull);
 
 			// Then we create and set the sign block entity that has all the intersting data
 

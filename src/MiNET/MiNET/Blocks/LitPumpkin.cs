@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public LitPumpkin() : base(91)
 		{
-			LightLevel = 15;
-			BlastResistance = 5;
-			Hardness = 1;
 		}
 	}
 }

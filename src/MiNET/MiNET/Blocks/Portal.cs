@@ -42,10 +42,6 @@ namespace MiNET.Blocks
 	{
 		public Portal() : base(90)
 		{
-			IsTransparent = true;
-			IsSolid = false;
-			LightLevel = 11;
-			Hardness = 60000;
 		}
 
 		public override void BlockUpdate(Level level, BlockCoordinates blockCoordinates)

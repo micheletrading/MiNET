@@ -39,9 +39,6 @@ namespace MiNET.Blocks
 
 		protected DoorBase(byte id) : base(id)
 		{
-			IsTransparent = true;
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

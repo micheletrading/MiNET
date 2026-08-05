@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public StoneStairs() : base(67)
 		{
-			BlastResistance = 30;
-			Hardness = 2;
 		}
 	}
 }

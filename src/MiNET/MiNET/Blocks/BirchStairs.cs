@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public BirchStairs() : base(135)
 		{
-			BlastResistance = 15;
-			Hardness = 2;
-			IsFlammable = true;
 		}
 	}
 }

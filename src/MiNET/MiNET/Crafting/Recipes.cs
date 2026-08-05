@@ -40,6 +40,27 @@ namespace MiNET.Crafting
 	{
 		public UUID Id { get; set; } = new UUID(Guid.NewGuid().ToString());
 		public string Block { get; set; }
+
+		/// <summary>
+		///     The recipe's network id: the handle the client sends back in a CraftRecipe /
+		///     CraftRecipeAuto item-stack request action. Assigned by <see cref="RecipeManager" /> when the
+		///     recipe enters the registry (never stored in recipes.json - it is server-assigned identity,
+		///     not recipe data), and 0 for a recipe that isn't registered.
+		/// </summary>
+		public int NetworkId { get; set; }
+	}
+
+	/// <summary>
+	///     The "unlocking requirement" that gates when a crafting-table recipe shows up as unlocked
+	///     (Shapeless- and Shaped-like recipes only). Context 1 ("always unlocked") is the only value
+	///     MiNET itself ever produces for recipes it builds; other contexts (0 = "none", requiring the
+	///     Ingredients list; 2 = "player in water"; 3 = "player has many items") only show up in
+	///     recipes decoded off the wire, retained here so they round-trip byte-identical.
+	/// </summary>
+	public class UnlockingRequirement
+	{
+		public byte Context { get; set; } = 1;
+		public List<Item> Ingredients { get; set; }
 	}
 
 	/// <summary>
@@ -62,14 +83,29 @@ namespace MiNET.Crafting
 		//public const TYPE_FIREWORKS = "00000000-0000-0000-0000-000000000002";
 		//public const TYPE_MAP_LOCKING_CARTOGRAPHY = "602234E4-CAC1-4353-8BB7-B1EBFF70024B";
 
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 	}
 
 	public class ShapelessRecipe : Recipe
 	{
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 		public List<Item> Input { get; private set; }
 		public List<Item> Result { get; private set; }
+
+		/// <summary>
+		///     Raw wire recipe-type discriminator (Packet.Shapeless=0, ShulkerBox=5, ShapelessChemistry=6 -
+		///     see the "Recipe Types" enum in MCPE Protocol.xml). All three share this exact wire shape;
+		///     only the type code differs. Defaults to Shapeless for recipes MiNET builds itself.
+		/// </summary>
+		public int RecipeType { get; set; }
+
+		/// <summary>The latin "recipe id" string (e.g. "minecraft:acacia_boat") - distinct from <see cref="Recipe.Id" />, which is a UUID.</summary>
+		public string RecipeId { get; set; }
+
+		public int Priority { get; set; }
+		public UnlockingRequirement Unlocking { get; set; } = new UnlockingRequirement();
 
 		public ShapelessRecipe()
 		{
@@ -95,11 +131,26 @@ namespace MiNET.Crafting
 
 	public class ShapedRecipe : Recipe
 	{
-		public int UniqueId { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 		public int Width { get; set; }
 		public int Height { get; set; }
 		public Item[] Input { get; set; }
 		public List<Item> Result { get; set; }
+
+		/// <summary>
+		///     Raw wire recipe-type discriminator (Packet.Shaped=1, ShapedChemistry=7 - see the "Recipe
+		///     Types" enum in MCPE Protocol.xml). Both share this exact wire shape; only the type code
+		///     differs. Defaults to Shaped for recipes MiNET builds itself.
+		/// </summary>
+		public int RecipeType { get; set; } = 1;
+
+		/// <summary>The latin "recipe id" string (e.g. "minecraft:acacia_boat") - distinct from <see cref="Recipe.Id" />, which is a UUID.</summary>
+		public string RecipeId { get; set; }
+
+		public int Priority { get; set; }
+		public bool AssumeSymmetry { get; set; }
+		public UnlockingRequirement Unlocking { get; set; } = new UnlockingRequirement();
 
 		public ShapedRecipe(int width, int height)
 		{
@@ -140,6 +191,30 @@ namespace MiNET.Crafting
 			Input = input;
 			Block = block;
 		}
+	}
+
+	/// <summary>Smithing-table "transform" recipe (template + base + addition -> result). Not buildable by MiNET yet; modeled only so decoded instances round-trip.</summary>
+	public class SmithingTransformRecipe : Recipe
+	{
+		public string RecipeId { get; set; }
+		public Item Template { get; set; }
+		public Item Base { get; set; }
+		public Item Addition { get; set; }
+		public Item Result { get; set; }
+		public string Tag { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
+	}
+
+	/// <summary>Smithing-table "trim" recipe (template + input + addition, no explicit result item). Not buildable by MiNET yet; modeled only so decoded instances round-trip.</summary>
+	public class SmithingTrimRecipe : Recipe
+	{
+		public string RecipeId { get; set; }
+		public Item Template { get; set; }
+		public Item Input { get; set; }
+		public Item Addition { get; set; }
+		/// <summary>Legacy name for <see cref="Recipe.NetworkId" />.</summary>
+		public int UniqueId { get => NetworkId; set => NetworkId = value; }
 	}
 
 	public class PotionContainerChangeRecipe

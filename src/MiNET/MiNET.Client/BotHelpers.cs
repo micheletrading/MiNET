@@ -32,6 +32,8 @@ using MiNET.Items;
 using MiNET.Net;
 using MiNET.Net.RakNet;
 using MiNET.Utils;
+using MiNET.Utils.Cryptography;
+using MiNET.Utils.Skins;
 using MiNET.Utils.Vectors;
 
 namespace MiNET.Client
@@ -84,6 +86,85 @@ namespace MiNET.Client
 			};
 		}
 
+		private static readonly string[] SkinColors = {"#ff0000", "#ffaa00", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff"};
+
+		/// <summary>
+		///     Sends the bot a new skin colour on every frame, so a real client watching it shows
+		///     whether a skin change made mid-game is picked up at all, and how fast. Everything that
+		///     does not change per frame is built once: the persona skin is a 450kB JSON resource and
+		///     rebuilding it per frame costs more than the frame does.
+		/// </summary>
+		public static Action<Task, int> DoCycleSkinColors(MiNetClient client)
+		{
+			return (t, framesPerSecond) =>
+			{
+				ClientData clientData = CryptoUtils.BuildBotClientData(client.Username);
+				byte[] original = Convert.FromBase64String(clientData.SkinData);
+				var uuid = new UUID(CryptoUtils.DeriveStableIdentity(client.Username).ToString());
+				int delayMs = Math.Max(1, 1000 / framesPerSecond);
+				int lastReport = 0;
+
+				for (int i = 0;; i++)
+				{
+					string color = SkinColors[i % SkinColors.Length];
+					SendRecoloredSkin(client, clientData, original, uuid, color);
+
+					// Per second, not per frame: at 20 fps a line per frame buries the log, and the
+					// count is the point anyway. It is the measured rate, so a loop falling behind
+					// says so instead of repeating what it was asked for.
+					if (i % framesPerSecond == 0)
+					{
+						Log.Warn($"Skins sent in the last second: {i - lastReport} (asked for {framesPerSecond}), now {color}");
+						lastReport = i;
+					}
+
+					Thread.Sleep(delayMs);
+				}
+			};
+		}
+
+		/// <summary>
+		///     The skin id moves with the pixels, because a client caches a skin by id and will not
+		///     look at the texture again for an id it already knows: recolouring under the old id
+		///     shows the old skin.
+		/// </summary>
+		private static void SendRecoloredSkin(MiNetClient client, ClientData clientData, byte[] original, UUID uuid, string color)
+		{
+			clientData.SkinColor = color;
+			clientData.SkinData = Convert.ToBase64String(Tint(original, color));
+			CryptoUtils.StampSkinId(clientData, client.Username);
+
+			Skin skin = clientData.ToSkin();
+
+			McpePlayerSkin message = McpePlayerSkin.CreateObject();
+			message.uuid = uuid;
+			message.skin = skin;
+			message.skinName = skin.SkinId;
+			message.oldSkinName = "";
+			message.isVerified = true;
+			client.SendPacket(message);
+		}
+
+		/// <summary>Multiplies every pixel by the colour, so the skin keeps its shading. Alpha is left alone.</summary>
+		private static byte[] Tint(byte[] rgba, string color)
+		{
+			byte red = Convert.ToByte(color.Substring(1, 2), 16);
+			byte green = Convert.ToByte(color.Substring(3, 2), 16);
+			byte blue = Convert.ToByte(color.Substring(5, 2), 16);
+
+			var tinted = new byte[rgba.Length];
+
+			for (int i = 0; i + 3 < rgba.Length; i += 4)
+			{
+				tinted[i] = (byte) (rgba[i] * red / 255);
+				tinted[i + 1] = (byte) (rgba[i + 1] * green / 255);
+				tinted[i + 2] = (byte) (rgba[i + 2] * blue / 255);
+				tinted[i + 3] = rgba[i + 3];
+			}
+
+			return tinted;
+		}
+
 		public static Action<Task, Item, int> DoMobEquipment(MiNetClient client)
 		{
 			Action<Task, Item, int> doMobEquipmentTask = (t, item, selectedSlot) =>
@@ -122,7 +203,8 @@ namespace MiNET.Client
 				//client.SendPackage(commandStep);
 				McpeCommandRequest request = new McpeCommandRequest();
 				request.command = command;
-				request.unknownUuid = new UUID(Guid.NewGuid().ToString());
+				request.origin = new CommandOriginData(CommandOriginType.Player, new UUID(Guid.NewGuid().ToString()), string.Empty, 0);
+				request.version = "latest";
 				client.SendPacket(request);
 			};
 			return doUseItem;

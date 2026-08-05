@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemChainmailChestplate : ArmorChestplateBase
 	{
-		public ItemChainmailChestplate() : base("minecraft:chainmail_chestplate", 303)
+		public ItemChainmailChestplate() : base("minecraft:chainmail_chestplate")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Chestplate;

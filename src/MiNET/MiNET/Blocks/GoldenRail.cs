@@ -29,10 +29,6 @@ namespace MiNET.Blocks
 	{
 		public GoldenRail() : base(27)
 		{
-			IsSolid = false;
-			IsTransparent = true;
-			BlastResistance = 3.5f;
-			Hardness = 0.7f;
 		}
 	}
 }

@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemArrow : Item
 	{
-		public ItemArrow() : base("minecraft:arrow", 262)
+		public ItemArrow() : base("minecraft:arrow")
 		{
 		}
 	}

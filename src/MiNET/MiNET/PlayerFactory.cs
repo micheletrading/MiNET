@@ -37,6 +37,8 @@ namespace MiNET
 			var player = new Player(server, endPoint);
 			player.MaxViewDistance = Config.GetProperty("MaxViewDistance", 22);
 			player.MoveRenderDistance = Config.GetProperty("MoveRenderDistance", 1);
+			player.ChunkSendBatchSize = Config.GetProperty("Chunk.SendBatchSize", 16);
+			player.ChunkSendDelayMs = Config.GetProperty("Chunk.SendDelayMs", 12);
 			OnPlayerCreated(new PlayerEventArgs(player));
 			return player;
 		}

@@ -33,13 +33,12 @@ namespace MiNET.Blocks
 		public MelonBlock() : base(103)
 		{
 			Hardness = 1;
-			IsTransparent = true;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
 			var rnd = new Random();
-			return new[] {ItemFactory.GetItem(360, 0, (byte) (3 + rnd.Next(5)))};
+			return new[] {ItemFactory.GetItemByName("minecraft:melon_slice", 0, (byte) (3 + rnd.Next(5)))};
 		}
 	}
 }

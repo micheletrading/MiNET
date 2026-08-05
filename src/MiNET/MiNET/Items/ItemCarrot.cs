@@ -33,13 +33,13 @@ namespace MiNET.Items
 {
 	public class ItemCarrot : FoodItem
 	{
-		public ItemCarrot() : base("minecraft:carrot", 391, 0, 3, 4.8)
+		public ItemCarrot() : base("minecraft:carrot", 0, 3, 4.8)
 		{
 		}
 
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
-			ItemBlock itemBlock = new ItemBlock(BlockFactory.GetBlockById(141));
+			ItemBlock itemBlock = new ItemBlock(BlockFactory.GetBlockByName("minecraft:carrots"));
 			itemBlock.PlaceBlock(world, player, blockCoordinates, face, faceCoords);
 		}
 	}

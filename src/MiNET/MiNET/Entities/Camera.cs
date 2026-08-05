@@ -85,7 +85,7 @@ namespace MiNET.Entities
 		{
 			return new[]
 			{
-				ItemFactory.GetItem(498)
+				ItemFactory.GetItemByName("minecraft:camera")
 			};
 		}
 	}

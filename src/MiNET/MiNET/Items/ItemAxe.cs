@@ -30,7 +30,7 @@ namespace MiNET.Items
 {
 	public abstract class ItemAxe : Item
 	{
-		protected ItemAxe(string name, short id) : base(name, id)
+		protected ItemAxe(string name) : base(name)
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Axe;

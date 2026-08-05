@@ -43,7 +43,7 @@ namespace MiNET.Entities.Hostile
 
 			AttackDamage = 4;
 
-			ItemInHand = ItemFactory.GetItem("bow");
+			ItemInHand = ItemFactory.GetItemByName("bow");
 
 			//TargetBehaviors.Add(new HurtByTargetBehaviorNew(this));
 			//TargetBehaviors.Add(new FindAttackableTargetBehavior(this, 16));

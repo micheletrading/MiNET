@@ -56,6 +56,7 @@ using MiNET.Utils.IO;
 using MiNET.Utils.Metadata;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
+using Newtonsoft.Json;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Agreement;
 using Org.BouncyCastle.Crypto.Engines;
@@ -107,8 +108,9 @@ namespace MiNET.Client
 		public string Username { get; set; }
 		public int ClientId { get; set; }
 
-		public int PlayerStatus { get; set; }
+		public McpePlayStatus.PlayStatus PlayerStatus { get; set; }
 		public bool UseBlobCache { get; set; }
+		public bool BlockNetworkIdsAreHashes { get; set; }
 		public Dictionary<ulong, byte[]> BlobCache { get; set; } = new Dictionary<ulong, byte[]>();
 
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
@@ -132,14 +134,34 @@ namespace MiNET.Client
 			_clientGuid = BitConverter.ToInt64(buffer, 0);
 		}
 
+		private static bool _cryptoWarmedUp;
+
+		private static void WarmUpCrypto()
+		{
+			if (_cryptoWarmedUp) return;
+			_cryptoWarmedUp = true;
+
+			// First use of the crypto stack costs more than a second in JIT and
+			// static initialization; pay that before connecting instead of inside
+			// the join sequence, where the server drops sessions that stall.
+			var keyPair = CryptoUtils.GenerateClientKey();
+			var agreement = new ECDHBasicAgreement();
+			agreement.Init(keyPair.Private);
+			agreement.CalculateAgreement((ECPublicKeyParameters) keyPair.Public);
+			using var sha = SHA256.Create();
+			sha.ComputeHash(new byte[] {0});
+		}
+
 		public void StartClient()
 		{
+			WarmUpCrypto();
+
 			var greyListManager = new GreyListManager();
 			var motdProvider = new MotdProvider();
 
 			Connection = new RakConnection(ClientEndpoint, greyListManager, motdProvider, _threadPool);
 			var handlerFactory = new BedrockClientMessageHandler(Session, MessageHandler ?? new DefaultMessageHandler(this));
-			handlerFactory.ConnectionAction = () => SendLogin(Username);
+			handlerFactory.ConnectionAction = () => SendRequestNetworkSettings();
 			Connection.CustomMessageHandlerFactory = session => handlerFactory;
 
 			//TODO: This is bad design, need to refactor this later.
@@ -157,12 +179,30 @@ namespace MiNET.Client
 			return true;
 		}
 
+		public void SendRequestNetworkSettings()
+		{
+			var packet = McpeRequestNetworkSettings.CreateObject();
+			packet.protocolVersion = McpeProtocolInfo.ProtocolVersion;
+			SendPacket(packet);
+		}
+
 		public void SendLogin(string username)
 		{
 			JWT.JsonMapper = new NewtonsoftMapper();
 
 			var clientKey = CryptoUtils.GenerateClientKey();
-			byte[] data = CryptoUtils.CompressJwtBytes(CryptoUtils.EncodeJwt(username, clientKey, IsEmulator), CryptoUtils.EncodeSkinJwt(clientKey, username), CompressionLevel.Fastest);
+
+			// 1.21.90+ wraps login identity in an authentication envelope; since protocol 944 the
+			// offline identity is an OIDC-style JWT in Token, and the certificate chain is empty.
+			// AuthenticationType: 0 = full auth, 1 = self-signed, 2 = offline.
+			string identityJson = JsonConvert.SerializeObject(new
+			{
+				Certificate = JsonConvert.SerializeObject(new {chain = new[] {""}}),
+				AuthenticationType = 2,
+				Token = CryptoUtils.EncodeOfflineMultiplayerToken(username, clientKey)
+			});
+
+			byte[] data = CryptoUtils.CompressJwtBytes(Encoding.UTF8.GetBytes(identityJson), CryptoUtils.EncodeSkinJwt(clientKey, username), CompressionLevel.Fastest);
 
 			McpeLogin loginPacket = new McpeLogin
 			{
@@ -224,7 +264,6 @@ namespace MiNET.Client
 					Key = secret
 				};
 
-				Thread.Sleep(1250);
 				McpeClientToServerHandshake magic = new McpeClientToServerHandshake();
 				SendPacket(magic);
 			}
@@ -243,137 +282,6 @@ namespace MiNET.Client
 		public AutoResetEvent PlayerStatusChangedWaitHandle = new AutoResetEvent(false);
 
 		public bool HasSpawned { get; set; }
-
-		public ShapedRecipe _recipeToSend = null;
-
-		public void SendCraftingEvent2()
-		{
-			var recipe = _recipeToSend;
-
-			if (recipe != null)
-			{
-				Log.Error("Sending crafting event: " + recipe.Id);
-
-				McpeCraftingEvent crafting = McpeCraftingEvent.CreateObject();
-				crafting.windowId = 0;
-				crafting.recipeType = 1;
-				crafting.recipeId = recipe.Id;
-
-				{
-					ItemStacks slotData = new ItemStacks();
-					for (uint i = 0; i < recipe.Input.Length; i++)
-					{
-						slotData.Add(recipe.Input[i]);
-
-						McpeInventorySlot sendSlot = McpeInventorySlot.CreateObject();
-						sendSlot.inventoryId = 0;
-						sendSlot.slot = i;
-						sendSlot.item = recipe.Input[i];
-						SendPacket(sendSlot);
-
-						//McpeContainerSetSlot setSlot = McpeContainerSetSlot.CreateObject();
-						//setSlot.item = recipe.Input[i];
-						//setSlot.windowId = 0;
-						//setSlot.slot = (short) (i);
-						//SendPackage(setSlot);
-						//Log.Error("Set set slot");
-					}
-					crafting.input = slotData;
-
-					{
-						McpeMobEquipment eq = McpeMobEquipment.CreateObject();
-						eq.runtimeEntityId = EntityId;
-						eq.slot = 9;
-						eq.selectedSlot = 0;
-						eq.item = recipe.Input[0];
-						SendPacket(eq);
-						Log.Error("Set eq slot");
-					}
-				}
-				{
-					ItemStacks slotData = new ItemStacks {recipe.Result.First()};
-					crafting.result = slotData;
-				}
-
-				SendPacket(crafting);
-			}
-
-
-			//{
-			//	McpeContainerSetSlot setSlot = McpeContainerSetSlot.CreateObject();
-			//	setSlot.item = new MetadataSlot(new ItemStack(new ItemDiamondAxe(0), 1));
-			//	setSlot.windowId = 0;
-			//	setSlot.slot = 0;
-			//	SendPackage(setSlot);
-			//}
-			//{
-			//	McpePlayerEquipment eq = McpePlayerEquipment.CreateObject();
-			//	eq.entityId = _entityId;
-			//	eq.slot = 9;
-			//	eq.selectedSlot = 0;
-			//	eq.item = new MetadataSlot(new ItemStack(new ItemDiamondAxe(0), 1));
-			//	SendPackage(eq);
-			//}
-		}
-
-		public void SendCraftingEvent()
-		{
-			var recipe = _recipeToSend;
-
-			if (recipe != null)
-			{
-				{
-					//McpeContainerSetSlot setSlot = McpeContainerSetSlot.CreateObject();
-					//setSlot.item = new ItemBlock(new Block(17), 0) {Count = 1};
-					//setSlot.windowId = 0;
-					//setSlot.slot = 0;
-					//SendPackage(setSlot);
-				}
-				{
-					McpeMobEquipment eq = McpeMobEquipment.CreateObject();
-					eq.runtimeEntityId = EntityId;
-					eq.slot = 9;
-					eq.selectedSlot = 0;
-					eq.item = new ItemBlock(new Block(17), 0) {Count = 1};
-					SendPacket(eq);
-				}
-
-				Log.Error("Sending crafting event: " + recipe.Id);
-
-				McpeCraftingEvent crafting = McpeCraftingEvent.CreateObject();
-				crafting.windowId = 0;
-				crafting.recipeType = 1;
-				crafting.recipeId = recipe.Id;
-
-				{
-					ItemStacks slotData = new ItemStacks {new ItemBlock(new Block(17), 0) {Count = 1}};
-					crafting.input = slotData;
-				}
-				{
-					ItemStacks slotData = new ItemStacks {new ItemBlock(new Block(5), 0) {Count = 1}};
-					crafting.result = slotData;
-				}
-
-				SendPacket(crafting);
-
-				//{
-				//	McpeContainerSetSlot setSlot = McpeContainerSetSlot.CreateObject();
-				//	setSlot.item = new MetadataSlot(new ItemStack(new ItemBlock(new Block(5), 0), 4));
-				//	setSlot.windowId = 0;
-				//	setSlot.slot = 0;
-				//	SendPackage(setSlot);
-				//}
-
-				{
-					McpeMobEquipment eq = McpeMobEquipment.CreateObject();
-					eq.runtimeEntityId = EntityId;
-					eq.slot = 10;
-					eq.selectedSlot = 1;
-					eq.item = new ItemBlock(new Block(5), 0) {Count = 1};
-					SendPacket(eq);
-				}
-			}
-		}
 
 		private string SerializeCompound(NbtCompound compound)
 		{
@@ -556,7 +464,7 @@ namespace MiNET.Client
 				//var matchingBlock = BlockFactory.BlockPalette[slot.RuntimeId];
 				
 				var serialized = SerializeCompound(extraData);
-				writer.WriteLine($"new Item({slot.Id}, {slot.Metadata}, {slot.Count}){{ RuntimeId={slot.RuntimeId}, NetworkId={slot.NetworkId}, ExtraData = {serialized} }}, /*{slot.Name}*/");
+				writer.WriteLine($"new Item(\"{slot.Name}\", {slot.Metadata}, {slot.Count}){{ RuntimeId={slot.RuntimeId}, NetworkId={slot.NetworkId}, ExtraData = {serialized} }}, /*{slot.Name}*/");
 			}
 
 			// Template
@@ -865,3 +773,4 @@ namespace MiNET.Client
 		}
 	}
 }
+

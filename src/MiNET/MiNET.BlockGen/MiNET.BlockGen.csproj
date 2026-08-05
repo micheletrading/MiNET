@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MiNET.BlockGen</RootNamespace>
+    <AssemblyName>MiNET.BlockGen</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Deliberately no reference to MiNET. This tool writes MiNET's block classes, so depending
+       on them would mean it could only run while its own output already compiled, and could
+       never recover from a broken or empty generated file. Its only inputs are the palette data
+       file and the Blocks directory listing. -->
+  <ItemGroup>
+    <PackageReference Include="MiNET.fnbt" Version="1.0.22" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+
+</Project>

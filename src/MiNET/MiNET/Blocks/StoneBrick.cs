@@ -31,13 +31,11 @@ namespace MiNET.Blocks
 	{
 		public Stonebrick() : base(98)
 		{
-			BlastResistance = 30;
-			Hardness = 1.5f;
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(1, 2);
+			return ItemFactory.GetItemByName("minecraft:stone", 2);
 		}
 	}
 }

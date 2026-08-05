@@ -30,8 +30,6 @@ namespace MiNET.Blocks
 	{
 		public Dropper() : base(125)
 		{
-			BlastResistance = 17.5f;
-			Hardness = 3.5f;
 		}
 	}
 }

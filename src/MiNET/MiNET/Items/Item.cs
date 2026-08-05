@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using fNbt;
@@ -50,13 +51,59 @@ namespace MiNET.Items
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Item));
 
 		public int UniqueId { get; set; } = Environment.TickCount;
-		public string Name { get; protected set; } = string.Empty;
-		public short Id { get; protected set; }
+
+		/// <summary>
+		///     The registry string id ("minecraft:apple"). This is the item's identity: it is what the
+		///     save format stores, what recipe and creative data reference, and the only id that means
+		///     the same thing across game versions. <see cref="NetworkId" /> is derived from it.
+		/// </summary>
+		public string Name { get; protected internal set; } = string.Empty;
+
 		public int NetworkId { get; set; } = -1;
+
+		/// <summary>
+		///     Nothing in this slot. Air has a registry entry because it is a block, but an empty
+		///     stack goes on the wire as network id 0, which no real item uses. This is the check that
+		///     used to be written "Id == 0".
+		/// </summary>
+		[JsonIgnore]
+		public bool IsAir => string.IsNullOrEmpty(Name) || Name.Equals("minecraft:air", StringComparison.OrdinalIgnoreCase);
+
+		/// <summary>
+		///     The raw "metadata" varint as read off the wire alongside <see cref="NetworkId" /> (ReadItemLegacy/
+		///     ReadItem/ReadItemInstance). -1 means unknown (item was constructed server-side, not decoded), so
+		///     the writer must not assume it's 0 and instead re-derive it via <see cref="MiNET.Net.Items.ItemTranslator" />.
+		///     Only set together with NetworkId, and only from a decode path, so the two stay in sync as the
+		///     "we know the exact wire encoding" marker.
+		/// </summary>
+		public int NetworkMetadata { get; set; } = -1;
+
 		public int RuntimeId { get; set; }
 		public short Metadata { get; set; }
 		public byte Count { get; set; }
 		public virtual NbtCompound ExtraData { get; set; }
+
+		/// <summary>
+		///     Block names this item can be placed on / can destroy while in adventure mode ("extra data"
+		///     of the item stack descriptor). Null when the wire didn't carry the corresponding list.
+		/// </summary>
+		public List<string> CanPlaceOn { get; set; }
+
+		public List<string> CanDestroy { get; set; }
+
+		/// <summary>
+		///     The shield's "blocking_tick" trailer in the item extra-data blob. Only present when this
+		///     item is a shield (see ReadItemExtraData/WriteItemExtraData's includeBlockingTick).
+		/// </summary>
+		public long BlockingTick { get; set; }
+
+		/// <summary>
+		///     Set only when this Item stands in for a recipe ingredient descriptor variant that isn't a
+		///     plain (id, meta) item - molang expression, item tag, string id+meta, or complex alias (see
+		///     Packet.ReadRecipeIngredient/WriteRecipeIngredient). Null for every ordinary item, including
+		///     ordinary recipe ingredients (the common "int_id_meta" wire variant).
+		/// </summary>
+		public RecipeIngredientDescriptor IngredientDescriptor { get; set; }
 
 		[JsonIgnore] public ItemMaterial ItemMaterial { get; set; } = ItemMaterial.None;
 
@@ -70,16 +117,11 @@ namespace MiNET.Items
 
 		[JsonIgnore] public int FuelEfficiency { get; set; }
 
-		protected internal Item(string name, short id, short metadata = 0, int count = 1)
+		protected internal Item(string name, short metadata = 0, int count = 1)
 		{
 			Name = name;
-			Id = id;
 			Metadata = metadata;
 			Count = (byte) count;
-		}
-
-		protected internal Item(short id, short metadata = 0, int count = 1) : this(String.Empty, id, metadata, count)
-		{
 		}
 
 		public virtual void UseItem(Level world, Player player, BlockCoordinates blockCoordinates)
@@ -209,7 +251,7 @@ namespace MiNET.Items
 
 		protected bool Equals(Item other)
 		{
-			if (Id != other.Id || Metadata != other.Metadata) return false;
+			if (!string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase) || Metadata != other.Metadata) return false;
 			if (ExtraData == null ^ other.ExtraData == null) return false;
 
 			//TODO: This doesn't work in  most cases. We need to fix comparison when name == null
@@ -242,10 +284,7 @@ namespace MiNET.Items
 
 		public override int GetHashCode()
 		{
-			unchecked
-			{
-				return (Id * 397) ^ Metadata.GetHashCode();
-			}
+			return HashCode.Combine(Name == null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(Name), Metadata);
 		}
 
 		public object Clone()
@@ -255,7 +294,7 @@ namespace MiNET.Items
 
 		public override string ToString()
 		{
-			return $"{GetType().Name}(Id={Id}, Meta={Metadata}, UniqueId={UniqueId}) Count={Count}, NBT={ExtraData}";
+			return $"{GetType().Name}(Name={Name}, Meta={Metadata}, UniqueId={UniqueId}) Count={Count}, NBT={ExtraData}";
 		}
 
 		public bool Interact(Level level, Player player, Entity target)
@@ -311,5 +350,34 @@ namespace MiNET.Items
 		EntityAttack,
 		EntityInteract,
 		ItemUse,
+	}
+
+	/// <summary>
+	///     Which variant of the RecipeIngredient wire union (Packet.ReadRecipeIngredient) an item stands
+	///     for: a molang expression, an item tag, a string id+meta pair, a complex alias name - or, for a
+	///     recipe built from MiNET's own recipe registry, the plain int_id_meta variant carrying the
+	///     registry string id the writer resolves the wire network id from. See
+	///     <see cref="Item.IngredientDescriptor" />.
+	/// </summary>
+	public class RecipeIngredientDescriptor
+	{
+		/// <summary>1 = int_id_meta (by <see cref="Name" />), 2 = molang, 3 = item_tag, 4 = string_id_meta, 5 = complex_alias.</summary>
+		public byte Type { get; set; }
+
+		/// <summary>Molang expression (type 2) / tag (type 3) / item name (type 4) / alias name (type 5).</summary>
+		public string Text { get; set; }
+
+		/// <summary>
+		///     Registry string id ("minecraft:stick") for type 1 - the durable identity the writer resolves
+		///     the wire network id from. Only set for ingredients built from recipe data (recipes.json or a
+		///     plugin); a decoded int_id_meta ingredient carries no descriptor and re-emits the id it read.
+		/// </summary>
+		public string Name { get; set; }
+
+		/// <summary>Molang version byte (type 2 only).</summary>
+		public byte MolangVersion { get; set; }
+
+		/// <summary>Metadata (type 1 and type 4).</summary>
+		public short Metadata { get; set; }
 	}
 }

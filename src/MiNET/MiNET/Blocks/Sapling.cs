@@ -38,9 +38,6 @@ namespace MiNET.Blocks
 		public Sapling() : base(6)
 		{
 			FuelEfficiency = 5;
-			BlastResistance = 0;
-			IsTransparent = true;
-			IsFlammable = true;
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

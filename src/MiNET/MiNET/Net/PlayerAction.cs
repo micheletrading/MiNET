@@ -25,6 +25,11 @@
 
 namespace MiNET.Net
 {
+	/// <summary>
+	///     The values protocol 1001 uses. Mojang's newer schema drops GetUpdatedBlock and DropItem
+	///     and leads with an Unknown member, which renumbers everything from 3 up, so a later
+	///     protocol needs these re-checked rather than extended.
+	/// </summary>
 	public enum PlayerAction
 	{
 		StartBreak = 0,
@@ -55,6 +60,16 @@ namespace MiNET.Net
 		StopSpinAttack = 24,
 		InteractBlock = 25,
 		PredictDestroyBlock = 26,
-		ContinueDestroyBlock = 27
+		ContinueDestroyBlock = 27,
+		StartItemUseOn = 28,
+		StopItemUseOn = 29,
+		HandledTeleport = 30,
+		MissedSwing = 31,
+		StartCrawling = 32,
+		StopCrawling = 33,
+		StartFlying = 34,
+		StopFlying = 35,
+		ReceivedServerData = 36,
+		StartUsingItem = 37
 	}
 }

@@ -70,8 +70,8 @@ namespace MiNET.Entities.Hostile
 			MetadataDictionary metadata = base.GetMetadata();
 			//MetadataDictionary metadata = new MetadataDictionary();
 			metadata[0] = new MetadataLong(GetDataValue());
-			metadata[39] = new MetadataFloat(1.0f);
-			metadata[44] = new MetadataShort(300);
+			metadata[(int) MetadataFlags.Scale] = new MetadataFloat(1.0f);
+			metadata[(int) MetadataFlags.MaxAir] = new MetadataShort(300);
 			metadata[53] = new MetadataFloat(1.99f);
 			metadata[54] = new MetadataFloat(1.99f);
 			metadata[57] = new MetadataByte(0);

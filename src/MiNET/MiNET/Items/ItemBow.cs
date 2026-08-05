@@ -39,7 +39,7 @@ namespace MiNET.Items
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemBow));
 
-		public ItemBow() : base("minecraft:bow", 261)
+		public ItemBow() : base("minecraft:bow")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Bow;
@@ -89,7 +89,7 @@ namespace MiNET.Items
 			{
 				// Try off-hand first
 				Item item = inventory.OffHand;
-				if (item.Id == 262)
+				if (item is ItemArrow)
 				{
 					haveArrow = true;
 					if (!isInfinity)
@@ -109,10 +109,10 @@ namespace MiNET.Items
 				for (byte i = 0; i < inventory.Slots.Count; i++)
 				{
 					Item itemStack = inventory.Slots[i];
-					if (itemStack.Id == 262)
+					if (itemStack is ItemArrow)
 					{
 						haveArrow = true;
-						if (isInfinity) inventory.RemoveItems(262, 1);
+						if (isInfinity) inventory.RemoveItems("minecraft:arrow", 1);
 						break;
 					}
 				}

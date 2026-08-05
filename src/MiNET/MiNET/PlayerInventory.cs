@@ -89,10 +89,9 @@ namespace MiNET
 			{
 				Slots[InHandSlot] = new ItemAir();
 
-				var sound = McpeLevelSoundEventOld.CreateObject();
-				sound.soundId = 5;
+				var sound = McpeLevelSoundEvent.CreateObject();
+				sound.soundId = LevelSoundEventType.Break.ToString();
 				sound.blockId = -1;
-				sound.entityType = 1;
 				sound.position = Player.KnownPosition;
 				Player.Level.RelayBroadcast(sound);
 			}
@@ -127,10 +126,9 @@ namespace MiNET
 			{
 				item = new ItemAir();
 
-				var sound = McpeLevelSoundEventOld.CreateObject();
-				sound.soundId = 5;
+				var sound = McpeLevelSoundEvent.CreateObject();
+				sound.soundId = LevelSoundEventType.Break.ToString();
 				sound.blockId = -1;
-				sound.entityType = 1;
 				sound.position = Player.KnownPosition;
 				Player.Level.RelayBroadcast(sound);
 			}
@@ -152,7 +150,7 @@ namespace MiNET
 		public virtual void UpdateInventorySlot(int slot, Item item, bool forceReplace = false)
 		{
 			var existing = Slots[slot];
-			if (forceReplace || existing.Id != item.Id)
+			if (forceReplace || !existing.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase))
 			{
 				Slots[slot] = item;
 				existing = item;
@@ -240,7 +238,7 @@ namespace MiNET
 		{
 			Item existingItem = Slots[si];
 
-			if (existingItem is ItemAir || existingItem.Id == 0 || existingItem.Id == -1)
+			if (existingItem is ItemAir || existingItem.IsAir)
 			{
 				Slots[si] = (Item) item.Clone();
 				item.Count = 0;
@@ -257,7 +255,7 @@ namespace MiNET
 			{
 				Item existingItem = Slots[si];
 
-				if (existingItem is ItemAir || existingItem.Id == 0 || existingItem.Id == -1)
+				if (existingItem is ItemAir || existingItem.IsAir)
 				{
 					Slots[si] = item;
 					if (update) SendSetSlot(si);
@@ -304,7 +302,7 @@ namespace MiNET
 		{
 			for (byte i = 0; i < Slots.Count; i++)
 			{
-				if (Slots[i].Id == item.Id && Slots[i].Metadata == item.Metadata)
+				if (Slots[i].Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase) && Slots[i].Metadata == item.Metadata)
 				{
 					return true;
 				}
@@ -313,7 +311,7 @@ namespace MiNET
 			return false;
 		}
 
-		public void RemoveItems(short id, byte count)
+		public void RemoveItems(string name, byte count)
 		{
 			if (count <= 0) return;
 
@@ -322,7 +320,7 @@ namespace MiNET
 				if (count <= 0) break;
 
 				var slot = Slots[i];
-				if (slot.Id == id)
+				if (slot.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
 				{
 					if (Slots[i].Count >= count)
 					{
@@ -359,17 +357,17 @@ namespace MiNET
 		{
 			for (int i = 0; i < Slots.Count; ++i)
 			{
-				if (Slots[i] == null || Slots[i].Id != 0) Slots[i] = new ItemAir();
+				if (Slots[i] == null || !Slots[i].IsAir) Slots[i] = new ItemAir();
 			}
 			
 			UiInventory.Clear();
 
-			if (OffHand.Id != 0) OffHand = new ItemAir();
+			if (!OffHand.IsAir) OffHand = new ItemAir();
 
-			if (Helmet.Id != 0) Helmet = new ItemAir();
-			if (Chest.Id != 0) Chest = new ItemAir();
-			if (Leggings.Id != 0) Leggings = new ItemAir();
-			if (Boots.Id != 0) Boots = new ItemAir();
+			if (!Helmet.IsAir) Helmet = new ItemAir();
+			if (!Chest.IsAir) Chest = new ItemAir();
+			if (!Leggings.IsAir) Leggings = new ItemAir();
+			if (!Boots.IsAir) Boots = new ItemAir();
 
 			Player.SendPlayerInventory();
 		}

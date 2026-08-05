@@ -29,7 +29,6 @@ namespace MiNET.Blocks
 	{
 		public ComparatorBase(byte id) : base(id)
 		{
-			IsTransparent = true;
 		}
 	}
 }

@@ -31,13 +31,11 @@ namespace MiNET.Blocks
 	{
 		public IronOre() : base(15)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(265, 0);
+			return ItemFactory.GetItemByName("minecraft:iron_ingot", 0);
 		}
 
 		public override Item[] GetDrops(Item tool)

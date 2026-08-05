@@ -42,7 +42,7 @@ namespace MiNET.Entities.Passive
 		{
 			return new[]
 			{
-				ItemFactory.GetItem(332)
+				ItemFactory.GetItemByName("minecraft:snowball")
 			};
 		}
 	}

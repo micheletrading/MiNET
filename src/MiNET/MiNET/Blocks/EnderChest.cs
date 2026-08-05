@@ -31,16 +31,12 @@ namespace MiNET.Blocks
 	{
 		public EnderChest() : base(130)
 		{
-			IsTransparent = true;
-			LightLevel = 7;
-			BlastResistance = 3000;
-			Hardness = 22.5f;
 			FuelEfficiency = 0;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new Item[] {ItemFactory.GetItem(49, 0, 8)}; // 8 Obsidian
+			return new Item[] {ItemFactory.GetItemByName("minecraft:obsidian", 0, 8)}; // 8 Obsidian
 		}
 	}
 }

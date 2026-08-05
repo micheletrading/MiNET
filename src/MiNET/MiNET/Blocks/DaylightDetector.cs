@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public DaylightDetector() : base(151)
 		{
-			IsTransparent = true;
-			BlastResistance = 1;
-			Hardness = 0.2f;
 		}
 	}
 }

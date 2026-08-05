@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Wool() : base(35)
 		{
-			BlastResistance = 4;
-			Hardness = 0.8f;
-			IsFlammable = true;
 		}
 	}
 }

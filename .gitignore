@@ -192,3 +192,6 @@ FakesAssemblies/
 .vs/
 
 /src/MiNET/MiNET.Console/dist
+
+# Claude Code working directory: plans, worktrees, local settings.
+.claude/

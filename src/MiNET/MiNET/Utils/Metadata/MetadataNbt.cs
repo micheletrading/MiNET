@@ -61,9 +61,10 @@ namespace MiNET.Utils.Metadata
 		{
 			NbtCompound nbt = Value;
 
+			// Raw NBT bytes, no framing: FromStream reads straight off the stream via
+			// Packet.ReadNbt, with no 0xffff/version marker (that marker belongs to the item
+			// extra-data blob format - see WriteItemExtraData/ReadItemExtraData - not this entry).
 			byte[] bytes = Packet.GetNbtData(nbt);
-			stream.Write((ushort) 0xffff);
-			stream.Write((byte) 0x01);
 			stream.Write(bytes);
 		}
 	}

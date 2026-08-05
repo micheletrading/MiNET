@@ -36,8 +36,6 @@ namespace MiNET.Blocks
 
 		public RedstoneOre(byte id) : base(id)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item[] GetDrops(Item tool)
@@ -45,7 +43,7 @@ namespace MiNET.Blocks
 			if (tool.ItemMaterial < ItemMaterial.Iron) return new Item[0];
 
 			var rnd = new Random();
-			return new[] {ItemFactory.GetItem(331, 0, (byte) (4 + rnd.Next(1)))};
+			return new[] {ItemFactory.GetItemByName("minecraft:redstone", 0, (byte) (4 + rnd.Next(1)))};
 		}
 
 		public override float GetExperiencePoints()

@@ -27,21 +27,28 @@ namespace MiNET.Net
 {
 	public partial class McpeAnimate : Packet<McpeAnimate>
 	{
-		public float unknownFloat;
+		// Protocol 1001: a data float always follows the runtime id (rowing times etc, 0 for
+		// plain swings), then an optional swing source string (present bool + string; the 1.26
+		// client sends e.g. "mine"). Verified against PMMP AnimatePacket and live client bytes.
+		public float data;
+		public string swingSource;
 
 		partial void AfterDecode()
 		{
-			if (actionId == 0x80 || actionId == 0x81)
+			data = ReadFloat();
+			if (ReadBool())
 			{
-				unknownFloat = ReadFloat();
+				swingSource = ReadString();
 			}
 		}
 
 		partial void AfterEncode()
 		{
-			if (actionId == 0x80 || actionId == 0x81)
+			Write(data);
+			Write(swingSource != null);
+			if (swingSource != null)
 			{
-				Write(unknownFloat);
+				Write(swingSource);
 			}
 		}
 	}

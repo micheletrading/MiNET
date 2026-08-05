@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemGoldenHelmet : ArmorHelmetBase
 	{
-		public ItemGoldenHelmet() : base("minecraft:golden_helmet", 314)
+		public ItemGoldenHelmet() : base("minecraft:golden_helmet")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Helmet;

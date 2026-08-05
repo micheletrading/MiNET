@@ -43,8 +43,6 @@ namespace MiNET.Blocks
 
 		protected Crops(byte id) : base(id)
 		{
-			IsSolid = false;
-			IsTransparent = true;
 		}
 
 		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)

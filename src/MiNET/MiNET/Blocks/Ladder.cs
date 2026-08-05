@@ -34,9 +34,6 @@ namespace MiNET.Blocks
 	{
 		public Ladder() : base(65)
 		{
-			IsTransparent = true;
-			BlastResistance = 2;
-			Hardness = 0.4f;
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

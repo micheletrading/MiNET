@@ -139,6 +139,25 @@ namespace MiNET.Worlds
 			return _chunkCache.GetOrAdd(chunkCoordinates, coordinates => GetChunk(coordinates, MissingChunkProvider));
 		}
 
+		// On-disk chunk format, read off a live BDS 1.26.34 world and cross-checked against
+		// PocketMine-MP's LevelDB implementation. The pre-1.16.100 0x76 version key and the
+		// pre-1.18 0x2d biome record are absent from current worlds; writing them makes Bedrock
+		// run the chunk through its upgrade path, which rewrites block states.
+		private const byte KeyHeightAndBiomes3D = 0x2b;
+		private const byte KeyVersion = 0x2c;
+		private const byte KeyHeightAndBiomes2D = 0x2d; // pre-1.18, read-only for old worlds
+		private const byte KeySubChunk = 0x2f;
+		private const byte KeyBlockEntity = 0x31;
+		private const byte KeyFinalizedState = 0x36;
+		private const byte KeyVersionLegacy = 0x76; // pre-1.16.100, read-only for old worlds
+
+		private const byte ChunkVersion = 42;
+		private const byte SubChunkVersion = 9;
+		private const int FinalizedStateDone = 2;
+
+		// ChunkColumn index 0 is world section -4, the bottom of the -64..320 range.
+		private const int SubChunkIndexOffset = 4;
+
 		public ChunkColumn GetChunk(ChunkCoordinates coordinates, IWorldGenerator generator)
 		{
 			var sw = Stopwatch.StartNew();
@@ -150,9 +169,9 @@ namespace MiNET.Worlds
 				index = Combine(index, BitConverter.GetBytes(1));
 			}
 
-			byte[] versionKey = Combine(index, 0x76);
 			sw.Start();
-			byte[] version = Db.Get(versionKey);
+			// 1.16.100 onwards the version lives under 0x2c; older worlds still carry 0x76.
+			byte[] version = Db.Get(Combine(index, KeyVersion)) ?? Db.Get(Combine(index, KeyVersionLegacy));
 			sw.Stop();
 
 			ChunkColumn chunkColumn = null;
@@ -164,29 +183,36 @@ namespace MiNET.Worlds
 					Z = coordinates.Z
 				};
 
-				byte[] chunkDataKey = Combine(index, new byte[] {0x2f, 0});
-				for (byte y = 0; y < 16; y++)
+				byte[] chunkDataKey = Combine(index, new byte[] {KeySubChunk, 0});
+				for (int i = 0; i < ChunkColumn.WorldHeight / 16; i++)
 				{
-					chunkDataKey[^1] = y;
+					// Section indices are signed since 1.18: -4 is the bottom, stored as 0xfc.
+					chunkDataKey[^1] = unchecked((byte) (sbyte) (i - SubChunkIndexOffset));
 					sw.Start();
 					byte[] sectionBytes = Db.Get(chunkDataKey);
 					sw.Stop();
 
 					if (sectionBytes == null)
 					{
-						chunkColumn[y]?.PutPool();
-						chunkColumn[y] = null;
+						chunkColumn[i]?.PutPool();
+						chunkColumn[i] = null;
 						continue;
 					}
 
-					ParseSection(chunkColumn[4 + y], sectionBytes); //Offset by 4 because of 1.18 world update.
+					ParseSection(chunkColumn[i], sectionBytes);
 				}
 
-				// Biomes
+				// Biomes: 3D since 1.18, with the flat record kept for older worlds.
 				sw.Start();
-				byte[] flatDataBytes = Db.Get(Combine(index, 0x2D));
+				byte[] biome3DBytes = Db.Get(Combine(index, KeyHeightAndBiomes3D));
+				byte[] flatDataBytes = biome3DBytes == null ? Db.Get(Combine(index, KeyHeightAndBiomes2D)) : null;
 				sw.Stop();
-				if (flatDataBytes != null)
+				if (biome3DBytes != null)
+				{
+					Buffer.BlockCopy(biome3DBytes.AsSpan().Slice(0, 512).ToArray(), 0, chunkColumn.height, 0, 512);
+					ParseBiomes3D(chunkColumn, biome3DBytes.AsSpan().Slice(512).ToArray());
+				}
+				else if (flatDataBytes != null)
 				{
 					Buffer.BlockCopy(flatDataBytes.AsSpan().Slice(0, 512).ToArray(), 0, chunkColumn.height, 0, 512);
 					chunkColumn.biomeId = flatDataBytes.AsSpan().Slice(512, 256).ToArray();
@@ -194,12 +220,14 @@ namespace MiNET.Worlds
 
 				// Block entities
 				sw.Start();
-				byte[] blockEntityBytes = Db.Get(Combine(index, 0x31));
+				byte[] blockEntityBytes = Db.Get(Combine(index, KeyBlockEntity));
 				sw.Stop();
 
 				//Log.Debug($"Read chunk from LevelDB {coordinates.X}, {coordinates.Z} in {sw.ElapsedMilliseconds} ms.");
 
-				if (blockEntityBytes != null)
+				// A chunk with no block entities still carries this record, written as zero bytes
+				// because MiNET.LevelDB throws on Delete.
+				if (blockEntityBytes is {Length: > 0})
 				{
 					Memory<byte> data = blockEntityBytes.AsMemory();
 
@@ -209,7 +237,7 @@ namespace MiNET.Worlds
 						UseVarInt = false
 					};
 					int position = 0;
-					do
+					while (position < data.Length)
 					{
 						position += (int) file.LoadFromStream(new MemoryStreamReader(data.Slice(position)), NbtCompression.None);
 
@@ -219,7 +247,7 @@ namespace MiNET.Worlds
 						int z = blockEntityTag["z"].IntValue;
 
 						chunkColumn.SetBlockEntity(new BlockCoordinates(x, y, z), (NbtCompound) blockEntityTag);
-					} while (position < data.Length);
+					}
 				}
 			}
 
@@ -249,14 +277,71 @@ namespace MiNET.Worlds
 			return chunkColumn;
 		}
 
+		/// <summary>
+		///     Projects the 3D biome record onto MiNET's per-column biome map by taking the bottom
+		///     subchunk's palette. Only the first palette is read: the records above it are almost
+		///     always the 0xff copy-previous marker, and MiNET has nowhere to put a vertical
+		///     variation anyway.
+		/// </summary>
+		private static void ParseBiomes3D(ChunkColumn chunkColumn, byte[] data)
+		{
+			if (data.Length < 1) return;
+
+			int flags = data[0];
+			int bitsPerBlock = flags >> 1;
+			if (bitsPerBlock == 127) return; // copy-previous with nothing before it
+
+			int offset = 1;
+			if (bitsPerBlock == 0)
+			{
+				if (data.Length < 5) return;
+				byte biome = (byte) BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset, 4));
+				Array.Fill(chunkColumn.biomeId, biome);
+				return;
+			}
+
+			int biomesPerWord = (int) Math.Floor(32f / bitsPerBlock);
+			int wordCount = (int) Math.Ceiling(4096f / biomesPerWord);
+			int wordBytes = wordCount * 4;
+			if (data.Length < offset + wordBytes + 4) return;
+
+			int paletteCount = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + wordBytes, 4));
+			int paletteOffset = offset + wordBytes + 4;
+			if (paletteCount <= 0 || data.Length < paletteOffset + paletteCount * 4) return;
+
+			var palette = new byte[paletteCount];
+			for (int i = 0; i < paletteCount; i++)
+			{
+				palette[i] = (byte) BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(paletteOffset + i * 4, 4));
+			}
+
+			int mask = (1 << bitsPerBlock) - 1;
+			int position = 0;
+			for (int w = 0; w < wordCount && position < 4096; w++)
+			{
+				uint word = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(offset + w * 4, 4));
+				for (int slot = 0; slot < biomesPerWord && position < 4096; slot++, position++)
+				{
+					// Only y == 0 of each column is kept, matching the 2D model.
+					if ((position & 0xf) != 0) continue;
+					int paletteIndex = (int) ((word >> (slot * bitsPerBlock)) & mask);
+					if (paletteIndex >= paletteCount) continue;
+					int x = (position >> 8) & 0xf, z = (position >> 4) & 0xf;
+					chunkColumn.biomeId[(x << 4) | z] = palette[paletteIndex];
+				}
+			}
+		}
+
 		internal void ParseSection(SubChunk section, ReadOnlyMemory<byte> data)
 		{
 			var reader = new MemoryStreamReader(data);
 
 			int version = reader.ReadByte();
-			if (version != 8) throw new Exception("Wrong chunk version");
+			if (version != 8 && version != 9) throw new Exception($"Unsupported subchunk version {version}");
 
 			int storageSize = reader.ReadByte();
+			// Version 9 carries its own signed section index; the caller already knows it.
+			if (version >= 9) reader.ReadByte();
 			for (int storage = 0; storage < storageSize; storage++)
 			{
 				bool isNotLoggedStorage = storage == 0;
@@ -429,72 +514,163 @@ namespace MiNET.Worlds
 				index = Combine(index, BitConverter.GetBytes(1));
 			}
 
-			byte[] versionKey = Combine(index, 0x76);
-			byte[] version = Db.Get(versionKey);
-			if (version == null) Db.Put(versionKey, new byte[] {13});
+			// Always rewrite the version: a stale value is what sends the chunk through Bedrock's
+			// upgrade path on load, and that path rewrites block states.
+			Db.Put(Combine(index, KeyVersion), new byte[] {ChunkVersion});
 
-			var chunkDataKey = Combine(index, new byte[] {0x2f, 0});
-			for (byte y = 0; y < 16; y++)
+			var chunkDataKey = Combine(index, new byte[] {KeySubChunk, 0});
+			for (int i = 0; i < ChunkColumn.WorldHeight / 16; i++)
 			{
-				chunkDataKey[^1] = y;
+				int sectionY = i - SubChunkIndexOffset;
+				chunkDataKey[^1] = unchecked((byte) (sbyte) sectionY);
 
-				byte[] sectionBytes = GetSectionBytes(chunk[y]);
-
-				Db.Put(chunkDataKey, sectionBytes);
+				Db.Put(chunkDataKey, GetSectionBytes(chunk[i], sectionY));
 			}
 
-			// Biomes & heights
-			byte[] heightBytes = new byte[512];
-			Buffer.BlockCopy(chunk.height, 0, heightBytes, 0, 512);
-			byte[] data2D = Combine(heightBytes, chunk.biomeId);
-			Db.Put(Combine(index, 0x2D), data2D);
+			Db.Put(Combine(index, KeyHeightAndBiomes3D), GetHeightAndBiome3DBytes(chunk));
 
-			//// Block entities
-			//byte[] blockEntityBytes = Db.Get(Combine(index, 0x31));
-			//if (blockEntityBytes != null)
-			//{
-			//	var data = blockEntityBytes.AsMemory();
+			// Without this BDS treats the chunk as unpopulated and runs generation over it,
+			// which would overwrite whatever we authored.
+			var finalized = new byte[4];
+			BinaryPrimitives.WriteInt32LittleEndian(finalized, FinalizedStateDone);
+			Db.Put(Combine(index, KeyFinalizedState), finalized);
 
-			//	var file = new NbtFile
-			//	{
-			//		BigEndian = false,
-			//		UseVarInt = false
-			//	};
-			//	int position = 0;
-			//	do
-			//	{
-			//		position += (int) file.LoadFromStream(new MemoryStreamReader(data.Slice(position)), NbtCompression.None);
+			// Block entities: the 0x31 record is the concatenated NBT of every one in the chunk,
+			// same encoding the reader expects. Without this a chest, sign or bookshelf loses
+			// everything it holds on save, and Bedrock recomputes the block states that are
+			// backed by the entity, so books_stored and its like reset to empty on load.
+			if (chunk.BlockEntities.Count > 0)
+			{
+				using var blockEntityStream = new MemoryStream();
+				foreach (NbtCompound blockEntity in chunk.BlockEntities.Values)
+				{
+					var file = new NbtFile(blockEntity)
+					{
+						BigEndian = false,
+						UseVarInt = false
+					};
+					byte[] bytes = file.SaveToBuffer(NbtCompression.None);
+					blockEntityStream.Write(bytes, 0, bytes.Length);
+				}
 
-			//		NbtTag blockEntityTag = file.RootTag;
-			//		int x = blockEntityTag["x"].IntValue;
-			//		int y = blockEntityTag["y"].IntValue;
-			//		int z = blockEntityTag["z"].IntValue;
+				Db.Put(Combine(index, KeyBlockEntity), blockEntityStream.ToArray());
+			}
+			else
+			{
+				// An empty record rather than a delete: MiNET.LevelDB throws on Delete. The
+				// reader stops at the end of the buffer, so zero bytes reads as no entities,
+				// and a chunk that loses its last one does not keep the stale record.
+				Db.Put(Combine(index, KeyBlockEntity), Array.Empty<byte>());
+			}
 
-			//		chunkColumn.SetBlockEntity(new BlockCoordinates(x, y, z), (NbtCompound) blockEntityTag);
-			//	} while (position < data.Length);
-			//}
-
-			//chunk.IsDirty = false;
 			chunk.NeedSave = false;
 		}
 
-		private byte[] GetSectionBytes(SubChunk subChunk)
+		private byte[] GetSectionBytes(SubChunk subChunk, int sectionY)
 		{
 			using var stream = new MemoryStream();
-			Write(subChunk, stream);
+			Write(subChunk, stream, sectionY);
 
 			return stream.ToArray();
 		}
 
-		public void Write(SubChunk subChunk, MemoryStream stream)
+		/// <summary>
+		///     Heightmap plus 3D biomes, the 0x2b record: 512 bytes of int16 heights followed by one
+		///     paletted biome array per subchunk. Replaces the pre-1.18 0x2d record, which held a
+		///     heightmap plus a flat 256-byte biome map and is absent from current worlds.
+		///     MiNET models biomes per column, so every subchunk gets the same projection of it.
+		/// </summary>
+		private byte[] GetHeightAndBiome3DBytes(ChunkColumn chunk)
+		{
+			using var stream = new MemoryStream();
+
+			byte[] heightBytes = new byte[512];
+			Buffer.BlockCopy(chunk.height, 0, heightBytes, 0, 512);
+			stream.Write(heightBytes);
+
+			// Distinct biomes in this column decide the palette; a single-biome column needs no
+			// index words at all, which is the common case and what BDS itself writes for one.
+			var palette = new List<byte>();
+			foreach (byte biome in chunk.biomeId)
+			{
+				if (!palette.Contains(biome)) palette.Add(biome);
+			}
+			if (palette.Count == 0) palette.Add(0);
+
+			using var biomeSection = new MemoryStream();
+			WriteBiomePalette(biomeSection, chunk, palette);
+			byte[] first = biomeSection.ToArray();
+
+			stream.Write(first);
+			// Every remaining subchunk repeats it. 0xff is the copy-previous marker.
+			for (int i = 1; i < ChunkColumn.WorldHeight / 16; i++) stream.WriteByte(0xff);
+
+			return stream.ToArray();
+		}
+
+		private static void WriteBiomePalette(MemoryStream stream, ChunkColumn chunk, List<byte> palette)
+		{
+			if (palette.Count == 1)
+			{
+				// bitsPerBlock 0: no index words, and the palette count is implicit rather than written.
+				stream.WriteByte(0 << 1);
+				var single = new byte[4];
+				BinaryPrimitives.WriteInt32LittleEndian(single, palette[0]);
+				stream.Write(single);
+				return;
+			}
+
+			int bitsPerBlock = 1;
+			while ((1 << bitsPerBlock) < palette.Count) bitsPerBlock++;
+			if (bitsPerBlock > 8) bitsPerBlock = 16;
+
+			stream.WriteByte((byte) (bitsPerBlock << 1));
+
+			int biomesPerWord = (int) Math.Floor(32f / bitsPerBlock);
+			int wordCount = (int) Math.Ceiling(4096f / biomesPerWord);
+			var words = new uint[wordCount];
+
+			int position = 0;
+			for (int w = 0; w < wordCount; w++)
+			{
+				uint word = 0;
+				for (int slot = 0; slot < biomesPerWord && position < 4096; slot++, position++)
+				{
+					// Cell order matches the block storage: (x << 8) | (z << 4) | y.
+					int x = (position >> 8) & 0xf, z = (position >> 4) & 0xf;
+					uint paletteIndex = (uint) palette.IndexOf(chunk.biomeId[(x << 4) | z]);
+					word |= paletteIndex << (bitsPerBlock * slot);
+				}
+				words[w] = word;
+			}
+
+			byte[] wordBytes = new byte[words.Length * 4];
+			Buffer.BlockCopy(words, 0, wordBytes, 0, wordBytes.Length);
+			stream.Write(wordBytes);
+
+			var count = new byte[4];
+			BinaryPrimitives.WriteInt32LittleEndian(count, palette.Count);
+			stream.Write(count);
+			foreach (byte biome in palette)
+			{
+				var entry = new byte[4];
+				BinaryPrimitives.WriteInt32LittleEndian(entry, biome);
+				stream.Write(entry);
+			}
+		}
+
+		public void Write(SubChunk subChunk, MemoryStream stream, int sectionY)
 		{
 			var startPos = stream.Position;
 
-			stream.WriteByte(8); // version
+			stream.WriteByte(SubChunkVersion); // version
 
 			long storePosition = stream.Position;
 			int numberOfStores = 0;
 			stream.WriteByte((byte) numberOfStores); // storage size
+
+			// Version 9 onwards the record carries its own signed section index.
+			stream.WriteByte(unchecked((byte) (sbyte) sectionY));
 
 			if (WriteStore(stream, subChunk.Blocks, null, false, subChunk.RuntimeIds))
 			{
@@ -731,6 +907,9 @@ namespace MiNET.Worlds
 			}
 
 			tag.Add(nbtStates);
+			// Generated from the palette data, not hardcoded: a state stored without the schema
+			// stamp is treated as predating every upgrade schema and gets rewritten on load.
+			tag.Add(new NbtInt("version", BlockPaletteData.BlockStateVersion));
 
 			return tag;
 		}

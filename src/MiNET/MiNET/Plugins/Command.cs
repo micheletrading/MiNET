@@ -24,8 +24,13 @@
 #endregion
 
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using MiNET.Blocks;
 using MiNET.Entities;
+using MiNET.Utils;
+using MiNET.Utils.Vectors;
 using Newtonsoft.Json;
 
 namespace MiNET.Plugins
@@ -162,6 +167,144 @@ namespace MiNET.Plugins
 		{
 			return $"{nameof(X)}: {X}, {nameof(XRelative)}: {XRelative}, {nameof(Y)}: {Y}, {nameof(YRelative)}: {YRelative}, {nameof(Z)}: {Z}, {nameof(ZRelative)}: {ZRelative}";
 		}
+
+		public static BlockPos Parse(string x, string y, string z)
+		{
+			var position = new BlockPos();
+
+			x = RelValue.StripRelative(x, out bool xRelative);
+			position.XRelative = xRelative;
+			int.TryParse(x, out int parsedX);
+			position.X = parsedX;
+
+			y = RelValue.StripRelative(y, out bool yRelative);
+			position.YRelative = yRelative;
+			int.TryParse(y, out int parsedY);
+			position.Y = parsedY;
+
+			z = RelValue.StripRelative(z, out bool zRelative);
+			position.ZRelative = zRelative;
+			int.TryParse(z, out int parsedZ);
+			position.Z = parsedZ;
+
+			return position;
+		}
+
+		/// <summary>Where this points, with anything written as ~ taken from the given origin.</summary>
+		public BlockCoordinates ToCoordinates(BlockCoordinates origin)
+		{
+			return new BlockCoordinates(
+				XRelative ? origin.X + X : X,
+				YRelative ? origin.Y + Y : Y,
+				ZRelative ? origin.Z + Z : Z);
+		}
+	}
+
+	/// <summary>
+	///     The blockStates argument of /setblock and /fill, written ["state"=value,"state"=value].
+	///     A state name is always quoted; a value is quoted when it is a string and bare when it is a
+	///     boolean or a number, and that is the only thing saying which kind of state it is. What the
+	///     player leaves out keeps the block's default, so a partial literal is a whole answer.
+	/// </summary>
+	public class BlockStates
+	{
+		public List<IBlockState> States { get; } = new List<IBlockState>();
+
+		public static BlockStates Parse(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value)) return null;
+
+			string body = value.Trim().TrimStart('[').TrimEnd(']');
+
+			var states = new BlockStates();
+			if (string.IsNullOrWhiteSpace(body)) return states;
+
+			foreach (string pair in SplitPairs(body))
+			{
+				int equals = pair.IndexOf('=');
+				if (equals < 0) continue;
+
+				string name = pair.Substring(0, equals).Trim().Trim('"');
+				string raw = pair.Substring(equals + 1).Trim();
+				if (name.Length == 0) continue;
+
+				states.States.Add(ToState(name, raw));
+			}
+
+			return states;
+		}
+
+		/// <summary>
+		///     Applies these states to the block and says whether they were real. SetState ignores a
+		///     state name the block does not have and a value outside its range, so without this a
+		///     typo silently places the default block: the player asked for something and got
+		///     something else with nothing said. The resolve half of the parse, and it needs the
+		///     block for the same reason a target needs the level.
+		/// </summary>
+		public bool TryApplyTo(Block block, out string error)
+		{
+			error = null;
+			if (block == null) return false;
+
+			BlockStateContainer defaults = block.GetState();
+			if (defaults == null)
+			{
+				error = $"{block.Name} has no states";
+				return States.Count == 0;
+			}
+
+			foreach (IBlockState state in States)
+			{
+				if (!defaults.States.Exists(known => known.Name == state.Name))
+				{
+					error = $"{block.Name} has no state called {state.Name}";
+					return false;
+				}
+			}
+
+			block.SetState(States);
+
+			// SetState takes a value without judging it, so asking the block what it now holds
+			// proves nothing. The palette is what decides: a state value or combination that is not
+			// in it is not a block, and would be sent as an id the client cannot resolve.
+			if (BlockFactory.BlockStates.Contains(block.GetState())) return true;
+
+			error = $"{block.Name} has no state {ToString()}";
+			return false;
+		}
+
+		private static IBlockState ToState(string name, string raw)
+		{
+			if (raw.StartsWith("\"")) return new BlockStateString {Name = name, Value = raw.Trim('"')};
+			if (bool.TryParse(raw, out bool flag)) return new BlockStateByte {Name = name, Value = (byte) (flag ? 1 : 0)};
+			if (int.TryParse(raw, out int number)) return new BlockStateInt {Name = name, Value = number};
+
+			return new BlockStateString {Name = name, Value = raw};
+		}
+
+		// A comma inside a quoted value is part of the value, not a separator.
+		private static IEnumerable<string> SplitPairs(string body)
+		{
+			bool inQuotes = false;
+			int start = 0;
+
+			for (int i = 0; i < body.Length; i++)
+			{
+				if (body[i] == '"') inQuotes = !inQuotes;
+				else if (body[i] == ',' && !inQuotes)
+				{
+					yield return body.Substring(start, i - start);
+					start = i + 1;
+				}
+			}
+
+			yield return body.Substring(start);
+		}
+
+		public override string ToString()
+		{
+			return $"[{string.Join(",", States.ConvertAll(state => $"\"{state.Name}\"={state}"))}]";
+		}
 	}
 
 	public class EntityPos
@@ -175,6 +318,23 @@ namespace MiNET.Plugins
 		public double Z { get; set; }
 		public bool ZRelative { get; set; }
 
+		public static EntityPos Parse(string x, string y, string z)
+		{
+			RelValue parsedX = RelValue.Parse(x);
+			RelValue parsedY = RelValue.Parse(y);
+			RelValue parsedZ = RelValue.Parse(z);
+
+			return new EntityPos
+			{
+				X = parsedX.Value,
+				XRelative = parsedX.Relative,
+				Y = parsedY.Value,
+				YRelative = parsedY.Relative,
+				Z = parsedZ.Value,
+				ZRelative = parsedZ.Relative
+			};
+		}
+
 		public override string ToString()
 		{
 			return $"{nameof(X)}: {X}, {nameof(XRelative)}: {XRelative}, {nameof(Y)}: {Y}, {nameof(YRelative)}: {YRelative}, {nameof(Z)}: {Z}, {nameof(ZRelative)}: {ZRelative}";
@@ -185,6 +345,30 @@ namespace MiNET.Plugins
 	{
 		public double Value { get; set; }
 		public bool Relative { get; set; }
+
+		public static RelValue Parse(string value)
+		{
+			var result = new RelValue();
+
+			value = StripRelative(value, out bool relative);
+			result.Relative = relative;
+
+			double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.InvariantInfo, out double parsed);
+			result.Value = parsed;
+
+			return result;
+		}
+
+		/// <summary>
+		///     Takes the ~ off a coordinate and says whether it was there. Shared by everything that
+		///     reads a position, because ~ means the same thing in all of them.
+		/// </summary>
+		public static string StripRelative(string value, out bool relative)
+		{
+			relative = value != null && value.StartsWith("~");
+
+			return relative ? value.Substring(1) : value;
+		}
 
 		public override string ToString()
 		{
@@ -206,6 +390,78 @@ namespace MiNET.Plugins
 
 		public Player[] Players { get; set; }
 		public Entity[] Entities { get; set; }
+
+		/// <summary>
+		///     Reads a selector, @a[r=10] or a bare player name. This is the text half only; turning
+		///     the selector into actual players or entities needs the level and lives in
+		///     PluginManager.FillTargets.
+		/// </summary>
+		public static Target Parse(string source)
+		{
+			Target target = new Target();
+			if (!source.StartsWith("@"))
+			{
+				target.Selector = "closestPlayer";
+				target.Rules = new[]
+				{
+					new Rule
+					{
+						Name = "name",
+						Value = source
+					}
+				};
+			}
+			else
+			{
+				var matches = Regex.Matches(source, @"^(?<selector>@[aeprs])(\[((?<args>(c|dx|dy|dz|l|lm|m|name|r|rm|rx|rxm|rym|type|x|y|z)=.*?)(,*?))*\])*$");
+				var selector = matches[0].Groups["selector"].Captures[0].Value;
+				switch (selector)
+				{
+					case "@a":
+						selector = "allPlayers";
+						break;
+					case "@e":
+						selector = "allEntities";
+						break;
+					case "@p":
+						selector = "closestPlayer";
+						break;
+					case "@r":
+						selector = "randomPlayer";
+						break;
+					case "@s":
+						selector = "yourself";
+						break;
+				}
+				target.Selector = selector;
+				List<Rule> rules = new List<Rule>();
+				foreach (Capture arg in matches[0].Groups["args"].Captures)
+				{
+					string[] split = arg.Value.Split('=');
+					string name = split[0];
+					string value = split[1];
+
+					Rule rule = new Rule();
+					rule.Name = name;
+					if (value.StartsWith("!"))
+					{
+						rule.Inverted = true;
+						rule.Value = value.Substring(1);
+					}
+					else
+					{
+						rule.Value = value;
+					}
+
+					rules.Add(rule);
+				}
+
+
+				if (rules.Count != 0) target.Rules = rules.ToArray();
+			}
+
+			return target;
+		}
 
 		public override string ToString()
 		{

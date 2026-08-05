@@ -32,7 +32,7 @@ namespace MiNET.Items
 {
 	public class ItemSnowball : Item
 	{
-		public ItemSnowball() : base("minecraft:snowball", 332)
+		public ItemSnowball() : base("minecraft:snowball")
 		{
 			MaxStackSize = 16;
 		}

@@ -99,7 +99,7 @@ namespace MiNET.Worlds
 
 			if (chunk == null) return;
 
-			if (chunk.GetBlockId(newCoord.X & 0x0f, newCoord.Y, newCoord.Z & 0x0f) == 0)
+			if (BlockFactory.IsAir(chunk.GetBlockRuntimeId(newCoord.X & 0x0f, newCoord.Y, newCoord.Z & 0x0f)))
 			{
 				SetLightLevel(chunk, lightBfsQueue, newCoord, lightLevel);
 			}

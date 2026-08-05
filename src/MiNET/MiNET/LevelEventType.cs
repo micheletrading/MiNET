@@ -89,6 +89,7 @@ namespace MiNET
 		SetData = 4000,
 
 		PlayersSleeping = 9800,
+		SleepingPlayers = 9801,
 	}
 
 	public enum LevelSoundEventType

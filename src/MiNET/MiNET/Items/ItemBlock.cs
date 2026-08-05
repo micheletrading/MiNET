@@ -45,20 +45,21 @@ namespace MiNET.Items
 
 		[JsonIgnore] public Block Block { get; protected set; }
 
-		protected ItemBlock(string name, short id, short metadata = 0) : base(name, id, metadata)
+		/// <summary>
+		///     For a subclass that names its own block. The block is left for the subclass to set,
+		///     since the item name and the block name are not always the same ("minecraft:item.frame").
+		/// </summary>
+		protected ItemBlock(string name, short metadata = 0) : base(name, metadata)
 		{
-			//TODO: Problematic block
-			Block = BlockFactory.GetBlockById(id);
 		}
 
-		public ItemBlock([NotNull] Block block, short metadata = 0) : base(block.Name, (short) (block.Id > 255 ? 255 - block.Id : block.Id), metadata)
+		public ItemBlock([NotNull] Block block, short metadata = 0) : base(block.Name, metadata)
 		{
 			Block = block ?? throw new ArgumentNullException(nameof(block));
-	
-			if (BlockFactory.BlockStates.TryGetValue(block.GetState(), out BlockStateContainer value))
-			{
-				Metadata = (short) (value.ItemInstance?.Metadata ?? (value.Data == -1 ? 0 : value.Data));
-			}
+
+			// The block's palette index is what the wire wants for a block item, stated outright
+			// rather than derived from an item id (see Packet.Write(Item) block_runtime_id).
+			RuntimeId = block.GetRuntimeId();
 
 			FuelEfficiency = Block.FuelEfficiency;
 		}
@@ -97,7 +98,10 @@ namespace MiNET.Items
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates targetCoordinates, BlockFace face, Vector3 faceCoords)
 		{
 			Block currentBlock = world.GetBlock(targetCoordinates);
-			Block newBlock = BlockFactory.GetBlockById(Block.Id);
+
+			// By name: the legacy id maps every wood type and colour onto one pre-flattening class,
+			// whose state has no palette entry and so cannot be written to the world.
+			Block newBlock = BlockFactory.GetBlockByName(Block.Name);
 			newBlock.Coordinates = currentBlock.IsReplaceable ? targetCoordinates : GetNewCoordinatesFromFace(targetCoordinates, face);
 
 			// This won't work without explicit mapping where an item dictates
@@ -120,7 +124,7 @@ namespace MiNET.Items
 				world.SetBlock(newBlock);
 			}
 
-			if (player.GameMode == GameMode.Survival && newBlock.Id != 0)
+			if (player.GameMode == GameMode.Survival && !(newBlock is Air))
 			{
 				var itemInHand = player.Inventory.GetItemInHand();
 				itemInHand.Count--;
@@ -132,7 +136,7 @@ namespace MiNET.Items
 
 		public override string ToString()
 		{
-			return $"{GetType().Name}(Id={Id}, Meta={Metadata}, UniqueId={UniqueId}) {{Block={Block?.GetType().Name}}} Count={Count}, NBT={ExtraData}";
+			return $"{GetType().Name}(Name={Name}, Meta={Metadata}, UniqueId={UniqueId}) {{Block={Block?.GetType().Name}}} Count={Count}, NBT={ExtraData}";
 		}
 	}
 }

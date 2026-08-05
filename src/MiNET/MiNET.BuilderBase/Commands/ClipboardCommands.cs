@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using log4net;
 using MiNET.Blocks;
+using MiNET.Plugins;
 using MiNET.BuilderBase.Masks;
 using MiNET.Plugins.Attributes;
 using MiNET.Utils;
@@ -30,8 +31,13 @@ namespace MiNET.BuilderBase.Commands
 		}
 
 		[Command(Description = "Cut the selection to the clipboard")]
-		public void Cut(Player player, int leaveId = 0, int leaveData = 0)
+		public string Cut(Player player, BlockTypeEnum leaveBlock = null, BlockStates leaveStates = null)
 		{
+			Block leave = BlockFactory.GetBlockByName(leaveBlock?.Value ?? "minecraft:air");
+			if (leave == null) return $"There is no block called {leaveBlock?.Value}.";
+
+			if (leaveStates != null && !leaveStates.TryApplyTo(leave, out string error)) return error;
+
 			RegionSelector selector = RegionSelector.GetSelector(player);
 
 			Clipboard clipboard = new Clipboard(player.Level);
@@ -40,8 +46,8 @@ namespace MiNET.BuilderBase.Commands
 			clipboard.SourceMask = new AnyBlockMask();
 			clipboard.SourceFuncion = coordinates =>
 			{
-				var block = BlockFactory.GetBlockById((byte) leaveId);
-				block.Metadata = (byte) leaveData;
+				// A copy per position, or every placement would move the one block.
+				var block = (Block) leave.Clone();
 				block.Coordinates = coordinates;
 				EditSession.SetBlock(block);
 				return true;
@@ -60,6 +66,7 @@ namespace MiNET.BuilderBase.Commands
 			//	});
 			//});
 
+			return null;
 		}
 
 		[Command(Description = "Copy the selection to the clipboard")]

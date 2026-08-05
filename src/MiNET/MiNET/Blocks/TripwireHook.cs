@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public TripwireHook() : base(131)
 		{
-			IsSolid = false;
-			IsTransparent = true;
 		}
 	}
 }

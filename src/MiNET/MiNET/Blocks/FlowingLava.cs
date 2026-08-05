@@ -27,11 +27,8 @@ namespace MiNET.Blocks
 {
 	public partial class FlowingLava : Flowing
 	{
-		public FlowingLava() : base(10)
+		public FlowingLava() : base(10, "minecraft:lava")
 		{
-			LightLevel = 15;
-			BlastResistance = 500;
-			Hardness = 100;
 		}
 	}
 }

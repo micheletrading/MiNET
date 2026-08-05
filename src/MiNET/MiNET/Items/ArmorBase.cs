@@ -32,7 +32,7 @@ namespace MiNET.Items
 {
 	public abstract class ArmorHelmetBase : Item
 	{
-		protected ArmorHelmetBase(string name, short id, short metadata = 0, int count = 1) : base(name, id, metadata, count)
+		protected ArmorHelmetBase(string name, short metadata = 0, int count = 1) : base(name, metadata, count)
 		{
 		}
 
@@ -49,7 +49,7 @@ namespace MiNET.Items
 
 	public abstract class ArmorChestplateBase : Item
 	{
-		protected ArmorChestplateBase(string name, short id, short metadata = 0, int count = 1) : base(name, id, metadata, count)
+		protected ArmorChestplateBase(string name, short metadata = 0, int count = 1) : base(name, metadata, count)
 		{
 		}
 
@@ -66,7 +66,7 @@ namespace MiNET.Items
 
 	public abstract class ArmorLeggingsBase : Item
 	{
-		protected ArmorLeggingsBase(string name, short id, short metadata = 0, int count = 1) : base(name, id, metadata, count)
+		protected ArmorLeggingsBase(string name, short metadata = 0, int count = 1) : base(name, metadata, count)
 		{
 		}
 
@@ -83,7 +83,7 @@ namespace MiNET.Items
 
 	public abstract class ArmorBootsBase : Item
 	{
-		protected ArmorBootsBase(string name, short id, short metadata = 0, int count = 1) : base(name, id, metadata, count)
+		protected ArmorBootsBase(string name, short metadata = 0, int count = 1) : base(name, metadata, count)
 		{
 		}
 

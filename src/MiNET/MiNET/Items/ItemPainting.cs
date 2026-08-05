@@ -89,7 +89,7 @@ namespace MiNET.Items
 
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemPainting));
 
-		public ItemPainting() : base("minecraft:painting", 321)
+		public ItemPainting() : base("minecraft:painting")
 		{
 		}
 

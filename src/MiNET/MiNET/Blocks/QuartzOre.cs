@@ -32,13 +32,11 @@ namespace MiNET.Blocks
 	{
 		public QuartzOre() : base(153)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem(406, 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:quartz", 0, 1)};
 		}
 
 		public override float GetExperiencePoints()

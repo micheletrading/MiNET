@@ -36,17 +36,12 @@ namespace MiNET.Blocks
 {
 	public partial class StandingSignBase : Block
 	{
-		private readonly int _itemDropId;
+		private readonly string _itemDropName;
 
-		public StandingSignBase(int id, int itemDropId) : base(id)
+		public StandingSignBase(int id, string itemDropName) : base(id)
 		{
-			_itemDropId = itemDropId;
-			IsTransparent = true;
-			IsSolid = false;
-			BlastResistance = 5;
-			Hardness = 1;
+			_itemDropName = itemDropName;
 
-			IsFlammable = true; // Only in PE!!
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
@@ -75,48 +70,48 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem((short) _itemDropId)}; // Drop sign item
+			return new[] {ItemFactory.GetItemByName(_itemDropName)}; // Drop sign item
 		}
 	}
 
 	public partial class StandingSign : StandingSignBase
 	{
-		public StandingSign() : base(63, 323) { }
+		public StandingSign() : base(63, "minecraft:oak_sign") { }
 	}
 
 
 	public partial class SpruceStandingSign : StandingSignBase
 	{
-		public SpruceStandingSign() : base(436, 472) { }
+		public SpruceStandingSign() : base(436, "minecraft:spruce_sign") { }
 	}
 
 	public partial class BirchStandingSign : StandingSignBase
 	{
-		public BirchStandingSign() : base(441, 473) { }
+		public BirchStandingSign() : base(441, "minecraft:birch_sign") { }
 	}
 
 	public partial class JungleStandingSign : StandingSignBase
 	{
-		public JungleStandingSign() : base(443, 474) { }
+		public JungleStandingSign() : base(443, "minecraft:jungle_sign") { }
 	}
 
 	public partial class AcaciaStandingSign : StandingSignBase
 	{
-		public AcaciaStandingSign() : base(445, 475) { }
+		public AcaciaStandingSign() : base(445, "minecraft:acacia_sign") { }
 	}
 
 	public partial class DarkoakStandingSign : StandingSignBase
 	{
-		public DarkoakStandingSign() : base(447, 476) { }
+		public DarkoakStandingSign() : base(447, "minecraft:dark_oak_sign") { }
 	}
 
 	public partial class CrimsonStandingSign : StandingSignBase
 	{
-		public CrimsonStandingSign() : base(505, 753) { }
+		public CrimsonStandingSign() : base(505, "minecraft:crimson_sign") { }
 	}
 
 	public partial class WarpedStandingSign : StandingSignBase
 	{
-		public WarpedStandingSign() : base(506, 754) { }
+		public WarpedStandingSign() : base(506, "minecraft:warped_sign") { }
 	}
 }

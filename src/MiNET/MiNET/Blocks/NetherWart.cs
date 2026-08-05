@@ -32,8 +32,6 @@ namespace MiNET.Blocks
 	{
 		public NetherWart() : base(115)
 		{
-			IsTransparent = true;
-			IsSolid = false;
 		}
 
 		public override Item[] GetDrops(Item tool)
@@ -41,10 +39,10 @@ namespace MiNET.Blocks
 			if (Age == 3)
 			{
 				var rnd = new Random();
-				return new[] {ItemFactory.GetItem(372, 0, (2 + rnd.Next(3)))};
+				return new[] {ItemFactory.GetItemByName("minecraft:nether_wart", 0, (2 + rnd.Next(3)))};
 			}
 
-			return new[] {ItemFactory.GetItem(372, 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:nether_wart", 0, 1)};
 		}
 	}
 }

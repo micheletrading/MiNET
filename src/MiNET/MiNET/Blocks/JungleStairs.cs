@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public JungleStairs() : base(136)
 		{
-			BlastResistance = 15;
-			Hardness = 2;
-			IsFlammable = true;
 		}
 	}
 }

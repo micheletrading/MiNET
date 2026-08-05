@@ -27,11 +27,8 @@ namespace MiNET.Blocks
 {
 	public partial class Lava : Stationary
 	{
-		public Lava() : base(11)
+		public Lava() : base(11, "minecraft:flowing_lava")
 		{
-			LightLevel = 15;
-			BlastResistance = 500;
-			Hardness = 100;
 		}
 	}
 }

@@ -37,6 +37,7 @@ using MiNET.Net;
 using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
+using MiNET.Utils.IO;
 using MiNET.Utils.Skins;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Crypto.Agreement;
@@ -72,6 +73,31 @@ namespace MiNET
 		{
 		}
 
+		public virtual void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message)
+		{
+			_playerInfo.ProtocolVersion = message.protocolVersion;
+
+			var settings = McpeNetworkSettings.CreateObject();
+			settings.compressionThreshold = 1;
+			settings.compressionAlgorithm = (ushort) McpeNetworkSettings.Compressionalgorithm.Zlib;
+			settings.clientThrottleEnabled = false;
+			settings.clientThrottleThreshold = 0;
+			settings.clientThrottleScalar = 0;
+
+			// Pre-wrap the reply so the async send queue can't compress it. This is the one payload
+			// that carries neither compression nor a compressor id byte: the client only starts
+			// expecting them with the packet after this one. Compression starts with the first
+			// packet after this one, in both directions.
+			var wrapper = McpeWrapper.CreateObject();
+			wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
+			wrapper.payload = Compression.PackPacketsForWrapper([settings]);
+			wrapper.Encode();
+			_session.SendPacket(wrapper);
+
+			_bedrockHandler.CompressionEnabled = true;
+			_bedrockHandler.CompressionThreshold = 1;
+		}
+
 		public virtual void HandleMcpeLogin(McpeLogin message)
 		{
 			// Only one login!
@@ -94,6 +120,30 @@ namespace MiNET
 			////string fileName = Path.GetTempPath() + "Skin_" + Skin.SkinType + ".png";
 			////Log.Info($"Writing skin to filename: {fileName}");
 			////Skin.SaveTextureToFile(fileName, Skin.Texture);
+		}
+
+		/// <summary>
+		///     The player UUID for an Xbox-authenticated client, whose login token carries an XUID but
+		///     no identity GUID. This is not ours to invent: the client already knows what UUID it has
+		///     and matches the player list against it, so a made-up one makes every entry we send be
+		///     somebody else. Vanilla derives an RFC 4122 v3 (MD5) UUID from the XUID, and this
+		///     reproduces the exact value BDS 1.26.34 put on the wire for a live client (PMMP's
+		///     calculateUuidFromXuid does the same).
+		/// </summary>
+		private static Guid DeriveUuidFromXuid(string xuid)
+		{
+			if (string.IsNullOrEmpty(xuid)) return Guid.NewGuid();
+
+			byte[] hash = System.Security.Cryptography.MD5.HashData(Encoding.UTF8.GetBytes("pocket-auth-1-xuid:" + xuid));
+			hash[6] = (byte) ((hash[6] & 0x0f) | 0x30); // version 3
+			hash[8] = (byte) ((hash[8] & 0x3f) | 0x80); // variant RFC 4122
+
+			// Guid(byte[]) reads the first three groups little-endian; the UUID is big-endian.
+			return new Guid(
+				(hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3],
+				(short) ((hash[4] << 8) | hash[5]),
+				(short) ((hash[6] << 8) | hash[7]),
+				hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]);
 		}
 
 		public void DecodeCert(McpeLogin message)
@@ -135,10 +185,20 @@ namespace MiNET
 			{
 				{
 					IDictionary<string, dynamic> headers = JWT.Headers(skinData);
-					dynamic payload = JObject.Parse(JWT.Payload(skinData));
+					string clientDataJson = JWT.Payload(skinData);
+					ClientData clientData = ClientData.FromJson(clientDataJson);
 
 					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Header: {string.Join(";", headers)}");
-					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Payload:\n{payload.ToString()}");
+					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Payload:\n{clientDataJson}");
+
+					// Reverse-engineering aid: dump the full clientData JSON of a real client so
+					// the bot's login (CryptoUtils.EncodeSkinJwt) can be mirrored field by field.
+					string dumpDir = Environment.GetEnvironmentVariable("MINET_DUMP_CLIENTDATA");
+					if (!string.IsNullOrEmpty(dumpDir))
+					{
+						System.IO.Directory.CreateDirectory(dumpDir);
+						System.IO.File.WriteAllText(System.IO.Path.Combine(dumpDir, $"clientdata-{DateTime.UtcNow:HHmmss}.json"), clientDataJson);
+					}
 
 					// Skin JWT Payload: 
 
@@ -217,55 +277,22 @@ namespace MiNET
 						//-------------------------- ThirdPartyNameOnly
 						//-------------------------- PlatformOfflineId
 
-						_playerInfo.ClientId = payload.ClientRandomId;
-						_playerInfo.CurrentInputMode = payload.CurrentInputMode;
-						_playerInfo.DefaultInputMode = payload.DefaultInputMode;
-						_playerInfo.DeviceModel = payload.DeviceModel;
-						_playerInfo.DeviceOS = payload.DeviceOS;
-						_playerInfo.GameVersion = payload.GameVersion;
-						_playerInfo.GuiScale = payload.GuiScale;
-						_playerInfo.LanguageCode = payload.LanguageCode;
-						_playerInfo.PlatformChatId = payload.PlatformOnlineId;
-						_playerInfo.ServerAddress = payload.ServerAddress;
-						_playerInfo.UIProfile = payload.UIProfile;
-						_playerInfo.ThirdPartyName = payload.ThirdPartyName;
-						_playerInfo.TenantId = payload.TenantId;
-						_playerInfo.DeviceId = payload.DeviceId;
-
-						_playerInfo.Skin = new Skin()
-						{
-							Cape = new Cape()
-							{
-								Data = Convert.FromBase64String((string) payload.CapeData ?? string.Empty),
-								Id = payload.CapeId,
-								ImageHeight = payload.CapeImageHeight,
-								ImageWidth = payload.CapeImageWidth,
-								OnClassicSkin = payload.CapeOnClassicSkin,
-							},
-							SkinId = payload.SkinId,
-							ResourcePatch = Encoding.UTF8.GetString(Convert.FromBase64String((string) payload.SkinResourcePatch ?? string.Empty)),
-							Width = payload.SkinImageWidth,
-							Height = payload.SkinImageHeight,
-							Data = Convert.FromBase64String((string) payload.SkinData ?? string.Empty),
-							GeometryData = Encoding.UTF8.GetString(Convert.FromBase64String((string) payload.SkinGeometryData ?? string.Empty)),
-							AnimationData = payload.SkinAnimationData,
-							IsPremiumSkin = payload.PremiumSkin,
-							IsPersonaSkin = payload.PersonaSkin,
-						};
-						foreach (dynamic animationData in payload.AnimatedImageData)
-						{
-							_playerInfo.Skin.Animations.Add(
-								new Animation()
-								{
-									Image = Convert.FromBase64String((string) animationData.Image ?? string.Empty),
-									ImageHeight = animationData.ImageHeight,
-									ImageWidth = animationData.ImageWidth,
-									FrameCount = animationData.Frames,
-									Expression = animationData.AnimationExpression,
-									Type = animationData.Type,
-								}
-							);
-						}
+						_playerInfo.ClientId = clientData.ClientRandomId;
+						_playerInfo.CurrentInputMode = clientData.CurrentInputMode;
+						_playerInfo.DefaultInputMode = clientData.DefaultInputMode;
+						_playerInfo.DeviceModel = clientData.DeviceModel;
+						_playerInfo.DeviceOS = clientData.DeviceOS;
+						_playerInfo.GameVersion = clientData.GameVersion;
+						_playerInfo.GuiScale = clientData.GuiScale;
+						_playerInfo.LanguageCode = clientData.LanguageCode;
+						_playerInfo.PlatformChatId = clientData.PlatformOnlineId;
+						_playerInfo.ServerAddress = clientData.ServerAddress;
+						_playerInfo.UIProfile = clientData.UIProfile;
+						_playerInfo.ThirdPartyName = clientData.ThirdPartyName;
+						_playerInfo.TenantId = clientData.TenantId;
+						_playerInfo.DeviceId = clientData.DeviceId;
+						
+						_playerInfo.Skin = clientData.ToSkin();
 					}
 					catch (Exception e)
 					{
@@ -278,12 +305,57 @@ namespace MiNET
 
 					if (Log.IsDebugEnabled) Log.Debug($"Certificate JSON:\n{json}");
 
+					// Protocol 1.21.90+ wraps the login identity in an authentication
+					// envelope: {Certificate, AuthenticationType, Token}. The real cert
+					// chain (online auth) lives in Certificate; offline identity is in the
+					// self-signed OIDC Token (protocol 944+), with an empty chain.
+					string multiplayerToken = null;
+					if (json["AuthenticationType"] != null)
+					{
+						// 1.21.90+ authentication envelope: {AuthenticationType, Token[, Certificate]}.
+						// Online auth (type 0) omits the cert chain entirely; identity is in the Token.
+						// Offline (type 2) carries an empty chain and our self-signed OIDC Token.
+						multiplayerToken = (string) json["Token"];
+						string certificate = (string) json["Certificate"];
+						if (!string.IsNullOrEmpty(certificate)) json = JObject.Parse(certificate);
+					}
+
 					JArray chain = json.chain;
 					//var chainArray = chain.ToArray();
 
 					string validationKey = null;
 					string identityPublicKey = null;
 
+					bool offlineChain = chain == null || chain.Count == 0 || string.IsNullOrEmpty((string) chain[0]);
+					if (offlineChain && !string.IsNullOrEmpty(multiplayerToken))
+					{
+						// Identity comes from the Token. Two shapes: our offline OIDC token has
+						// {cpk, xname, identity}; the real client's online token (Full auth) has
+						// {cpk, xname, xid, mid, sub} with no identity GUID.
+						// NOTE: a public server MUST validate this token's signature against the
+						// franchise JWKS (authorization.franchise.minecraft-services.net). We trust
+						// it here for local play.
+						dynamic tokenPayload = JObject.Parse(JWT.Payload(multiplayerToken));
+						string xuid = (string) tokenPayload.xid;
+						string identity = (string) tokenPayload.identity;
+						if (string.IsNullOrEmpty(identity))
+						{
+							string seed = !string.IsNullOrEmpty(xuid) ? xuid : (string) tokenPayload.mid ?? (string) tokenPayload.sub;
+							identity = DeriveUuidFromXuid(seed).ToString();
+						}
+
+						_playerInfo.CertificateData = new CertificateData
+						{
+							IdentityPublicKey = (string) tokenPayload.cpk,
+							ExtraData = new ExtraData
+							{
+								DisplayName = (string) tokenPayload.xname,
+								Identity = identity,
+								Xuid = string.IsNullOrEmpty(xuid) ? null : xuid
+							}
+						};
+					}
+					else
 					foreach (JToken token in chain)
 					{
 						IDictionary<string, dynamic> headers = JWT.Headers(token.ToString());
@@ -412,14 +484,20 @@ namespace MiNET
 							ECPublicKeyParameters pubAsyKey = (ECPublicKeyParameters) keyPair.Public;
 							ECPrivateKeyParameters privAsyKey = (ECPrivateKeyParameters) keyPair.Private;
 
-							var secretPrepend = Encoding.UTF8.GetBytes("RANDOM SECRET");
+							// Per-session nonce. It seeds the key derivation below and is handed to the client
+							// so it derives the same key. This used to be the literal string "RANDOM SECRET",
+							// which was neither: the same 13 bytes on every MiNET server and every session,
+							// where vanilla sends 16 fresh random bytes. The session key stayed unpredictable
+							// (the ECDH pair above is ephemeral) but a constant here is a MiNET fingerprint on
+							// the wire and gives up the defence in depth a real nonce is there for.
+							byte[] salt = RandomNumberGenerator.GetBytes(16);
 
 							ECDHBasicAgreement agreement = new ECDHBasicAgreement();
 							agreement.Init(keyPair.Private);
 							byte[] secret;
 							using (var sha = SHA256.Create())
 							{
-								secret = sha.ComputeHash(secretPrepend.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
+								secret = sha.ComputeHash(salt.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
 							}
 
 							Debug.Assert(secret.Length == 32);
@@ -462,11 +540,13 @@ namespace MiNET
 
 							var signKey = ECDsa.Create(signParam);
 							var b64PublicKey = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(pubAsyKey).GetEncoded().EncodeBase64();
-							var handshakeJson = new HandshakeData
-							{
-								salt = secretPrepend.EncodeBase64(),
-								signedToken = signedToken
-							};
+							// Only the claims vanilla sends. signedToken is Edu-only, and serializing it as an
+							// explicit null put 19 bytes on the wire that BDS never sends. It cannot be left to
+							// the serializer to drop: NewtonsoftMapper does set NullValueHandling.Ignore, but it
+							// installs itself from a static constructor nothing on the server side ever runs, so
+							// jose-jwt's own mapper is what serializes this.
+							var handshakeJson = new Dictionary<string, object> {{"salt", salt.EncodeBase64()}};
+							if (signedToken != null) handshakeJson["signedToken"] = signedToken;
 							string val = JWT.Encode(handshakeJson, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64PublicKey}});
 
 							Log.Debug($"Headers:\n{string.Join(";", JWT.Headers(val))}");
@@ -538,15 +618,15 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeRiderJump(McpeRiderJump message)
-		{
-		}
-
-		public void HandleMcpeTickSync(McpeTickSync message)
-		{
-		}
-
 		public void HandleMcpeLevelSoundEvent(McpeLevelSoundEvent message)
+		{
+		}
+
+		public void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
+		{
+		}
+
+		public void HandleMcpeEmoteList(McpeEmoteList message)
 		{
 		}
 
@@ -555,6 +635,22 @@ namespace MiNET
 		}
 
 		public void HandleMcpeNetworkSettings(McpeNetworkSettings message)
+		{
+		}
+
+		public void HandleMcpeEmote(McpeEmote message)
+		{
+		}
+
+		public void HandleMcpeMultiplayerSettings(McpeMultiplayerSettings message)
+		{
+		}
+
+		public void HandleMcpeSettingsCommand(McpeSettingsCommand message)
+		{
+		}
+
+		public void HandleMcpeAnvilDamage(McpeAnvilDamage message)
 		{
 		}
 
@@ -572,12 +668,15 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
+		public void HandleMcpePositionTrackingDbClientRequest(McpePositionTrackingDbClientRequest message)
 		{
 		}
 
-		/// <inheritdoc />
-		public void HandleMcpeFilterTextPacket(McpeFilterTextPacket message)
+		public void HandleMcpeDebugInfo(McpeDebugInfo message)
+		{
+		}
+
+		public void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
 		{
 		}
 
@@ -657,19 +756,7 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeCraftingEvent(McpeCraftingEvent message)
-		{
-		}
-
-		public void HandleMcpeAdventureSettings(McpeAdventureSettings message)
-		{
-		}
-
 		public void HandleMcpeBlockEntityData(McpeBlockEntityData message)
-		{
-		}
-
-		public void HandleMcpePlayerInput(McpePlayerInput message)
 		{
 		}
 
@@ -682,10 +769,6 @@ namespace MiNET
 		}
 
 		public void HandleMcpeRequestChunkRadius(McpeRequestChunkRadius message)
-		{
-		}
-
-		public void HandleMcpeItemFrameDropItem(McpeItemFrameDropItem message)
 		{
 		}
 
@@ -733,7 +816,59 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeLevelSoundEventOld(McpeLevelSoundEventOld message)
+		public void HandleMcpePlayerToggleCrafterSlotRequest(McpePlayerToggleCrafterSlotRequest message)
+		{
+		}
+
+		public void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message)
+		{
+		}
+
+		public void HandleMcpeServerBoundDiagnostics(McpeServerBoundDiagnostics message)
+		{
+		}
+
+		public void HandleMcpeClientCameraAimAssist(McpeClientCameraAimAssist message)
+		{
+		}
+
+		public void HandleMcpeClientMovementPredictionSync(McpeClientMovementPredictionSync message)
+		{
+		}
+
+		public void HandleMcpeUpdateClientOptions(McpeUpdateClientOptions message)
+		{
+		}
+
+		public void HandleMcpeServerboundPackSettingChange(McpeServerboundPackSettingChange message)
+		{
+		}
+
+		public void HandleMcpeServerboundDataStore(McpeServerboundDataStore message)
+		{
+		}
+
+		public void HandleMcpePartyDestinationCookieResponse(McpePartyDestinationCookieResponse message)
+		{
+		}
+
+		public void HandleMcpeResourcePacksReadyForValidation(McpeResourcePacksReadyForValidation message)
+		{
+		}
+
+		public void HandleMcpePartyChanged(McpePartyChanged message)
+		{
+		}
+
+		public void HandleMcpeServerboundDataDrivenScreenClosed(McpeServerboundDataDrivenScreenClosed message)
+		{
+		}
+
+		public void HandleMcpeSetPlayerInventoryOptions(McpeSetPlayerInventoryOptions message)
+		{
+		}
+
+		public void HandleMcpeCreatePhoto(McpeCreatePhoto message)
 		{
 		}
 
@@ -741,13 +876,34 @@ namespace MiNET
 		{
 		}
 
-		public void HandleMcpeLevelSoundEventV2(McpeLevelSoundEventV2 message)
+		public void HandleMcpeScriptMessage(McpeScriptMessage message)
 		{
 		}
 
-		public void HandleMcpeScriptCustomEvent(McpeScriptCustomEvent message)
+		public void HandleMcpeCodeBuilderSource(McpeCodeBuilderSource message)
 		{
 		}
+
+		public void HandleMcpeChangeMobProperty(McpeChangeMobProperty message)
+		{
+		}
+
+		public void HandleMcpeRequestAbility(McpeRequestAbility message)
+		{
+		}
+
+		public void HandleMcpeRequestPermissions(McpeRequestPermissions message)
+		{
+		}
+
+		public void HandleMcpeEditorNetwork(McpeEditorNetwork message)
+		{
+		}
+
+		public void HandleMcpeGameTestRequest(McpeGameTestRequest message)
+		{
+		}
+
 	}
 
 	public interface IServerManager

@@ -74,6 +74,11 @@ namespace MiNET.Utils.Skins
 		public Cape Cape { get; set; } = new Cape();
 		public string SkinId { get; set; }
 
+		// The wire's "full skin id" trailer. Set when decoded off the wire (so a decode->encode
+		// round trip re-emits the same bytes); left null for server-authored skins, which fall
+		// back to synthesizing one from SkinId + current time (see Packet.Write(Skin)).
+		public string FullSkinId { get; set; }
+
 		public string PlayFabId { get; set; }
 
 		public string ResourcePatch { get; set; } // contains GeometryName
@@ -102,6 +107,7 @@ namespace MiNET.Utils.Skins
 		public List<SkinPiece> SkinPieces { get; set; } = new List<SkinPiece>();
 		public bool IsVerified { get; set; }
 		public bool IsPrimaryUser { get; set; }
+		public bool OverrideAppearance { get; set; }
 
 		public static byte[] GetTextureFromFile(string filename)
 		{

@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public CobblestoneWall() : base(139)
 		{
-			IsTransparent = true;
-			BlastResistance = 30;
-			Hardness = 2;
 		}
 	}
 }

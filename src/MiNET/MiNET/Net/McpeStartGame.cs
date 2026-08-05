@@ -1,7 +1,9 @@
-﻿using System;
+using System;
 using System.Numerics;
+using fNbt;
 using log4net;
 using MiNET.Utils;
+using MiNET.Utils.Nbt;
 
 namespace MiNET.Net
 {
@@ -10,35 +12,25 @@ namespace MiNET.Net
 		public short BiomeType { get; set; }
 		public string BiomeName { get; set; }
 		public int Dimension { get; set; }
-		
-		public void Read(Packet packet)
-		{
-			BiomeType = packet.ReadShort();
-			BiomeName = packet.ReadString();
-			Dimension = packet.ReadVarInt();
-		}
-
-		public void Write(Packet packet)
-		{
-			packet.Write(BiomeType);
-			packet.Write(BiomeName);
-			packet.WriteVarInt(Dimension);
-		}
 	}
-	
+
 	public class LevelSettings
 	{
 			public long seed; // = null;
 			public SpawnSettings spawnSettings;
-			
+
     		public int generator; // = null;
     		public int gamemode; // = null;
+    		public bool hardcore; // = null;
     		public int difficulty; // = null;
     		public int x; // = null;
     		public int y; // = null;
     		public int z; // = null;
     		public bool hasAchievementsDisabled; // = null;
-    		public int time; // = null;
+    		public int editorWorldType; // = null;
+    		public bool createdInEditor; // = null;
+    		public bool exportedFromEditor; // = null;
+    		public int time; // = null; // day_cycle_stop_time
     		public int eduOffer; // = null;
     		public bool hasEduFeaturesEnabled; // = null;
     		public string eduProductUuid; // = null;
@@ -64,29 +56,43 @@ namespace MiNET.Net
     		public bool isFromWorldTemplate; // = null;
     		public bool isWorldTemplateOptionLocked; // = null;
     		public bool onlySpawnV1Villagers; // = null;
+    		public bool personaDisabled; // = null;
+    		public bool customSkinsDisabled; // = null;
+    		public bool emoteChatMuted; // = null;
     		public string gameVersion; // = null;
     		public int limitedWorldWidth; // = null;
     		public int limitedWorldLength; // = null;
     		public bool isNewNether; // = null;
     		public EducationUriResource eduSharedUriResource = null;
+    		public bool hasExperimentalGameplayOverride; // = null; // optional<bool> has-value flag
     		public bool experimentalGameplayOverride; // = null;
-    		
+    		public byte chatRestrictionLevel; // = null;
+    		public bool disablePlayerInteractions; // = null;
+    		public int serverEditorConnectionPolicy; // = null;
+    		public bool allowAnonymousBlockDropsInEditorWorlds; // = null;
+
 		public void Write(Packet packet)
 		{
-			packet.Write(seed);
-			
+			packet.Write(unchecked((ulong) seed));
+
 			var s = spawnSettings ?? new SpawnSettings();
-			s.Write(packet);
-			
+			packet.Write(s.BiomeType);
+			packet.Write(s.BiomeName);
+			packet.WriteSignedVarInt(s.Dimension);
+
 			packet.WriteSignedVarInt(generator);
 			packet.WriteSignedVarInt(gamemode);
+			packet.Write(hardcore);
 			packet.WriteSignedVarInt(difficulty);
-			
+
 			packet.WriteSignedVarInt(x);
-			packet.WriteVarInt(y);
+			packet.WriteSignedVarInt(y);
 			packet.WriteSignedVarInt(z);
-			
+
 			packet.Write(hasAchievementsDisabled);
+			packet.WriteSignedVarInt(editorWorldType);
+			packet.Write(createdInEditor);
+			packet.Write(exportedFromEditor);
 			packet.WriteSignedVarInt(time);
 			packet.WriteSignedVarInt(eduOffer);
 			packet.Write(hasEduFeaturesEnabled);
@@ -102,7 +108,7 @@ namespace MiNET.Net
 			packet.Write(isTexturepacksRequired);
 			packet.Write(gamerules);
 			packet.Write(experiments);
-			packet.Write(false);//ExperimentsPreviouslyToggled
+			packet.Write(false); // experiments_previously_used
 			packet.Write(bonusChest);
 			packet.Write(mapEnabled);
 			packet.WriteSignedVarInt(permissionLevel);
@@ -114,30 +120,44 @@ namespace MiNET.Net
 			packet.Write(isFromWorldTemplate);
 			packet.Write(isWorldTemplateOptionLocked);
 			packet.Write(onlySpawnV1Villagers);
+			packet.Write(personaDisabled);
+			packet.Write(customSkinsDisabled);
+			packet.Write(emoteChatMuted);
 			packet.Write(gameVersion);
 			packet.Write(limitedWorldWidth);
 			packet.Write(limitedWorldLength);
 			packet.Write(isNewNether);
 			packet.Write(eduSharedUriResource ?? new EducationUriResource("", ""));
-			packet.Write(false);
+			packet.Write(hasExperimentalGameplayOverride); // optional<bool>: value only follows when set
+			if (hasExperimentalGameplayOverride) packet.Write(experimentalGameplayOverride);
+			packet.Write(chatRestrictionLevel);
+			packet.Write(disablePlayerInteractions);
+			packet.WriteSignedVarInt(serverEditorConnectionPolicy);
+			packet.Write(allowAnonymousBlockDropsInEditorWorlds);
 		}
 
 		public void Read(Packet packet)
 		{
-			seed = packet.ReadLong();
-			
+			seed = unchecked((long) packet.ReadUlong());
+
 			spawnSettings = new SpawnSettings();
-			spawnSettings.Read(packet);
-			
+			spawnSettings.BiomeType = packet.ReadShort();
+			spawnSettings.BiomeName = packet.ReadString();
+			spawnSettings.Dimension = packet.ReadSignedVarInt();
+
 			generator = packet.ReadSignedVarInt();
 			gamemode = packet.ReadSignedVarInt();
+			hardcore = packet.ReadBool();
 			difficulty = packet.ReadSignedVarInt();
-			
+
 			x = packet.ReadSignedVarInt();
-			y = packet.ReadVarInt();
+			y = packet.ReadSignedVarInt();
 			z = packet.ReadSignedVarInt();
-			
+
 			hasAchievementsDisabled = packet.ReadBool();
+			editorWorldType = packet.ReadSignedVarInt();
+			createdInEditor = packet.ReadBool();
+			exportedFromEditor = packet.ReadBool();
 			time = packet.ReadSignedVarInt();
 			eduOffer = packet.ReadSignedVarInt();
 			hasEduFeaturesEnabled = packet.ReadBool();
@@ -153,7 +173,7 @@ namespace MiNET.Net
 			isTexturepacksRequired = packet.ReadBool();
 			gamerules = packet.ReadGameRules();
 			experiments = packet.ReadExperiments();
-			packet.ReadBool();
+			packet.ReadBool(); // experiments_previously_used
 			bonusChest = packet.ReadBool();
 			mapEnabled = packet.ReadBool();
 			permissionLevel = packet.ReadSignedVarInt();
@@ -165,50 +185,60 @@ namespace MiNET.Net
 			isFromWorldTemplate = packet.ReadBool();
 			isWorldTemplateOptionLocked = packet.ReadBool();
 			onlySpawnV1Villagers = packet.ReadBool();
+			personaDisabled = packet.ReadBool();
+			customSkinsDisabled = packet.ReadBool();
+			emoteChatMuted = packet.ReadBool();
 			gameVersion = packet.ReadString();
 			limitedWorldWidth = packet.ReadInt();
 			limitedWorldLength = packet.ReadInt();
 			isNewNether = packet.ReadBool();
 			eduSharedUriResource = packet.ReadEducationUriResource();
-			if (packet.ReadBool())
-			{
-				experimentalGameplayOverride = packet.ReadBool();
-			}
-			else
-			{
-				experimentalGameplayOverride = false;
-			}
+			hasExperimentalGameplayOverride = packet.ReadBool();
+			experimentalGameplayOverride = hasExperimentalGameplayOverride && packet.ReadBool();
+			chatRestrictionLevel = packet.ReadByte();
+			disablePlayerInteractions = packet.ReadBool();
+			serverEditorConnectionPolicy = packet.ReadSignedVarInt();
+			allowAnonymousBlockDropsInEditorWorlds = packet.ReadBool();
 		}
 	}
-	
+
 	public partial class McpeStartGame : Packet<McpeStartGame>
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(McpeStartGame));
-		
+
 		public long entityIdSelf; // = null;
 		public long runtimeEntityId; // = null;
 		public int playerGamemode; // = null;
 		public Vector3 spawn; // = null;
 		public Vector2 rotation; // = null;
-		
+
 		public string levelId; // = null;
 		public string worldName; // = null;
 		public string premiumWorldTemplateId; // = null;
 		public bool isTrial; // = null;
-		public int movementType; // = null;
-		public int movementRewindHistorySize; // = null;
-		public bool enableNewBlockBreakSystem; // = null;
+		public int movementRewindHistorySize; // = null; // rewind_history_size
+		public bool enableNewBlockBreakSystem; // = null; // server_authoritative_block_breaking
 		public long currentTick; // = null;
 		public int enchantmentSeed; // = null;
 		public BlockPalette blockPalette; // = null;
-		public ulong blockPaletteChecksum;
-		public Itemstates itemstates; // = null;
 		public string multiplayerCorrelationId; // = null;
-		public bool enableNewInventorySystem; // = null;
-		public string serverVersion; // = null;
+		public bool enableNewInventorySystem; // = null; // server_authoritative_inventory
+		public string serverVersion; // = null; // engine
+		public Nbt propertyData; // = null;
+		public ulong blockPaletteChecksum;
+		public UUID worldTemplateId; // = null;
+		public bool clientSideGeneration; // = null;
+		public bool blockNetworkIdsAreHashes; // = null;
+		public bool serverControlledSound; // = null;
+		public bool isChatLogging; // = null;
+		public bool hasServerJoinInfo; // = null;
+		public string serverIdentifier; // = null;
+		public string scenarioIdentifier; // = null;
+		public string worldIdentifier; // = null;
+		public string ownerIdentifier; // = null;
 
 		public LevelSettings levelSettings = new LevelSettings();
-		
+
 		partial void AfterEncode()
 		{
 			WriteSignedVarLong(entityIdSelf);
@@ -216,33 +246,50 @@ namespace MiNET.Net
 			WriteSignedVarInt(playerGamemode);
 			Write(spawn);
 			Write(rotation);
-			
+
 			LevelSettings s = levelSettings ?? new LevelSettings();
 			s.Write(this);
-			
+
 			Write(levelId);
 			Write(worldName);
 			Write(premiumWorldTemplateId);
 			Write(isTrial);
-			
-			//Player movement settings
-			WriteSignedVarInt(movementType);
+
 			WriteSignedVarInt(movementRewindHistorySize);
 			Write(enableNewBlockBreakSystem);
-			
-			Write(currentTick);
+
+			Write(unchecked((ulong) currentTick));
 			WriteSignedVarInt(enchantmentSeed);
-			
+
 			Write(blockPalette);
 
-			Write(itemstates);
-			
 			Write(multiplayerCorrelationId);
 			Write(enableNewInventorySystem);
 			Write(serverVersion);
+
+			var pd = propertyData ?? new Nbt {NbtFile = new NbtFile(new NbtCompound("")) {BigEndian = false, UseVarInt = true}};
+			pd.NbtFile.UseVarInt = true;
+			Write(pd);
+
 			Write(blockPaletteChecksum);
+			Write(worldTemplateId ?? new UUID(new byte[16]));
+			Write(clientSideGeneration);
+			Write(blockNetworkIdsAreHashes);
+			Write(serverControlledSound);
+			Write(isChatLogging);
+
+			Write(hasServerJoinInfo);
+			if (hasServerJoinInfo)
+			{
+				WriteServerJoinInfo();
+			}
+
+			Write(serverIdentifier);
+			Write(scenarioIdentifier);
+			Write(worldIdentifier);
+			Write(ownerIdentifier);
 		}
-		
+
 		partial void AfterDecode()
 		{
 			entityIdSelf = ReadSignedVarLong();
@@ -253,18 +300,16 @@ namespace MiNET.Net
 
 			levelSettings = new LevelSettings();
 			levelSettings.Read(this);
-			
+
 			levelId = ReadString();
 			worldName = ReadString();
 			premiumWorldTemplateId = ReadString();
 			isTrial = ReadBool();
-			
-			//Player movement settings
-			movementType = ReadSignedVarInt();
+
 			movementRewindHistorySize = ReadSignedVarInt();
 			enableNewBlockBreakSystem = ReadBool();
-			
-			currentTick = ReadLong();
+
+			currentTick = unchecked((long) ReadUlong());
 			enchantmentSeed = ReadSignedVarInt();
 
 			try
@@ -276,13 +321,70 @@ namespace MiNET.Net
 				Log.Warn($"Failed to read complete blockpallete", ex);
 				return;
 			}
-			
-			itemstates = ReadItemstates();
-			
+
 			multiplayerCorrelationId = ReadString();
 			enableNewInventorySystem = ReadBool();
 			serverVersion = ReadString();
+			propertyData = ReadNbt();
 			blockPaletteChecksum = ReadUlong();
+			worldTemplateId = ReadUUID();
+			clientSideGeneration = ReadBool();
+			blockNetworkIdsAreHashes = ReadBool();
+			serverControlledSound = ReadBool();
+			isChatLogging = ReadBool();
+
+			hasServerJoinInfo = ReadBool();
+			if (hasServerJoinInfo)
+			{
+				ReadServerJoinInfo();
+			}
+
+			serverIdentifier = ReadString();
+			scenarioIdentifier = ReadString();
+			worldIdentifier = ReadString();
+			ownerIdentifier = ReadString();
+		}
+
+		/// <summary>
+		///     Reads the (currently unused by MiNET) server_join_info container so the remainder of the
+		///     packet stays in sync. Vanilla BDS 1.26.34 DOES send it with all three optional
+		///     sub-blocks absent (verified live 2026-07-30); the sub-block content is Realms
+		///     gathering features.
+		/// </summary>
+		private void ReadServerJoinInfo()
+		{
+			bool hasGatheringInfo = ReadBool();
+			if (hasGatheringInfo)
+			{
+				ReadUUID(); // experience_id
+				ReadString(); // experience_name
+				ReadUUID(); // experience_world_id
+				ReadString(); // experience_world_name
+				ReadString(); // creator_id
+				ReadUUID(); // target_id
+				ReadString(); // scenario_id
+				ReadString(); // server_id
+			}
+
+			if (ReadBool()) // store_entry_point_info
+			{
+				ReadString(); // store_id
+				ReadString(); // store_name
+			}
+
+			if (ReadBool()) // presence_info
+			{
+				if (ReadBool()) ReadString(); // experience_name
+				if (ReadBool()) ReadString(); // world_name
+				ReadString(); // rich_presence_id (not optional)
+			}
+		}
+
+		private void WriteServerJoinInfo()
+		{
+			Write(false); // has_gathering_info
+			Write(false); // store_entry_point_info present
+			Write(false); // presence_info present
 		}
 
 		/// <inheritdoc />
@@ -298,17 +400,27 @@ namespace MiNET.Net
 			worldName=default(string);
 			premiumWorldTemplateId=default(string);
 			isTrial=default(bool);
-			movementType=default(int);
 			movementRewindHistorySize=default(int);
 			enableNewBlockBreakSystem=default(bool);
 			currentTick=default(long);
 			enchantmentSeed=default(int);
 			blockPalette=default(BlockPalette);
-			itemstates=default(Itemstates);
 			multiplayerCorrelationId=default(string);
 			enableNewInventorySystem=default(bool);
 			serverVersion=default(string);
-			
+			propertyData=default(Nbt);
+			blockPaletteChecksum=default(ulong);
+			worldTemplateId=default(UUID);
+			clientSideGeneration=default(bool);
+			blockNetworkIdsAreHashes=default(bool);
+			serverControlledSound=default(bool);
+			isChatLogging=default(bool);
+			hasServerJoinInfo=default(bool);
+			serverIdentifier=default(string);
+			scenarioIdentifier=default(string);
+			worldIdentifier=default(string);
+			ownerIdentifier=default(string);
+
 			base.Reset();
 		}
 	}

@@ -613,8 +613,7 @@ namespace MiNET.Worlds
 		{
 			if (chunk == null) return true;
 
-			int bid = chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
-			return bid == 0 || (BlockFactory.TransparentBlocks[bid] == 1 && bid != 18 && bid != 161 && bid != 30 && bid != 8 && bid != 9);
+			return BlockFactory.SkyLightPasses(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public static int GetDiffuseLevel(BlockCoordinates blockCoordinates, SubChunk section)
@@ -626,8 +625,7 @@ namespace MiNET.Worlds
 			int by = blockCoordinates.Y;
 			int bz = blockCoordinates.Z & 0x0f;
 
-			int bid = section.GetBlockId(bx, by - 16 * (by >> 4), bz);
-			return bid == 8 || bid == 9 ? 3 : bid == 18 || bid == 161 || bid == 30 ? 2 : 1;
+			return BlockFactory.GetLightDiffusion(section.GetBlockRuntimeId(bx, by - 16 * (by >> 4), bz));
 		}
 
 		public static bool IsTransparent(BlockCoordinates blockCoordinates, SubChunk section)
@@ -638,8 +636,7 @@ namespace MiNET.Worlds
 			int by = blockCoordinates.Y;
 			int bz = blockCoordinates.Z & 0x0f;
 
-			int bid = section.GetBlockId(bx, by - 16 * (by >> 4), bz);
-			return bid == 0 || BlockFactory.TransparentBlocks[bid] == 1;
+			return BlockFactory.IsTransparent(section.GetBlockRuntimeId(bx, by - 16 * (by >> 4), bz));
 		}
 
 		public static byte GetSkyLight(BlockCoordinates blockCoordinates, SubChunk chunk)

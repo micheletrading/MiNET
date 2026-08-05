@@ -70,7 +70,7 @@ namespace MiNET
 			{
 				var nbtItem = (NbtCompound) slots[i];
 
-				Item item = ItemFactory.GetItem(nbtItem["Name"].StringValue, nbtItem["Damage"].ShortValue, nbtItem["Count"].ByteValue);
+				Item item = ItemFactory.GetItemByName(nbtItem["Name"].StringValue, nbtItem["Damage"].ShortValue, nbtItem["Count"].ByteValue);
 				byte slotIdx = nbtItem["Slot"].ByteValue;
 				Log.Debug($"Chest item {slotIdx}: {item}");
 				Slots[slotIdx] = item;
@@ -109,12 +109,12 @@ namespace MiNET
 			OnInventoryChange(null, slot, slotData);
 		}
 
-		public void IncreaseSlot(byte slot, short itemId, short metadata)
+		public void IncreaseSlot(byte slot, string itemName, short metadata)
 		{
 			Item slotData = Slots[slot];
 			if (slotData is ItemAir)
 			{
-				slotData = ItemFactory.GetItem(itemId, metadata, 1);
+				slotData = ItemFactory.GetItemByName(itemName, metadata, 1);
 			}
 			else
 			{

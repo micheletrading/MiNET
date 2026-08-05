@@ -33,7 +33,7 @@ namespace MiNET.Items
 {
 	public class ItemBanner : ItemBlock
 	{
-		public ItemBanner() : base("minecraft:banner", 446, 0)
+		public ItemBanner() : base("minecraft:banner", 0)
 		{
 			MaxStackSize = 16;
 		}
@@ -48,14 +48,14 @@ namespace MiNET.Items
 
 			if (face == BlockFace.Up)
 			{
-				if (!(BlockFactory.GetBlockById(176) is StandingBanner banner)) return;
+				if (BlockFactory.GetBlockByName("minecraft:standing_banner") is not StandingBanner banner) return;
 				banner.ExtraData = ExtraData;
 				banner.Base = Metadata;
 				Block = banner;
 			}
 			else
 			{
-				if (!(BlockFactory.GetBlockById(176) is WallBanner banner)) return;
+				if (BlockFactory.GetBlockByName("minecraft:wall_banner") is not WallBanner banner) return;
 				banner.ExtraData = ExtraData;
 				banner.Base = Metadata;
 				Block = banner;

@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemLeatherHelmet : ArmorHelmetBase
 	{
-		public ItemLeatherHelmet() : base("minecraft:leather_helmet", 298)
+		public ItemLeatherHelmet() : base("minecraft:leather_helmet")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Helmet;

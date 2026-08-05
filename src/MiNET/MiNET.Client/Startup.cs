@@ -24,9 +24,11 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
@@ -52,7 +54,13 @@ namespace MiNET.Client
 			Console.WriteLine(MiNET);
 			Console.WriteLine("Starting client...");
 
-			var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), "TheGrey");
+			// Username from the environment so several bots can be on a server at once. Questions
+			// about who appears in a player list, and how many records each join produces, cannot be
+			// answered with a single connection: with one player "everyone" and "everyone but me"
+			// are the same list.
+			string username = Environment.GetEnvironmentVariable("MINET_USERNAME") ?? "TheGrey";
+
+			var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), username);
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), "TheGrey");
 			//var client = new MiNetClient(new IPEndPoint(Dns.GetHostEntry("test.pmmp.io").AddressList[0], 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("192.168.0.4"), 19162), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
@@ -61,6 +69,7 @@ namespace MiNET.Client
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Loopback, 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 
 			client.MessageHandler = new BedrockTraceHandler(client);
+			client.UseBlobCache = false;
 
 			client.StartClient();
 			Log.Warn("Client listening for connecting on: " + client.ClientEndpoint);
@@ -87,12 +96,19 @@ namespace MiNET.Client
 
 			client.HasSpawned = true;
 
+			if (Environment.GetEnvironmentVariable("MINET_EMULATE") == "1")
+			{
+				RealClientEmulator.Run(client);
+			}
+
 			Action<Task, PlayerLocation> doMoveTo = BotHelpers.DoMoveTo(client);
 
 			Action<Task, string> doSendCommand = BotHelpers.DoSendCommand(client);
 
 			Task.Run(BotHelpers.DoWaitForSpawn(client))
-				.ContinueWith(t => doSendCommand(t, $"/me says \"I spawned at {client.CurrentLocation}\""))
+				// Bot commands disabled: McpeCommandRequest is not updated to the current
+				// protocol yet, so keep un-modernized packets off the wire.
+				//.ContinueWith(t => doSendCommand(t, $"/me says \"I spawned at {client.CurrentLocation}\""))
 				//.ContinueWith(task =>
 				//{
 				//	var request = new McpeCommandRequest();
@@ -108,19 +124,21 @@ namespace MiNET.Client
 				//	client.SendPacket(request);
 				//})
 
-				//.ContinueWith(t => BotHelpers.DoMobEquipment(client)(t, new ItemBlock(new Cobblestone(), 0) {Count = 64}, 0))
+				//.ContinueWith(t => BotHelpers.DoMobEquipment(client)(t, new ItemBlock(new Cobblestone()) {Count = 64}, 0))
 				//.ContinueWith(t => BotHelpers.DoMoveTo(client)(t, new PlayerLocation(client.CurrentLocation.ToVector3() - new Vector3(0, 1, 0), 180, 180, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(40, 5.62f, -20, 180, 180, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(0, 5.62, 0, 180 + 45, 180 + 45, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(0, 5.62, 0, 180 + 45, 180 + 45, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(22, 5.62, 40, 180 + 45, 180 + 45, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(50, 5.62f, 17, 180, 180, 180)))
-				.ContinueWith(t => doSendCommand(t, "/me says \"Hi guys! It is I!!\""))
+				//.ContinueWith(t => doSendCommand(t, "/me says \"Hi guys! It is I!!\""))
 				//.ContinueWith(t => Task.Delay(500).Wait())
 				//.ContinueWith(t => doSendCommand(t, "/summon sheep"))
 				//.ContinueWith(t => Task.Delay(500).Wait())
 				//.ContinueWith(t => doSendCommand(t, "/kill @e[type=sheep]"))
 				.ContinueWith(t => Task.Delay(5000).Wait())
+				// Skin switching test: sends a recoloured skin at the given frames per second.
+				//.ContinueWith(t => BotHelpers.DoCycleSkinColors(client)(t, 20))
 				//.ContinueWith(t =>
 				//{
 				//	Random rnd = new Random();
@@ -175,11 +193,58 @@ namespace MiNET.Client
 
 			//	});
 
-			Console.WriteLine("<Enter> to exit!");
-			Console.ReadLine();
-			if (client.IsConnected) client.SendDisconnectionNotification();
-			Thread.Sleep(50);
-			client.StopClient();
+			using var stopped = new ManualResetEventSlim();
+			int shuttingDown = 0;
+
+			// The same leave the client does on <Enter>, reachable from a signal so a run with no
+			// console still says goodbye. Without it the server only notices on the RakNet timeout,
+			// which leaves the player standing in the world for another half minute. Idempotent
+			// because several of the hooks below can fire for one stop.
+			void Shutdown()
+			{
+				if (Interlocked.Exchange(ref shuttingDown, 1) != 0) return;
+
+				if (client.IsConnected) client.SendDisconnectionNotification();
+				Thread.Sleep(50);
+				client.StopClient();
+				stopped.Set();
+			}
+
+			// Cancel the signal so the runtime lets us finish rather than tearing the process down
+			// mid-disconnect. Nothing can hook an outright kill, so that path still costs a timeout.
+			Console.CancelKeyPress += (_, e) =>
+			{
+				e.Cancel = true;
+				Shutdown();
+			};
+
+			using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+			{
+				context.Cancel = true;
+				Shutdown();
+			});
+
+			using var sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
+			{
+				context.Cancel = true;
+				Shutdown();
+			});
+
+			AppDomain.CurrentDomain.ProcessExit += (_, _) => Shutdown();
+
+			// Started without a console (background process, service, redirected stdin) ReadLine
+			// returns immediately on EOF and the bot would quit the moment it finished logging in.
+			if (Console.IsInputRedirected)
+			{
+				Console.WriteLine("Running until terminated.");
+				stopped.Wait();
+			}
+			else
+			{
+				Console.WriteLine("<Enter> to exit!");
+				Console.ReadLine();
+				Shutdown();
+			}
 		}
 	}
 }

@@ -26,80 +26,16 @@
 using System;
 using System.Collections.Generic;
 using fNbt;
-using Microsoft.VisualBasic.CompilerServices;
 using Newtonsoft.Json;
 
 namespace MiNET.Utils
 {
+	/// <summary>
+	///     The palette is an ordered list and the order is its meaning: an entry's position is
+	///     its runtime id. BlockPaletteData fills it in canonical order at startup.
+	/// </summary>
 	public class BlockPalette : List<BlockStateContainer>
 	{
-		public static int Version => 17694723;
-
-		public static BlockPalette FromJson(string json)
-		{
-			var pallet = new BlockPalette();
-
-			dynamic result = JsonConvert.DeserializeObject<dynamic>(json);
-			int runtimeId = 0;
-			foreach (dynamic obj in result)
-			{
-				var record = new BlockStateContainer();
-				record.Id = obj.Id;
-				record.Name = obj.Name;
-				record.Data = obj.Data;
-				record.RuntimeId = runtimeId++;
-
-				foreach (dynamic stateObj in obj.States)
-				{
-					switch ((int) stateObj.Type)
-					{
-						case 1:
-						{
-							record.States.Add(new BlockStateByte()
-							{
-								Name = stateObj.Name,
-								Value = stateObj.Value
-							});
-							break;
-						}
-						case 3:
-						{
-							record.States.Add(new BlockStateInt()
-							{
-								Name = stateObj.Name,
-								Value = stateObj.Value
-							});
-							break;
-						}
-						case 8:
-						{
-							record.States.Add(new BlockStateString()
-							{
-								Name = stateObj.Name,
-								Value = stateObj.Value
-							});
-							break;
-						}
-					}
-				}
-
-				dynamic itemInstance = obj.ItemInstance;
-				if (itemInstance != null)
-				{
-					record.ItemInstance = new ItemPickInstance()
-					{
-						Id = itemInstance.Id,
-						Metadata = itemInstance.Metadata,
-						WantNbt = itemInstance.WantNbt
-					};
-				}
-
-				pallet.Add(record);
-			}
-
-
-			return pallet;
-		}
 	}
 
 	public class BlockStateContainer
@@ -138,8 +74,10 @@ namespace MiNET.Utils
 
 		public override int GetHashCode()
 		{
+			// Must mirror Equals, which matches on Name + States only (not Id). Including
+			// Id here put equal containers in different buckets, so name-only palette
+			// lookups (e.g. a renamed block whose legacy Id wasn't remapped) missed.
 			var hash = new HashCode();
-			hash.Add(Id);
 			hash.Add(Name);
 			foreach (var state in States)
 			{

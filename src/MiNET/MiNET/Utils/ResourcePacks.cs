@@ -80,6 +80,13 @@ namespace MiNET.Utils
 		/// RTXEnabled specifies if the texture pack uses the raytracing technology introduced in 1.16.200.
 		/// </summary>
 		public bool   RtxEnabled      { get; set; }
+
+		public bool   AddonPack      { get; set; }
+
+		/// <summary>
+		/// Optional CDN link the client can download the pack from instead of over the game connection.
+		/// </summary>
+		public string CdnUrl { get; set; }
 	}
 
 	public class ResourcePackIdVersions : List<PackIdVersion>

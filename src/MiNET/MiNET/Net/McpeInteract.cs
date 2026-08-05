@@ -29,22 +29,26 @@ namespace MiNET.Net
 {
 	public partial class McpeInteract : Packet<McpeInteract>
 	{
-		public Vector3 Position;
+		// Position is optional on the wire in 1.26 (bool present-flag + vec3f) regardless of
+		// action, replacing the old action-gated unconditional vec3f. Live bytes from a 1.26.33
+		// client: 21 04 00 00 = action 4 (mouse over), target 0, present=false. Verified vs PMMP
+		// InteractPacket (CommonTypes::readOptional(getVector3)).
+		public Vector3? Position;
+
 		partial void AfterDecode()
 		{
-			if (actionId == (int) Actions.MouseOver || actionId == (int) Actions.LeaveVehicle)
+			if (ReadBool())
 			{
-				// TODO: Something useful with this value
 				Position = ReadVector3();
 			}
 		}
 
 		partial void AfterEncode()
 		{
-			if (actionId == (int) Actions.MouseOver || actionId == (int) Actions.LeaveVehicle)
+			Write(Position.HasValue);
+			if (Position.HasValue)
 			{
-				// TODO: Something useful with this value
-				Write(Position);
+				Write(Position.Value);
 			}
 		}
 

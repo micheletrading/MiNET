@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemGoldenShovel : ItemShovel
 	{
-		public ItemGoldenShovel() : base("minecraft:golden_shovel", 284)
+		public ItemGoldenShovel() : base("minecraft:golden_shovel")
 		{
 			ItemMaterial = ItemMaterial.Gold;
 		}

@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public ChorusFlower() : base(200)
 		{
-			IsTransparent = true;
-			BlastResistance = 2;
 		}
 	}
 }

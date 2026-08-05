@@ -34,9 +34,6 @@ namespace MiNET.Blocks
 	{
 		public Torch() : base(50)
 		{
-			IsTransparent = true;
-			IsSolid = false;
-			LightLevel = 14;
 		}
 
 		//protected override bool CanPlace(Level world, BlockCoordinates blockCoordinates, BlockFace face)

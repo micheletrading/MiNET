@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
 using log4net;
 using MiNET.Net.RakNet;
 using MiNET.Utils;
@@ -39,9 +40,20 @@ namespace MiNET.Net
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(BedrockMessageHandlerBase));
 
+		// Wire-content tracing: when MINET_PACKET_DUMP is set to a directory, every received
+		// packet's raw payload is written there as <seq>-<name>.bin. Used to capture what BDS
+		// sends our client vs what MiNET sends the same client, and diff the two byte-for-byte.
+		private static readonly string PacketDumpDir = Environment.GetEnvironmentVariable("MINET_PACKET_DUMP");
+		private static int _packetDumpSeq;
+
 		private protected readonly RakSession _session;
 
 		public CryptoContext CryptoContext { get; set; }
+
+		// Compression is off until the NetworkSettings exchange completes, then every wrapper
+		// payload carries a leading compressor id byte (0x00=zlib, 0x01=snappy, 0xff=none).
+		public bool CompressionEnabled { get; set; }
+		public ushort CompressionThreshold { get; set; } = 1;
 
 		protected BedrockMessageHandlerBase(RakSession session)
 		{
@@ -56,6 +68,26 @@ namespace MiNET.Net
 			var sendList = new List<Packet>();
 			var sendInBatch = new List<Packet>();
 
+			// The batch is one packet built from many, so it can only be added once the run of
+			// ordinary packets ends. Anything that goes straight to sendList has to close that run
+			// first or it overtakes packets queued before it. Pre-encoded wrappers are the reason
+			// this matters: chunks, player lists and crafting data are packed off the RakNet ticker
+			// and handed over finished, but they are queued in order with everything else and the
+			// client holds them to it. A roster that overtakes StartGame is silently dropped.
+			void FlushBatch()
+			{
+				if (sendInBatch.Count == 0) return;
+
+				var pending = McpeWrapper.CreateObject();
+				pending.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
+				pending.payload = CompressionEnabled
+					? Compression.CompressPacketsForWrapper(sendInBatch)
+					: Compression.PackPacketsForWrapper(sendInBatch);
+				pending.Encode(); // prepare
+				sendList.Add(pending);
+				sendInBatch.Clear();
+			}
+
 			foreach (Packet packet in packetsToSend)
 			{
 				// We must send forced clear messages in single message batch because
@@ -64,10 +96,14 @@ namespace MiNET.Net
 				// to bother.
 				if (packet.ForceClear)
 				{
+					FlushBatch();
+
 					var wrapper = McpeWrapper.CreateObject();
 					wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 					wrapper.ForceClear = true;
-					wrapper.payload = Compression.CompressPacketsForWrapper(new List<Packet> {packet});
+					wrapper.payload = CompressionEnabled
+						? Compression.CompressPacketsForWrapper(new List<Packet> {packet})
+						: Compression.PackPacketsForWrapper(new List<Packet> {packet});
 					wrapper.Encode(); // prepare
 					packet.PutPool();
 					sendList.Add(wrapper);
@@ -76,6 +112,8 @@ namespace MiNET.Net
 
 				if (packet is McpeWrapper)
 				{
+					FlushBatch();
+
 					packet.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 					sendList.Add(packet);
 					continue;
@@ -83,6 +121,8 @@ namespace MiNET.Net
 
 				if (!packet.IsMcpe)
 				{
+					FlushBatch();
+
 					packet.ReliabilityHeader.Reliability = packet.ReliabilityHeader.Reliability != Reliability.Undefined ? packet.ReliabilityHeader.Reliability : Reliability.Reliable;
 					sendList.Add(packet);
 					continue;
@@ -93,14 +133,7 @@ namespace MiNET.Net
 				sendInBatch.Add(OnSendCustomPacket(packet));
 			}
 
-			if (sendInBatch.Count > 0)
-			{
-				var batch = McpeWrapper.CreateObject();
-				batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				batch.payload = Compression.CompressPacketsForWrapper(sendInBatch);
-				batch.Encode(); // prepare
-				sendList.Add(batch);
-			}
+			FlushBatch();
 
 			return sendList;
 		}
@@ -153,10 +186,30 @@ namespace MiNET.Net
 				var stream = new MemoryStreamReader(payload);
 				try
 				{
-					using (var deflateStream = new DeflateStream(stream, CompressionMode.Decompress, false))
 					{
 						using var s = new MemoryStream();
-						deflateStream.CopyTo(s);
+						if (CompressionEnabled)
+						{
+							int compressorId = stream.ReadByte();
+							switch (compressorId)
+							{
+								case 0x00:
+									using (var deflateStream = new DeflateStream(stream, CompressionMode.Decompress, false))
+									{
+										deflateStream.CopyTo(s);
+									}
+									break;
+								case 0xff:
+									stream.CopyTo(s);
+									break;
+								default:
+									throw new InvalidDataException($"Unsupported compressor id 0x{compressorId:x2}");
+							}
+						}
+						else
+						{
+							stream.CopyTo(s);
+						}
 						s.Position = 0;
 
 						int count = 0;
@@ -174,14 +227,26 @@ namespace MiNET.Net
 								//if (Log.IsDebugEnabled)
 								//	Log.Debug($"0x{internalBuffer[0]:x2}\n{Packet.HexDump(internalBuffer)}");
 
-								messages.Add(PacketFactory.Create((byte) id, internalBuffer, "mcpe") ??
-											new UnknownPacket((byte) id, internalBuffer));
+								// Packet ids are varints and can exceed 255 in modern protocols; the factory
+								// and UnknownPacket now carry the full id instead of truncating to a byte.
+								Packet parsed = PacketFactory.Create(id, internalBuffer, "mcpe");
+								if (parsed == null && Log.IsDebugEnabled) Log.Debug($"Unknown packet with id {id}");
+
+								if (PacketDumpDir != null)
+								{
+									int seq = Interlocked.Increment(ref _packetDumpSeq);
+									string name = parsed?.GetType().Name ?? $"Unknown_{id}";
+									Directory.CreateDirectory(PacketDumpDir);
+									File.WriteAllBytes(Path.Combine(PacketDumpDir, $"{seq:D4}-{name}.bin"), internalBuffer.ToArray());
+								}
+
+								messages.Add(parsed ?? new UnknownPacket(id, internalBuffer));
 							}
 							catch (Exception e)
 							{
 								if (Log.IsDebugEnabled) Log.Warn($"Error parsing bedrock message #{count} id={id}\n{Packet.HexDump(internalBuffer)}", e);
-								//throw;
-								return; // Exit, but don't crash.
+								// Packets are length-framed, so realign and keep processing the
+								// rest of the batch instead of dropping it.
 							}
 
 							s.Position = pos + len;

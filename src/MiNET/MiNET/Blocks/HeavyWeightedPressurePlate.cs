@@ -29,10 +29,6 @@ namespace MiNET.Blocks
 	{
 		public HeavyWeightedPressurePlate() : base(148)
 		{
-			IsSolid = false;
-			IsTransparent = true;
-			BlastResistance = 2.5f;
-			Hardness = 0.5f;
 		}
 	}
 }

@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Deadbush() : base(32)
 		{
-			IsSolid = false;
-			IsTransparent = true;
-			IsFlammable = true;
 		}
 	}
 }

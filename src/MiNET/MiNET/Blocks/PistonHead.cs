@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public PistonArmCollision() : base(34)
 		{
-			BlastResistance = 2.5f;
-			IsTransparent = true;
 			// runtime id: 1580 0x62C, data: 0
 			// runtime id: 2117 0x845, data: 1
 			// runtime id: 71 0x47, data: 2

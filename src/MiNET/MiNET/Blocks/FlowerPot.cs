@@ -31,12 +31,11 @@ namespace MiNET.Blocks
 	{
 		public FlowerPot() : base(140)
 		{
-			IsTransparent = true;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem(390, 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:flower_pot", 0, 1)};
 		}
 	}
 }

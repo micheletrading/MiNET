@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemSugar : Item
 	{
-		public ItemSugar() : base("minecraft:sugar", 353)
+		public ItemSugar() : base("minecraft:sugar")
 		{
 		}
 	}

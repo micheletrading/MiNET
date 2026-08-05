@@ -1,0 +1,434 @@
+﻿#region LICENSE
+
+// The contents of this file are subject to the Common Public Attribution
+// License Version 1.0. (the "License"); you may not use this file except in
+// compliance with the License. You may obtain a copy of the License at
+// https://github.com/NiclasOlofsson/MiNET/blob/master/LICENSE.
+// The License is based on the Mozilla Public License Version 1.1, but Sections 14
+// and 15 have been added to cover use of software over a computer network and
+// provide for limited attribution for the Original Developer. In addition, Exhibit A has
+// been modified to be consistent with Exhibit B.
+//
+// Software distributed under the License is distributed on an "AS IS" basis,
+// WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
+// the specific language governing rights and limitations under the License.
+//
+// The Original Code is MiNET.
+//
+// The Original Developer is the Initial Developer.  The Initial Developer of
+// the Original Code is Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
+// All Rights Reserved.
+
+#endregion
+
+using System.Collections.Generic;
+using System.Numerics;
+
+namespace MiNET.Net
+{
+	/// <summary>
+	///     How a camera move is interpolated. Written two ways: the set instruction sends the
+	///     ordinal as a byte, the field-of-view and spline instructions send the name as a string,
+	///     so both the order here and <see cref="CameraEaseTypes.Names" /> are wire-significant.
+	/// </summary>
+	public enum CameraEaseType : byte
+	{
+		Linear = 0,
+		Spring = 1,
+		InQuad = 2,
+		OutQuad = 3,
+		InOutQuad = 4,
+		InCubic = 5,
+		OutCubic = 6,
+		InOutCubic = 7,
+		InQuart = 8,
+		OutQuart = 9,
+		InOutQuart = 10,
+		InQuint = 11,
+		OutQuint = 12,
+		InOutQuint = 13,
+		InSine = 14,
+		OutSine = 15,
+		InOutSine = 16,
+		InExpo = 17,
+		OutExpo = 18,
+		InOutExpo = 19,
+		InCirc = 20,
+		OutCirc = 21,
+		InOutCirc = 22,
+		InBounce = 23,
+		OutBounce = 24,
+		InOutBounce = 25,
+		InBack = 26,
+		OutBack = 27,
+		InOutBack = 28,
+		InElastic = 29,
+		OutElastic = 30,
+		InOutElastic = 31
+	}
+
+	public static class CameraEaseTypes
+	{
+		internal static readonly string[] Names =
+		{
+			"linear", "spring",
+			"in_quad", "out_quad", "in_out_quad",
+			"in_cubic", "out_cubic", "in_out_cubic",
+			"in_quart", "out_quart", "in_out_quart",
+			"in_quint", "out_quint", "in_out_quint",
+			"in_sine", "out_sine", "in_out_sine",
+			"in_expo", "out_expo", "in_out_expo",
+			"in_circ", "out_circ", "in_out_circ",
+			"in_bounce", "out_bounce", "in_out_bounce",
+			"in_back", "out_back", "in_out_back",
+			"in_elastic", "out_elastic", "in_out_elastic"
+		};
+
+		public static string ToName(this CameraEaseType type)
+		{
+			var index = (int) type;
+			return index >= 0 && index < Names.Length ? Names[index] : Names[0];
+		}
+
+		public static CameraEaseType FromName(string name)
+		{
+			int index = System.Array.IndexOf(Names, name);
+			return index < 0 ? CameraEaseType.Linear : (CameraEaseType) index;
+		}
+	}
+
+	public enum CameraSplineType : byte
+	{
+		CatmullRom = 0,
+		Linear = 1
+	}
+
+	public class CameraEase
+	{
+		public CameraEaseType Type { get; set; }
+		public float Duration { get; set; }
+	}
+
+	/// <summary>
+	///     Puts the player on a preset. <see cref="RuntimeId" /> indexes the preset registry the
+	///     client was sent (McpeCameraPresets), which is why the registry has to arrive first.
+	/// </summary>
+	public class CameraSetInstruction
+	{
+		public int RuntimeId { get; set; }
+		public CameraEase Ease { get; set; }
+		public Vector3? Position { get; set; }
+
+		/// <summary>Pitch then yaw, in degrees.</summary>
+		public Vector2? Rotation { get; set; }
+
+		public Vector3? Facing { get; set; }
+		public Vector2? Offset { get; set; }
+		public Vector3? EntityOffset { get; set; }
+		public bool? Default { get; set; }
+
+		/// <summary>Drops the preset's own starting position and rotation, so only what is set here applies.</summary>
+		public bool RemoveIgnoreStartingValues { get; set; }
+	}
+
+	public class CameraFadeTime
+	{
+		public float FadeIn { get; set; }
+		public float Hold { get; set; }
+		public float FadeOut { get; set; }
+	}
+
+	/// <summary>
+	///     Both halves are independently optional, so a fade can change only the colour or only the
+	///     timing and inherit the rest.
+	/// </summary>
+	public class CameraFadeInstruction
+	{
+		public CameraFadeTime Time { get; set; }
+		public Vector3? ColorRgb { get; set; }
+	}
+
+	public class CameraTargetInstruction
+	{
+		public Vector3? Offset { get; set; }
+		public long EntityUniqueId { get; set; }
+	}
+
+	public class CameraFovInstruction
+	{
+		public float FieldOfView { get; set; }
+		public float EaseTime { get; set; }
+
+		/// <summary>Sent as its name, not its ordinal, unlike the set instruction's ease.</summary>
+		public CameraEaseType EaseType { get; set; }
+
+		public bool Clear { get; set; }
+	}
+
+	public class CameraProgressKeyFrame
+	{
+		public float Value { get; set; }
+		public float Time { get; set; }
+		public CameraEaseType Ease { get; set; }
+	}
+
+	/// <summary>
+	///     Where the camera looks at one point along a spline. <see cref="Value" /> is euler degrees
+	///     as pitch, yaw, roll, with positive pitch looking up. Yaw must be unwrapped across
+	///     keyframes so consecutive values stay within 180 of each other, or the client interpolates
+	///     through the wrap as an extra revolution.
+	/// </summary>
+	public class CameraRotationKeyFrame
+	{
+		public Vector3 Value { get; set; }
+		public float Time { get; set; }
+		public CameraEaseType Ease { get; set; }
+	}
+
+	/// <summary>
+	///     Flies the camera along a curve. Either the curve is given inline, or
+	///     <see cref="SplineIdentifier" /> names one the client already holds and
+	///     <see cref="LoadFromJson" /> is set.
+	///
+	///     The three lists are parallel, one entry each per control point, and none may be empty:
+	///     the client crashes outright on a curve with no progress or rotation keyframes. Four
+	///     control points minimum for <see cref="CameraSplineType.CatmullRom" />, three for
+	///     <see cref="CameraSplineType.Linear" />. Valid only while the player is on the free preset.
+	/// </summary>
+	public class CameraSplineInstruction
+	{
+		public float TotalTime { get; set; }
+		public CameraSplineType Type { get; set; }
+		public List<Vector3> Curve { get; set; } = new List<Vector3>();
+		public List<CameraProgressKeyFrame> ProgressKeyFrames { get; set; } = new List<CameraProgressKeyFrame>();
+		public List<CameraRotationKeyFrame> RotationOptions { get; set; } = new List<CameraRotationKeyFrame>();
+		public string SplineIdentifier { get; set; } = string.Empty;
+		public bool LoadFromJson { get; set; }
+	}
+
+	/// <summary>
+	///     Nine independent verbs, each preceded by a presence bool. The server sets whichever
+	///     apply and leaves the rest null. This is what the /camera command compiles into.
+	///
+	///     Entity ids here are little-endian int64, unlike most of the protocol, hence WriteLe.
+	///
+	///     Reference for the layout: pmmp/BedrockProtocol, which is on the same protocol number we
+	///     target, and CloudburstMC/Protocol.
+	/// </summary>
+	public partial class McpeCameraInstruction : Packet<McpeCameraInstruction>
+	{
+		public CameraSetInstruction Set { get; set; }
+		public bool? Clear { get; set; }
+		public CameraFadeInstruction Fade { get; set; }
+		public CameraTargetInstruction Target { get; set; }
+		public bool? RemoveTarget { get; set; }
+		public CameraFovInstruction Fov { get; set; }
+		public CameraSplineInstruction Spline { get; set; }
+		public long? AttachToEntity { get; set; }
+		public bool? DetachFromEntity { get; set; }
+
+		partial void AfterDecode()
+		{
+			if (ReadBool())
+			{
+				var set = new CameraSetInstruction {RuntimeId = ReadInt()};
+				if (ReadBool()) set.Ease = new CameraEase {Type = (CameraEaseType) ReadByte(), Duration = ReadFloat()};
+				if (ReadBool()) set.Position = ReadVector3();
+				if (ReadBool()) set.Rotation = ReadVector2();
+				if (ReadBool()) set.Facing = ReadVector3();
+				if (ReadBool()) set.Offset = ReadVector2();
+				if (ReadBool()) set.EntityOffset = ReadVector3();
+				if (ReadBool()) set.Default = ReadBool();
+				set.RemoveIgnoreStartingValues = ReadBool();
+				Set = set;
+			}
+
+			if (ReadBool()) Clear = ReadBool();
+
+			if (ReadBool())
+			{
+				var fade = new CameraFadeInstruction();
+				if (ReadBool()) fade.Time = new CameraFadeTime {FadeIn = ReadFloat(), Hold = ReadFloat(), FadeOut = ReadFloat()};
+				if (ReadBool()) fade.ColorRgb = ReadVector3();
+				Fade = fade;
+			}
+
+			if (ReadBool())
+			{
+				var target = new CameraTargetInstruction();
+				if (ReadBool()) target.Offset = ReadVector3();
+				target.EntityUniqueId = ReadLeLong();
+				Target = target;
+			}
+
+			if (ReadBool()) RemoveTarget = ReadBool();
+
+			if (ReadBool())
+			{
+				Fov = new CameraFovInstruction
+				{
+					FieldOfView = ReadFloat(),
+					EaseTime = ReadFloat(),
+					EaseType = CameraEaseTypes.FromName(ReadString()),
+					Clear = ReadBool()
+				};
+			}
+
+			if (ReadBool())
+			{
+				var spline = new CameraSplineInstruction {TotalTime = ReadFloat(), Type = (CameraSplineType) ReadByte()};
+
+				uint curveCount = ReadUnsignedVarInt();
+				for (int i = 0; i < curveCount; i++) spline.Curve.Add(ReadVector3());
+
+				uint progressCount = ReadUnsignedVarInt();
+				for (int i = 0; i < progressCount; i++)
+				{
+					spline.ProgressKeyFrames.Add(new CameraProgressKeyFrame
+					{
+						Value = ReadFloat(),
+						Time = ReadFloat(),
+						Ease = CameraEaseTypes.FromName(ReadString())
+					});
+				}
+
+				uint rotationCount = ReadUnsignedVarInt();
+				for (int i = 0; i < rotationCount; i++)
+				{
+					spline.RotationOptions.Add(new CameraRotationKeyFrame
+					{
+						Value = ReadVector3(),
+						Time = ReadFloat(),
+						Ease = CameraEaseTypes.FromName(ReadString())
+					});
+				}
+
+				spline.SplineIdentifier = ReadString();
+				spline.LoadFromJson = ReadBool();
+
+				Spline = spline;
+			}
+
+			if (ReadBool()) AttachToEntity = ReadLeLong();
+			if (ReadBool()) DetachFromEntity = ReadBool();
+		}
+
+		// Nine optionals, each a presence bool then its payload. Mirrors
+		// CameraInstructionPacket::encodePayload in pmmp/BedrockProtocol, whose CommonTypes
+		// writeOptional is exactly this bool-then-payload pair.
+		partial void AfterEncode()
+		{
+			// 0: set
+			Write(Set != null);
+			if (Set != null)
+			{
+				Write(Set.RuntimeId);
+
+				Write(Set.Ease != null);
+				if (Set.Ease != null)
+				{
+					Write((byte) Set.Ease.Type);
+					Write(Set.Ease.Duration);
+				}
+
+				Write(Set.Position.HasValue);
+				if (Set.Position.HasValue) Write(Set.Position.Value);
+				Write(Set.Rotation.HasValue);
+				if (Set.Rotation.HasValue) Write(Set.Rotation.Value);
+				Write(Set.Facing.HasValue);
+				if (Set.Facing.HasValue) Write(Set.Facing.Value);
+				Write(Set.Offset.HasValue);
+				if (Set.Offset.HasValue) Write(Set.Offset.Value);
+				Write(Set.EntityOffset.HasValue);
+				if (Set.EntityOffset.HasValue) Write(Set.EntityOffset.Value);
+				Write(Set.Default.HasValue);
+				if (Set.Default.HasValue) Write(Set.Default.Value);
+
+				Write(Set.RemoveIgnoreStartingValues);
+			}
+
+			// 1: clear
+			Write(Clear.HasValue);
+			if (Clear.HasValue) Write(Clear.Value);
+
+			// 2: fade
+			Write(Fade != null);
+			if (Fade != null)
+			{
+				Write(Fade.Time != null);
+				if (Fade.Time != null)
+				{
+					Write(Fade.Time.FadeIn);
+					Write(Fade.Time.Hold);
+					Write(Fade.Time.FadeOut);
+				}
+
+				Write(Fade.ColorRgb.HasValue);
+				if (Fade.ColorRgb.HasValue) Write(Fade.ColorRgb.Value);
+			}
+
+			// 3: target
+			Write(Target != null);
+			if (Target != null)
+			{
+				Write(Target.Offset.HasValue);
+				if (Target.Offset.HasValue) Write(Target.Offset.Value);
+				WriteLe(Target.EntityUniqueId);
+			}
+
+			// 4: remove target
+			Write(RemoveTarget.HasValue);
+			if (RemoveTarget.HasValue) Write(RemoveTarget.Value);
+
+			// 5: field of view
+			Write(Fov != null);
+			if (Fov != null)
+			{
+				Write(Fov.FieldOfView);
+				Write(Fov.EaseTime);
+				Write(Fov.EaseType.ToName());
+				Write(Fov.Clear);
+			}
+
+			// 6: spline
+			Write(Spline != null);
+			if (Spline != null)
+			{
+				Write(Spline.TotalTime);
+				Write((byte) Spline.Type);
+
+				WriteUnsignedVarInt((uint) Spline.Curve.Count);
+				foreach (Vector3 point in Spline.Curve) Write(point);
+
+				WriteUnsignedVarInt((uint) Spline.ProgressKeyFrames.Count);
+				foreach (CameraProgressKeyFrame frame in Spline.ProgressKeyFrames)
+				{
+					Write(frame.Value);
+					Write(frame.Time);
+					Write(frame.Ease.ToName());
+				}
+
+				WriteUnsignedVarInt((uint) Spline.RotationOptions.Count);
+				foreach (CameraRotationKeyFrame frame in Spline.RotationOptions)
+				{
+					Write(frame.Value);
+					Write(frame.Time);
+					Write(frame.Ease.ToName());
+				}
+
+				Write(Spline.SplineIdentifier ?? string.Empty);
+				Write(Spline.LoadFromJson);
+			}
+
+			// 7: attach to entity
+			Write(AttachToEntity.HasValue);
+			if (AttachToEntity.HasValue) WriteLe(AttachToEntity.Value);
+
+			// 8: detach from entity
+			Write(DetachFromEntity.HasValue);
+			if (DetachFromEntity.HasValue) Write(DetachFromEntity.Value);
+		}
+	}
+}

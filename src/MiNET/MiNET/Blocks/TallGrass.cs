@@ -31,7 +31,7 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public partial class Tallgrass : Block
+	public partial class TallGrass : Block
 	{
 		public enum TallGrassTypes
 		{
@@ -40,14 +40,10 @@ namespace MiNET.Blocks
 			Fern = 2
 		}
 
-		public Tallgrass() : base(31)
+		public TallGrass() : base(31)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 
-			IsSolid = false;
 			IsReplaceable = true;
-			IsTransparent = true;
 		}
 
 		public override void OnTick(Level level, bool isRandom)
@@ -74,7 +70,7 @@ namespace MiNET.Blocks
 			var rnd = new Random();
 			if (rnd.NextDouble() > 0.5)
 			{
-				return new[] {ItemFactory.GetItem(295)};
+				return new[] {ItemFactory.GetItemByName("minecraft:wheat_seeds")};
 			}
 
 			return new Item[0];

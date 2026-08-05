@@ -48,7 +48,7 @@ namespace MiNET.BuilderBase.Tools
 		public int Height { get; set; } = 1;
 		public int Range { get; set; } = 300;
 		[JsonIgnore]
-		public Pattern Pattern { get; set; } = new Pattern(1, 0);
+		public Pattern Pattern { get; set; } = new Pattern(new Stone());
 		[JsonIgnore]
 		public Mask Mask { get; set; } = new AnyBlockMask();
 		public bool Filled { get; set; } = true;
@@ -284,7 +284,7 @@ namespace MiNET.BuilderBase.Tools
 							block.Coordinates = new BlockCoordinates(x0, y0, z0);
 							Block old = level.GetBlock(block.Coordinates);
 
-							if (block.Id == old.Id && block.Metadata == old.Metadata) continue;
+							if (block.GetRuntimeId() == old.GetRuntimeId()) continue;
 
 							editSession.SetBlock(block);
 						}
@@ -332,14 +332,16 @@ namespace MiNET.BuilderBase.Tools
 
 							total++;
 
+							int nextRuntimeId = next.GetRuntimeId();
+
 							int count;
-							if (!frequency.ContainsKey(next.Id))
+							if (!frequency.ContainsKey(nextRuntimeId))
 							{
 								count = 1;
 							}
 							else
 							{
-								count = frequency[next.Id];
+								count = frequency[nextRuntimeId];
 								count++;
 							}
 
@@ -348,7 +350,7 @@ namespace MiNET.BuilderBase.Tools
 								highest = count;
 								highestState = next;
 							}
-							frequency[next.Id] = count;
+							frequency[nextRuntimeId] = count;
 						}
 
 						if (total >= fillFaces)
@@ -386,7 +388,7 @@ namespace MiNET.BuilderBase.Tools
 						}
 						int total = 0;
 						int highest = 1;
-						int highestState = state.Id;
+						int highestState = state.GetRuntimeId();
 						frequency.Clear();
 						foreach (var offs in FACES_TO_CHECK)
 						{
@@ -397,27 +399,29 @@ namespace MiNET.BuilderBase.Tools
 							}
 							total++;
 
+							int nextRuntimeId = next.GetRuntimeId();
+
 							int count;
-							if (!frequency.ContainsKey(next.Id))
+							if (!frequency.ContainsKey(nextRuntimeId))
 							{
 								count = 1;
 							}
 							else
 							{
-								count = frequency[next.Id];
+								count = frequency[nextRuntimeId];
 								count++;
 							}
 
 							if (count > highest)
 							{
 								highest = count;
-								highestState = next.Id;
+								highestState = nextRuntimeId;
 							}
-							frequency[next.Id] = count;
+							frequency[nextRuntimeId] = count;
 						}
 						if (total > erodeFaces)
 						{
-							target[coord] = BlockFactory.GetBlockById(highestState);
+							target[coord] = BlockFactory.GetBlockByRuntimeId(highestState);
 						}
 					}
 				}

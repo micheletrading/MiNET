@@ -27,13 +27,13 @@ namespace MiNET.Items
 {
 	public class ItemChicken : FoodItem
 	{
-		public ItemChicken() : base("minecraft:chicken", 365, 0, 2, 1.2)
+		public ItemChicken() : base("minecraft:chicken", 0, 2, 1.2)
 		{
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(366);
+			return ItemFactory.GetItemByName("minecraft:cooked_chicken");
 		}
 	}
 }

@@ -113,7 +113,7 @@ namespace TestPlugin.Code4Fun
 					});
 
 					//int i = 0;
-					//player.Inventory.Slots[i++] = new ItemBlock(new Planks(), 0) {Count = 64, UniqueId = Environment.TickCount};
+					//player.Inventory.Slots[i++] = new ItemBlock(new Planks()) {Count = 64, UniqueId = Environment.TickCount};
 					//foreach (var entites in entities.Values)
 					//{
 					//	player.Inventory.Slots[i++] = new CustomItemFrame(entites.Keys.ToList(), frameTicker) {Count = 64, UniqueId = Environment.TickCount};
@@ -215,7 +215,7 @@ namespace TestPlugin.Code4Fun
 
 					int i = 0;
 
-					player.Inventory.Slots[i++] = new ItemBlock(new Planks(), 0) {Count = 64};
+					player.Inventory.Slots[i++] = new ItemBlock(new Planks()) {Count = 64};
 					player.Inventory.Slots[i++] = new ItemFrame {Count = 64};
 
 					foreach (MapEntity entity in entities.Values)

@@ -41,7 +41,7 @@ namespace MiNET.Items
 
 		public float Spread { get; set; } = 5f;
 
-		public ItemFireworkRocket() : base("minecraft:firework_rocket", 401)
+		public ItemFireworkRocket() : base("minecraft:firework_rocket")
 		{
 		}
 

@@ -42,7 +42,7 @@ namespace MiNET.Blocks
 			var next = rnd.Next(3);
 			if (next > 0)
 			{
-				return new[] {ItemFactory.GetItem(40, 0, (byte) next)};
+				return new[] {ItemFactory.GetItemByName("minecraft:red_mushroom", 0, (byte) next)};
 			}
 			return new Item[0];
 		}

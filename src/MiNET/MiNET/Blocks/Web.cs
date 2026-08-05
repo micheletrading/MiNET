@@ -31,10 +31,6 @@ namespace MiNET.Blocks
 	{
 		public Web() : base(30)
 		{
-			IsSolid = false;
-			IsTransparent = true; // Partial - diffuses sky light
-			BlastResistance = 20;
-			Hardness = 4;
 		}
 
 		public override Item[] GetDrops(Item tool)
@@ -42,11 +38,11 @@ namespace MiNET.Blocks
 			// For PE works differently than this. Need to check enchanting
 			if (tool is ItemShears)
 			{
-				return new[] {ItemFactory.GetItem(30)};
+				return new[] {ItemFactory.GetItemByName("minecraft:web")};
 			}
 			if (tool.ItemType == ItemType.Sword)
 			{
-				return new[] {ItemFactory.GetItem(287)};
+				return new[] {ItemFactory.GetItemByName("minecraft:string")};
 			}
 
 			return new Item[0];

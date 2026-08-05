@@ -30,7 +30,6 @@ namespace MiNET.Blocks
 	{
 		public PoweredComparator() : base(150)
 		{
-			LightLevel = 7;
 		}
 	}
 }

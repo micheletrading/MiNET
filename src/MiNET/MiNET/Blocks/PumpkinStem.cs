@@ -30,8 +30,6 @@ namespace MiNET.Blocks
 	{
 		public PumpkinStem() : base(104)
 		{
-			IsSolid = false;
-			IsTransparent = true;
 		}
 	}
 }

@@ -37,8 +37,6 @@ namespace MiNET.Blocks
 		public CraftingTable() : base(58)
 		{
 			FuelEfficiency = 15;
-			BlastResistance = 12.5f;
-			Hardness = 2.5f;
 			//IsFlammable = true; // Only from lava.
 		}
 
@@ -48,7 +46,7 @@ namespace MiNET.Blocks
 			containerOpen.windowId = 13;
 			containerOpen.type = 1;
 			containerOpen.coordinates = Coordinates;
-			containerOpen.runtimeEntityId = EntityManager.EntityIdSelf;
+			containerOpen.actorUniqueId = EntityManager.EntityIdSelf;
 			player.SendPacket(containerOpen);
 
 			//var sendSlot = McpeInventorySlot.CreateObject();

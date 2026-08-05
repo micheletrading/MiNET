@@ -55,6 +55,36 @@ namespace MiNET.Utils.IO
 			}
 		}
 
+		// Packets packed with their lengths and nothing else: no deflate framing and no compressor
+		// id byte. Both sides read a wrapper payload as plain bytes until the NetworkSettings
+		// exchange completes, so the two packets that carry out that exchange, one each way, cannot
+		// go through CompressPacketsForWrapper. Deflate at NoCompression is not a substitute: it
+		// copies the bytes but still writes a five byte stored-block header a raw reader would eat.
+		public static byte[] PackPacketsForWrapper(List<Packet> packets)
+		{
+			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
+			{
+				foreach (Packet packet in packets)
+				{
+					byte[] bs = packet.Encode();
+					if (bs != null && bs.Length > 0)
+					{
+						BatchUtils.WriteLength(stream, bs.Length);
+						stream.Write(bs, 0, bs.Length);
+					}
+
+					packet.PutPool();
+				}
+
+				return stream.ToArray();
+			}
+		}
+
+		// Every caller sends this after the NetworkSettings exchange, where a wrapper payload leads
+		// with a compressor id byte (0x00=zlib, 0x01=snappy, 0xff=none). The byte belongs here and
+		// not at the call sites: whether to compress is a property of the batch, decided by the
+		// size rule below, and a caller that got it wrong would produce a payload no client can
+		// read rather than an error anyone could see.
 		public static byte[] CompressPacketsForWrapper(List<Packet> packets, CompressionLevel compressionLevel = CompressionLevel.Fastest)
 		{
 			long length = 0;
@@ -64,6 +94,10 @@ namespace MiNET.Utils.IO
 
 			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
 			{
+				// Ahead of the deflate stream, so this costs one byte on the same pooled buffer.
+				// A NoCompression deflate stream is still deflate, so it inflates through 0x00.
+				stream.WriteByte(0x00);
+
 				using (var compressStream = new DeflateStream(stream, compressionLevel, true))
 				{
 					foreach (Packet packet in packets)
@@ -83,7 +117,6 @@ namespace MiNET.Utils.IO
 				return bytes;
 			}
 		}
-
 
 		public static void WriteLength(Stream stream, int lenght)
 		{

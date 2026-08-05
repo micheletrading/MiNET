@@ -31,8 +31,6 @@ namespace MiNET.Blocks
 	{
 		public Dispenser() : base(23)
 		{
-			BlastResistance = 17.5f;
-			Hardness = 3.5f;
 		}
 
 		public override Item[] GetDrops(Item tool)

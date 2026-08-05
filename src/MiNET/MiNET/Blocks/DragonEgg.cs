@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public DragonEgg() : base(122)
 		{
-			IsTransparent = true;
-			LightLevel = 1;
-			BlastResistance = 45;
 		}
 	}
 }

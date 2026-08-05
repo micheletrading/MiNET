@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public MelonStem() : base(105)
 		{
-			IsSolid = false;
-			IsTransparent = true;
-			IsFlammable = true;
 		}
 	}
 }

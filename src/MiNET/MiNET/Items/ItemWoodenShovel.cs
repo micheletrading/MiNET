@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemWoodenShovel : ItemShovel
 	{
-		public ItemWoodenShovel() : base("minecraft:wooden_shovel", 269)
+		public ItemWoodenShovel() : base("minecraft:wooden_shovel")
 		{
 			ItemMaterial = ItemMaterial.Wood;
 			FuelEfficiency = 10;

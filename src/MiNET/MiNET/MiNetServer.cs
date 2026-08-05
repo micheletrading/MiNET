@@ -32,6 +32,7 @@ using System.Numerics;
 using System.Text.RegularExpressions;
 using log4net;
 using Microsoft.IO;
+using MiNET.Crafting;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Net.RakNet;
@@ -157,12 +158,22 @@ namespace MiNET
 
 					PluginManager.EnablePlugins(this, LevelManager);
 
+					// Load the recipe registry here, after plugins have had their say about it, so the
+					// first player to join doesn't pay for it on the login thread (resolving thousands of
+					// recipes takes about a second).
+					Log.Info($"Loaded {RecipeManager.Recipes.Count} recipes");
+
 					// Cache - remove
 					LevelManager.GetLevel(null, Dimension.Overworld.ToString());
 				}
 
 				GreyListManager ??= new GreyListManager();
 				MotdProvider ??= new MotdProvider();
+				if (Endpoint != null)
+				{
+					MotdProvider.PortV4 = Endpoint.Port;
+					MotdProvider.PortV6 = Endpoint.Port + 1;
+				}
 
 				if (ServerRole == ServerRole.Full || ServerRole == ServerRole.Proxy)
 				{

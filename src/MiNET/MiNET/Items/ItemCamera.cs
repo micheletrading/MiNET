@@ -33,7 +33,7 @@ namespace MiNET.Items
 {
 	public class ItemCamera : Item
 	{
-		public ItemCamera(short metadata) : base("minecraft:camera", 498, metadata)
+		public ItemCamera(short metadata) : base("minecraft:camera", metadata)
 		{
 		}
 
@@ -41,7 +41,8 @@ namespace MiNET.Items
 		{
 			var coordinates = GetNewCoordinatesFromFace(blockCoordinates, face);
 
-			Camera entity = new Camera(world) {KnownPosition = coordinates};
+			// Qualified: MiNET.Camera is the view-camera namespace, this is the tripod camera entity.
+			Entities.Camera entity = new Entities.Camera(world) {KnownPosition = coordinates};
 			entity.SpawnEntity();
 		}
 	}

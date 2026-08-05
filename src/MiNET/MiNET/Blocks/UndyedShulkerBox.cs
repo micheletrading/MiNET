@@ -39,9 +39,6 @@ namespace MiNET.Blocks
 
 		public UndyedShulkerBox(byte id) : base(id)
 		{
-			IsTransparent = true;
-			BlastResistance = 30f;
-			Hardness = 6f;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

@@ -58,7 +58,10 @@ namespace MiNET
 
 				IWorldProvider worldProvider = null;
 
-				switch (Config.GetProperty("WorldProvider", "anvil").ToLower().Trim())
+				// LevelDB by default: it is Bedrock's own format, it persists blocks as name plus
+				// states so identity survives a palette change, and it is the only provider here
+				// that can save. Anvil remains for reading old Java maps and refuses to write.
+				switch (Config.GetProperty("WorldProvider", "leveldb").ToLower().Trim())
 				{
 					case "leveldb":
 						worldProvider = new LevelDbProvider()

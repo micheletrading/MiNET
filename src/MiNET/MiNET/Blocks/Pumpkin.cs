@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Pumpkin() : base(86)
 		{
-			BlastResistance = 5;
-			Hardness = 1;
 		}
 	}
 }

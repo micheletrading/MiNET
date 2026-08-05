@@ -35,17 +35,12 @@ namespace MiNET.Blocks
 {
 	public partial class WallSignBase : Block
 	{
-		private readonly int _itemDropId;
+		private readonly string _itemDropName;
 
-		public WallSignBase(int id, int itemDropId) : base(id)
+		public WallSignBase(int id, string itemDropName) : base(id)
 		{
-			_itemDropId = itemDropId;
-			IsTransparent = true;
-			IsSolid = false;
-			BlastResistance = 5;
-			Hardness = 1;
+			_itemDropName = itemDropName;
 
-			IsFlammable = true; // Only in PE!!
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
@@ -72,47 +67,47 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem((short) _itemDropId)}; // Drop sign item
+			return new[] {ItemFactory.GetItemByName(_itemDropName)}; // Drop sign item
 		}
 	}
 
 	public partial class WallSign : WallSignBase
 	{
-		public WallSign() : base(68, 323) { }
+		public WallSign() : base(68, "minecraft:oak_sign") { }
 	}
 
 	public partial class SpruceWallSign : WallSignBase
 	{
-		public SpruceWallSign() : base(437, 472) { }
+		public SpruceWallSign() : base(437, "minecraft:spruce_sign") { }
 	}
 
 	public partial class BirchWallSign : WallSignBase
 	{
-		public BirchWallSign() : base(442, 473) { }
+		public BirchWallSign() : base(442, "minecraft:birch_sign") { }
 	}
 
 	public partial class JungleWallSign : WallSignBase
 	{
-		public JungleWallSign() : base(444, 474) { }
+		public JungleWallSign() : base(444, "minecraft:jungle_sign") { }
 	}
 
 	public partial class AcaciaWallSign : WallSignBase
 	{
-		public AcaciaWallSign() : base(446, 475) { }
+		public AcaciaWallSign() : base(446, "minecraft:acacia_sign") { }
 	}
 
 	public partial class DarkoakWallSign : WallSignBase
 	{
-		public DarkoakWallSign() : base(448, 476) { }
+		public DarkoakWallSign() : base(448, "minecraft:dark_oak_sign") { }
 	}
 
 	public partial class CrimsonWallSign : WallSignBase
 	{
-		public CrimsonWallSign() : base(507, 505) { }
+		public CrimsonWallSign() : base(507, "minecraft:crimson_sign") { }
 	}
 
 	public partial class WarpedWallSign : WallSignBase
 	{
-		public WarpedWallSign() : base(508, 506) { }
+		public WarpedWallSign() : base(508, "minecraft:warped_sign") { }
 	}
 }

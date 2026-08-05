@@ -42,8 +42,8 @@ namespace MiNET.Entities.Passive
 		{
 			return new[]
 			{
-				ItemFactory.GetItem(40, 0, 2),
-				ItemFactory.GetItem(334, 0, 1)
+				ItemFactory.GetItemByName("minecraft:red_mushroom", 0, 2),
+				ItemFactory.GetItemByName("minecraft:leather", 0, 1)
 			};
 		}
 	}

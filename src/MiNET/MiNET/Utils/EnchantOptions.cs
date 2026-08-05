@@ -46,20 +46,20 @@ namespace MiNET.Utils
 
 	public class Enchant
 	{
-		public byte Id { get; set; }
+		public int Id { get; set; }
 		public byte Level { get; set; }
 		public uint Cost { get; set; }
 		public int Weight { get; set; }
 		public List<EnchantmentLevel> Levels { get; set; }
 
-		public Enchant(byte id, byte level = 1)
+		public Enchant(int id, byte level = 1)
 		{
 			Id = id;
 			Level = level;
 			Levels = GetEnchantmentLevels();
 			Weight = GetWeight();
 		}
-		public Enchant(EnchantingType enchanting, byte level = 1) : this((byte) enchanting, level)
+		public Enchant(EnchantingType enchanting, byte level = 1) : this((int) enchanting, level)
 		{
 		}
 

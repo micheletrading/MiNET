@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemGoldenCarrot : FoodItem
 	{
-		public ItemGoldenCarrot() : base("minecraft:golden_carrot", 396, 0, 6, 14.4)
+		public ItemGoldenCarrot() : base("minecraft:golden_carrot", 0, 6, 14.4)
 		{
 		}
 	}

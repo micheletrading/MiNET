@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemNetheriteLeggings : ArmorLeggingsBase
 	{
-		public ItemNetheriteLeggings() : base("minecraft:netherite_leggings", 750)
+		public ItemNetheriteLeggings() : base("minecraft:netherite_leggings")
 		{
 			ItemMaterial = ItemMaterial.Netherite;
 		}

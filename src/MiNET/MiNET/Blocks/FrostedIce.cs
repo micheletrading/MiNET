@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public FrostedIce() : base(207)
 		{
-			BlastResistance = 2.5f;
-			Hardness = 0.5f;
 		}
 	}
 }

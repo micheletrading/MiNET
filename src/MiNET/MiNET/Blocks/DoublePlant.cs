@@ -34,12 +34,8 @@ namespace MiNET.Blocks
 	{
 		public DoublePlant() : base(175)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 
-			IsSolid = false;
 			IsReplaceable = true;
-			IsTransparent = true;
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

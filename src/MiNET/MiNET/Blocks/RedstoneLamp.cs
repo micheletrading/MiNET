@@ -33,8 +33,6 @@ namespace MiNET.Blocks
 
 		public RedstoneLamp(byte id) : base(id)
 		{
-			BlastResistance = 1.5f;
-			Hardness = 0.3f;
 		}
 	}
 }

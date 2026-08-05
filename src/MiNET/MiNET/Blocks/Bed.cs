@@ -47,15 +47,12 @@ namespace MiNET.Blocks
 
 		public Bed() : base(26)
 		{
-			BlastResistance = 1;
-			Hardness = 0.2f;
-			IsTransparent = true;
 			//IsFlammable = true; // It can catch fire from lava, but not other means.
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem(355, Color)};
+			return new[] {ItemFactory.GetItemByName("minecraft:bed", Color)};
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

@@ -15,7 +15,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: 6.0.*
+          dotnet-version: 10.0.*
 
       - name: Generate build number
         id: buildnumber
@@ -26,7 +26,11 @@ jobs:
       - name: Dotnet Restore
         working-directory: src/MiNET/MiNET
         run: dotnet restore
-      
+
+      - name: Test
+        working-directory: src/MiNET
+        run: dotnet test MiNET.Test/MiNETTests.csproj --configuration Release
+
       - name: Build & Pack
         working-directory: src/MiNET/MiNET
         run: |

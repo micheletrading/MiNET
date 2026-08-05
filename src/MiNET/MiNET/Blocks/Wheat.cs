@@ -43,12 +43,12 @@ namespace MiNET.Blocks
 				var count = rnd.Next(4);
 				if (count > 0)
 				{
-					return new[] {ItemFactory.GetItem(296, 0, 1), ItemFactory.GetItem(295, 0, (byte) count)};
+					return new[] {ItemFactory.GetItemByName("minecraft:wheat", 0, 1), ItemFactory.GetItemByName("minecraft:wheat_seeds", 0, (byte) count)};
 				}
-				return new[] {ItemFactory.GetItem(296, 0, 1)};
+				return new[] {ItemFactory.GetItemByName("minecraft:wheat", 0, 1)};
 			}
 
-			return new[] {ItemFactory.GetItem(295, 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:wheat_seeds", 0, 1)};
 		}
 	}
 }

@@ -27,13 +27,13 @@ namespace MiNET.Items
 {
 	public class ItemBone : Item
 	{
-		public ItemBone() : base("minecraft:bone", 352)
+		public ItemBone() : base("minecraft:bone")
 		{
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(364);
+			return ItemFactory.GetItemByName("minecraft:cooked_beef");
 		}
 	}
 }

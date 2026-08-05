@@ -27,11 +27,13 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using Newtonsoft.Json;
 using System.Threading;
 using JetBrains.Annotations;
 using Jose;
@@ -141,6 +143,61 @@ namespace MiNET.Utils.Cryptography
 			return generator.GenerateKeyPair();
 		}
 
+		/// <summary>
+		///     The bot's identity: stable per username, so it is the same player on every login, and a
+		///     real RFC 4122 v3 UUID rather than a raw MD5 poured into a Guid. Built the way vanilla
+		///     builds a player UUID from an XUID (see LoginMessageHandler.DeriveUuidFromXuid), with the
+		///     username as the seed because a bot has no Xbox account. Nothing on the server checks the
+		///     shape, but this UUID reaches every real client in the player list, and a value with no
+		///     version or variant bits is not a UUID.
+		/// </summary>
+		public static Guid DeriveStableIdentity(string username)
+		{
+			byte[] hash = MD5.HashData(Encoding.UTF8.GetBytes("minet-auth-1-name:" + username));
+			hash[6] = (byte) ((hash[6] & 0x0f) | 0x30); // version 3
+			hash[8] = (byte) ((hash[8] & 0x3f) | 0x80); // variant RFC 4122
+
+			// Guid(byte[]) reads the first three groups little-endian; a UUID is big-endian throughout.
+			return new Guid(
+				(hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3],
+				(short) ((hash[4] << 8) | hash[5]),
+				(short) ((hash[6] << 8) | hash[7]),
+				hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]);
+		}
+
+		// Protocol 944+ offline login: identity moves out of the certificate chain into the
+		// envelope's Token field, as a self-signed OIDC-style JWT.
+		public static string EncodeOfflineMultiplayerToken(string username, AsymmetricCipherKeyPair newKey)
+		{
+			long iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+			long exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
+
+			ECDsa signKey = ConvertToSingKeyFormat(newKey);
+			string b64Key = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(newKey.Public).GetEncoded().EncodeBase64();
+
+			var payload = new Dictionary<string, object>
+			{
+				["cpk"] = b64Key,
+
+				// Empty, not "0". This is an Xbox account id and the bot has no account; vanilla BDS
+				// sends an empty xuid for an offline player, and "0" is a value, not an absence.
+				["xid"] = "",
+				["xname"] = username,
+
+				// Stable per username. A fresh GUID here made the bot a different person on every
+				// login, so nothing on the server or the client could recognise it as the same player
+				// twice.
+				["identity"] = DeriveStableIdentity(username).ToString(),
+				["iat"] = iat,
+				["nbf"] = iat,
+				["exp"] = exp,
+				["iss"] = "self",
+				["aud"] = "api://auth-minecraft-services/multiplayer"
+			};
+
+			return JWT.Encode(payload, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64Key}});
+		}
+
 		public static byte[] EncodeJwt(string username, AsymmetricCipherKeyPair newKey, bool isEmulator)
 		{
 			long iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -189,63 +246,88 @@ namespace MiNET.Utils.Cryptography
 			return Encoding.UTF8.GetBytes(val);
 		}
 
+		/// <summary>
+		///     The bot's Character Creator skin, captured from a real 1.26 client. grey_skin.json is
+		///     that same capture with every opaque pixel of the body atlas set to 0x5A, the 'Z' of the
+		///     original ZZZ skin, so TheGrey is grey again while still wearing a skin the game accepts.
+		///     Embedded in MiNET.Client, which is the only assembly that logs in as a client, so it is
+		///     looked up by name rather than referenced: this method lives in the server assembly.
+		/// </summary>
+		private const string BotSkinResource = "MiNET.Client.Data.grey_skin.json";
+
+		/// <summary>
+		///     The vanilla player model, base64 as it goes on the wire. This travels with the skin:
+		///     naming geometry.humanoid.custom in the resource patch and sending no definition draws
+		///     nothing, tested against a real client one field at a time, and that is exactly what the
+		///     old ZZZ skin did. Same model Geyser sends to Bedrock clients.
+		/// </summary>
+		private const string PlayerGeometry = "ewogICAgImZvcm1hdF92ZXJzaW9uIiA6ICIxLjEyLjAiLAogICAgIm1pbmVjcmFmdDpnZW9tZXRyeSIgOiBbCiAgICAgICAgewogICAgICAgICAgICAiYm9uZXMiIDogWwogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJib2R5IiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJ3YWlzdCIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgMC4wLCAyNC4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAid2Fpc3QiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMTIuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIC01LjAsIDguMCwgMy4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDEwLCAxNiwgMSBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgMCwgMCBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJjYXBlIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJib2R5IiwKICAgICAgICAgICAgICAgICAgICAicGl2b3QiIDogWyAwLjAsIDI0LjAsIDMuMCBdLAogICAgICAgICAgICAgICAgICAgICJyb3RhdGlvbiIgOiBbIDAuMCwgMTgwLjAsIDAuMCBdCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIF0sCiAgICAgICAgICAgICJkZXNjcmlwdGlvbiIgOiB7CiAgICAgICAgICAgICAgICAiaWRlbnRpZmllciIgOiAiZ2VvbWV0cnkuY2FwZSIsCiAgICAgICAgICAgICAgICAidGV4dHVyZV9oZWlnaHQiIDogMzIsCiAgICAgICAgICAgICAgICAidGV4dHVyZV93aWR0aCIgOiA2NAogICAgICAgICAgICB9CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJib25lcyIgOiBbCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogInJvb3QiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMC4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTQuMCwgMTIuMCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA4LCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgMTYsIDE2IF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogIndhaXN0IiwKICAgICAgICAgICAgICAgICAgICAicGl2b3QiIDogWyAwLjAsIDI0LjAsIDAuMCBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJ3YWlzdCIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAicm9vdCIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgMC4wLCAxMi4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTQuMCwgMjQuMCwgLTQuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA4LCA4LCA4IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyAwLCAwIF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImhlYWQiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMjQuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImNhcGUiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMjQsIDMuMCBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjdWJlcyIgOiBbCiAgICAgICAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJpbmZsYXRlIiA6IDAuNTAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTQuMCwgMjQuMCwgLTQuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA4LCA4LCA4IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyAzMiwgMCBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJoYXQiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImhlYWQiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMjQuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIDQuMCwgMTIuMCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA0LCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgMzIsIDQ4IF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImxlZnRBcm0iLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDUuMCwgMjIuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgImluZmxhdGUiIDogMC4yNTAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgNC4wLCAxMi4wLCAtMi4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDQsIDEyLCA0IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyA0OCwgNDggXQogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgXSwKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAibGVmdFNsZWV2ZSIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAibGVmdEFybSIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgNS4wLCAyMi4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAibGVmdEl0ZW0iLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImxlZnRBcm0iLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDYuMCwgMTUuMCwgMS4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIC04LjAsIDEyLjAsIC0yLjAgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJzaXplIiA6IFsgNCwgMTIsIDQgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJ1diIgOiBbIDQwLCAxNiBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJyaWdodEFybSIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAiYm9keSIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgLTUuMCwgMjIuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgImluZmxhdGUiIDogMC4yNTAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTguMCwgMTIuMCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA0LCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgNDAsIDMyIF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogInJpZ2h0U2xlZXZlIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJyaWdodEFybSIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgLTUuMCwgMjIuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImxvY2F0b3JzIiA6IHsKICAgICAgICAgICAgICAgICAgICAgICAgImxlYWRfaG9sZCIgOiBbIC02LCAxNSwgMSBdCiAgICAgICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAicmlnaHRJdGVtIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJyaWdodEFybSIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgLTYsIDE1LCAxIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIC0wLjEwLCAwLjAsIC0yLjAgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJzaXplIiA6IFsgNCwgMTIsIDQgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJ1diIgOiBbIDE2LCA0OCBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJsZWZ0TGVnIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJyb290IiwKICAgICAgICAgICAgICAgICAgICAicGl2b3QiIDogWyAxLjkwLCAxMi4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAiaW5mbGF0ZSIgOiAwLjI1MCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJvcmlnaW4iIDogWyAtMC4xMCwgMC4wLCAtMi4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDQsIDEyLCA0IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyAwLCA0OCBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJsZWZ0UGFudHMiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImxlZnRMZWciLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDEuOTAsIDEyLjAsIDAuMCBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjdWJlcyIgOiBbCiAgICAgICAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJvcmlnaW4iIDogWyAtMy45MCwgMC4wLCAtMi4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDQsIDEyLCA0IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyAwLCAxNiBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJyaWdodExlZyIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAicm9vdCIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgLTEuOTAsIDEyLjAsIDAuMCBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjdWJlcyIgOiBbCiAgICAgICAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJpbmZsYXRlIiA6IDAuMjUwLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIC0zLjkwLCAwLjAsIC0yLjAgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJzaXplIiA6IFsgNCwgMTIsIDQgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJ1diIgOiBbIDAsIDMyIF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogInJpZ2h0UGFudHMiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogInJpZ2h0TGVnIiwKICAgICAgICAgICAgICAgICAgICAicGl2b3QiIDogWyAtMS45MCwgMTIuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgImluZmxhdGUiIDogMC4yNTAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTQuMCwgMTIuMCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA4LCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgMTYsIDMyIF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImphY2tldCIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAiYm9keSIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgMC4wLCAyNC4wLCAwLjAgXQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICBdLAogICAgICAgICAgICAiZGVzY3JpcHRpb24iIDogewogICAgICAgICAgICAgICAgImlkZW50aWZpZXIiIDogImdlb21ldHJ5Lmh1bWFub2lkLmN1c3RvbSIsCiAgICAgICAgICAgICAgICAidGV4dHVyZV9oZWlnaHQiIDogNjQsCiAgICAgICAgICAgICAgICAidGV4dHVyZV93aWR0aCIgOiA2NCwKICAgICAgICAgICAgICAgICJ2aXNpYmxlX2JvdW5kc19oZWlnaHQiIDogMiwKICAgICAgICAgICAgICAgICJ2aXNpYmxlX2JvdW5kc19vZmZzZXQiIDogWyAwLCAxLCAwIF0sCiAgICAgICAgICAgICAgICAidmlzaWJsZV9ib3VuZHNfd2lkdGgiIDogMQogICAgICAgICAgICB9CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJib25lcyIgOiBbCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogInJvb3QiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMC4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAid2Fpc3QiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogInJvb3QiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMTIuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIC00LjAsIDEyLjAsIC0yLjAgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJzaXplIiA6IFsgOCwgMTIsIDQgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJ1diIgOiBbIDE2LCAxNiBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJib2R5IiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJ3YWlzdCIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgMC4wLCAyNC4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTQuMCwgMjQuMCwgLTQuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA4LCA4LCA4IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyAwLCAwIF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImhlYWQiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMjQuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgImluZmxhdGUiIDogMC41MCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJvcmlnaW4iIDogWyAtNC4wLCAyNC4wLCAtNC4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDgsIDgsIDggXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJ1diIgOiBbIDMyLCAwIF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImhhdCIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAiaGVhZCIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgMC4wLCAyNC4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTMuOTAsIDAuMCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA0LCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgMCwgMTYgXQogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgXSwKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAicmlnaHRMZWciLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogInJvb3QiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIC0xLjkwLCAxMi4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAiaW5mbGF0ZSIgOiAwLjI1MCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJvcmlnaW4iIDogWyAtMy45MCwgMC4wLCAtMi4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDQsIDEyLCA0IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyAwLCAzMiBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJyaWdodFBhbnRzIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJyaWdodExlZyIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgLTEuOTAsIDEyLjAsIDAuMCBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjdWJlcyIgOiBbCiAgICAgICAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJvcmlnaW4iIDogWyAtMC4xMCwgMC4wLCAtMi4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDQsIDEyLCA0IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyAxNiwgNDggXQogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgXSwKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAibGVmdExlZyIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAicm9vdCIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgMS45MCwgMTIuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgImluZmxhdGUiIDogMC4yNTAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgLTAuMTAsIDAuMCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyA0LCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgMCwgNDggXQogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgXSwKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAibGVmdFBhbnRzIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJsZWZ0TGVnIiwKICAgICAgICAgICAgICAgICAgICAicGl2b3QiIDogWyAxLjkwLCAxMi4wLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAib3JpZ2luIiA6IFsgNC4wLCAxMS41MCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyAzLCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgMzIsIDQ4IF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImxlZnRBcm0iLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDUuMCwgMjEuNTAsIDAuMCBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjdWJlcyIgOiBbCiAgICAgICAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJpbmZsYXRlIiA6IDAuMjUwLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIDQuMCwgMTEuNTAsIC0yLjAgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJzaXplIiA6IFsgMywgMTIsIDQgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJ1diIgOiBbIDQ4LCA0OCBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJsZWZ0U2xlZXZlIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJsZWZ0QXJtIiwKICAgICAgICAgICAgICAgICAgICAicGl2b3QiIDogWyA1LjAsIDIxLjUwLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAibGVmdEl0ZW0iLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImxlZnRBcm0iLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDYsIDE0LjUwLCAxIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgImN1YmVzIiA6IFsKICAgICAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIC03LjAsIDExLjUwLCAtMi4wIF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAic2l6ZSIgOiBbIDMsIDEyLCA0IF0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXYiIDogWyA0MCwgMTYgXQogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgXSwKICAgICAgICAgICAgICAgICAgICAibmFtZSIgOiAicmlnaHRBcm0iLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIC01LjAsIDIxLjUwLCAwLjAgXQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAiY3ViZXMiIDogWwogICAgICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAiaW5mbGF0ZSIgOiAwLjI1MCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJvcmlnaW4iIDogWyAtNy4wLCAxMS41MCwgLTIuMCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInNpemUiIDogWyAzLCAxMiwgNCBdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgInV2IiA6IFsgNDAsIDMyIF0KICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogInJpZ2h0U2xlZXZlIiwKICAgICAgICAgICAgICAgICAgICAicGFyZW50IiA6ICJyaWdodEFybSIsCiAgICAgICAgICAgICAgICAgICAgInBpdm90IiA6IFsgLTUuMCwgMjEuNTAsIDAuMCBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJsb2NhdG9ycyIgOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICJsZWFkX2hvbGQiIDogWyAtNiwgMTQuNTAsIDEgXQogICAgICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogInJpZ2h0SXRlbSIsCiAgICAgICAgICAgICAgICAgICAgInBhcmVudCIgOiAicmlnaHRBcm0iLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIC02LCAxNC41MCwgMSBdCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjdWJlcyIgOiBbCiAgICAgICAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJpbmZsYXRlIiA6IDAuMjUwLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgIm9yaWdpbiIgOiBbIC00LjAsIDEyLjAsIC0yLjAgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJzaXplIiA6IFsgOCwgMTIsIDQgXSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJ1diIgOiBbIDE2LCAzMiBdCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICJuYW1lIiA6ICJqYWNrZXQiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMjQuMCwgMC4wIF0KICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgIm5hbWUiIDogImNhcGUiLAogICAgICAgICAgICAgICAgICAgICJwYXJlbnQiIDogImJvZHkiLAogICAgICAgICAgICAgICAgICAgICJwaXZvdCIgOiBbIDAuMCwgMjQsIC0zLjAgXQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICBdLAogICAgICAgICAgICAiZGVzY3JpcHRpb24iIDogewogICAgICAgICAgICAgICAgImlkZW50aWZpZXIiIDogImdlb21ldHJ5Lmh1bWFub2lkLmN1c3RvbVNsaW0iLAogICAgICAgICAgICAgICAgInRleHR1cmVfaGVpZ2h0IiA6IDY0LAogICAgICAgICAgICAgICAgInRleHR1cmVfd2lkdGgiIDogNjQsCiAgICAgICAgICAgICAgICAidmlzaWJsZV9ib3VuZHNfaGVpZ2h0IiA6IDIsCiAgICAgICAgICAgICAgICAidmlzaWJsZV9ib3VuZHNfb2Zmc2V0IiA6IFsgMCwgMSwgMCBdLAogICAgICAgICAgICAgICAgInZpc2libGVfYm91bmRzX3dpZHRoIiA6IDEKICAgICAgICAgICAgfQogICAgICAgIH0KICAgIF0KfQo=";
+
+		private static ClientData LoadPersonaClientData()
+		{
+			foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+			{
+				using Stream stream = assembly.GetManifestResourceStream(BotSkinResource);
+				if (stream == null) continue;
+
+				using var reader = new StreamReader(stream);
+				return JsonConvert.DeserializeObject<ClientData>(reader.ReadToEnd());
+			}
+
+			throw new FileNotFoundException($"{BotSkinResource} not found; the bot has no skin to log in with");
+		}
+
+		/// <summary>
+		///     The bot's skin, ready to send. Recolour <see cref="ClientData.SkinData" /> and call
+		///     <see cref="ClientData.ToSkin" /> to make one for McpePlayerSkin; the id has to move with
+		///     the pixels or the client keeps showing the skin it already has under that id.
+		/// </summary>
+		public static ClientData BuildBotClientData(string username)
+		{
+			ClientData clientData = LoadPersonaClientData();
+			clientData.SkinGeometryData = PlayerGeometry;
+
+			StampSkinId(clientData, username);
+
+			return clientData;
+		}
+
+		/// <summary>
+		///     The captured skin carries the id of the account it came from, so every bot and that
+		///     player would present the same skin identity. Derived from the username and the texture
+		///     instead: unique per bot, and the SAME on every login, because a skin id that changes each
+		///     time is a new skin to the client every time it sees the player. The texture is in the
+		///     hash because the client caches by id and will not look at the pixels again for an id it
+		///     already knows, so recolouring without moving the id shows the old skin.
+		/// </summary>
+		public static void StampSkinId(ClientData clientData, string username)
+		{
+			byte[] identity = Encoding.UTF8.GetBytes(username + clientData.SkinData);
+
+			clientData.SkinId = $"{DeriveStableIdentity(username)}.{Convert.ToHexString(MD5.HashData(identity)).ToLowerInvariant().Substring(0, 16)}";
+		}
+
 		public static byte[] EncodeSkinJwt(AsymmetricCipherKeyPair newKey, string username)
 		{
-			var resourcePatch = new SkinResourcePatch() {Geometry = new GeometryIdentifier() {Default = "geometry.humanoid.customSlim"}};
-			var skin = new Skin
-			{
-				SkinId = $"{Guid.NewGuid().ToString()}.CustomSlim",
-				SkinResourcePatch = resourcePatch,
-				Slim = true,
-				Height = 32,
-				Width = 64,
-				Data = Encoding.Default.GetBytes(new string('Z', 8192)),
-			};
+			// The bot's appearance is a real Character Creator skin, captured from a live 1.26 client
+			// and shipped as MiNET.Client/Data/persona_skin.json. It used to be a hand-built classic
+			// skin: 64x64 of flat grey, a resource patch naming geometry.humanoid.custom, and no
+			// geometry to back it. Vanilla BDS relayed it without complaint and the receiving client
+			// rendered a default character, because a skin that names a model it does not define has
+			// nothing to draw. Rather than keep guessing what a valid classic skin needs, this sends
+			// one that a real client authored and that the game already accepts.
+			ClientData clientData = BuildBotClientData(username);
 
-			string resourcePatchData = Convert.ToBase64String(Encoding.Default.GetBytes(Skin.ToJson(resourcePatch)));
-			string skin64 = Convert.ToBase64String(skin.Data);
+			clientData.ClientRandomId = new Random().Next();
+			clientData.SelfSignedId = Guid.NewGuid().ToString();
+			clientData.ServerAddress = "yodamine.com:19132";
+			clientData.ThirdPartyName = username;
+			clientData.ThirdPartyNameOnly = false;
+			clientData.DeviceId = Guid.NewGuid().ToString();
+			clientData.DeviceModel = "MiNET CLIENT";
+			clientData.GameVersion = McpeProtocolInfo.GameVersion;
 
-
-			string skinData = $@"
-{{
-	""AnimatedImageData"": [],
-	""ArmSize"": """",
-	""CapeData"": """",
-	""CapeId"": """",
-	""CapeImageHeight"": 0,
-	""CapeImageWidth"": 0,
-	""CapeOnClassicSkin"": false,
-	""ClientRandomId"": {new Random().Next()},
-	""CurrentInputMode"": 1,
-	""DefaultInputMode"": 1,
-	""DeviceId"": ""{Guid.NewGuid().ToString()}"",
-	""DeviceModel"": ""MiNET CLIENT"",
-	""DeviceOS"": 7,
-	""GameVersion"": ""{McpeProtocolInfo.GameVersion}"",
-	""GuiScale"": -1,
-	""LanguageCode"": ""en_US"",
-	""PersonaPieces"": [],
-	""PersonaSkin"": false,
-	""PieceTintColors"": [],
-	""PlatformOfflineId"": """",
-	""PlatformOnlineId"": """",
-	""PlayFabId"": """",
-	""PremiumSkin"": false,
-	""SelfSignedId"": ""{Guid.NewGuid().ToString()}"",
-	""ServerAddress"": ""yodamine.com:19132"",
-	""SkinAnimationData"": """",
-	""SkinColor"": ""#0"",
-	""SkinData"": ""{skin64}"",
-	""SkinGeometryData"": """",
-	""SkinId"": ""{skin.SkinId}"",
-	""SkinImageHeight"": {skin.Height},
-	""SkinImageWidth"": {skin.Width},
-	""SkinResourcePatch"": ""{resourcePatchData}"",
-	""ThirdPartyName"": ""{username}"",
-	""ThirdPartyNameOnly"": false,
-	""UIProfile"": 0
-}}
-";
+			string skinData = JsonConvert.SerializeObject(clientData);
 
 			ECDsa signKey = ConvertToSingKeyFormat(newKey);
 			string b64Key = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(newKey.Public).GetEncoded().EncodeBase64();

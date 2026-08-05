@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemNetheriteChestplate : ArmorChestplateBase
 	{
-		public ItemNetheriteChestplate() : base("minecraft:netherite_chestplate", 749)
+		public ItemNetheriteChestplate() : base("minecraft:netherite_chestplate")
 		{
 			ItemMaterial = ItemMaterial.Netherite;
 		}

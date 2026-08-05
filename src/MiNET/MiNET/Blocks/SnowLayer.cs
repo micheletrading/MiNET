@@ -41,9 +41,6 @@ namespace MiNET.Blocks
 
 		public SnowLayer() : base(78)
 		{
-			IsTransparent = true;
-			BlastResistance = 0.5f;
-			Hardness = 0.1f;
 			IsReplaceable = true;
 		}
 
@@ -73,7 +70,7 @@ namespace MiNET.Blocks
 				}
 				else
 				{
-					if (BlockFactory.GetBlockById(80) is Snow snow)
+					if (BlockFactory.GetBlockByName("minecraft:snow") is Snow snow)
 					{
 						snow.Coordinates = Coordinates;
 						world.SetBlock(snow);
@@ -88,7 +85,7 @@ namespace MiNET.Blocks
 		public override Item[] GetDrops(Item tool)
 		{
 			// One per layer.
-			return new[] {ItemFactory.GetItem(332, 0, (Height + 1))};
+			return new[] {ItemFactory.GetItemByName("minecraft:snowball", 0, (Height + 1))};
 		}
 	}
 }

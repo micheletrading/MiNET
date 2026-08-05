@@ -106,6 +106,12 @@ namespace MiNET.Entities
 		{
 			var metadata = base.GetMetadata();
 
+			// Players (and player-like mobs, eg. NPC bots) report their bounding box as a single
+			// CollisionBox vector3 (width, height, 0) instead of the generic width/height floats.
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxWidth);
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxHeight);
+			metadata[(int) MetadataFlags.CollisionBox] = new MetadataVector3((float) Width, (float) Height, 0);
+
 			return metadata;
 		}
 
@@ -138,7 +144,6 @@ namespace MiNET.Entities
 				var message = McpeAddPlayer.CreateObject();
 				message.uuid = ClientUuid;
 				message.username = NameTag;
-				message.entityIdSelf = EntityId;
 				message.runtimeEntityId = EntityId;
 				message.x = KnownPosition.X;
 				message.y = KnownPosition.Y;
@@ -147,7 +152,7 @@ namespace MiNET.Entities
 				message.headYaw = KnownPosition.HeadYaw;
 				message.pitch = KnownPosition.Pitch;
 				message.metadata = GetMetadata();
-				message.userId = -1;
+				message.uniqueId = -1;
 				Level.RelayBroadcast(players, message);
 			}
 

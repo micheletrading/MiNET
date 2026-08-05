@@ -30,8 +30,6 @@ namespace MiNET.Blocks
 	{
 		public Observer() : base(251)
 		{
-			BlastResistance = 17.5f;
-			IsTransparent = true;
 		}
 	}
 }

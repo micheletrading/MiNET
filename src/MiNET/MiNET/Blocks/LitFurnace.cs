@@ -31,12 +31,11 @@ namespace MiNET.Blocks
 	{
 		public LitFurnace() : base(62)
 		{
-			LightLevel = 13;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {new ItemBlock(new Furnace(), 0)};
+			return new[] {ItemFactory.GetItemByName("minecraft:furnace")};
 		}
 	}
 }

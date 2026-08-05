@@ -29,9 +29,9 @@ namespace MiNET.Items
 {
 	public class ItemWheatSeeds : ItemBlock
 	{
-		public ItemWheatSeeds() : base("minecraft:wheat_seeds", 295)
+		public ItemWheatSeeds() : base("minecraft:wheat_seeds")
 		{
-			Block = BlockFactory.GetBlockById(59);
+			Block = BlockFactory.GetBlockByName("minecraft:wheat");
 		}
 	}
 }

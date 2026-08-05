@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public BrownMushroom() : base(39)
 		{
-			IsSolid = false;
-			LightLevel = 1;
-			IsTransparent = true;
 		}
 	}
 }

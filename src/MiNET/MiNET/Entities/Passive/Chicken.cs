@@ -80,8 +80,8 @@ namespace MiNET.Entities.Passive
 			Random random = new Random();
 			return new[]
 			{
-				ItemFactory.GetItem(365),
-				ItemFactory.GetItem(288, 0, random.Next(1, 3)),
+				ItemFactory.GetItemByName("minecraft:chicken"),
+				ItemFactory.GetItemByName("minecraft:feather", 0, random.Next(1, 3)),
 			};
 		}
 	}

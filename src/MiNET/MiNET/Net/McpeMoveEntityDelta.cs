@@ -83,18 +83,20 @@ namespace MiNET.Net
 
 		partial void AfterEncode()
 		{
-			// write the values
+			// write the values. Read from currentPosition directly rather than the _dX/_dY/_dZ
+			// cache: that cache is only populated as a side effect of SetFlags(), which BeforeEncode
+			// skips whenever flags is already non-zero (e.g. after a decode), leaving it stale.
 			if ((flags & 0x1) != 0)
 			{
-				Write(_dX);
+				Write(currentPosition.X);
 			}
 			if ((flags & 0x2) != 0)
 			{
-				Write(_dY);
+				Write(currentPosition.Y);
 			}
 			if ((flags & 0x4) != 0)
 			{
-				Write(_dZ);
+				Write(currentPosition.Z);
 			}
 
 			float d = 256f / 360f;

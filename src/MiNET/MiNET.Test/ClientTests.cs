@@ -30,10 +30,8 @@ namespace MiNET.Test
 			public override void HandleMcpeStartGame(McpeStartGame message)
 			{
 				var fileNameBlockstates = Path.GetTempPath() + "blockstates_" + Guid.NewGuid() + ".json";
-				var fileNameItemstates = Path.GetTempPath() + "itemstates_" + Guid.NewGuid() + ".json";
 
 				File.WriteAllText(fileNameBlockstates, JsonConvert.SerializeObject(message.blockPalette));
-				File.WriteAllText(fileNameItemstates, JsonConvert.SerializeObject(message.itemstates));
 				
 				Finished = true;
 			}

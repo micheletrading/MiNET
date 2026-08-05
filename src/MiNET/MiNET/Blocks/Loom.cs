@@ -35,9 +35,6 @@ namespace MiNET.Blocks
 	{
 		public Loom() : base(459)
 		{
-			IsTransparent = true;
-			BlastResistance = 6000;
-			Hardness = 5;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
@@ -53,7 +50,7 @@ namespace MiNET.Blocks
 			containerOpen.windowId = 24;
 			containerOpen.type = 24;
 			containerOpen.coordinates = blockCoordinates;
-			containerOpen.runtimeEntityId = EntityManager.EntityIdSelf;
+			containerOpen.actorUniqueId = EntityManager.EntityIdSelf;
 			player.SendPacket(containerOpen);
 
 			return true;

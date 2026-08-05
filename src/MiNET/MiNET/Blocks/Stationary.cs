@@ -36,12 +36,19 @@ namespace MiNET.Blocks
 
 		[StateRange(0, 15)] public virtual int LiquidDepth { get; set; } = 0;
 
-		internal Stationary(byte id) : base(id)
+		private readonly string _flowingName;
+
+		internal Stationary(byte id, string flowingName) : base(id)
 		{
-			IsSolid = false;
+			_flowingName = flowingName;
 			IsBuildable = false;
 			IsReplaceable = true;
-			IsTransparent = true;
+		}
+
+		/// <summary>The flowing half of this liquid, which a disturbed still block becomes.</summary>
+		public Flowing FlowingCounterpart()
+		{
+			return (Flowing) BlockFactory.GetBlockByName(_flowingName);
 		}
 
 		public override void DoPhysics(Level level)
@@ -56,7 +63,7 @@ namespace MiNET.Blocks
 
 		private void SetToFlowing(Level world)
 		{
-			var flowingBlock = (Flowing) BlockFactory.GetBlockById((byte) (Id - 1));
+			Flowing flowingBlock = FlowingCounterpart();
 			flowingBlock.LiquidDepth = LiquidDepth;
 			flowingBlock.Coordinates = Coordinates;
 			world.SetBlock(flowingBlock, applyPhysics: false);

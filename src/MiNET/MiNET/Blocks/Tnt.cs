@@ -29,7 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Tnt() : base(46)
 		{
-			IsFlammable = true;
 		}
 	}
 }

@@ -141,9 +141,13 @@ namespace MiNET.Entities
 			RiderMinRotation = 59,
 			AlwaysShowNameTag = 81,
 
-			EntityFlags2 = 91, // same treatment as 0 flags, perhaps
+			EntityFlags2 = 92, // same treatment as 0 flags, perhaps
 
-			ButtonText = 99,
+			ButtonText = 100,
+
+			// Players (and player-like mobs) report their bounding box as a single vector3
+			// (width, height, 0) here instead of the generic CollisionBoxWidth/Height floats.
+			CollisionBox = 130,
 		}
 
 		public virtual MetadataDictionary GetMetadata()
@@ -162,7 +166,10 @@ namespace MiNET.Entities
 			metadata[(int) MetadataFlags.RiderSeatPosition] = new MetadataVector3(RiderSeatPosition);
 			metadata[(int) MetadataFlags.RiderRotationLocked] = new MetadataByte(RiderRotationLocked);
 			metadata[(int) MetadataFlags.RiderMaxRotation] = new MetadataFloat(RiderMaxRotation);
-			metadata[(int) MetadataFlags.RiderMinRotation] = new MetadataFloat(RiderMinRotation);
+			// Byte, not float. Vanilla BDS 1.26.34 sends a byte here; the dictionary is
+			// self-describing so a float is not malformed, it just is not what the client
+			// is built to read for this property.
+			metadata[(int) MetadataFlags.RiderMinRotation] = new MetadataByte((byte) RiderMinRotation);
 			metadata[(int) MetadataFlags.AlwaysShowNameTag] = new MetadataByte(IsAlwaysShowName);
 			return metadata;
 		}
@@ -384,6 +391,9 @@ namespace MiNET.Entities
 			ChargeAttack,
 			WasdControlled,
 			CanPowerJump,
+			CanDash, // bit 46 since ~1.20; without it every later flag is off by one and the
+			         // client reads our AffectedByGravity (48) as HasCollision, leaving its real
+			         // gravity bit (49) unset: no gravity, no jump.
 			Linger,
 			HasCollision,
 			AffectedByGravity,

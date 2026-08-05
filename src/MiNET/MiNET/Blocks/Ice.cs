@@ -29,9 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Ice() : base(79)
 		{
-			BlastResistance = 2.5f;
-			Hardness = 0.5f;
-			IsTransparent = true;
 		}
 	}
 }

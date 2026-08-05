@@ -38,7 +38,7 @@ namespace MiNET.Items
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemHoe));
 
-		internal ItemHoe(string name, short id) : base(name, id)
+		internal ItemHoe(string name) : base(name)
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Hoe;
@@ -47,7 +47,7 @@ namespace MiNET.Items
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
 			Block block = world.GetBlock(blockCoordinates);
-			if (block is Grass || (block is Dirt normalDirt && normalDirt.DirtType == "normal") || block is GrassPath)
+			if (block is Grass || block is Dirt || block is GrassPath)
 			{
 				var farmland = new Farmland
 				{
@@ -63,7 +63,7 @@ namespace MiNET.Items
 				world.SetBlock(farmland);
 				player.Inventory.DamageItemInHand(ItemDamageReason.BlockInteract, null, block);
 			}
-			else if (block is Dirt coarseDirt && coarseDirt.DirtType == "coarse")
+			else if (block is CoarseDirt)
 			{
 				Dirt dirt = new Dirt {Coordinates = blockCoordinates};
 

@@ -28,6 +28,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using log4net.Core;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using MiNET.Blocks;
 using MiNET.Net;
 using MiNET.Test.Streaming;
 using MiNET.Worlds;
@@ -146,7 +147,11 @@ namespace MiNET.Test
 				{
 					for (int y = 0; y < numberOfSubChunks * 16; y++)
 					{
-						column.SetBlockByRuntimeId(x, y, z, block++);
+						// Worst case is every block in a subchunk being a different palette entry. The
+						// counter has to stay inside the palette: there are 65536 positions and only
+						// BlockPalette.Count real states, and a runtime id past the end has no network hash.
+						column.SetBlockByRuntimeId(x, y, z, block);
+						block = (block + 1) % BlockFactory.BlockPalette.Count;
 					}
 				}
 			}

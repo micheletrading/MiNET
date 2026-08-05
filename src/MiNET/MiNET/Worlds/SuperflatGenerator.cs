@@ -35,7 +35,7 @@ namespace MiNET.Worlds
 	public class SuperflatGenerator : IWorldGenerator
 	{
 		public string Seed { get; set; }
-		public List<Block> BlockLayers { get; set; }
+		public SuperflatPreset Preset { get; private set; } = new SuperflatPreset();
 		public Dimension Dimension { get; set; }
 
 		public SuperflatGenerator(Dimension dimension)
@@ -44,20 +44,20 @@ namespace MiNET.Worlds
 			switch (dimension)
 			{
 				case Dimension.Overworld:
-					Seed = Config.GetProperty("superflat.overworld", "3;minecraft:bedrock,2*minecraft:dirt,minecraft:grass;1;village");
+					Seed = Config.GetProperty("superflat.overworld", "minecraft:bedrock,2*minecraft:dirt,minecraft:grass_block;minecraft:plains");
 					break;
 				case Dimension.Nether:
-					Seed = Config.GetProperty("superflat.nether", "3;minecraft:bedrock,2*minecraft:netherrack,3*minecraft:lava,2*minecraft:netherrack,20*minecraft:air,minecraft:bedrock;1;village");
+					Seed = Config.GetProperty("superflat.nether", "minecraft:bedrock,2*minecraft:netherrack,3*minecraft:lava,2*minecraft:netherrack,20*minecraft:air,minecraft:bedrock;minecraft:hell");
 					break;
 				case Dimension.TheEnd:
-					Seed = Config.GetProperty("superflat.theend", "3;40*minecraft:air,minecraft:bedrock,7*minecraft:endstone;1;village");
+					Seed = Config.GetProperty("superflat.theend", "40*minecraft:air,minecraft:bedrock,7*minecraft:end_stone;minecraft:the_end");
 					break;
 			}
 		}
 
 		public void Initialize(IWorldProvider worldProvider)
 		{
-			BlockLayers = ParseSeed(Seed);
+			Preset = SuperflatPreset.Parse(Seed);
 		}
 
 		public ChunkColumn GenerateChunkColumn(ChunkCoordinates chunkCoordinates)
@@ -98,13 +98,13 @@ namespace MiNET.Worlds
 					Vector2 v = new Vector2(x, z);
 					if (random.Next((int) Vector2.DistanceSquared(center, v)) < 1)
 					{
-						chunk.SetBlock(x, BlockLayers.Count - 2, z, new Glowstone());
+						chunk.SetBlock(x, Preset.Layers.Count - 2, z, new Glowstone());
 						if (random.NextDouble() > 0.85)
 						{
-							chunk.SetBlock(x, BlockLayers.Count - 3, z, new Glowstone());
+							chunk.SetBlock(x, Preset.Layers.Count - 3, z, new Glowstone());
 							if (random.NextDouble() > 0.50)
 							{
-								chunk.SetBlock(x, BlockLayers.Count - 4, z, new Glowstone());
+								chunk.SetBlock(x, Preset.Layers.Count - 4, z, new Glowstone());
 							}
 						}
 					}
@@ -137,7 +137,7 @@ namespace MiNET.Worlds
 
 							if (random.Next(30) == 0)
 							{
-								for (int i = h; i < BlockLayers.Count - 1; i++)
+								for (int i = h; i < Preset.Layers.Count - 1; i++)
 								{
 									chunk.SetBlock(x, i, z, block);
 								}
@@ -145,7 +145,7 @@ namespace MiNET.Worlds
 						}
 						else if (Dimension == Dimension.TheEnd)
 						{
-							for (int i = 0; i < BlockLayers.Count; i++)
+							for (int i = 0; i < Preset.Layers.Count; i++)
 							{
 								chunk.SetBlock(x, i, z, new Air());
 							}
@@ -163,7 +163,7 @@ namespace MiNET.Worlds
 		{
 			int h = 0;
 			bool foundSolid = false;
-			foreach (var block in BlockLayers)
+			foreach (var block in Preset.Layers)
 			{
 				if (foundSolid && block is Air) return h - 1;
 
@@ -177,7 +177,7 @@ namespace MiNET.Worlds
 
 		public void PopulateChunk(ChunkColumn chunk)
 		{
-			List<Block> layers = BlockLayers;
+			List<Block> layers = Preset.Layers;
 
 			for (int x = 0; x < 16; x++)
 			{
@@ -199,64 +199,10 @@ namespace MiNET.Worlds
 
 					// need to take care of skylight for non overworld to make it 0.
 
-					chunk.SetBiome(x, z, 1); // use pattern for this
+					chunk.SetBiome(x, z, Preset.BiomeId);
 				}
 			}
 		}
 
-		public static List<Block> ParseSeed(string inputSeed)
-		{
-			if (string.IsNullOrEmpty(inputSeed)) return new List<Block>();
-
-			var blocks = new List<Block>();
-
-			var components = inputSeed.Split(';');
-
-			var blockPattern = components[1].Split(',');
-			foreach (var pattern in blockPattern)
-			{
-				var countAndBlock = pattern.Replace("minecraft:", "").Split('*');
-
-				var blockAndMeta = countAndBlock[0].Split(':');
-				int count = 1;
-				if (countAndBlock.Length > 1)
-				{
-					count = int.Parse(countAndBlock[0]);
-					blockAndMeta = countAndBlock[1].Split(':');
-				}
-
-				if (blockAndMeta.Length == 0) continue;
-
-				Block block;
-
-				if (byte.TryParse(blockAndMeta[0], out byte id))
-				{
-					block = BlockFactory.GetBlockById(id);
-				}
-				else
-				{
-					block = BlockFactory.GetBlockByName(blockAndMeta[0]);
-				}
-
-				if (blockAndMeta.Length > 1 && byte.TryParse(blockAndMeta[1], out byte meta))
-				{
-					block.Metadata = meta; //TODO: Replace with new state-based data from JE patterns.
-				}
-
-				if (block != null)
-				{
-					for (int i = 0; i < count; i++)
-					{
-						blocks.Add(block);
-					}
-				}
-				else
-				{
-					throw new Exception($"Expected block, but didn't fine one for pattern {pattern}, {string.Join("^", blockAndMeta)} ");
-				}
-			}
-
-			return blocks;
-		}
 	}
 }

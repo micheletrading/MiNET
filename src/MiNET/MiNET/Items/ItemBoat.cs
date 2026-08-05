@@ -36,7 +36,7 @@ namespace MiNET.Items
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemBoat));
 
-		public ItemBoat(short metadata) : base("minecraft:boat", 333, metadata)
+		public ItemBoat(short metadata) : base("minecraft:boat", metadata)
 		{
 		}
 

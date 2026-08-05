@@ -397,7 +397,7 @@ namespace TestPlugin.NiceLobby
 			if (player.CertificateData.ExtraData.Xuid != null && player.Username.Equals("gurunx"))
 			{
 				player.ActionPermissions = ActionPermissions.Operator;
-				player.CommandPermission = 4;
+				player.CommandPermission = CommandPermission.Admin;
 				player.PermissionLevel = PermissionLevel.Operator;
 				player.SendAdventureSettings();
 			}
@@ -431,10 +431,10 @@ namespace TestPlugin.NiceLobby
 			player.Inventory.Slots[idx++] = new ItemBlock(new Loom()) {Count = 64};
 			//player.Inventory.Slots[idx++] = new ItemBlock(new Sapling()) { Count = 64 };
 			//player.Inventory.Slots[idx++] = new ItemBlock(new Sapling(), 2) { Count = 64 };
-			//player.Inventory.Slots[idx++] = new ItemBlock(new Vine(), 0) { Count = 64 };
+			//player.Inventory.Slots[idx++] = new ItemBlock(new Vine()) { Count = 64 };
 			//player.Inventory.Slots[idx++] = new ItemBlock(new SnowLayer()) {Count = 64};
 			//player.Inventory.Slots[idx++] = new ItemBlock(new Dirt()) {Count = 64};
-			//player.Inventory.Slots[idx++] = new ItemBlock(new WoodenButton(), 0) { Count = 64 };
+			//player.Inventory.Slots[idx++] = new ItemBlock(new WoodenButton()) { Count = 64 };
 			//player.Inventory.Slots[idx++] = new CustomTestItem(0xC0FFEE) { Count = 1 };
 			//player.Inventory.Slots[idx++] = new CustomTestItem(0xDEADBEEF) {Count = 10 };
 			//player.Inventory.Slots[idx++] = new CustomTestItem(0xDEADBEEF) {Count = 10 };
@@ -497,8 +497,8 @@ namespace TestPlugin.NiceLobby
 			//player.Inventory.Slots[idx++] = new ItemSnowball() {Count = 16};
 			//player.Inventory.Slots[idx++] = new ItemBow() {Count = 1};
 			//player.Inventory.Slots[idx++] = new ItemArrow() {Count = 64};
-			//player.Inventory.Slots[idx++] = new ItemBlock(new Torch(), 0) {Count = 64};
-			//player.Inventory.Slots[idx++] = new ItemBlock(new Stone(), 0) {Count = 64};
+			//player.Inventory.Slots[idx++] = new ItemBlock(new Torch()) {Count = 64};
+			//player.Inventory.Slots[idx++] = new ItemBlock(new Stone()) {Count = 64};
 			//player.Inventory.Slots[idx++] = new ItemWheat() {Count = 1};
 			//player.Inventory.Slots[idx++] = new ItemCarrot() {Count = 1};
 			//player.Inventory.Slots[idx++] = new ItemWheatSeeds() {Count = 1};
@@ -748,20 +748,20 @@ namespace TestPlugin.NiceLobby
 			SendNameTag(player);
 			player.RemoveAllEffects();
 
-			player.SetEffect(new Speed
-			{
-				Level = 1,
-				Duration = Effect.MaxDuration
-			}); // 10s in ticks
-			//player.SetEffect(new Slowness { Level = 20, Duration = 20 * 10 });
-			//player.SetEffect(new Haste { Level = 20, Duration = 20 * 10 });
-			//player.SetEffect(new MiningFatigue { Level = 20, Duration = 20 * 10 });
-			//player.SetEffect(new Strength { Level = 20, Duration = 20 * 10 });
-			player.SetEffect(new JumpBoost
-			{
-				Level = 1,
-				Duration = Effect.MaxDuration
-			});
+			// player.SetEffect(new Speed
+			// {
+			// 	Level = 1,
+			// 	Duration = Effect.MaxDuration
+			// }); // 10s in ticks
+			// //player.SetEffect(new Slowness { Level = 20, Duration = 20 * 10 });
+			// //player.SetEffect(new Haste { Level = 20, Duration = 20 * 10 });
+			// //player.SetEffect(new MiningFatigue { Level = 20, Duration = 20 * 10 });
+			// //player.SetEffect(new Strength { Level = 20, Duration = 20 * 10 });
+			// player.SetEffect(new JumpBoost
+			// {
+			// 	Level = 1,
+			// 	Duration = Effect.MaxDuration
+			// });
 			//player.SetEffect(new Blindness { Level = 20, Duration = 20 * 10 });
 			//player.SetAutoJump(true);
 
@@ -771,7 +771,7 @@ namespace TestPlugin.NiceLobby
 		[PacketHandler, Send]
 		public Packet AddPlayerHandler(McpeAddPlayer packet, Player player)
 		{
-			if (_playerEntities.Keys.FirstOrDefault(p => p.EntityId == packet.entityIdSelf) != null)
+			if (_playerEntities.Keys.FirstOrDefault(p => p.EntityId == packet.runtimeEntityId) != null)
 			{
 				return null;
 			}
@@ -820,6 +820,21 @@ namespace TestPlugin.NiceLobby
 			return null;
 		}
 
+		[PacketHandler, Receive]
+		public Packet HandleIncoming(McpeMovePlayer packet, Player player)
+		{
+			if (_playerEntities.ContainsKey(player))
+			{
+				var entity = _playerEntities[player];
+				entity.KnownPosition = player.KnownPosition;
+				var message = McpeMoveEntity.CreateObject();
+				message.runtimeEntityId = entity.EntityId;
+				message.position = entity.KnownPosition;
+				player.Level.RelayBroadcast(message);
+			}
+
+			return packet; // Process
+		}
 
 		private void DoDevelopmentPopups(object state)
 		{
@@ -1010,22 +1025,6 @@ namespace TestPlugin.NiceLobby
 			_playerEntities[player] = entity;
 
 			level.BroadcastMessage($"Player {player.Username} spawned as {mobType}.", type: MessageType.Raw);
-		}
-
-		[PacketHandler, Receive]
-		public Packet HandleIncoming(McpeMovePlayer packet, Player player)
-		{
-			if (_playerEntities.ContainsKey(player))
-			{
-				var entity = _playerEntities[player];
-				entity.KnownPosition = player.KnownPosition;
-				var message = McpeMoveEntity.CreateObject();
-				message.runtimeEntityId = entity.EntityId;
-				message.position = entity.KnownPosition;
-				player.Level.RelayBroadcast(message);
-			}
-
-			return packet; // Process
 		}
 
 		[Command(Name = "w")]

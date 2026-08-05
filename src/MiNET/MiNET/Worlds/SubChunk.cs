@@ -39,6 +39,15 @@ namespace MiNET.Worlds
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(SubChunk));
 
+		/// <summary>
+		///     Server-wide on purpose, not per level or per player: WriteStore caches the encoded
+		///     bytes on the subchunk and everyone who gets that chunk gets those same bytes, so
+		///     there can only be one answer. Changing it after chunks have been encoded serves
+		///     stale bytes in the wrong encoding. Owned by BlockFactory, which is the only thing
+		///     that translates between a block and the id the protocol carries.
+		/// </summary>
+		public static bool BlockNetworkIdsAreHashes => BlockFactory.BlockNetworkIdsAreHashes;
+
 		private bool _isAllAir = true;
 
 		private List<int> _runtimeIds; // Add air, always as first (performance)
@@ -97,13 +106,16 @@ namespace MiNET.Worlds
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static unsafe bool AllZeroFast<T>(T[] data) where T : unmanaged
 		{
-			fixed (T* shorts = data)
+			fixed (T* start = data)
 			{
-				byte* bytes = (byte*) shorts;
+				byte* bytes = (byte*) start;
 				int len = data.Length * sizeof(T);
 				int rem = len % (sizeof(long) * 16);
 				long* b = (long*) bytes;
-				long* e = (long*) (shorts + len - rem);
+				// len is a byte count, so it has to advance the byte pointer. Advancing the T*
+				// instead scanned sizeof(T) times too far, reading past the array into whatever
+				// followed it: zeroed heap for a fresh array, stale contents for a pooled one.
+				long* e = (long*) (bytes + len - rem);
 
 				while (b < e)
 				{
@@ -127,10 +139,13 @@ namespace MiNET.Worlds
 					b += 16;
 				}
 
+				// rem counts bytes, so the leftover is scanned as bytes. Indexing data here mixed a
+				// byte offset into a T-indexed array, and the comparison was inverted on top of
+				// that. Neither showed up while the only caller passed 4096 shorts, because 8192
+				// bytes divides evenly into the block above and rem was always zero.
 				for (int i = 0; i < rem; i++)
 				{
-					if (data[len - 1 - i].Equals(default(T)))
-						return false;
+					if (bytes[len - 1 - i] != 0) return false;
 				}
 
 				return true;
@@ -154,16 +169,34 @@ namespace MiNET.Worlds
 			return bid == -1 ? 0 : bid;
 		}
 
+		/// <summary>
+		///     The block's palette index, which is its identity here. Anything asking a question about
+		///     the block itself wants this: GetBlockId projects onto a legacy id and answers air for
+		///     every block that has none.
+		/// </summary>
+		public int GetBlockRuntimeId(int bx, int by, int bz)
+		{
+			if (_runtimeIds.Count == 0) return BlockFactory.AirRuntimeId;
+
+			int paletteIndex = _blocks[GetIndex(bx, by, bz)];
+			if (paletteIndex < 0 || paletteIndex >= _runtimeIds.Count) return BlockFactory.AirRuntimeId;
+
+			return _runtimeIds[paletteIndex];
+		}
+
 		public Block GetBlockObject(int bx, int @by, int bz)
 		{
 			if (_runtimeIds.Count == 0) return new Air();
 
 			int index = _blocks[GetIndex(bx, by, bz)];
 			int runtimeId = _runtimeIds[index];
-			BlockStateContainer blockState = BlockFactory.BlockPalette[runtimeId];
-			Block block = BlockFactory.GetBlockById(blockState.Id);
-			block.SetState(blockState.States);
-			block.Metadata = (byte) blockState.Data; //TODO: REMOVE metadata. Not needed.
+
+			// By name, not by legacy id: the id predates flattening and hands back a class whose
+			// state no longer exists in the palette, so the block could not be written back.
+			Block block = BlockFactory.GetBlockByRuntimeId(runtimeId);
+			if (block == null) return new Air();
+
+			block.Metadata = (byte) BlockFactory.BlockPalette[runtimeId].Data; //TODO: REMOVE metadata. Not needed.
 
 			return block;
 		}
@@ -171,7 +204,14 @@ namespace MiNET.Worlds
 		public void SetBlock(int bx, int by, int bz, Block block)
 		{
 			int runtimeId = block.GetRuntimeId();
-			if (runtimeId < 0) return;
+			if (runtimeId < 0)
+			{
+				// Dropping the write silently leaves the world holding air where the client has
+				// already drawn a block, and the next placement against it overwrites the block
+				// that was aimed at. Loud, because there is no correct way to continue.
+				Log.Error($"Refusing to write {block.Name} at {bx},{by},{bz}: its state has no runtime id. State={block.GetState()}");
+				return;
+			}
 
 			SetBlockByRuntimeId(bx, by, bz, runtimeId);
 		}
@@ -384,7 +424,7 @@ namespace MiNET.Worlds
 			VarInt.WriteSInt32(stream, palette.Count); // count
 			foreach (var val in palette)
 			{
-				VarInt.WriteSInt32(stream, val);
+				VarInt.WriteSInt32(stream, (int) BlockFactory.GetNetworkId(val));
 			}
 
 			return true;

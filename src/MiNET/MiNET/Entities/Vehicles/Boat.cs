@@ -47,7 +47,7 @@ namespace MiNET.Entities.Vehicles
 		{
 			return new[]
 			{
-				ItemFactory.GetItem(333)
+				ItemFactory.GetItemByName("minecraft:boat")
 			};
 		}
 
@@ -70,10 +70,10 @@ namespace MiNET.Entities.Vehicles
 
 			// FOR PLAYER
 			MetadataDictionary metadata = player.GetMetadata();
-			metadata[57] = new MetadataVector3(0, 1.02001f, 0);
-			metadata[58] = new MetadataByte(1);
-			metadata[59] = new MetadataFloat(90f);
-			metadata[60] = new MetadataFloat(-90f);
+			metadata[56] = new MetadataVector3(0, 1.02001f, 0);
+			metadata[57] = new MetadataByte(1);
+			metadata[58] = new MetadataFloat(90f);
+			metadata[59] = new MetadataFloat(-90f);
 
 			player.BroadcastSetEntityData(metadata);
 		}

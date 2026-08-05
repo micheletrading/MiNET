@@ -40,8 +40,9 @@ public abstract class SubChunkEntryCommon
 	public SubChunkPositionOffset Offset { get; set; }
 	public SubChunkRequestResult RequestResult { get; set; }
 	public HeightMapData HeightMapData { get; set; }
+	public HeightMapData RenderHeightMapData { get; set; }
 	public byte[] Data { get; set; }
-	
+
 	public void Read(Packet packet, bool cacheEnabled)
 	{
 		Offset = packet.ReadSubChunkPositionOffset();
@@ -54,9 +55,10 @@ public abstract class SubChunkEntryCommon
 		}
 
 		Data = data;
-		
+
 		HeightMapData = packet.ReadHeightMapData();
-		
+		RenderHeightMapData = packet.ReadHeightMapData(); // added protocol 818
+
 		OnRead(packet);
 	}
 
@@ -69,9 +71,10 @@ public abstract class SubChunkEntryCommon
 		{
 			packet.WriteByteArray(Data);
 		}
-		
+
 		packet.Write(HeightMapData);
-		
+		packet.Write(RenderHeightMapData); // added protocol 818
+
 		OnWrite(packet);
 	}
 
@@ -88,12 +91,17 @@ public class SubChunkPositionOffset
 
 public class SubChunkEntryWithCache : SubChunkEntryCommon
 {
-	public long usedBlobHash;
+	// Little-endian, like every other blob hash on the wire: the ones on McpeLevelChunk and in
+	// McpeClientCacheMissResponse both go through ReadUlong. Read/Write(long) reverse endianness
+	// for RakNet, so using them here byte-swapped the hash. The error was symmetric and invisible
+	// to a round-trip test; it only surfaced when we echoed a hash back as a cache miss and BDS
+	// answered with an empty blob list, having never issued the hash we asked for.
+	public ulong usedBlobHash;
 
 	/// <inheritdoc />
 	protected override void OnRead(Packet packet)
 	{
-		usedBlobHash = packet.ReadLong();
+		usedBlobHash = packet.ReadUlong();
 	}
 
 	/// <inheritdoc />

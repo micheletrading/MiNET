@@ -35,11 +35,10 @@ namespace MiNET.Items
 	// and its facing and opened status in the block data of its lower block
 	public class ItemWoodenDoor : ItemBlock
 	{
-		private readonly byte _blockId;
-
-		public ItemWoodenDoor(string name = "minecraft:wooden_door", short itemId = 324, byte blockId = 64) : base(name, itemId)
+		// The door block carries the same registry name as the item, so there is nothing to map.
+		// This used to take a block id that no subclass passed, so every variant placed oak.
+		public ItemWoodenDoor(string name = "minecraft:wooden_door", short itemId = 324) : base(name, itemId)
 		{
-			_blockId = blockId;
 		}
 
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
@@ -49,7 +48,7 @@ namespace MiNET.Items
 			var coordinates = GetNewCoordinatesFromFace(blockCoordinates, face);
 
 			// Base block, meta sets orientation
-			DoorBase block = (DoorBase) BlockFactory.GetBlockById(_blockId);
+			var block = (DoorBase) BlockFactory.GetBlockByName(Name);
 			block.Coordinates = coordinates;
 			block.Direction = direction;
 			block.UpperBlockBit = false;
@@ -87,7 +86,7 @@ namespace MiNET.Items
 
 			// The upper door block, meta marks upper and
 			// sets orientation based on adjacent blocks
-			DoorBase blockUpper = (DoorBase) BlockFactory.GetBlockById(_blockId);
+			var blockUpper = (DoorBase) BlockFactory.GetBlockByName(Name);
 			blockUpper.Coordinates = coordinates + Level.Up;
 			blockUpper.Direction = direction;
 			blockUpper.UpperBlockBit = true;
@@ -107,56 +106,56 @@ namespace MiNET.Items
 
 	public class ItemSpruceDoor : ItemWoodenDoor
 	{
-		public ItemSpruceDoor() : base("minecraft:spruce_door", 427, 193)
+		public ItemSpruceDoor() : base("minecraft:spruce_door", 193)
 		{
 		}
 	}
 
 	public class ItemBirchDoor : ItemWoodenDoor
 	{
-		public ItemBirchDoor() : base("minecraft:birch_door", 428, 194)
+		public ItemBirchDoor() : base("minecraft:birch_door", 194)
 		{
 		}
 	}
 
 	public class ItemJungleDoor : ItemWoodenDoor
 	{
-		public ItemJungleDoor() : base("minecraft:jungle_door", 429, 195)
+		public ItemJungleDoor() : base("minecraft:jungle_door", 195)
 		{
 		}
 	}
 
 	public class ItemAcaciaDoor : ItemWoodenDoor
 	{
-		public ItemAcaciaDoor() : base("minecraft:acacia_door", 430, 196)
+		public ItemAcaciaDoor() : base("minecraft:acacia_door", 196)
 		{
 		}
 	}
 
 	public class ItemDarkOakDoor : ItemWoodenDoor
 	{
-		public ItemDarkOakDoor() : base("minecraft:dark_oak_door", 431, 197)
+		public ItemDarkOakDoor() : base("minecraft:dark_oak_door", 197)
 		{
 		}
 	}
 
 	public class ItemWarpedDoor : ItemWoodenDoor
 	{
-		public ItemWarpedDoor() : base("minecraft:warped_door", 756)
+		public ItemWarpedDoor() : base("minecraft:warped_door")
 		{
 		}
 	}
 
 	public class ItemCrimsonDoor : ItemWoodenDoor
 	{
-		public ItemCrimsonDoor() : base("minecraft:crimson_door", 755)
+		public ItemCrimsonDoor() : base("minecraft:crimson_door")
 		{
 		}
 	}
 
 	public class ItemIronDoor : ItemWoodenDoor
 	{
-		public ItemIronDoor() : base("minecraft:iron_door", 330)
+		public ItemIronDoor() : base("minecraft:iron_door")
 		{
 		}
 	}

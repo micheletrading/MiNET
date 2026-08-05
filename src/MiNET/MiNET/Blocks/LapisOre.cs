@@ -32,8 +32,6 @@ namespace MiNET.Blocks
 	{
 		public LapisOre() : base(21)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item[] GetDrops(Item tool)
@@ -43,7 +41,7 @@ namespace MiNET.Blocks
 			// Random between 4-8
 			var rnd = new Random();
 			var plus = rnd.Next(4);
-			return new[] {ItemFactory.GetItem(351, 4, (byte) (4 + plus))};
+			return new[] {ItemFactory.GetItemByName("minecraft:dye", 4, (byte) (4 + plus))};
 		}
 
 		public override float GetExperiencePoints()

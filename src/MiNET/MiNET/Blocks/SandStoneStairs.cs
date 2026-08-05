@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public SandstoneStairs() : base(128)
 		{
-			BlastResistance = 4;
-			Hardness = 0.8f;
 		}
 	}
 }

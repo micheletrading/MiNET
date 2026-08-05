@@ -260,7 +260,7 @@ namespace MiNET.Net.RakNet
 
 		public static IEnumerable<Datagram> CreateDatagrams(Packet message, int mtuSize, RakSession session)
 		{
-			Log.Warn($"CreateDatagrams single message");
+			Log.Warn($"CreateDatagrams single message: {message.GetType().Name} (0x{message.Id:x2}), {message.Bytes.Length} bytes");
 			Datagram datagram = CreateObject();
 
 			List<MessagePart> messageParts = CreateMessageParts(message, mtuSize, session);

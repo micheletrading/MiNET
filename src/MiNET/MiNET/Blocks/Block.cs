@@ -50,18 +50,47 @@ namespace MiNET.Blocks
 		[Obsolete("Use block states instead.")]
 		public byte Metadata { get; set; }
 
-		public float Hardness { get; protected set; } = 0;
-		public float BlastResistance { get; protected set; } = 0;
+		// Values below are overridden per block by BlockData.generated.cs, from CloudburstMC
+		// block_properties.json. Virtual so the generated override supplies the vanilla value and a
+		// hand-written constructor can still assign over it: the override's initializer runs first.
+		public virtual float Hardness { get; protected set; } = 0;
+		public virtual float BlastResistance { get; protected set; } = 0;
 		public short FuelEfficiency { get; protected set; } = 0;
-		public float FrictionFactor { get; protected set; } = 0.6f;
-		public int LightLevel { get; set; } = 0;
+		public virtual float FrictionFactor { get; protected set; } = 0.6f;
+		public virtual int LightLevel { get; set; } = 0;
+
+		/// <summary>How much light this block removes as it passes through, 0 to 15.</summary>
+		public virtual int LightDampening { get; protected set; } = 15;
+
+		/// <summary>0 opaque through 1 fully see-through. Not the same question as IsSolid.</summary>
+		public virtual float Translucency { get; protected set; } = 0f;
+
+		/// <summary>Chance fire consumes this block, and chance fire spreads from it. 0 means neither.</summary>
+		public virtual int BurnOdds { get; protected set; } = 0;
+		public virtual int FlameOdds { get; protected set; } = 0;
+
+		/// <summary>Whether a wrong tool still drops the block, or just breaks it.</summary>
+		public virtual bool RequiresCorrectToolForDrops { get; protected set; } = false;
+
+		/// <summary>Whether water can occupy the same space, which is what waterlogging means.</summary>
+		public virtual bool CanContainLiquidSource { get; protected set; } = false;
 
 		public bool IsReplaceable { get; protected set; } = false;
-		public bool IsSolid { get; protected set; } = true;
+		public virtual bool IsSolid { get; protected set; } = true;
 		public bool IsBuildable { get; protected set; } = true;
-		public bool IsTransparent { get; protected set; } = false;
-		public bool IsFlammable { get; protected set; } = false;
-		public bool IsBlockingSkylight { get; protected set; } = true;
+
+		// Derived, not stored. These used to be set by hand on each block, which is why most blocks
+		// had them wrong or unset; they are now the obvious reading of the real values above.
+		public bool IsTransparent => Translucency > 0f;
+		public bool IsFlammable => BurnOdds > 0 || FlameOdds > 0;
+		public bool IsBlockingSkylight => LightDampening >= 15;
+
+		/// <summary>
+		///     Negative hardness is how vanilla says "cannot be broken", for bedrock, barriers, the
+		///     light blocks and 27 others. It is a sentinel, not a small number: multiply it into a
+		///     break time and you get a negative one, which reads as instant.
+		/// </summary>
+		public bool IsUnbreakable => Hardness < 0;
 
 		public byte BlockLight { get; set; }
 		public byte SkyLight { get; set; }
@@ -79,6 +108,10 @@ namespace MiNET.Blocks
 		{
 		}
 
+		// State flows as the states LIST: typed (generated) classes map it onto their state
+		// properties in SetState(List) and rebuild it in GetState(). The palette container is
+		// looked up from the current state, never carried. A block type without a generated
+		// state mapping fails loudly here - the fix is running the generator, not a fallback.
 		public virtual void SetState(BlockStateContainer blockstate)
 		{
 			SetState(blockstate.States);
@@ -90,13 +123,14 @@ namespace MiNET.Blocks
 
 		public virtual BlockStateContainer GetState()
 		{
+			Log.Warn($"Block {GetType().Name} ({Name}, id={Id}) has no generated state mapping (GetState not overridden)");
 			return null;
 		}
 
 		public virtual BlockStateContainer GetGlobalState()
 		{
 			BlockStateContainer currentState = GetState();
-			if (!BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
+			if (currentState == null || !BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
 			{
 				Log.Warn($"Did not find block state for {this}, {currentState}");
 				return null;
@@ -105,10 +139,16 @@ namespace MiNET.Blocks
 			return blockstate;
 		}
 
-		public int GetRuntimeId()
+		/// <summary>
+		///     Overridden by the generated partial with closed-form arithmetic, because a block's
+		///     position in the palette is a mixed-radix encoding of its state values and is known
+		///     when the code is generated. This lookup is the fallback for classes that write their
+		///     own GetState by hand.
+		/// </summary>
+		public virtual int GetRuntimeId()
 		{
 			BlockStateContainer currentState = GetState();
-			if (!BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
+			if (currentState == null || !BlockFactory.BlockStates.TryGetValue(currentState, out var blockstate))
 			{
 				Log.Warn($"Did not find block state for {this}, {currentState}");
 				return -1;
@@ -117,121 +157,17 @@ namespace MiNET.Blocks
 			return blockstate.RuntimeId;
 		}
 
+		/// <summary>
+		///     The item this block is picked up as. Post-flattening a block and its item share one
+		///     registry name, so this is a lookup, not a search. It used to be a hundred lines of
+		///     hunting the palette for a state whose legacy (id, meta) pair carried an ItemInstance,
+		///     which is what the pre-flattening world needed.
+		///     A block whose item is a different identity (redstone wire dropping redstone dust)
+		///     overrides this or GetDrops.
+		/// </summary>
 		public virtual Item GetItem()
 		{
-			if (!BlockFactory.BlockStates.TryGetValue(GetState(), out BlockStateContainer stateFromPick)) return null;
-
-			if (stateFromPick.ItemInstance != null) return ItemFactory.GetItem(stateFromPick.ItemInstance.Id, stateFromPick.ItemInstance.Metadata);
-
-			// The rest of this code is to search for an state with the proper value. This is caused by blocks that have lots
-			// of states, and no easy way to map 1-1 with meta. Expensive, but rare.
-
-			// Only compare with states that actually have the values we checking for, and have meta.
-			var statesWithMeta = BlockFactory.BlockPalette.Where(b => b.Name == stateFromPick.Name && b.Data != -1).ToList();
-			foreach (IBlockState state in stateFromPick.States.ToArray())
-			{
-				bool remove = true;
-				foreach (BlockStateContainer blockStateContainer in statesWithMeta)
-				{
-					foreach (IBlockState currentState in blockStateContainer.States)
-					{
-						if (currentState.Name != state.Name) continue;
-
-						if (!currentState.Equals(state))
-						{
-							remove = false;
-							break;
-						}
-					}
-				}
-				if (remove) stateFromPick.States.Remove(state);
-			}
-
-			foreach (BlockStateContainer blockStateContainer in statesWithMeta)
-			{
-				bool match = true;
-
-				foreach (IBlockState currentState in blockStateContainer.States)
-				{
-					if (stateFromPick.States.All(s => s.Name != currentState.Name)) continue;
-
-					if (stateFromPick.States.All(state => !state.Equals(currentState)))
-					{
-						Log.Debug($"State: {currentState.Name}, {currentState}");
-
-						match = false;
-						break;
-					}
-				}
-				if (match)
-				{
-					var id = blockStateContainer.Id;
-					var meta = blockStateContainer.Data;
-
-					var statesWithMetaAndItem = statesWithMeta.Where(b => b.ItemInstance != null).ToList();
-					var actualState = statesWithMetaAndItem.FirstOrDefault(s => s.Id == id && s.Data == meta && s.ItemInstance != null);
-					if (actualState == null) break;
-					return ItemFactory.GetItem(actualState.ItemInstance.Id, actualState.ItemInstance.Metadata);
-				}
-			}
-
-			// Ok that didn't give an item. Lets try more stuff.
-
-			// Remove states that repeat. They can not contribute to a meta-variant.
-			//BUG: There might be states that have more than one. Don't know.
-			foreach (BlockStateContainer stateContainer in statesWithMeta)
-			{
-				foreach (var state in stateContainer.States.ToArray())
-				{
-					var states = statesWithMeta.SelectMany(m => m.States).ToList();
-					if (states.Count(s => s.Equals(state)) > 1)
-					{
-						if (stateFromPick.States.FirstOrDefault(s => s.Name == state.Name) != null)
-						{
-							stateFromPick.States.Remove(stateFromPick.States.First(s => s.Name == state.Name));
-						}
-					}
-				}
-			}
-
-			if(stateFromPick.States.Count == 0)
-			{
-				var stateToPick = statesWithMeta.FirstOrDefault();
-				if (stateToPick?.ItemInstance != null)
-				{
-					return ItemFactory.GetItem(stateToPick.ItemInstance.Id, stateToPick.ItemInstance.Metadata);
-				}
-			}
-
-			foreach (BlockStateContainer blockStateContainer in statesWithMeta)
-			{
-				bool match = true;
-
-				foreach (IBlockState currentState in blockStateContainer.States)
-				{
-					if (stateFromPick.States.All(s => s.Name != currentState.Name)) continue;
-
-					if (stateFromPick.States.All(state => !state.Equals(currentState)))
-					{
-						Log.Debug($"State: {currentState.Name}, {currentState}");
-
-						match = false;
-						break;
-					}
-				}
-				if (match)
-				{
-					var id = blockStateContainer.Id;
-					var meta = blockStateContainer.Data;
-
-					var statesWithMetaAndItem = statesWithMeta.Where(b => b.ItemInstance != null).ToList();
-					var actualState = statesWithMetaAndItem.FirstOrDefault(s => s.Id == id && s.Data == meta && s.ItemInstance != null);
-					if (actualState == null) break;
-					return ItemFactory.GetItem(actualState.ItemInstance.Id, actualState.ItemInstance.Metadata);
-				}
-			}
-
-			return null;
+			return ItemFactory.GetItemByName(Name);
 		}
 
 		public bool CanPlace(Level world, Player player, BlockCoordinates targetCoordinates, BlockFace face)

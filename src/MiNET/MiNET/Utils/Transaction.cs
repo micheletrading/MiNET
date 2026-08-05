@@ -108,11 +108,15 @@ namespace MiNET.Utils
 	public class CraftAction : ItemStackAction
 	{
 		public uint RecipeNetworkId { get; set; }
+		public byte TimesCrafted { get; set; }
 	}
 
 	public class CraftAutoAction : ItemStackAction
 	{
 		public uint RecipeNetworkId { get; set; }
+		public byte NumberOfRequestedCrafts { get; set; }
+		public byte TimesCrafted { get; set; }
+		public List<Item> Ingredients { get; set; } = new List<Item>();
 	}
 
 	public class CraftCreativeAction : ItemStackAction
@@ -126,25 +130,38 @@ namespace MiNET.Utils
 		public int FilteredStringIndex { get; set; }
 	}
 
+	public class MineBlockAction : ItemStackAction
+	{
+		public int HotbarSlot { get; set; }
+		public int PredictedDurability { get; set; }
+		public int StackNetworkId { get; set; }
+	}
+
 	public class GrindstoneStackRequestAction : ItemStackAction
 	{
 		public uint RecipeNetworkId { get; set; }
+		public byte TimesCrafted { get; set; }
 		public int RepairCost { get; set; }
 	}
 
 	public class LoomStackRequestAction : ItemStackAction
 	{
 		public string PatternId { get; set; }
+		public byte TimesCrafted { get; set; }
 	}
 
 	public class PlaceIntoBundleAction : ItemStackAction
 	{
-		
+		public byte Count { get; set; }
+		public StackRequestSlotInfo Source { get; set; }
+		public StackRequestSlotInfo Destination { get; set; }
 	}
-	
+
 	public class TakeFromBundleAction : ItemStackAction
 	{
-		
+		public byte Count { get; set; }
+		public StackRequestSlotInfo Source { get; set; }
+		public StackRequestSlotInfo Destination { get; set; }
 	}
 
 	public class CraftNotImplementedDeprecatedAction : ItemStackAction
@@ -188,6 +205,8 @@ namespace MiNET.Utils
 		public byte Count          { get; set; }
 		public int  StackNetworkId { get; set; }
 		public string  CustomName     { get; set; }
+		// Protocol 1001: a filtered (profanity-checked) variant follows the custom name.
+		public string  FilteredCustomName { get; set; }
 		public int DurabilityCorrection { get; set; }
 	}
 
@@ -220,6 +239,9 @@ namespace MiNET.Utils
 	public class ItemUseTransaction : Transaction
 	{
 		public McpeInventoryTransaction.ItemUseAction ActionType { get; set; }
+		// Protocol 1001 additions: client trigger source (0 unknown, 1 player input,
+		// 2 simulation tick) and the client's predicted result + cooldown state.
+		public byte TriggerType { get; set; }
 		public BlockCoordinates Position { get; set; }
 		public int Face { get; set; }
 		public int Slot { get; set; }
@@ -227,6 +249,8 @@ namespace MiNET.Utils
 		public Vector3 FromPosition { get; set; }
 		public Vector3 ClickPosition { get; set; }
 		public uint BlockRuntimeId { get; set; }
+		public byte ClientPrediction { get; set; }
+		public byte ClientCooldownState { get; set; }
 	}
 	public class ItemUseOnEntityTransaction : Transaction
 	{

@@ -86,70 +86,6 @@ namespace TestPlugin
 		//    return packet;
 		//}
 
-		[Command]
-		public string Emote(Player player, string emote)
-		{
-			switch (emote)
-			{
-				case "happy":
-				{
-					var keys = new List<AnimationKey>();
-					int rotation = 15;
-					var start = new Vector3(0, 0, 0);
-					var up = start + new Vector3(-160, 0, 0);
-					keys.Add(CreateAnimationKey(start, up, 500, false, false, false));
-					uint waveDuration = 250;
-					uint waveTwist = 15;
-					keys.Add(CreateAnimationKey(up, up + new Vector3(rotation, 0, waveTwist), waveDuration, false, false, false));
-					for (int i = 0; i < 10; i++)
-					{
-						keys.Add(CreateAnimationKey(up + new Vector3(rotation, 0, waveTwist), up + new Vector3(-rotation, 0, -waveTwist), waveDuration, false, false, false));
-						keys.Add(CreateAnimationKey(up + new Vector3(-rotation, 0, -waveTwist), up + new Vector3(rotation, 0, waveTwist), waveDuration, false, false, false));
-					}
-					keys.Add(CreateAnimationKey(up + new Vector3(rotation, 0, waveTwist), up, waveDuration, false, false, false));
-					keys.Add(CreateAnimationKey(up, start, 300, false, false, false));
-
-					SendAnimation(player, "rightArm", keys.ToArray());
-
-					break;
-				}
-			}
-
-			return $"Did emote: {emote}";
-		}
-
-		private static AnimationKey CreateAnimationKey(Vector3 startRotation, Vector3 endRotation, uint duration, bool executeImmediate, bool resetBefore, bool resetAfter)
-		{
-			return new AnimationKey
-			{
-				ExecuteImmediate = executeImmediate,
-				ResetBefore = resetBefore,
-				ResetAfter = resetAfter,
-				StartRotation = startRotation,
-				EndRotation = endRotation,
-				Duration = duration
-			};
-		}
-
-		private static void SendAnimation(Player player, string boneId, AnimationKey[] keys)
-		{
-			{
-				var animationPacket = McpeAlexEntityAnimation.CreateObject();
-				animationPacket.runtimeEntityId = player.EntityId;
-				animationPacket.boneId = boneId;
-				animationPacket.keys = keys;
-				player.Level.RelayBroadcast(player, animationPacket);
-			}
-
-			{
-				var animationPacket = McpeAlexEntityAnimation.CreateObject();
-				animationPacket.runtimeEntityId = EntityManager.EntityIdSelf;
-				animationPacket.boneId = boneId;
-				animationPacket.keys = keys;
-				player.SendPacket(animationPacket);
-			}
-		}
-
 		[Command(Name = "bossbar")]
 		public void BossbarCommand(Player player)
 		{
@@ -901,7 +837,7 @@ namespace TestPlugin
 		[Command]
 		public void Permission(Player player, int permission)
 		{
-			player.CommandPermission = permission;
+			player.CommandPermission = (CommandPermission) permission;
 			player.SendAdventureSettings();
 		}
 
@@ -1049,7 +985,7 @@ namespace TestPlugin
 		{
 			var inventory = player.Inventory;
 
-			var command = new ItemCommand(41, 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
+			var command = new ItemCommand("minecraft:gold_block", 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
 
 			byte c = 0;
 			inventory.Slots[c++] = new ItemDiamondHoe();
@@ -1181,7 +1117,7 @@ namespace TestPlugin
 			EnchantArmor(player.Inventory, (short) EnchantingType.FireProtection, 7);
 
 
-			var command = new ItemCommand(41, 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
+			var command = new ItemCommand("minecraft:gold_block", 0, delegate(ItemCommand itemCommand, Level level, Player arg3, BlockCoordinates arg4) { Log.Info("Clicked on command"); });
 
 			// Hotbar
 			byte c = 0;
@@ -1262,10 +1198,10 @@ namespace TestPlugin
 					}
 				}
 			};
-			inventory.Slots[c++] = new ItemBlock(new Anvil(), 0) {Count = 64};
-			inventory.Slots[c++] = new ItemBlock(new EnchantingTable(), 0) {Count = 64};
-			inventory.Slots[c++] = ItemFactory.GetItem(351, 4, 64);
-			inventory.Slots[c++] = new ItemBlock(new Planks(), 0) {Count = 64};
+			inventory.Slots[c++] = new ItemBlock(new Anvil()) {Count = 64};
+			inventory.Slots[c++] = new ItemBlock(new EnchantingTable()) {Count = 64};
+			inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:dye", 4, 64);
+			inventory.Slots[c++] = new ItemBlock(new Planks()) {Count = 64};
 			inventory.Slots[c++] = new ItemCompass(); // Wooden Sword
 			inventory.Slots[c++] = new ItemWoodenSword(); // Wooden Sword
 			inventory.Slots[c++] = new ItemStoneSword(); // Stone Sword
@@ -1305,9 +1241,9 @@ namespace TestPlugin
 			//inventory.Slots[c++] = new ItemBlock(new Block(35), 0) {Count = 64};
 			//inventory.Slots[c++] = new ItemBucket(8);
 
-			//inventory.Slots[c++] = ItemFactory.GetItem(39, 0) { Count = 1};
-			//inventory.Slots[c++] = ItemFactory.GetItem(40, 0), 4);
-			//inventory.Slots[c++] = ItemFactory.GetItem(281, 0), 4);
+			//inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:brown_mushroom", 0) { Count = 1};
+			//inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:red_mushroom", 0), 4);
+			//inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:bowl", 0), 4);
 
 			//for (byte i = 0; i < inventory.ItemHotbar.Length; i++)
 			//{
@@ -1394,9 +1330,9 @@ namespace TestPlugin
 			var inventory = player.Inventory;
 
 			byte c = 0;
-			inventory.Slots[c++] = new ItemBlock(new Furnace(), 0) {Count = 64}; // Custom command block
+			inventory.Slots[c++] = new ItemBlock(new Furnace()) {Count = 64}; // Custom command block
 			inventory.Slots[c++] = new ItemCoal {Count = 64}; // Custom command block
-			inventory.Slots[c++] = new ItemBlock(new IronOre(), 0) {Count = 64}; // Custom command block
+			inventory.Slots[c++] = new ItemBlock(new IronOre()) {Count = 64}; // Custom command block
 
 			player.SendPlayerInventory();
 			SendEquipmentForPlayer(player);

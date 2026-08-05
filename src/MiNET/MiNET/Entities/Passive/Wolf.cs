@@ -90,7 +90,7 @@ namespace MiNET.Entities.Passive
 				{
 					Log.Debug($"Wolf taming attempt by {player.Username}");
 
-					player.Inventory.RemoveItems(new ItemBone().Id, 1);
+					player.Inventory.RemoveItems("minecraft:bone", 1);
 
 					var random = new Random();
 					if (random.Next(3) == 0)
@@ -139,12 +139,12 @@ namespace MiNET.Entities.Passive
 			metadata[7] = new MetadataShort(300);
 			metadata[8] = new MetadataInt(0);
 			metadata[9] = new MetadataByte(0);
-			metadata[38] = new MetadataLong(0);
-			metadata[39] = new MetadataFloat(1.0f);
-			metadata[44] = new MetadataShort(300);
-			metadata[45] = new MetadataInt(0);
-			metadata[46] = new MetadataByte(0);
-			metadata[47] = new MetadataInt(0);
+			metadata[37] = new MetadataLong(0);
+			metadata[38] = new MetadataFloat(1.0f);
+			metadata[42] = new MetadataShort(300);
+			metadata[44] = new MetadataInt(0);
+			metadata[45] = new MetadataByte(0);
+			metadata[46] = new MetadataInt(0);
 			metadata[53] = new MetadataFloat(0.6f);
 			metadata[54] = new MetadataFloat(0.8f);
 			metadata[56] = new MetadataVector3(0, 0, 0);

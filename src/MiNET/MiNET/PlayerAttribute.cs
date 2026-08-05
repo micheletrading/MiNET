@@ -25,13 +25,26 @@
 
 namespace MiNET
 {
+	public class PlayerAttributeModifier
+	{
+		public string Id { get; set; }
+		public string Name { get; set; }
+		public float Amount { get; set; }
+		public int Operation { get; set; }
+		public int Operand { get; set; }
+		public bool Serializable { get; set; }
+	}
+
 	public class PlayerAttribute
 	{
 		public string Name { get; set; }
 		public float MinValue { get; set; }
 		public float MaxValue { get; set; }
 		public float Value { get; set; }
+		public float DefaultMinValue { get; set; }
+		public float DefaultMaxValue { get; set; }
 		public float Default { get; set; }
+		public System.Collections.Generic.List<PlayerAttributeModifier> Modifiers { get; set; } = new System.Collections.Generic.List<PlayerAttributeModifier>();
 
 		public override string ToString()
 		{
@@ -81,6 +94,23 @@ namespace MiNET
 		DoImmediateRespawn,
 		ShowDeathmessages,
 		// int,
+		RecipesUnlock,
+		DoLimitedCrafting,
+		PlayerWaypoints, // int
+		Locatorbar,
+		ShowDaysPlayed,
+		MaxCommandChainLength, // int
+		RandomTickSpeed, // int
+		FunctionCommandLimit, // int
+		SpawnRadius, // int
+		ShowTags,
+		FreezeDamage,
+		RespawnBlocksExplode,
+		ShowBorderEffect,
+		ShowRecipeMessages,
+		PlayersSleepingPercentage, // int
+		ProjectilesCanBreakBlocks,
+		TntExplosionDropDecay,
 	}
 
 	public abstract class GameRule

@@ -29,8 +29,6 @@ namespace MiNET.Blocks
 	{
 		public Sponge() : base(19)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 		}
 	}
 }

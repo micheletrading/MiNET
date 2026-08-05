@@ -24,7 +24,6 @@
 #endregion
 
 using System;
-using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -32,11 +31,13 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Numerics;
+using System.Text;
 using System.Threading;
 using fNbt;
 using log4net;
 using Microsoft.IO;
 using MiNET.Blocks;
+using MiNET.Camera;
 using MiNET.Crafting;
 using MiNET.Effects;
 using MiNET.Entities;
@@ -52,6 +53,7 @@ using MiNET.Utils.Nbt;
 using MiNET.Utils.Skins;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
+using MiNET.Worlds.BlobCache;
 using Newtonsoft.Json;
 
 namespace MiNET
@@ -77,6 +79,16 @@ namespace MiNET
 		public int MaxViewDistance { get; set; } = 22;
 		public int MoveRenderDistance { get; set; } = 1;
 
+		/// <summary>
+		///     Chunks sent between pauses while streaming, and how long to pause. The pause exists
+		///     to keep a join burst from burying the RakNet send queue under thousands of ordered
+		///     datagrams while everything else on the session waits behind them. Measured on a
+		///     radius 32 join: 3209 chunks took 3.4s, of which 2.4s was these sleeps. Set the delay
+		///     to 0 to stream flat out.
+		/// </summary>
+		public int ChunkSendBatchSize { get; set; } = 16;
+		public int ChunkSendDelayMs { get; set; } = 12;
+
 		public GameMode GameMode { get; set; }
 		public bool UseCreativeInventory { get; set; } = true;
 		public bool IsConnected { get; set; }
@@ -88,13 +100,34 @@ namespace MiNET
 		public string ServerAddress { get; set; }
 		public PlayerInfo PlayerInfo { get; set; }
 
+		// player_list add-record colour, ARGB (protocol 800+). Vanilla BDS 1.26.34 sends 0xFFEDEDED
+		// for an ordinary player, verified against a live capture. It used to default to 0, which is
+		// not "no colour" but fully transparent black, and the client has to draw the row in it.
+		public int PlayerListColor { get; set; } = unchecked((int) 0xFFEDEDED);
+
 		public Skin Skin { get; set; }
 
 		public float MovementSpeed { get; set; } = 0.1f;
+		public float FlySpeed { get; set; } = 0.05f;
+		public float VerticalFlySpeed { get; set; } = 1.0f;
+
+		// Player attribute values for SendUpdateAttributes, vanilla defaults. The ranges and
+		// defaults in the attribute table are protocol constants; these are the live values,
+		// plugin-settable like any other player state.
+		public float FollowRange { get; set; } = 16;
+		public float KnockbackResistance { get; set; } = 0;
+		public float UnderwaterMovementSpeed { get; set; } = 0.02f;
+		public float LavaMovementSpeed { get; set; } = 0.02f;
+		public float Luck { get; set; } = 0;
+		public float FrictionModifier { get; set; } = 1;
+		public float Bounciness { get; set; } = 0;
+		public float AirDragModifier { get; set; } = 1;
+
 		public ConcurrentDictionary<EffectType, Effect> Effects { get; set; } = new ConcurrentDictionary<EffectType, Effect>();
 
 		public HungerManager HungerManager { get; set; }
 		public ExperienceManager ExperienceManager { get; set; }
+		public CameraManager CameraManager { get; set; }
 
 		public bool IsFalling { get; set; }
 		public bool IsFlyingHorizontally { get; set; }
@@ -116,7 +149,10 @@ namespace MiNET
 			Inventory = new PlayerInventory(this);
 			HungerManager = new HungerManager(this);
 			ExperienceManager = new ExperienceManager(this);
+			CameraManager = new CameraManager(this);
 			ItemStackInventoryManager = new ItemStackInventoryManager(this);
+
+			AttackDamage = 1; // vanilla player base (Entity defaults to the mob value 2)
 
 			IsSpawned = false;
 			IsConnected = endPoint != null; // Can't connect if there is no endpoint
@@ -140,17 +176,13 @@ namespace MiNET
 			var serverInfo = Server.ConnectionInfo;
 			Interlocked.Increment(ref serverInfo.ConnectionsInConnectPhase);
 
-			SendPlayerStatus(0);
+			SendPlayerStatus(McpePlayStatus.PlayStatus.LoginSuccess);
 
 			{
 				SendResourcePacksInfo();
 			}
 
 			//MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
-		}
-
-		public virtual void HandleMcpeScriptCustomEvent(McpeScriptCustomEvent message)
-		{
 		}
 
 		public virtual void HandleMcpeCommandBlockUpdate(McpeCommandBlockUpdate message)
@@ -282,7 +314,18 @@ namespace MiNET
 
 		public virtual void HandleMcpeSetPlayerGameType(McpeSetPlayerGameType message)
 		{
-			SetGameMode((GameMode) message.gamemode);
+			// Fallback is the "inherit the level's mode" sentinel StartGame sends, and the client
+			// acknowledges it verbatim. It is not a mode: storing it leaves GameMode matching
+			// nothing at all, which silently disables every creative-gated path.
+			var requested = (GameMode) message.gamemode;
+			GameMode gameMode = requested == GameMode.Fallback ? Level.GameMode : requested;
+			if (!Enum.IsDefined(gameMode))
+			{
+				Log.Warn($"Ignoring SetPlayerGameType with unknown game mode {message.gamemode}");
+				return;
+			}
+
+			SetGameMode(gameMode);
 		}
 
 		public virtual void HandleMcpeLabTable(McpeLabTable message)
@@ -336,12 +379,14 @@ namespace MiNET
 		public virtual void SendResourcePacksInfo()
 		{
 			McpeResourcePacksInfo packInfo = McpeResourcePacksInfo.CreateObject();
+			packInfo.worldTemplateId = (UUID) Guid.Empty;
+			packInfo.worldTemplateVersion = "0.0.0"; // vanilla sends this, not an empty string
 			if (_serverHaveResources)
 			{
 				packInfo.mustAccept = false;
-				packInfo.behahaviorpackinfos = new ResourcePackInfos
+				packInfo.texturepacks = new TexturePackInfos
 				{
-					new ResourcePackInfo()
+					new TexturePackInfo()
 					{
 						UUID = "5abdb963-4f3f-4d97-8482-88e2049ab149",
 						Version = "0.0.1",
@@ -356,7 +401,8 @@ namespace MiNET
 		public virtual void SendResourcePackStack()
 		{
 			McpeResourcePackStack packStack = McpeResourcePackStack.CreateObject();
-			packStack.gameVersion = McpeProtocolInfo.GameVersion;
+			// Vanilla sends "*" here, not the concrete game version.
+			packStack.gameVersion = "*";
 			
 			if (_serverHaveResources)
 			{
@@ -372,32 +418,6 @@ namespace MiNET
 			}
 
 			SendPacket(packStack);
-		}
-
-		public virtual void HandleMcpePlayerInput(McpePlayerInput message)
-		{
-			Log.Debug($"Player input: x={message.motionX}, z={message.motionZ}, jumping={message.jumping}, sneaking={message.sneaking}");
-		}
-
-		public virtual void HandleMcpeRiderJump(McpeRiderJump message)
-		{
-			if (IsRiding && Vehicle > 0)
-			{
-				if (Level.TryGetEntity(Vehicle, out Mob mob))
-				{
-					mob.IsRearing = true;
-					mob.BroadcastSetEntityData();
-				}
-			}
-		}
-
-		public void HandleMcpeTickSync(McpeTickSync message)
-		{
-			var msg = McpeTickSync.CreateObject();
-			msg.requestTime = message.requestTime;
-			msg.responseTime = message.responseTime;
-
-			SendPacket(msg);
 		}
 
 		public virtual void HandleMcpeSetEntityData(McpeSetEntityData message)
@@ -484,12 +504,9 @@ namespace MiNET
 			Log.Debug($"Requested chunk radius of: {message.chunkRadius}");
 
 			SetChunkRadius(message.chunkRadius);
-			SendChunkRadiusUpdate();
-
-			//if (_completedStartSequence)
-			{
-				MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
-			}
+			// The radius confirmation is sent from the gated chunk task (vanilla answers after
+			// the join burst, not in the middle of it).
+			MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
 		}
 
 		public virtual void HandleMcpeSetEntityMotion(McpeSetEntityMotion message)
@@ -526,7 +543,8 @@ namespace MiNET
 			McpeAnimate msg = McpeAnimate.CreateObject();
 			msg.runtimeEntityId = EntityId;
 			msg.actionId = message.actionId;
-			msg.unknownFloat = message.unknownFloat;
+			msg.data = message.data;
+			msg.swingSource = message.swingSource;
 
 			Level.RelayBroadcast(this, msg);
 		}
@@ -542,6 +560,7 @@ namespace MiNET
 			switch ((PlayerAction) message.actionId)
 			{
 				case PlayerAction.StartBreak:
+				case PlayerAction.ContinueDestroyBlock: // same as StartBreak, sent when block breaking is server authoritative
 				{
 					if (message.face == (int) BlockFace.Up)
 					{
@@ -557,6 +576,8 @@ namespace MiNET
 					if (GameMode == GameMode.Survival)
 					{
 						Block target = Level.GetBlock(message.coordinates);
+						if (target.IsUnbreakable) break;
+
 						var drops = target.GetDrops(Inventory.GetItemInHand());
 						float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
 						double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
@@ -585,6 +606,7 @@ namespace MiNET
 				}
 				case PlayerAction.AbortBreak:
 				case PlayerAction.StopBreak:
+				case PlayerAction.PredictDestroyBlock: // end of breaking; the block itself is broken by the Destroy transaction
 				{
 					McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
 					breakEvent.eventId = 3601;
@@ -643,7 +665,23 @@ namespace MiNET
 					IsSneaking = false;
 					break;
 				}
-				case PlayerAction.CreativeDestroy:
+				case PlayerAction.CreativeDestroy: // redundant: PredictDestroyBlock arrives too when breaking is server authoritative
+				{
+					break;
+				}
+				case PlayerAction.StartItemUseOn:
+				case PlayerAction.StopItemUseOn: // vanilla only uses these for analytics
+				{
+					break;
+				}
+				case PlayerAction.HandledTeleport: // client acknowledging our teleport, nothing to do
+				case PlayerAction.MissedSwing: // arrives on PlayerAuthInput as well, handled there
+				case PlayerAction.StartCrawling:
+				case PlayerAction.StopCrawling: // pose only, movement already comes from PlayerAuthInput
+				case PlayerAction.StartFlying:
+				case PlayerAction.StopFlying: // flight is granted by abilities, not asked for here
+				case PlayerAction.ReceivedServerData: // client confirming it has our data
+				case PlayerAction.StartUsingItem: // arrives on PlayerAuthInput as well, handled there
 				{
 					break;
 				}
@@ -689,8 +727,11 @@ namespace MiNET
 				}
 				default:
 				{
-					Log.Warn($"Unhandled action ID={message.actionId}");
-					throw new ArgumentOutOfRangeException(nameof(message.actionId));
+					// Not implemented is not a protocol error. Throwing here abandons the rest of the
+					// batch this packet arrived in, so one unhandled action drops the movement and
+					// transactions sent with it.
+					Log.Debug($"Unhandled player action {(PlayerAction) message.actionId} ({message.actionId})");
+					break;
 				}
 			}
 
@@ -746,18 +787,11 @@ namespace MiNET
 		public bool IsWorldImmutable { get; set; }
 		public bool IsWorldBuilder { get; set; }
 		public bool IsMuted { get; set; }
-		public bool IsNoPvp { get; set; }
+		public bool ShowNameTags { get; set; } = true;
 		public bool IsNoPvm { get; set; }
 		public bool IsNoMvp { get; set; }
 		public bool IsNoClip { get; set; }
 		public bool IsFlying { get; set; }
-
-		public virtual void HandleMcpeAdventureSettings(McpeAdventureSettings message)
-		{
-			var flags = message.flags;
-			IsAutoJump = (flags & 0x20) == 0x20;
-			IsFlying = (flags & 0x200) == 0x200;
-		}
 
 		public virtual void SendGameRules()
 		{
@@ -768,44 +802,66 @@ namespace MiNET
 
 		public virtual void SendAdventureSettings()
 		{
-			McpeAdventureSettings mcpeAdventureSettings = McpeAdventureSettings.CreateObject();
+			// Protocol 1.19.30+ replaced the single AdventureSettings packet with UpdateAdventureSettings
+			// (world rules) and UpdateAbilities (ability layers). The 1.26 client no longer knows the old
+			// AdventureSettings id, so sending it during join is a hard reject.
+			var adventure = McpeUpdateAdventureSettings.CreateObject();
+			adventure.noPvm = IsNoPvm || IsSpectator || GameMode == GameMode.Spectator;
+			adventure.noMvp = IsNoMvp || IsSpectator || GameMode == GameMode.Spectator;
+			adventure.immutableWorld = IsWorldImmutable || GameMode == GameMode.Adventure;
+			adventure.showNameTags = ShowNameTags;
+			adventure.autoJump = IsAutoJump;
+			SendPacket(adventure);
 
-			var flags = GetAdventureFlags();
-
-			mcpeAdventureSettings.flags = flags;
-			mcpeAdventureSettings.commandPermission = (uint) CommandPermission;
-			mcpeAdventureSettings.actionPermissions = (uint) ActionPermissions;
-			mcpeAdventureSettings.permissionLevel = (uint) PermissionLevel;
-			mcpeAdventureSettings.customStoredPermissions = (uint) 0;
-			mcpeAdventureSettings.entityUniqueId = BinaryPrimitives.ReverseEndianness(EntityId);
-
-			SendPacket(mcpeAdventureSettings);
+			SendUpdateAbilitiesPacket();
 		}
 
-		private uint GetAdventureFlags()
+		public virtual void SendUpdateAbilitiesPacket()
 		{
-			uint flags = 0;
-			if (IsWorldImmutable || GameMode == GameMode.Adventure) flags |= 0x01; // Immutable World (Remove hit markers client-side).
-			if (IsNoPvp || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x02; // No PvP (Remove hit markers client-side).
-			if (IsNoPvm || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x04; // No PvM (Remove hit markers client-side).
-			if (IsNoMvp || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x08;
+			var abilities = McpeUpdateAbilities.CreateObject();
+			abilities.entityUniqueId = EntityId;
+			abilities.permissionLevel = (byte) PermissionLevel;
+			abilities.commandPermission = (byte) CommandPermission;
+			abilities.abilities = new List<AbilityLayer> { BuildBaseAbilityLayer() };
+			SendPacket(abilities);
+		}
 
-			if (IsAutoJump) flags |= 0x20;
+		private AbilityLayer BuildBaseAbilityLayer()
+		{
+			bool spectator = IsSpectator || GameMode == GameMode.Spectator;
+			bool creative = GameMode == GameMode.Creative;
+			bool op = PermissionLevel >= PermissionLevel.Operator;
 
-			if (AllowFly || GameMode == GameMode.Creative) flags |= 0x40;
+			AbilitySet set = 0;
+			if (!spectator)
+			{
+				set |= AbilitySet.Build | AbilitySet.Mine | AbilitySet.DoorsAndSwitches
+					| AbilitySet.OpenContainers | AbilitySet.AttackPlayers | AbilitySet.AttackMobs;
+			}
+			if (op) set |= AbilitySet.OperatorCommands | AbilitySet.Teleport;
+			if (creative || spectator) set |= AbilitySet.Invulnerable | AbilitySet.InstantBuild;
+			if (AllowFly || creative || spectator) set |= AbilitySet.MayFly;
+			if (IsFlying || spectator) set |= AbilitySet.Flying;
+			if (IsNoClip || spectator) set |= AbilitySet.NoClip;
+			if (IsWorldBuilder) set |= AbilitySet.WorldBuilder;
+			if (IsMuted) set |= AbilitySet.Muted;
 
-			if (IsNoClip || IsSpectator || GameMode == GameMode.Spectator) flags |= 0x80; // No clip
-
-			if (IsWorldBuilder) flags |= 0x100; // Worldbuilder
-
-			if (IsFlying) flags |= 0x200;
-			if (IsMuted) flags |= 0x400; // Mute
-			return flags;
+			return new AbilityLayer
+			{
+				Type = AbilityLayerType.Base,
+				// Vanilla marks every ability as allowed on the base layer and gates behavior
+				// through the enabled set only (verified against BDS 1.26.34 bytes).
+				Allowed = (AbilitySet) 0xFFFFF,
+				Enabled = set,
+				FlySpeed = FlySpeed,
+				VerticalFlySpeed = VerticalFlySpeed,
+				WalkSpeed = MovementSpeed,
+			};
 		}
 
 		public PermissionLevel PermissionLevel { get; set; } = PermissionLevel.Operator;
 
-		public int CommandPermission { get; set; } = (int) Net.CommandPermission.Normal;
+		public CommandPermission CommandPermission { get; set; } = CommandPermission.Normal;
 
 		public ActionPermissions ActionPermissions { get; set; } = ActionPermissions.Default;
 
@@ -837,6 +893,11 @@ namespace MiNET
 		}
 
 		private object _loginSyncLock = new object();
+
+		public virtual void HandleMcpeRequestNetworkSettings(McpeRequestNetworkSettings message)
+		{
+			// Do nothing. Handled by LoginMessageHandler before the Player exists.
+		}
 
 		public virtual void HandleMcpeLogin(McpeLogin message)
 		{
@@ -889,23 +950,33 @@ namespace MiNET
 
 				//Level.AddPlayer(this, false);
 
-				SendSetTime();
+				// Join sequence mirrors vanilla BDS 1.26.34 (wire capture in temp_auto/trace-bds):
+				// same packet set, same order. Every packet is built by MiNET from real level/player
+				// state or from its own committed data files (Data/*.json, see JoinSequenceData);
+				// nothing replays captured bytes.
+				SendSleepStatus();
+
+				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
+
+				SendWorldClockState();
+				// TODO: jigsaw structures. Vanilla's payload is one structure, minecraft:trail_ruins,
+				// and nothing we generate uses the jigsaw system.
+				//SendJigsawStructureData();
+				// TODO: voxel shapes. Only matters for custom block geometry, and vanilla sends
+				// nothing but the two built-in shapes with a zero custom count.
+				//SendVoxelShapes();
 
 				SendStartGame();
 
-				SendAvailableEntityIdentifiers();
+				// TODO: entity properties. Vanilla declares actor-property schemas for thirteen mobs
+				// (happy ghast, sulfur cube, wolf, cat and the rest); we set none of those properties.
+				//SendSyncEntityProperty();
 
-				SendBiomeDefinitionList();
+				SendItemRegistry();
 
-				BroadcastSetEntityData();
+				SendPlayerSpawnPosition(); // undefined-position sentinel: no personal (bed) spawn at join
 
-				if (ChunkRadius == -1) ChunkRadius = 5;
-
-				SendChunkRadiusUpdate();
-
-				//SendSetSpawnPosition();
-
-				SendSetTime();
+				SendWorldClockRegistry();
 
 				SendSetDificulty();
 
@@ -915,21 +986,46 @@ namespace MiNET
 
 				SendGameRules();
 
-				// Vanilla 2nd player list here
+				// Vanilla 2nd player list
 
 				Level.AddPlayer(this, false);
 
-				SendUpdateAttributes();
+				SendUpdateAbilitiesPacket(); // vanilla sends abilities again after the 2nd player list
 
-				SendPlayerInventory();
+				SendBiomeDefinitionList();
+
+				SendAvailableEntityIdentifiers();
+
+				SendPlayerFog();
+				SendCameraPresets();
+				SendCameraAimAssistPresets();
+				SendCameraSpline();
+
+				if (ChunkRadius == -1) ChunkRadius = 5;
+
+				SendUpdateAttributes();
 
 				SendCreativeInventory();
 
+				SendTrimData();
+
+				SendPlayerInventory();
+
+				SendPlayerHotbar();
+
 				SendCraftingRecipes();
 
-				SendAvailableCommands(); // Don't send this before StartGame!
+				SendAvailableCommands(); // The server's REAL command registry - never the captured vanilla list. Don't send before StartGame!
+
+				// Vanilla sends two searching-state respawns before chunk streaming.
+				SendRespawn();
+				SendRespawn();
 
 				SendNetworkChunkPublisherUpdate();
+
+				BroadcastSetEntityData();
+
+				SendCurrentStructureFeature();
 			}
 			catch (Exception e)
 			{
@@ -937,6 +1033,9 @@ namespace MiNET
 			}
 			finally
 			{
+				// Unblocks chunk streaming (see SendChunksForKnownPosition). Set even on error so
+				// a failed sequence can't leave the chunk task waiting forever.
+				_loginSequenceCompleted.Set();
 				Interlocked.Decrement(ref serverInfo.ConnectionsInConnectPhase);
 			}
 
@@ -944,37 +1043,214 @@ namespace MiNET
 			Log.InfoFormat("Login complete by: {0} from {2} in {1}ms", Username, watch.ElapsedMilliseconds, EndPoint);
 		}
 
-		public virtual void SendAvailableEntityIdentifiers()
+		// The joining player's own player-list entry, sent before StartGame exactly like vanilla
+		// BDS, which sends self alone here and the full roster later from Level.AddPlayer.
+		//
+		// This used to copy the player into a detached stub, which silently dropped whatever the
+		// stub forgot: the record writer emits DisplayName ?? Username and the stub set neither,
+		// so every join announced the player with an empty name. Sending the player itself cannot
+		// drift out of sync with the fields the writer reads.
+		public virtual void SendPlayerListSelf()
 		{
-			var nbt = new Nbt
+			var playerList = McpePlayerList.CreateObject();
+			playerList.records = new PlayerAddRecords {this};
+			SendPacket(playerList);
+		}
+
+		// Level event 19602: sleep status. Payload is an unframed network-NBT compound body:
+		// ableToSleep, overworldPlayerCount, sleepingPlayerCount (varint-NBT int tags, no root
+		// compound header). MiNET does not model sleeping yet, so sleeping count is 0.
+		public virtual void SendSleepStatus()
+		{
+			var root = new NbtCompound("")
 			{
-				NbtFile = new NbtFile
-				{
-					BigEndian = false,
-					UseVarInt = true,
-					RootTag = new NbtCompound("") {EntityHelpers.GenerateEntityIdentifiers()}
-				}
+				new NbtInt("ableToSleep", 1),
+				new NbtInt("overworldPlayerCount", Math.Max(1, Level.PlayerCount)),
+				new NbtInt("sleepingPlayerCount", 0)
 			};
 
+			var packet = McpeLevelEventGeneric.CreateObject();
+			packet.eventId = (int) LevelEventType.SleepingPlayers;
+			packet.eventData = root;
+			SendPacket(packet);
+		}
+
+		public virtual void SendWorldClockState()
+		{
+			Level.Clock.SendStateTo(this);
+		}
+
+		// initialize_registry payload: the overworld clock and its day-cycle markers.
+		public virtual void SendWorldClockRegistry()
+		{
+			Level.Clock.SendRegistryTo(this);
+		}
+
+		// The player's personal (bed/anchor) spawn. MiNET does not track one yet, so this is
+		// vanilla's undefined-position sentinel (INT32_MIN, -1, INT32_MIN in dimension 3).
+		// Distinct from SendSetSpawnPosition, which announces the WORLD spawn (type 1).
+		public virtual void SendPlayerSpawnPosition()
+		{
+			var undefined = new BlockCoordinates(int.MinValue, -1, int.MinValue);
+
+			var packet = McpeSetSpawnPosition.CreateObject();
+			packet.spawnType = 0; // player spawn
+			packet.coordinates = undefined;
+			packet.dimension = 3; // undefined
+			packet.unknownCoordinates = undefined;
+			SendPacket(packet);
+		}
+
+		public virtual void SendPlayerHotbar()
+		{
+			var packet = McpePlayerHotbar.CreateObject();
+			packet.selectedSlot = (uint) Inventory.InHandSlot;
+			packet.windowId = 0;
+			packet.selectSlot = true;
+			SendPacket(packet);
+		}
+
+		// MiNET does not generate structures, so the player is never inside one.
+		public virtual void SendCurrentStructureFeature()
+		{
+			var packet = McpeCurrentStructureFeature.CreateObject();
+			packet.currentFeature = "";
+			SendPacket(packet);
+		}
+
+		public virtual void SendItemRegistry()
+		{
+			// Since 1.21.60 the item type dictionary lives in its own packet (id 0xa2,
+			// "item_registry", formerly item_component) instead of StartGame's itemstates.
+			// Without it the client cannot interpret any item network id we send and drops the
+			// connection during join. Sent right after StartGame, matching PMMP's
+			// PreSpawnPacketHandler and vanilla BDS 1.26.34. Entry data comes from the generated
+			// ItemRegistry, whose component blobs are already the bytes BDS puts on the wire.
+			var entries = new ItemComponentList();
+			foreach (ItemRegistryEntry entry in ItemFactory.ItemRegistry)
+			{
+				var component = new ItemComponent
+				{
+					Name = entry.Name,
+					RuntimeId = entry.NetworkId,
+					ComponentBased = entry.ComponentBased,
+					Version = entry.Version,
+					RawNbt = entry.ComponentNbt
+				};
+
+				// An item with no components still carries an (empty) compound on the wire.
+				if (component.RawNbt == null)
+				{
+					component.Nbt = new Nbt {NbtFile = new NbtFile {BigEndian = false, UseVarInt = true, RootTag = new NbtCompound("")}};
+				}
+
+				entries.Add(component);
+			}
+
+			var packet = McpeItemComponent.CreateObject();
+			packet.entries = entries;
+			SendPacket(packet);
+		}
+
+		// Entity identifier registry, built from our own EntityType registry (EntityHelpers).
+		public virtual void SendAvailableEntityIdentifiers()
+		{
+			var root = new NbtCompound("") {EntityHelpers.GenerateEntityIdentifiers()};
+
 			var pk = McpeAvailableEntityIdentifiers.CreateObject();
-			pk.namedtag = nbt;
+			pk.namedtag = new Nbt {NbtFile = new NbtFile(root) {BigEndian = false, UseVarInt = true}};
 			SendPacket(pk);
 		}
 
+		// Biome definitions, byte-identical to vanilla BDS 1.26.34 (Data/biome_definitions.json,
+		// exported from a decoded wire capture; see JoinSequenceData). MiNET's own Biome data
+		// (BiomeUtils) does not carry every wire field (snow/foliage colour, depth, scale, map
+		// water colour, tags), so the captured definitions are sent verbatim.
 		public virtual void SendBiomeDefinitionList()
 		{
-			var nbt = new Nbt
-			{
-				NbtFile = new NbtFile
-				{
-					BigEndian = false,
-					UseVarInt = true,
-					RootTag = BiomeUtils.GenerateDefinitionList(),
-				}
-			};
+			SendPacket(Worlds.BiomeDefinitions.CreatePacket());
+		}
 
-			var pk = McpeBiomeDefinitionList.CreateObject();
-			pk.namedtag = nbt;
+		// Jigsaw structure sync data, byte-identical to vanilla BDS 1.26.34 (Data/jigsaw_structures.json).
+		// MiNET does not generate structures, so this is the captured document sent verbatim.
+		public virtual void SendJigsawStructureData()
+		{
+			var pk = McpeJigsawStructureData.CreateObject();
+			pk.structureData = JoinSequenceData.NbtFromBase64(JoinSequenceData.JigsawStructureData.Value.NbtB64);
+			SendPacket(pk);
+		}
+
+		// Voxel collision shapes, byte-identical to vanilla BDS 1.26.34 (Data/voxel_shapes.json).
+		public virtual void SendVoxelShapes()
+		{
+			var data = JoinSequenceData.VoxelShapes.Value;
+			var pk = McpeVoxelShapes.CreateObject();
+			pk.Shapes = data.Shapes;
+			pk.NameMap = data.NameMap;
+			pk.CustomShapeCount = data.CustomShapeCount;
+			SendPacket(pk);
+		}
+
+		// One SyncEntityProperty frame per entity type, byte-identical to vanilla BDS 1.26.34
+		// (Data/entity_properties.json), sent in capture order (0012..0024).
+		public virtual void SendSyncEntityProperty()
+		{
+			foreach (var entry in JoinSequenceData.EntityProperties.Value.Entries)
+			{
+				var pk = McpeSyncEntityProperty.CreateObject();
+				pk.namedtag = JoinSequenceData.NbtFromBase64(entry.NbtB64);
+				SendPacket(pk);
+			}
+		}
+
+		// Client fog stack, byte-identical to vanilla BDS 1.26.34 (Data/player_fog.json).
+		/// <summary>
+		///     No fog stack. Vanilla sends an empty one at join and so do we; fog is applied later
+		///     by gameplay, not declared here. Was reading a data file that held nothing.
+		/// </summary>
+		public virtual void SendPlayerFog()
+		{
+			var pk = McpePlayerFog.CreateObject();
+			SendPacket(pk);
+		}
+
+		// Armor trim patterns/materials, byte-identical to vanilla BDS 1.26.34 (Data/trim_data.json).
+		public virtual void SendTrimData()
+		{
+			var data = JoinSequenceData.TrimData.Value;
+			var pk = McpeTrimData.CreateObject();
+			pk.Patterns = data.Patterns;
+			pk.Materials = data.Materials;
+			SendPacket(pk);
+		}
+
+		public virtual void SendCameraPresets()
+		{
+			CameraManager.SendPresets();
+		}
+
+		// Aim-assist categories/presets, byte-identical to vanilla BDS 1.26.34
+		// (Data/camera_aim_assist_presets.json).
+		public virtual void SendCameraAimAssistPresets()
+		{
+			var data = JoinSequenceData.CameraAimAssistPresets.Value;
+			var pk = McpeCameraAimAssistPresets.CreateObject();
+			pk.Categories = data.Categories;
+			pk.Presets = data.Presets;
+			pk.Operation = data.Operation;
+			SendPacket(pk);
+		}
+
+		// Camera splines, byte-identical to vanilla BDS 1.26.34 (Data/camera_spline.json). Vector3
+		// control/rotation points are stored as plain x/y/z DTOs, converted here (see SendCameraPresets).
+		/// <summary>
+		///     No splines. A server declares camera splines when it wants scripted camera moves,
+		///     and we have none, which is what vanilla sends at join too. Was thirty lines of
+		///     projection over a data file holding an empty list.
+		/// </summary>
+		public virtual void SendCameraSpline()
+		{
+			var pk = McpeCameraSpline.CreateObject();
 			SendPacket(pk);
 		}
 
@@ -1008,7 +1284,7 @@ namespace MiNET
 
 		public virtual void HandleMcpeCommandRequest(McpeCommandRequest message)
 		{
-			Log.Debug($"UUID: {message.unknownUuid}");
+			Log.Debug($"UUID: {message.origin?.UUID}");
 
 			var result = Server.PluginManager.HandleCommand(this, message.command);
 			if (result is string)
@@ -1053,22 +1329,35 @@ namespace MiNET
 
 		public virtual void InitializePlayer()
 		{
-			// Send set health
+			// Vanilla join tail: a ready-state respawn during chunk streaming, then set health,
+			// the spawn play-status, and entity data. No SetTime and no MovePlayer here; the
+			// client has the position from StartGame.
+			var respawn = McpeRespawn.CreateObject();
+			respawn.x = SpawnPosition.X;
+			respawn.y = SpawnPosition.Y + 1.62f;
+			respawn.z = SpawnPosition.Z;
+			respawn.state = (byte) McpeRespawn.RespawnState.Ready;
+			SendPacket(respawn);
+
+			var setHealth = McpeSetHealth.CreateObject();
+			setHealth.health = HealthManager.Hearts;
+			SendPacket(setHealth);
 
 			SendSetEntityData();
 
-			SendPlayerStatus(3);
+			SendPlayerStatus(McpePlayStatus.PlayStatus.PlayerSpawn);
 
-			//send time again
-			SendSetTime();
 			IsSpawned = true;
 
-			SetPosition(SpawnPosition);
+			KnownPosition = (PlayerLocation) SpawnPosition.Clone();
 
 			LastUpdatedTime = DateTime.UtcNow;
 			_haveJoined = true;
 
 			OnPlayerJoin(new PlayerEventArgs(this));
+
+			// Temporary: proves the camera API against a real client. Delete with Camera/CameraDemo.cs.
+			CameraDemo.Run(this);
 		}
 
 		//public virtual void HandleMcpeRespawn()
@@ -1109,9 +1398,12 @@ namespace MiNET
 
 				SendSetTime();
 
-				MiNetServer.FastThreadPool.QueueUserWorkItem(() => ForcedSendChunks());
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() =>
+				{
+					if (_loginSequenceCompleted.Wait(15000)) ForcedSendChunks();
+				});
 
-				//SendPlayerStatus(3);
+				//SendPlayerStatus(McpePlayStatus.PlayStatus.PlayerSpawn);
 
 				var mcpeRespawn = McpeRespawn.CreateObject();
 				mcpeRespawn.x = SpawnPosition.X;
@@ -1358,8 +1650,8 @@ namespace MiNET
 			int height = Level.Dimension == Dimension.Overworld ? 256 : 128;
 
 
-			int portalId = new Portal().Id;
-			int obsidionId = new Obsidian().Id;
+			string portalName = new Portal().Name;
+			string obsidianName = new Obsidian().Name;
 
 			Log.Debug($"Starting point: {start}");
 
@@ -1379,18 +1671,18 @@ namespace MiNET
 						var coord = new BlockCoordinates(x, y, z);
 						if (coord.DistanceTo(start) > closestDistance) continue;
 
-						bool b = level.IsBlock(coord, portalId);
-						b &= level.IsBlock(coord.BlockDown(), obsidionId);
+						bool b = level.IsBlock(coord, portalName);
+						b &= level.IsBlock(coord.BlockDown(), obsidianName);
 						if (b)
 						{
 							var portal = (Portal) level.GetBlock(coord);
 							if (portal.PortalAxis == "z")
 							{
-								b &= level.IsBlock(coord.BlockNorth(), portalId);
+								b &= level.IsBlock(coord.BlockNorth(), portalName);
 							}
 							else
 							{
-								b &= level.IsBlock(coord.BlockEast(), portalId);
+								b &= level.IsBlock(coord.BlockEast(), portalName);
 							}
 
 							Log.Debug($"Found portal block at {coord}, axis={portal.PortalAxis}");
@@ -1735,19 +2027,29 @@ namespace MiNET
 			//strangeContent.input = new ItemStacks();
 			//SendPacket(strangeContent);
 
+			// 1.26 container sizes (verified against BDS): main inventory 36 slots (hotbar is
+			// slots 0-8 of it, not appended), armor 5 (the body/harness slot was added), ui 54.
+			// MiNET's internal lists still use the old sizes; slice/pad at the wire.
+			static ItemStacks Resize(ItemStacks src, int size)
+			{
+				var result = new ItemStacks();
+				for (int i = 0; i < size; i++) result.Add(i < src.Count ? src[i] : new ItemAir());
+				return result;
+			}
+
 			var inventoryContent = McpeInventoryContent.CreateObject();
 			inventoryContent.inventoryId = (byte) 0x00;
-			inventoryContent.input = Inventory.GetSlots();
+			inventoryContent.input = Resize(Inventory.GetSlots(), 36);
 			SendPacket(inventoryContent);
 
 			var armorContent = McpeInventoryContent.CreateObject();
 			armorContent.inventoryId = 0x78;
-			armorContent.input = Inventory.GetArmor();
+			armorContent.input = Resize(Inventory.GetArmor(), 5);
 			SendPacket(armorContent);
 
 			var uiContent = McpeInventoryContent.CreateObject();
 			uiContent.inventoryId = 0x7c;
-			uiContent.input = Inventory.GetUiSlots();
+			uiContent.input = Resize(Inventory.GetUiSlots(), 54);
 			SendPacket(uiContent);
 
 			var offHandContent = McpeInventoryContent.CreateObject();
@@ -1755,21 +2057,18 @@ namespace MiNET
 			offHandContent.input = Inventory.GetOffHand();
 			SendPacket(offHandContent);
 
-			var mobEquipment = McpeMobEquipment.CreateObject();
-			mobEquipment.runtimeEntityId = EntityManager.EntityIdSelf;
-			mobEquipment.item = Inventory.GetItemInHand();
-			mobEquipment.slot = (byte) Inventory.InHandSlot;
-			mobEquipment.selectedSlot = (byte) Inventory.InHandSlot;
-			SendPacket(mobEquipment);
+			// No self-targeted MobEquipment here: the client owns its hotbar selection and
+			// vanilla never sends this at join (server->client MobEquipment is for OTHER
+			// entities' visible held items).
 		}
 
 		public virtual void SendCraftingRecipes()
 		{
-			//TODO: Fix crafting recipe sending.
-			
-			/*McpeCraftingData craftingData = McpeCraftingData.CreateObject();
-			craftingData.recipes = RecipeManager.Recipes;
-			SendPacket(craftingData);*/
+			// The 1.26 client expects a CraftingData packet during join (both vanilla BDS and PMMP
+			// always send one). It is a projection of the server's recipe registry, which is also what
+			// crafting requests are validated against, so a plugin that adds a recipe changes both.
+
+			SendPacket(RecipeManager.CreateCraftingDataPacket());
 		}
 
 		public virtual void SendCreativeInventory()
@@ -1777,7 +2076,61 @@ namespace MiNET
 			if (!UseCreativeInventory) return;
 
 			var creativeContent = McpeCreativeContent.CreateObject();
-			creativeContent.input = InventoryUtils.GetCreativeMetadataSlots();
+
+			// Vanilla tab groups (captured 1.26.34 data): groups with category/name/icon, and each
+			// entry referencing its group by index. Without correct groups the client shows empty
+			// creative tabs.
+			CreativeGroupData groupData = InventoryUtils.CreativeGroups.Value;
+			foreach (CreativeGroupDef def in groupData.Groups)
+			{
+				Item icon = null;
+				if (def.IconNetworkId != 0)
+				{
+					// The captured icon identity, resolved back through the item registry so the
+					// item carries a real name. An unresolved icon (network id -1) crashes the client
+					// when it rebuilds the creative UI, so the id must always land on a registry entry.
+					icon = ItemFactory.GetItemByNetworkId(def.IconNetworkId, def.IconMetadata);
+					icon.NetworkMetadata = def.IconMetadata;
+					icon.RuntimeId = def.IconRuntimeId;
+					if (def.IconNbtB64 != null)
+					{
+						byte[] nbtBytes = Convert.FromBase64String(def.IconNbtB64);
+						var nbtFile = new NbtFile {BigEndian = false, UseVarInt = true};
+						nbtFile.LoadFromBuffer(nbtBytes, 0, nbtBytes.Length, NbtCompression.None);
+						icon.ExtraData = (NbtCompound) nbtFile.RootTag;
+					}
+				}
+
+				creativeContent.Groups.Add(new CreativeItemGroup
+				{
+					Category = def.Category,
+					Name = def.Name ?? string.Empty,
+					Icon = icon,
+				});
+			}
+
+			for (int i = 0; i < groupData.Entries.Count; i++)
+			{
+				CreativeEntryDef def = groupData.Entries[i];
+				Item item = ItemFactory.GetItemByNetworkId(def.NetworkId, def.Metadata);
+				item.NetworkMetadata = def.Metadata;
+				item.RuntimeId = def.RuntimeId;
+				if (def.NbtB64 != null)
+				{
+					byte[] nbtBytes = Convert.FromBase64String(def.NbtB64);
+					var nbtFile = new NbtFile {BigEndian = false, UseVarInt = true};
+					nbtFile.LoadFromBuffer(nbtBytes, 0, nbtBytes.Length, NbtCompression.None);
+					item.ExtraData = (NbtCompound) nbtFile.RootTag;
+				}
+
+				creativeContent.Entries.Add(new CreativeContentEntry
+				{
+					GroupIndex = def.GroupIndex,
+					EntryId = i + 1,
+					Item = item,
+				});
+			}
+
 			SendPacket(creativeContent);
 		}
 
@@ -1789,10 +2142,10 @@ namespace MiNET
 			SendPacket(packet);
 		}
 
-		public void SendPlayerStatus(int status)
+		public void SendPlayerStatus(McpePlayStatus.PlayStatus status)
 		{
 			McpePlayStatus mcpePlayerStatus = McpePlayStatus.CreateObject();
-			mcpePlayerStatus.status = status;
+			mcpePlayerStatus.status = (int) status;
 			SendPacket(mcpePlayerStatus);
 		}
 
@@ -2006,18 +2359,6 @@ namespace MiNET
 			return false;
 		}
 
-		public virtual void HandleMcpeLevelSoundEventOld(McpeLevelSoundEventOld message)
-		{
-			var sound = McpeLevelSoundEventOld.CreateObject();
-			sound.soundId = message.soundId;
-			sound.position = message.position;
-			sound.blockId = message.blockId;
-			sound.entityType = message.entityType;
-			sound.isBabyMob = message.isBabyMob;
-			sound.isGlobal = message.isGlobal;
-			Level.RelayBroadcast(sound);
-		}
-
 		public virtual void HandleMcpeLevelSoundEvent(McpeLevelSoundEvent message)
 		{
 			//TODO: This will require that sounds are sent by the server.
@@ -2032,28 +2373,322 @@ namespace MiNET
 			//Level.RelayBroadcast(sound);
 		}
 
+		/// <summary>
+		///     Whether this client gets chunks as blobs. Both ends have to agree: the client tells
+		///     us it keeps a cache, and BlobCacheEnabled says we are willing to serve one. Some
+		///     clients never opt in, so the plain chunk path is not optional and stays the default.
+		/// </summary>
+		public bool UseBlobCache { get; private set; }
+
+		/// <summary>
+		///     The emotes this client owns, sent once after login. Parsed but unused: acting on it
+		///     means validating an incoming Emote against the list and relaying it to the other
+		///     players, and we do neither yet. Handled so it stops arriving as an unknown packet.
+		/// </summary>
+		public virtual void HandleMcpeEmoteList(McpeEmoteList message)
+		{
+			if (Log.IsDebugEnabled) Log.Debug($"Emote list from {Username}: {message.emotePieceIds.Length} emotes");
+		}
+
 		public void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
 		{
-			Log.Warn($"Cache status: {(message.enabled ? "Enabled" : "Disabled")}");
+			UseBlobCache = message.enabled && BlobStore.Enabled;
+			Log.Info($"Cache status from {Username}: client={(message.enabled ? "enabled" : "disabled")}, serving blobs={UseBlobCache}");
+		}
+
+		/// <summary>
+		///     Answers a client's report of which blobs it already had. Hits cost nothing; misses
+		///     get the bytes the hash was taken over. A hash we cannot resolve means the blob aged
+		///     out of the store after we advertised it, which would strand the chunk, so it is
+		///     logged rather than passed over.
+		/// </summary>
+		public void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
+		{
+			if (message.hashMisses == null || message.hashMisses.Length == 0) return;
+
+			var blobs = new Dictionary<ulong, byte[]>();
+			foreach (ulong hash in message.hashMisses)
+			{
+				if (BlobStore.TryGet(hash, out byte[] blob)) blobs[hash] = blob;
+				else Log.Warn($"No blob for hash {hash:X16} requested by {Username}");
+			}
+
+			if (blobs.Count == 0) return;
+
+			var response = McpeClientCacheMissResponse.CreateObject();
+			response.blobs = blobs;
+			SendPacket(response);
 		}
 
 		public void HandleMcpeNetworkSettings(McpeNetworkSettings message)
 		{
 		}
 
+		public void HandleMcpeEmote(McpeEmote message)
+		{
+		}
+
+		public void HandleMcpeMultiplayerSettings(McpeMultiplayerSettings message)
+		{
+		}
+
+		public void HandleMcpeSettingsCommand(McpeSettingsCommand message)
+		{
+		}
+
+		public void HandleMcpeAnvilDamage(McpeAnvilDamage message)
+		{
+		}
+
 		/// <inheritdoc />
 		public void HandleMcpePlayerAuthInput(McpePlayerAuthInput message)
 		{
-			
+			// The 1.26 client sends PlayerAuthInput every tick as its only movement packet
+			// (MovePlayer is server->client only now). Position is at eye height, like
+			// MovePlayer's was.
+			if (!IsSpawned || HealthManager.IsDead) return;
+
+			if (Server.ServerRole != ServerRole.Node)
+			{
+				lock (_moveSyncLock)
+				{
+					if (_lastOrderingIndex > message.ReliabilityHeader.OrderingIndex) return;
+					_lastOrderingIndex = message.ReliabilityHeader.OrderingIndex;
+				}
+			}
+
+			var newPosition = new PlayerLocation
+			{
+				X = message.Position.X,
+				Y = message.Position.Y - 1.62f,
+				Z = message.Position.Z,
+				Pitch = message.Pitch,
+				Yaw = message.Yaw,
+				HeadYaw = message.HeadYaw
+			};
+
+			double distanceTo = Vector3.Distance(KnownPosition.ToVector3(), newPosition.ToVector3());
+			CurrentSpeed = distanceTo / ((double) (DateTime.UtcNow - LastUpdatedTime).Ticks / TimeSpan.TicksPerSecond);
+
+			// The input flags carry collision state directly; vertical collision while not
+			// jumping is standing on ground.
+			IsOnGround = (message.InputFlags & AuthInputFlags.VerticalCollision) != 0;
+
+			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(newPosition.X, 0, newPosition.Z)));
+
+			KnownPosition = newPosition;
+			LastUpdatedTime = DateTime.UtcNow;
+
+			// Keep chunk streaming following the player; this used to hang off MovePlayer,
+			// which the 1.26 client no longer sends. SendChunksForKnownPosition self-guards
+			// (lock + same-chunk early-out), so a per-tick call is cheap.
+			MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
+
+			// Movement state transitions arrive as input flags now (the old PlayerAction
+			// start/stop sprint/sneak/glide packets are gone in 1.26). Route them to the same
+			// behaviors; without this the server keeps broadcasting stale entity state against
+			// the client's prediction and sprint/sneak stutter and cancel.
+			AuthInputFlags flags = message.InputFlags;
+			if ((flags & (AuthInputFlags.StartSprinting | AuthInputFlags.StopSprinting | AuthInputFlags.StartSneaking | AuthInputFlags.StopSneaking | AuthInputFlags.StartGliding | AuthInputFlags.StopGliding)) != 0)
+			{
+				if ((flags & AuthInputFlags.StartSprinting) != 0) SetSprinting(true);
+				if ((flags & AuthInputFlags.StopSprinting) != 0) SetSprinting(false);
+
+				if ((flags & AuthInputFlags.StartSneaking) != 0)
+				{
+					SetSprinting(false);
+					IsSneaking = true;
+				}
+				if ((flags & AuthInputFlags.StopSneaking) != 0)
+				{
+					SetSprinting(false);
+					IsSneaking = false;
+				}
+
+				if ((flags & AuthInputFlags.StartGliding) != 0)
+				{
+					IsGliding = true;
+					Height = 0.6;
+				}
+				if ((flags & AuthInputFlags.StopGliding) != 0)
+				{
+					IsGliding = false;
+					Height = 1.8;
+				}
+
+				BroadcastSetEntityData();
+			}
+
+			if (message.ItemStackRequest != null)
+			{
+				HandleSingleItemStackRequest(message.ItemStackRequest);
+			}
+
+			if (message.BlockActions != null)
+			{
+				// Server-authoritative block breaking (StartGame flag): break progress and the
+				// actual destroy arrive as auth-input block actions instead of the old
+				// PlayerAction/InventoryTransaction path.
+				foreach (McpePlayerAuthInput.PlayerBlockAction action in message.BlockActions)
+				{
+					var coordinates = new BlockCoordinates(action.X, action.Y, action.Z);
+					switch (action.ActionType)
+					{
+						case 0: // start_break
+						{
+							if (GameMode == GameMode.Survival)
+							{
+								Block target = Level.GetBlock(coordinates);
+								// Unbreakable blocks report negative hardness, which would come out as a
+								// negative break time and read to the client as instant.
+								if (!target.IsUnbreakable)
+								{
+									var drops = target.GetDrops(Inventory.GetItemInHand());
+									float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
+									double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
+
+									McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
+									breakEvent.eventId = 3600;
+									breakEvent.position = coordinates;
+									breakEvent.data = (int) (65535 / breakTime);
+									Level.RelayBroadcast(breakEvent);
+								}
+							}
+							break;
+						}
+						case 1: // abort_break
+						{
+							McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
+							breakEvent.eventId = 3601;
+							breakEvent.position = coordinates;
+							Level.RelayBroadcast(breakEvent);
+							break;
+						}
+						case 18: // crack_break
+						case 27: // continue_break
+						{
+							Block target = Level.GetBlock(coordinates);
+							McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
+							breakEvent.eventId = 2014;
+							breakEvent.position = coordinates;
+							breakEvent.data = ((int) target.GetRuntimeId()) | ((byte) (action.Face << 24));
+							Level.RelayBroadcast(breakEvent);
+							break;
+						}
+						case 26: // predict_break: the client predicted the destroy; perform it
+						{
+							Level.BreakBlock(this, coordinates, (BlockFace) action.Face);
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		public virtual void HandleMcpePlayerToggleCrafterSlotRequest(McpePlayerToggleCrafterSlotRequest message)
+		{
+		}
+
+		public virtual void HandleMcpeServerBoundLoadingScreen(McpeServerBoundLoadingScreen message)
+		{
+			// Client informs the server which loading screen it is on. No server action needed.
+		}
+
+		public virtual void HandleMcpeServerBoundDiagnostics(McpeServerBoundDiagnostics message)
+		{
+			// Client performance telemetry (creator diagnostics setting). Ignored.
+		}
+
+		public virtual void HandleMcpeClientCameraAimAssist(McpeClientCameraAimAssist message)
+		{
+			// Client-side aim assist state report. Ignored.
+		}
+
+		public virtual void HandleMcpeClientMovementPredictionSync(McpeClientMovementPredictionSync message)
+		{
+			// Client-authoritative movement correction sync. No server action needed.
+		}
+
+		public virtual void HandleMcpeUpdateClientOptions(McpeUpdateClientOptions message)
+		{
+			// Client graphics/profanity-filter option change notification. Ignored.
+		}
+
+		public virtual void HandleMcpeServerboundPackSettingChange(McpeServerboundPackSettingChange message)
+		{
+			// Client resource pack setting (slider/toggle) change. Ignored.
+		}
+
+		public virtual void HandleMcpeServerboundDataStore(McpeServerboundDataStore message)
+		{
+			// Client data store update request. Ignored.
+		}
+
+		public virtual void HandleMcpePartyDestinationCookieResponse(McpePartyDestinationCookieResponse message)
+		{
+			// Client response to a party destination cookie. Ignored.
+		}
+
+		public virtual void HandleMcpeResourcePacksReadyForValidation(McpeResourcePacksReadyForValidation message)
+		{
+		}
+
+		public virtual void HandleMcpePartyChanged(McpePartyChanged message)
+		{
+		}
+
+		public virtual void HandleMcpeServerboundDataDrivenScreenClosed(McpeServerboundDataDrivenScreenClosed message)
+		{
+		}
+
+		public virtual void HandleMcpeSetPlayerInventoryOptions(McpeSetPlayerInventoryOptions message)
+		{
+			// Client UI preferences (tabs, filtering, layout). Nothing to do server-side.
+		}
+
+		public virtual void HandleMcpeCreatePhoto(McpeCreatePhoto message)
+		{
+			// Client notification that it captured a portfolio/education photo. Ignored.
 		}
 
 
 		public bool UsingAnvil { get; set; }
 
+		// Single request embedded in McpePlayerAuthInput (item_stack_request input flag); same
+		// processing and response flow as the standalone McpeItemStackRequest packet.
+		private void HandleSingleItemStackRequest(ItemStackActionList request)
+		{
+			var response = McpeItemStackResponse.CreateObject();
+			response.responses = new ItemStackResponses();
+
+			var stackResponse = new ItemStackResponse
+			{
+				Result = StackResponseStatus.Ok,
+				RequestId = request.RequestId,
+				ResponseContainerInfos = new List<StackResponseContainerInfo>()
+			};
+			response.responses.Add(stackResponse);
+
+			try
+			{
+				stackResponse.ResponseContainerInfos.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+			}
+			catch (Exception e)
+			{
+				Log.Warn($"Failed to process inventory actions", e);
+				stackResponse.Result = StackResponseStatus.Error;
+				stackResponse.ResponseContainerInfos.Clear();
+			}
+
+			SendPacket(response);
+			if (stackResponse.Result != StackResponseStatus.Ok) ResyncInventoryAfterFailedStackRequest();
+		}
+
 		public void HandleMcpeItemStackRequest(McpeItemStackRequest message)
 		{
 			var response = McpeItemStackResponse.CreateObject();
 			response.responses = new ItemStackResponses();
+			bool anyFailed = false;
 			foreach (ItemStackActionList request in message.requests)
 			{
 				var stackResponse = new ItemStackResponse()
@@ -2074,10 +2709,21 @@ namespace MiNET
 					Log.Warn($"Failed to process inventory actions", e);
 					stackResponse.Result = StackResponseStatus.Error;
 					stackResponse.ResponseContainerInfos.Clear();
+					anyFailed = true;
 				}
 			}
 
 			SendPacket(response);
+			if (anyFailed) ResyncInventoryAfterFailedStackRequest();
+		}
+
+		// After rejecting a stack request BDS repairs the client's view of the inventory:
+		// InventoryContent for windows 0/0x78/0x7c/0x77 followed by PlayerHotbar (observed
+		// live against BDS 1.26.34 answering an invalid CraftCreative request).
+		private void ResyncInventoryAfterFailedStackRequest()
+		{
+			SendPlayerInventory();
+			SendPlayerHotbar();
 		}
 
 		protected Item GetContainerItem(int containerId, int slot)
@@ -2170,20 +2816,17 @@ namespace MiNET
 		{
 		}
 
+		public void HandleMcpePositionTrackingDbClientRequest(McpePositionTrackingDbClientRequest message)
+		{
+		}
+
+		public void HandleMcpeDebugInfo(McpeDebugInfo message)
+		{
+		}
+
 		public void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
 		{
 			Log.Error($"Client reported a level {message.severity} packet violation of type {message.violationType} for packet 0x{message.packetId:X2}: {message.reason}");
-		}
-
-		/// <inheritdoc />
-		public void HandleMcpeFilterTextPacket(McpeFilterTextPacket message)
-		{
-			// Allow anvil renaming to work - this packet must be sent in response
-			// You could also modify the contents to change the outcome.
-			var packet = McpeFilterTextPacket.CreateObject();
-			packet.text = message.text;
-			packet.fromServer = true;
-			SendPacket(packet);
 		}
 
 		/// <inheritdoc />
@@ -2238,16 +2881,6 @@ namespace MiNET
 
 		public virtual void HandleMcpeMobArmorEquipment(McpeMobArmorEquipment message)
 		{
-		}
-
-		public virtual void HandleMcpeItemFrameDropItem(McpeItemFrameDropItem message)
-		{
-			Log.Debug($"Drops item frame at {message.coordinates}");
-			if (Level.GetBlock(message.coordinates) is Frame frame)
-			{
-				Log.Debug($"Drops from frame {frame}");
-				frame.ClearItem(Level);
-			}
 		}
 
 		public virtual void HandleMcpeMobEquipment(McpeMobEquipment message)
@@ -2337,7 +2970,7 @@ namespace MiNET
 				containerOpen.windowId = inventory.WindowsId;
 				containerOpen.type = inventory.Type;
 				containerOpen.coordinates = inventoryCoord;
-				containerOpen.runtimeEntityId = -1;
+				containerOpen.actorUniqueId = -1;
 				SendPacket(containerOpen);
 
 				var containerSetContent = McpeInventoryContent.CreateObject();
@@ -2373,11 +3006,6 @@ namespace MiNET
 
 		public void HandleMcpeInventorySlot(McpeInventorySlot message)
 		{
-		}
-
-		public virtual void HandleMcpeCraftingEvent(McpeCraftingEvent message)
-		{
-			Log.Debug($"Player {Username} crafted item on window 0x{message.windowId:X2} on type: {message.recipeType}");
 		}
 
 		public virtual void HandleMcpeInventoryTransaction(McpeInventoryTransaction message)
@@ -2426,7 +3054,7 @@ namespace MiNET
 		private void EntityItemInteract(ItemUseOnEntityTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (itemInHand.Id != transaction.Item.Id || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
 			{
 				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
 			}
@@ -2446,7 +3074,7 @@ namespace MiNET
 		protected virtual void EntityAttack(ItemUseOnEntityTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (itemInHand.Id != transaction.Item.Id || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
 			{
 				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
 			}
@@ -2623,7 +3251,7 @@ namespace MiNET
 						// Drop
 						Item sourceItem = Inventory.GetItemInHand();
 
-						if (newItem.Id != sourceItem.Id) Log.Warn($"Inventory mismatch. Client reported drop item as {newItem} and it did not match existing item {sourceItem}");
+						if (!newItem.Name.Equals(sourceItem.Name, StringComparison.OrdinalIgnoreCase)) Log.Warn($"Inventory mismatch. Client reported drop item as {newItem} and it did not match existing item {sourceItem}");
 
 						byte count = newItem.Count;
 
@@ -2671,17 +3299,17 @@ namespace MiNET
 
 			var recipes = RecipeManager.Recipes
 				.Where(r => r is ShapedRecipe)
-				.Where(r => ((ShapedRecipe) r).Result.First().Id == result.Id && ((ShapedRecipe) r).Result.First().Metadata == result.Metadata).ToList();
+				.Where(r => ((ShapedRecipe) r).Result.First().Name.Equals(result.Name, StringComparison.OrdinalIgnoreCase) && ((ShapedRecipe) r).Result.First().Metadata == result.Metadata).ToList();
 
 			recipes.AddRange(RecipeManager.Recipes
 				.Where(r => r is ShapelessRecipe)
-				.Where(r => ((ShapelessRecipe) r).Result.First().Id == result.Id && ((ShapelessRecipe) r).Result.First().Metadata == result.Metadata).ToList());
+				.Where(r => ((ShapelessRecipe) r).Result.First().Name.Equals(result.Name, StringComparison.OrdinalIgnoreCase) && ((ShapelessRecipe) r).Result.First().Metadata == result.Metadata).ToList());
 
 			Log.Debug($"Found {recipes.Count} matching recipes with the result {result}");
 
 			if (recipes.Count == 0) return false;
 
-			var input = craftingInput.Where(i => i != null && i.Id != 0).ToList();
+			var input = craftingInput.Where(i => i != null && !i.IsAir).ToList();
 
 			foreach (var recipe in recipes)
 			{
@@ -2690,12 +3318,12 @@ namespace MiNET
 				{
 					case ShapedRecipe shapedRecipe:
 					{
-						ingredients = shapedRecipe.Input.Where(i => i != null && i.Id != 0).ToList();
+						ingredients = shapedRecipe.Input.Where(i => i != null && !i.IsAir).ToList();
 						break;
 					}
 					case ShapelessRecipe shapelessRecipe:
 					{
-						ingredients = shapelessRecipe.Input.Where(i => i != null && i.Id != 0).ToList();
+						ingredients = shapelessRecipe.Input.Where(i => i != null && !i.IsAir).ToList();
 						break;
 					}
 				}
@@ -2737,7 +3365,7 @@ namespace MiNET
 				if (ReferenceEquals(null, y)) return false;
 				if (ReferenceEquals(x, y)) return true;
 
-				return x.Id == y.Id && (x.Metadata == y.Metadata || x.Metadata == short.MaxValue || y.Metadata == short.MaxValue);
+				return x.Name.Equals(y.Name, StringComparison.OrdinalIgnoreCase) && (x.Metadata == y.Metadata || x.Metadata == short.MaxValue || y.Metadata == short.MaxValue);
 			}
 
 			public int GetHashCode(Item obj)
@@ -2774,6 +3402,7 @@ namespace MiNET
 
 					var closePacket = McpeContainerClose.CreateObject();
 					closePacket.windowId = inventory.WindowsId;
+					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
 					closePacket.server = message == null ? true : false;
 					SendPacket(closePacket);
 				}
@@ -2783,8 +3412,11 @@ namespace MiNET
 				}
 				else
 				{
+					// Echo the id the client closed (vanilla answers with the allocated window id,
+					// e.g. 2 for the self-inventory pseudo window), never a hardcoded 0.
 					var closePacket = McpeContainerClose.CreateObject();
-					closePacket.windowId = 0;
+					closePacket.windowId = message?.windowId ?? 0;
+					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
 					closePacket.server = message == null ? true : false;
 					SendPacket(closePacket);
 				}
@@ -2846,10 +3478,16 @@ namespace MiNET
 				{
 					if (target == this)
 					{
+						// Mirrors vanilla's answer to a self open-inventory request (captured live
+						// from BDS 1.26.34): an ALLOCATED window id (2, never the reserved
+						// inventory id 0), type 255 (none), the player's block position and
+						// runtime entity id -1. Sending window id 0 here corrupts the client's
+						// own-inventory screen state.
 						var containerOpen = McpeContainerOpen.CreateObject();
-						containerOpen.windowId = 0;
+						containerOpen.windowId = 2;
 						containerOpen.type = 255;
-						containerOpen.runtimeEntityId = EntityManager.EntityIdSelf;
+						containerOpen.coordinates = (BlockCoordinates) KnownPosition;
+						containerOpen.actorUniqueId = -1;
 						SendPacket(containerOpen);
 					}
 					else if (IsRiding) // Riding; Open inventory
@@ -2895,7 +3533,7 @@ namespace MiNET
 
 			if (Level.Entities.TryGetValue((long) message.runtimeEntityId, out var entity))
 			{
-				Item item = ItemFactory.GetItem(383, (short) EntityHelpers.ToEntityType(entity.EntityTypeId));
+				Item item = ItemFactory.GetItemByName("minecraft:spawn_egg", (short) EntityHelpers.ToEntityType(entity.EntityTypeId));
 
 				Inventory.SetInventorySlot(Inventory.InHandSlot, item);
 			}
@@ -2947,57 +3585,91 @@ namespace MiNET
 
 		public void SendStartGame()
 		{
-			var levelSettings = new LevelSettings();
-			levelSettings.spawnSettings = new SpawnSettings()
+			var levelSettings = new LevelSettings
 			{
-				Dimension = (int)(Level?.Dimension ?? 0),
-				BiomeName = "",
-				BiomeType = 0
+				spawnSettings = new SpawnSettings()
+				{
+					Dimension = (int) (Level?.Dimension ?? 0),
+					BiomeName = Level.SpawnBiomeName,
+					BiomeType = Level.SpawnBiomeType
+				},
+				seed = Level.Seed,
+				generator = Level.GeneratorType,
+				gamemode = (int) GameMode,
+				difficulty = (int) Level.Difficulty,
+				x = (int) SpawnPosition.X,
+				y = (int) (SpawnPosition.Y + Height),
+				z = (int) SpawnPosition.Z,
+				hasAchievementsDisabled = Level.AchievementsDisabled,
+				time = (int) Level.WorldTime,
+				eduOffer = PlayerInfo.Edition == 1 ? 1 : 0,
+				rainLevel = Level.RainLevel,
+				lightningLevel = Level.LightningLevel,
+				isMultiplayer = Level.IsMultiplayer,
+				broadcastToLan = Level.BroadcastToLan,
+				enableCommands = EnableCommands,
+				isTexturepacksRequired = Level.IsTexturepacksRequired,
+				gamerules = Level.GetGameRules(),
+				bonusChest = Level.BonusChest,
+				mapEnabled = Level.MapEnabled,
+				permissionLevel = (int) PermissionLevel,
+				// "*" is what vanilla sends here, not the version string and not empty.
+				gameVersion = "*",
+
+				// This server is not Education Edition. Sending true put every client into edu mode,
+				// which changes chat, permissions and the player roster UI.
+				hasEduFeaturesEnabled = false,
+
+				serverChunkTickRange = Level.ServerChunkTickRange,
+				useMsaGamertagsOnly = Level.UseMsaGamertagsOnly,
+				limitedWorldWidth = Level.LimitedWorldWidth,
+				limitedWorldLength = Level.LimitedWorldLength,
+				xboxLiveBroadcastMode = Level.XboxLiveBroadcastMode,
+				platformBroadcastMode = Level.PlatformBroadcastMode
 			};
-			levelSettings.seed = 12345;
-			levelSettings.generator = 1;
-			levelSettings.gamemode = (int) GameMode;
-			levelSettings.x = (int) SpawnPosition.X;
-			levelSettings.y = (int) (SpawnPosition.Y + Height);
-			levelSettings.z = (int) SpawnPosition.Z;
-			levelSettings.hasAchievementsDisabled = true;
-			levelSettings.time = (int) Level.WorldTime;
-			levelSettings.eduOffer = PlayerInfo.Edition == 1 ? 1 : 0;
-			levelSettings.rainLevel = 0;
-			levelSettings.lightningLevel = 0;
-			levelSettings.isMultiplayer = true;
-			levelSettings.broadcastToLan = true;
-			levelSettings.enableCommands = EnableCommands;
-			levelSettings.isTexturepacksRequired = false;
-			levelSettings.gamerules = Level.GetGameRules();
-			levelSettings.bonusChest = false;
-			levelSettings.mapEnabled = false;
-			levelSettings.permissionLevel = (int) PermissionLevel;
-			levelSettings.gameVersion = "";
-			levelSettings.hasEduFeaturesEnabled = true;
-			
+
 			var startGame = McpeStartGame.CreateObject();
 			startGame.levelSettings = levelSettings;
 			startGame.entityIdSelf = EntityId;
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
-			startGame.playerGamemode = (int) GameMode;
-			startGame.spawn = SpawnPosition;
-			startGame.rotation = new Vector2(KnownPosition.HeadYaw, KnownPosition.Pitch);
+			startGame.playerGamemode = 5; // fallback: use the level's game mode, like vanilla
+			// Eye height, like every other position we send. SpawnPosition is feet, and the client
+			// subtracts the offset to place them, so sending it raw spawns the player 1.62 low,
+			// which is inside the ground when the spawn is snapped to the surface.
+			startGame.spawn = new PlayerLocation(SpawnPosition.X, SpawnPosition.Y + 1.62f, SpawnPosition.Z);
+			startGame.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.HeadYaw);
 			
-			startGame.levelId = "1m0AAMIFIgA=";
-			startGame.worldName = Level.LevelName;
-			startGame.premiumWorldTemplateId = "";
-			startGame.isTrial = false;
+			// A stable but non-legacy level id: the client keys local caches on world identity,
+			// and the old constant id may pin poisoned cache entries from early broken sessions.
+			startGame.levelId = "minet-" + (Level.LevelName ?? "world");
+			startGame.worldName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
+			startGame.premiumWorldTemplateId = "00000000-0000-0000-0000-000000000000"; // vanilla sends the zero uuid as a string, not empty
+			startGame.isTrial = Level.IsTrial;
+			// How SubChunk.WriteStore encodes chunk palettes. The two must always agree, so both
+			// come from the one setting. The palette itself is never sent, in either mode: vanilla
+			// stopped sending it, and index mode indexes the client's own canonical palette. That
+			// is what makes index mode demanding: our palette order has to be the client's, exactly.
+			startGame.blockNetworkIdsAreHashes = SubChunk.BlockNetworkIdsAreHashes;
+			startGame.movementRewindHistorySize = Level.MovementRewindHistorySize;
+			// Wire behaviour switches, not world settings: both must match how this server actually
+			// handles breaking and sound, so they are not somebody's to configure.
+			startGame.enableNewBlockBreakSystem = true;
+			startGame.serverControlledSound = true;
 			startGame.currentTick = Level.TickTime;
-			startGame.enchantmentSeed = 123456;
-			startGame.movementType = 0;
-
-			//startGame.blockPalette = BlockFactory.BlockPalette;
-			startGame.itemstates = ItemFactory.Itemstates;
-
+			startGame.enchantmentSeed = Level.EnchantmentSeed;
 			startGame.enableNewInventorySystem = true;
+			// 0 disables the client's palette-checksum verification. NEVER mirror BDS's value:
+			// the client recomputes the checksum locally and rejects the join with "Blocks
+			// between client and server do not match" on any mismatch (observed live 2026-07-31;
+			// the mirrored 1.26.34 value failed a 1.26.33 client). PMMP ships 0 for the same
+			// reason. Computing the real value needs the exact vanilla algorithm; until then 0.
 			startGame.blockPaletteChecksum = 0;
 			startGame.serverVersion = McpeProtocolInfo.GameVersion;
+			startGame.worldTemplateId = new UUID(new byte[16]);
+			// Session correlation id in vanilla's "<raknet>xxxx-xxxx-xxxx-xxxx" shape.
+			startGame.multiplayerCorrelationId = "<raknet>" + Guid.NewGuid().ToString("N").Substring(0, 16).Insert(4, "-").Insert(9, "-").Insert(14, "-");
+			// Vanilla sends the join-info block with all three optional sub-blocks absent.
+			startGame.hasServerJoinInfo = true;
 
 			SendPacket(startGame);
 		}
@@ -3014,6 +3686,14 @@ namespace MiNET
 		}
 
 		private object _sendChunkSync = new object();
+
+		// Gate keeping chunk streaming behind the login send-sequence. The client's
+		// RequestChunkRadius arrives while the login thread is still sending the pre-spawn burst
+		// (item registry, biome definitions, creative content, commands), and the chunk task would
+		// otherwise race past it on the same ordered channel and deliver chunks + PlayStatus(3)
+		// before the registries. BDS sends the registries first and PlayStatus(3) last; a strict
+		// 1.26 client disconnects when told to spawn without an item registry.
+		private readonly ManualResetEventSlim _loginSequenceCompleted = new ManualResetEventSlim(false);
 
 		private void ForcedSendChunk(PlayerLocation position)
 		{
@@ -3084,11 +3764,12 @@ namespace MiNET
 
 				SendNetworkChunkPublisherUpdate();
 				int packetCount = 0;
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius))
+				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, useBlobCache: UseBlobCache))
 				{
 					if (chunk != null) SendPacket(chunk);
 
-					if (++packetCount % 16 == 0) Thread.Sleep(12);
+					packetCount++;
+				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
 				}
 			}
 			finally
@@ -3104,11 +3785,17 @@ namespace MiNET
 
 		private void SendChunksForKnownPosition()
 		{
+			// See _loginSequenceCompleted: never stream chunks (or the PlayStatus 3 they trigger)
+			// before the pre-spawn sequence has gone out. No-op after login.
+			if (!_loginSequenceCompleted.Wait(15000)) return;
+
 			if (!Monitor.TryEnter(_sendChunkSync)) return;
 
 			try
 			{
 				if (ChunkRadius <= 0) return;
+
+				if (!IsSpawned) SendChunkRadiusUpdate();
 
 
 				var chunkPosition = new ChunkCoordinates(KnownPosition);
@@ -3127,11 +3814,12 @@ namespace MiNET
 
 				SendNetworkChunkPublisherUpdate();
 
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition))
+				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, UseBlobCache))
 				{
 					if (chunk != null) SendPacket(chunk);
 
-					if (++packetCount % 16 == 0) Thread.Sleep(12);
+					packetCount++;
+				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
 
 					if (!IsSpawned && packetCount == 56)
 					{
@@ -3153,66 +3841,31 @@ namespace MiNET
 
 		public virtual void SendUpdateAttributes()
 		{
+			// Exact attribute set, order and ranges as sent by vanilla BDS 1.26.34 for the local
+			// player at join (decoded wire capture). Values come from the live managers.
 			var attributes = new PlayerAttributes();
-			attributes["minecraft:attack_damage"] = new PlayerAttribute
+			void Add(string name, float min, float max, float value, float def)
 			{
-				Name = "minecraft:attack_damage",
-				MinValue = 1,
-				MaxValue = 1,
-				Value = 1,
-				Default = 1,
-			};
-			attributes["minecraft:absorption"] = new PlayerAttribute
-			{
-				Name = "minecraft:absorption",
-				MinValue = 0,
-				MaxValue = float.MaxValue,
-				Value = HealthManager.Absorption,
-				Default = 0,
-			};
-			attributes["minecraft:health"] = new PlayerAttribute
-			{
-				Name = "minecraft:health",
-				MinValue = 0,
-				MaxValue = HealthManager.MaxHearts,
-				Value = HealthManager.Hearts,
-				Default = HealthManager.MaxHearts,
-			};
-			attributes["minecraft:movement"] = new PlayerAttribute
-			{
-				Name = "minecraft:movement",
-				MinValue = 0,
-				MaxValue = 0.5f,
-				Value = MovementSpeed,
-				Default = MovementSpeed,
-			};
-			attributes["minecraft:knockback_resistance"] = new PlayerAttribute
-			{
-				Name = "minecraft:knockback_resistance",
-				MinValue = 0,
-				MaxValue = 1,
-				Value = 0,
-				Default = 0,
-			};
-			attributes["minecraft:luck"] = new PlayerAttribute
-			{
-				Name = "minecraft:luck",
-				MinValue = -1025,
-				MaxValue = 1024,
-				Value = 0,
-				Default = 0,
-			};
-			attributes["minecraft:follow_range"] = new PlayerAttribute
-			{
-				Name = "minecraft:follow_range",
-				MinValue = 0,
-				MaxValue = 2048,
-				Value = 16,
-				Default = 16,
-			};
-			// Workaround, bad design.
-			attributes = HungerManager.AddHungerAttributes(attributes);
-			attributes = ExperienceManager.AddExperienceAttributes(attributes);
+				attributes[name] = new PlayerAttribute {Name = name, MinValue = min, MaxValue = max, Value = value, Default = def};
+			}
+
+			Add("minecraft:player.hunger", 0, 20, HungerManager.Hunger, 20);
+			Add("minecraft:player.saturation", 0, 20, (float) HungerManager.Saturation, 5);
+			Add("minecraft:player.exhaustion", 0, 20, (float) HungerManager.Exhaustion, 0);
+			Add("minecraft:player.level", 0, 24791, ExperienceManager.ExperienceLevel, 0);
+			Add("minecraft:player.experience", 0, 1, ExperienceManager.Experience, 0);
+			Add("minecraft:health", 0, 20, HealthManager.Hearts, 20);
+			Add("minecraft:follow_range", 0, 2048, FollowRange, 16);
+			Add("minecraft:knockback_resistance", -2, 1, KnockbackResistance, 0);
+			Add("minecraft:movement", 0, float.MaxValue, (float) MovementSpeed, 0.1f);
+			Add("minecraft:underwater_movement", 0, float.MaxValue, UnderwaterMovementSpeed, 0.02f);
+			Add("minecraft:lava_movement", 0, float.MaxValue, LavaMovementSpeed, 0.02f);
+			Add("minecraft:attack_damage", 1, 1, AttackDamage, 1);
+			Add("minecraft:absorption", 0, 16, HealthManager.Absorption, 0);
+			Add("minecraft:luck", -1024, 1024, Luck, 0);
+			Add("minecraft:friction_modifier", 0, 256, FrictionModifier, 1);
+			Add("minecraft:bounciness", 0, 1, Bounciness, 0);
+			Add("minecraft:air_drag_modifier", 0, 256, AirDragModifier, 1);
 
 			McpeUpdateAttributes attributesPackate = McpeUpdateAttributes.CreateObject();
 			attributesPackate.runtimeEntityId = EntityManager.EntityIdSelf;
@@ -3246,7 +3899,9 @@ namespace MiNET
 		{
 			var packet = McpeLevelSoundEvent.CreateObject();
 			packet.position = position;
-			packet.soundId = (uint) sound;
+			// TODO: Wire format is a sound name string since protocol 993; verify the
+			// name mapping against BDS traces when the server side is brought to 1001.
+			packet.soundId = sound.ToString();
 			packet.blockId = blockId;
 			SendPacket(packet);
 		}
@@ -3403,6 +4058,12 @@ namespace MiNET
 			metadata[(int) MetadataFlags.ButtonText] = new MetadataString(ButtonText ?? string.Empty);
 			metadata[(int) MetadataFlags.PlayerFlags] = new MetadataByte((byte) (IsSleeping ? 0b10 : 0));
 			metadata[(int) MetadataFlags.BedPosition] = new MetadataIntCoordinates((int) SpawnPosition.X, (int) SpawnPosition.Y, (int) SpawnPosition.Z);
+
+			// Players report their bounding box as a single CollisionBox vector3 (width, height, 0)
+			// instead of the generic CollisionBoxWidth/Height floats used by mobs.
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxWidth);
+			metadata._entries.Remove((int) MetadataFlags.CollisionBoxHeight);
+			metadata[(int) MetadataFlags.CollisionBox] = new MetadataVector3((float) Width, (float) Height, 0);
 
 			return metadata;
 		}
@@ -3659,25 +4320,25 @@ namespace MiNET
 				Level.DropItem(coordinates, stack);
 			}
 
-			if (Inventory.Helmet.Id != 0)
+			if (!Inventory.Helmet.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Helmet);
 				Inventory.Helmet = new ItemAir();
 			}
 
-			if (Inventory.Chest.Id != 0)
+			if (!Inventory.Chest.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Chest);
 				Inventory.Chest = new ItemAir();
 			}
 
-			if (Inventory.Leggings.Id != 0)
+			if (!Inventory.Leggings.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Leggings);
 				Inventory.Leggings = new ItemAir();
 			}
 
-			if (Inventory.Boots.Id != 0)
+			if (!Inventory.Boots.IsAir)
 			{
 				Level.DropItem(coordinates, Inventory.Boots);
 				Inventory.Boots = new ItemAir();
@@ -3691,7 +4352,6 @@ namespace MiNET
 			McpeAddPlayer mcpeAddPlayer = McpeAddPlayer.CreateObject();
 			mcpeAddPlayer.uuid = ClientUuid;
 			mcpeAddPlayer.username = Username;
-			mcpeAddPlayer.entityIdSelf = EntityId;
 			mcpeAddPlayer.runtimeEntityId = EntityId;
 			mcpeAddPlayer.x = KnownPosition.X;
 			mcpeAddPlayer.y = KnownPosition.Y;
@@ -3702,17 +4362,19 @@ namespace MiNET
 			mcpeAddPlayer.yaw = KnownPosition.Yaw;
 			mcpeAddPlayer.headYaw = KnownPosition.HeadYaw;
 			mcpeAddPlayer.pitch = KnownPosition.Pitch;
+			mcpeAddPlayer.gamemode = (int) GameMode;
 			mcpeAddPlayer.metadata = GetMetadata();
-			mcpeAddPlayer.flags = GetAdventureFlags();
-			mcpeAddPlayer.commandPermission = (uint) CommandPermission;
-			mcpeAddPlayer.actionPermissions = (uint) ActionPermissions;
-			mcpeAddPlayer.permissionLevel = (uint) PermissionLevel;
-			mcpeAddPlayer.userId = -1;
+			mcpeAddPlayer.uniqueId = EntityId;
+			mcpeAddPlayer.permissionLevel = (byte) PermissionLevel;
+			mcpeAddPlayer.commandPermission = (byte) CommandPermission;
 			mcpeAddPlayer.deviceId = PlayerInfo.DeviceId;
 			mcpeAddPlayer.deviceOs = PlayerInfo.DeviceOS;
-			mcpeAddPlayer.gameType = (uint) GameMode;
 
-			int[] a = new int[5];
+			// A spawned player must arrive with its ability layers. This went out with none, where
+			// vanilla BDS 1.26.34 sends two, leaving the receiving client a player it has no base
+			// layer to read walk and fly speed from. The layer is the same one UpdateAbilities
+			// sends for this player, so the two cannot describe the player differently.
+			mcpeAddPlayer.abilities = new List<AbilityLayer> {BuildBaseAbilityLayer()};
 
 			//NOT WORKING: Reported to Mojang
 			//if (IsRiding)
@@ -3736,9 +4398,8 @@ namespace MiNET
 				Level.RelayBroadcast(players, link);
 			}
 
-			SendEquipmentForPlayer(players);
-
-			SendArmorForPlayer(players);
+			// No equipment or armor here. Vanilla BDS 1.26.34 sends neither when it spawns a player,
+			// and sending them is what dropped a real client the moment another player appeared.
 		}
 
 		public virtual void SendEquipmentForPlayer(Player[] receivers = null)
@@ -3835,7 +4496,31 @@ namespace MiNET
 			SendPacket(packet);
 		}
 
-		public virtual void HandleMcpeLevelSoundEventV2(McpeLevelSoundEventV2 message)
+		public virtual void HandleMcpeScriptMessage(McpeScriptMessage message)
+		{
+		}
+
+		public virtual void HandleMcpeCodeBuilderSource(McpeCodeBuilderSource message)
+		{
+		}
+
+		public virtual void HandleMcpeChangeMobProperty(McpeChangeMobProperty message)
+		{
+		}
+
+		public virtual void HandleMcpeRequestAbility(McpeRequestAbility message)
+		{
+		}
+
+		public virtual void HandleMcpeRequestPermissions(McpeRequestPermissions message)
+		{
+		}
+
+		public virtual void HandleMcpeEditorNetwork(McpeEditorNetwork message)
+		{
+		}
+
+		public virtual void HandleMcpeGameTestRequest(McpeGameTestRequest message)
 		{
 		}
 	}

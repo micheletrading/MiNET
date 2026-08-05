@@ -31,15 +31,13 @@ namespace MiNET.Blocks
 	{
 		public Stone() : base(1)
 		{
-			BlastResistance = 30;
-			Hardness = 1.5f;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
 			if (tool.ItemType != ItemType.PickAxe) return new Item[0];
 
-			return new[] {new ItemBlock(new Cobblestone(), 0) {Count = 1}}; // Drop cobblestone
+			return new[] {ItemFactory.GetItemByName("minecraft:cobblestone")}; // Drop cobblestone
 		}
 	}
 }

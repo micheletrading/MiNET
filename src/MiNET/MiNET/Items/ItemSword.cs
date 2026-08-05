@@ -30,7 +30,7 @@ namespace MiNET.Items
 {
 	public class ItemSword : Item
 	{
-		internal ItemSword(string name, short id) : base(name, id)
+		internal ItemSword(string name) : base(name)
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.Sword;

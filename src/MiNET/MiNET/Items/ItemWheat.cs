@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemWheat : Item
 	{
-		public ItemWheat() : base("minecraft:wheat", 296)
+		public ItemWheat() : base("minecraft:wheat")
 		{
 		}
 	}

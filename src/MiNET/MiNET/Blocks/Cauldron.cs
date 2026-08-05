@@ -38,9 +38,6 @@ namespace MiNET.Blocks
 
 		public Cauldron() : base(118)
 		{
-			IsTransparent = true;
-			BlastResistance = 10;
-			Hardness = 2;
 		}
 
 		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
@@ -76,7 +73,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem(380)};
+			return new[] {ItemFactory.GetItemByName("minecraft:cauldron")};
 		}
 	}
 }

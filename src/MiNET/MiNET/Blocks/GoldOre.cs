@@ -31,13 +31,11 @@ namespace MiNET.Blocks
 	{
 		public GoldOre() : base(14)
 		{
-			BlastResistance = 15;
-			Hardness = 3;
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(266, 0);
+			return ItemFactory.GetItemByName("minecraft:gold_ingot", 0);
 		}
 
 		public override Item[] GetDrops(Item tool)

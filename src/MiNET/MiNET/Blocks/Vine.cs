@@ -38,11 +38,6 @@ namespace MiNET.Blocks
 
 		public Vine() : base(106)
 		{
-			IsSolid = false;
-			IsTransparent = true;
-			BlastResistance = 1;
-			Hardness = 0.2f;
-			IsFlammable = true;
 			IsReplaceable = true;
 		}
 
@@ -177,7 +172,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			if (tool.Id != 359) return new Item[0];
+			if (tool is not ItemShears) return new Item[0];
 
 			return base.GetDrops(tool);
 		}

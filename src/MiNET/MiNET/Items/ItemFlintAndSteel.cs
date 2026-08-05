@@ -44,7 +44,7 @@ namespace MiNET.Items
 
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemFlintAndSteel));
 
-		public ItemFlintAndSteel() : base("minecraft:flint_and_steel", 259)
+		public ItemFlintAndSteel() : base("minecraft:flint_and_steel")
 		{
 			MaxStackSize = 1;
 			ItemType = ItemType.FlintAndSteel;
@@ -71,7 +71,7 @@ namespace MiNET.Items
 			else if (block is Obsidian)
 			{
 				var affectedBlock = world.GetBlock(GetNewCoordinatesFromFace(blockCoordinates, face));
-				if (affectedBlock.Id == 0)
+				if (affectedBlock is Air)
 				{
 					var blocks = Fill(world, affectedBlock.Coordinates, 10, BlockFace.West);
 					if (blocks.Count == 0)
@@ -91,7 +91,7 @@ namespace MiNET.Items
 						if (face == BlockFace.Up)
 						{
 							affectedBlock = world.GetBlock(GetNewCoordinatesFromFace(blockCoordinates, BlockFace.Up));
-							if (affectedBlock.Id == 0)
+							if (affectedBlock is Air)
 							{
 								var fire = new Fire {Coordinates = affectedBlock.Coordinates};
 								world.SetBlock(fire);
@@ -104,7 +104,7 @@ namespace MiNET.Items
 			else if (block.IsSolid)
 			{
 				var affectedBlock = world.GetBlock(GetNewCoordinatesFromFace(blockCoordinates, BlockFace.Up));
-				if (affectedBlock.Id == 0)
+				if (affectedBlock is Air)
 				{
 					var fire = new Fire {Coordinates = affectedBlock.Coordinates};
 					world.SetBlock(fire);

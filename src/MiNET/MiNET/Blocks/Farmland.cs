@@ -39,15 +39,11 @@ namespace MiNET.Blocks
 
 		public Farmland() : base(60)
 		{
-			IsTransparent = true; // Partial - blocks light.
-			IsBlockingSkylight = false; // Partial - blocks light.
-			BlastResistance = 3;
-			Hardness = 0.6f;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {new ItemBlock(new Dirt(), 0) {Count = 1}}; // Drop dirt block
+			return new[] {ItemFactory.GetItemByName("minecraft:dirt")}; // Drop dirt block
 		}
 
 		public override void OnTick(Level level, bool isRandom)

@@ -99,7 +99,7 @@ namespace MiNET.BlockEntities
 			for (byte i = 0; i < items.Count; i++)
 			{
 				NbtCompound itemData = (NbtCompound) items[i];
-				Item item = ItemFactory.GetItem(itemData["Name"].StringValue, itemData["Damage"].ShortValue, itemData["Count"].ByteValue);
+				Item item = ItemNbt.Read(itemData);
 				slots.Add(item);
 			}
 

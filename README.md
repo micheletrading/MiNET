@@ -9,9 +9,9 @@ MiNET
 
 ## What is this?
 
-A basic Minecraft Pocket Edition (MCPE) server written in C#. Current goal is to create a server that has enterprise performance for large Minecraft multi-user gaming providers. Current servers handle 10-100 users per instance, the aim with MiNET is to deal with thousands. Priority is also to create interfaces, and to some extend, ready-made implementations of the most basic enterprise game-management features (users, worlds, etc.). With all likelyhood, MiNET will emerge into a Microsoft Cloud ready product.
+A Minecraft: Bedrock Edition server written in C#. Current goal is to create a server that has enterprise performance for large Minecraft multi-user gaming providers. Current servers handle 10-100 users per instance, the aim with MiNET is to deal with thousands. Priority is also to create interfaces, and to some extent, ready-made implementations of the most basic enterprise game-management features (users, worlds, etc.). With all likelihood, MiNET will emerge into a Microsoft Cloud ready product.
 
-As part of the project, I also deliver an up-to-date [automatically generated MCPE Protocol Specification](/src/MiNET/MiNET/Net/MCPE%20Protocol%20Documentation.md). This is a synery of that large parts of the communication code being generated using XML and T4 templates.
+As part of the project, I also deliver an up-to-date [automatically generated Bedrock protocol specification](/src/MiNET/MiNET/Net/MCPE%20Protocol%20Documentation.md). This is possible because large parts of the communication code are generated from XML using T4 templates.
 
 ## Why do this?
 
@@ -20,9 +20,8 @@ This is actually a pet-project - a true father-son project that I do together wi
 And as he really likes to tell his mother these days "Mom, don't disturb daddy. He is working for me now!". 6 years old, but I think you get the picture. I know he does.
 
 Follow me on <a href="https://twitter.com/NiclasOlofsson" class="twitter-follow-button" data-show-count="true" data-size="large" data-dnt="true">Twitter @NiclasOlofsson</a> for news about the project, or simply track the checkins which i tend to comment heavily.
- 
-MiNET is running CI through the fantastic service of AppVeyor. Currently the build status of master is...    
-[![Build status](https://ci.appveyor.com/api/projects/status/gb8ukrnogknic26e/branch/master)](https://ci.appveyor.com/project/NiclasOlofsson/MiNET/branch/master)
+
+CI runs on GitHub Actions (build status badge at the top). Every push to master builds and packs the core MiNET package to NuGet.
 
 ## Can I do my own plugins?
 

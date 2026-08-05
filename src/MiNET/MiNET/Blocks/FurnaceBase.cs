@@ -38,8 +38,6 @@ namespace MiNET.Blocks
 
 		protected FurnaceBase(byte id) : base(id)
 		{
-			BlastResistance = 17.5f;
-			Hardness = 3.5f;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)

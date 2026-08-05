@@ -65,7 +65,6 @@ namespace MiNET.Worlds
 
 		public IWorldProvider WorldProvider { get; set; }
 
-		private int _worldDayCycleTime = 24000;
 
 		public PlayerLocation SpawnPoint { get; set; } = null;
 
@@ -91,8 +90,17 @@ namespace MiNET.Worlds
 		public bool HaveDownfall { get; set; }
 		public Difficulty Difficulty { get; set; }
 		public bool AutoSmelt { get; set; } = false;
-		public long WorldTime { get; set; }
-		public long CurrentWorldCycleTime { get; private set; }
+		/// <summary>Ticks on the level clock. Stored by <see cref="Clock" />; this is a shorthand for it.</summary>
+		public long WorldTime
+		{
+			get => Clock.Time;
+			set => Clock.Time = value;
+		}
+
+		/// <summary>Position within the current day, derived from <see cref="Clock" />.</summary>
+		public long CurrentWorldCycleTime => Clock.TimeOfDay;
+
+		/// <summary>Age of the world in ticks. Unrelated to the clock: it never pauses and never wraps.</summary>
 		public long TickTime { get; set; }
 		public int SkylightSubtracted { get; set; }
 		public long StartTimeInTicks { get; private set; }
@@ -106,12 +114,48 @@ namespace MiNET.Worlds
 		public InventoryManager InventoryManager { get; protected set; }
 		public EntitySpawnManager EntitySpawnManager { get; protected set; }
 
+		/// <summary>The level's clock. One per level; it reads and writes <see cref="WorldTime" />.</summary>
+		public WorldClock Clock { get; protected set; }
+
 		public int ViewDistance { get; set; }
 
 		public Random Random { get; private set; }
 
 		public int SaveInterval { get; set; } = 300;
 		public int UnloadInterval { get; set; } = -1;
+
+		// What StartGame tells a joining client about this world. The defaults are the values
+		// vanilla BDS 1.26.34 sends, taken from a decoded capture. Zero is not a neutral default
+		// for most of them: it is a smaller tick range, an unlimited world of size zero, and a
+		// broadcast mode the client does not expect.
+		public long Seed { get; set; } = 12345;
+
+		// 2 = infinite, which is what vanilla reports even for a flat world. 1 is "flat", and the
+		// client uses this to decide how it treats the world edge.
+		public int GeneratorType { get; set; } = 2;
+
+		// Vanilla names the spawn biome. An empty string leaves the client with no biome for the
+		// point it spawns at.
+		public string SpawnBiomeName { get; set; } = "minecraft:plains";
+		public short SpawnBiomeType { get; set; }
+
+		public bool AchievementsDisabled { get; set; } = true;
+		public float RainLevel { get; set; }
+		public float LightningLevel { get; set; }
+		public bool IsMultiplayer { get; set; } = true;
+		public bool BroadcastToLan { get; set; } = true;
+		public int XboxLiveBroadcastMode { get; set; } = 6;
+		public int PlatformBroadcastMode { get; set; } = 6;
+		public bool UseMsaGamertagsOnly { get; set; } = true;
+		public bool IsTexturepacksRequired { get; set; }
+		public bool BonusChest { get; set; }
+		public bool MapEnabled { get; set; }
+		public bool IsTrial { get; set; }
+		public int ServerChunkTickRange { get; set; } = 4;
+		public int LimitedWorldWidth { get; set; } = 16;
+		public int LimitedWorldLength { get; set; } = 16;
+		public int MovementRewindHistorySize { get; set; } = 40;
+		public int EnchantmentSeed { get; set; } = 123456;
 
 		public Level(LevelManager levelManager, string levelId, IWorldProvider worldProvider, EntityManager entityManager, GameMode gameMode = GameMode.Survival, Difficulty difficulty = Difficulty.Normal, int viewDistance = 11)
 		{
@@ -121,6 +165,7 @@ namespace MiNET.Worlds
 			EntityManager = entityManager;
 			InventoryManager = new InventoryManager(this);
 			EntitySpawnManager = new EntitySpawnManager(this);
+			Clock = new WorldClock(this);
 			LevelId = levelId;
 			GameMode = gameMode;
 			Difficulty = difficulty;
@@ -140,7 +185,7 @@ namespace MiNET.Worlds
 
 			SpawnPoint = SpawnPoint ?? new PlayerLocation(WorldProvider.GetSpawnPoint());
 			TickTime = WorldProvider.GetTime();
-			WorldTime = WorldProvider.GetDayTime();
+			Clock.Time = WorldProvider.GetDayTime();
 			LevelName = WorldProvider.GetName();
 
 			if (WorldProvider.IsCaching)
@@ -163,11 +208,15 @@ namespace MiNET.Worlds
 
 			if (Dimension == Dimension.Overworld)
 			{
-				if (Config.GetProperty("CheckForSafeSpawn", false))
+				if (Config.GetProperty("CheckForSafeSpawn", true))
 				{
+					// Snap the spawn to the ground exactly. GetHeight is the first air block, which is
+					// where feet belong: SpawnPoint is a feet position like KnownPosition, and the eye
+					// offset is added only on the wire. Clearance would be a drop at every join, and a
+					// tolerance band would let a spawn below the surface stand.
 					var height = GetHeight((BlockCoordinates) SpawnPoint);
-					if (height > SpawnPoint.Y) SpawnPoint.Y = height;
-					Log.Debug("Checking for safe spawn");
+					if (height > 0 && SpawnPoint.Y != height) SpawnPoint.Y = height;
+					Log.Debug($"Checking for safe spawn, ground height {height}, spawn Y {SpawnPoint.Y}");
 				}
 
 				if (LevelManager != null && WorldProvider.HaveNether())
@@ -307,25 +356,39 @@ namespace MiNET.Worlds
 				// The player list keeps us from moving this completely to player.
 				// It's simply to slow and bad.
 
-				Player[] players = GetAllPlayers();
-				var spawnedPlayers = players.ToList();
-				spawnedPlayers.Add(newPlayer);
+				// AddPlayer has already put the joiner in Players, so this is everyone else.
+				// Reading the level's players and then appending the joiner (as this used to)
+				// listed them twice, and every join sent a roster with one duplicate record.
+				Player[] others = GetAllPlayers().Where(p => p != newPlayer).ToArray();
 
-				Player[] sendList = spawnedPlayers.ToArray();
+				// The roster the joiner gets, self first then everyone else. Order is what vanilla
+				// BDS 1.26.34 sends: a second bot joining an occupied server receives [self, other],
+				// not the level's own ordering (verified with two clients against BDS).
+				var roster = new List<Player>(others.Length + 1) {newPlayer};
+				roster.AddRange(others);
 
+
+				// Encoded and compressed here, on this thread, so the RakNet ticker that services
+				// every session has nothing to do but ship bytes. It still keeps its place in the
+				// sequence: PrepareSend closes the pending batch before it queues a finished wrapper.
+				// That order is not cosmetic. A roster that overtakes StartGame is dropped, and the
+				// joining player then sees the others in the world with no rows in the player list.
 				var playerListMessage = McpePlayerList.CreateObject();
-				playerListMessage.records = new PlayerAddRecords(spawnedPlayers);
+				playerListMessage.records = new PlayerAddRecords(roster);
 				newPlayer.SendPacket(CreateMcpeBatch(playerListMessage.Encode()));
 				playerListMessage.PutPool();
 
+				// One record, the joiner, to everyone already connected. This is how another client
+				// learns their skin, so it cannot be skipped: AddPlayer below only references the
+				// identity, it does not carry an appearance.
 				var playerList = McpePlayerList.CreateObject();
 				playerList.records = new PlayerAddRecords {newPlayer};
-				RelayBroadcast(newPlayer, sendList, CreateMcpeBatch(playerList.Encode()));
+				RelayBroadcast(newPlayer, roster.ToArray(), CreateMcpeBatch(playerList.Encode()));
 				playerList.PutPool();
 
-				newPlayer.SpawnToPlayers(players);
+				newPlayer.SpawnToPlayers(others);
 
-				foreach (Player spawnedPlayer in players)
+				foreach (Player spawnedPlayer in others)
 				{
 					spawnedPlayer.SpawnToPlayers(new[] {newPlayer});
 				}
@@ -487,18 +550,13 @@ namespace MiNET.Worlds
 
 				Player[] players = GetSpawnedPlayers();
 
-				if (DoDaylightcycle)
-				{
-					WorldTime++;
-				}
+				Clock.Tick();
 
-				CurrentWorldCycleTime = WorldTime % _worldDayCycleTime;
-
-				if (DoDaylightcycle && TickTime % 100 == 0)
+				// Vanilla's cadence: one clock sync every 256 ticks, and no SetTime at all. BDS
+				// 1.26.34 never sends SetTime, running clock or frozen.
+				if (!Clock.Paused && TickTime % 256 == 0)
 				{
-					McpeSetTime message = McpeSetTime.CreateObject();
-					message.time = (int) WorldTime;
-					RelayBroadcast(message);
+					Clock.BroadcastState();
 				}
 
 				SkylightSubtracted = CalculateSkylightSubtracted(WorldTime);
@@ -960,7 +1018,7 @@ namespace MiNET.Worlds
 			}
 		}
 
-		public IEnumerable<McpeWrapper> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, McpeWrapper> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null)
+		public IEnumerable<McpeWrapper> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, McpeWrapper> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, bool useBlobCache = false)
 		{
 			lock (chunksUsed)
 			{
@@ -1011,7 +1069,9 @@ namespace MiNET.Worlds
 					McpeWrapper chunk = null;
 					if (chunkColumn != null)
 					{
-						chunk = chunkColumn.GetBatch();
+						// Both forms are cached on the column and shared by everyone, because the
+						// blob hashes come from content and not from who is asking.
+						chunk = useBlobCache ? chunkColumn.GetBlobBatch() : chunkColumn.GetBatch();
 						chunksUsed.Add(pair.Key, chunk);
 					}
 
@@ -1078,14 +1138,24 @@ namespace MiNET.Worlds
 			return chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f) == blockId;
 		}
 
+		/// <summary>
+		///     Which block stands here, asked by name so that it holds for every state the block has.
+		///     Nothing is built to answer it.
+		/// </summary>
+		public bool IsBlock(BlockCoordinates blockCoordinates, string name)
+		{
+			ChunkColumn chunk = GetChunk(blockCoordinates);
+			if (chunk == null) return false;
+
+			return BlockFactory.GetBlockName(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f)) == name;
+		}
+
 		public bool IsAir(BlockCoordinates blockCoordinates)
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 			if (chunk == null) return true;
 
-			int bid = chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
-			return bid == 0;
-			//return bid == 0 || bid == 20 || bid == 241; // Need this for skylight calculations. Revise!
+			return BlockFactory.IsAir(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public bool IsNotBlockingSkylight(BlockCoordinates blockCoordinates)
@@ -1093,8 +1163,7 @@ namespace MiNET.Worlds
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 			if (chunk == null) return true;
 
-			int bid = chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
-			return bid == 0 || bid == 20 || bid == 241; // Need this for skylight calculations. Revise!
+			return BlockFactory.SkyLightPasses(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public bool IsTransparent(BlockCoordinates blockCoordinates)
@@ -1102,8 +1171,7 @@ namespace MiNET.Worlds
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 			if (chunk == null) return true;
 
-			int bid = chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
-			return BlockFactory.TransparentBlocks[bid] == 1;
+			return BlockFactory.IsTransparent(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public int GetHeight(BlockCoordinates blockCoordinates)
@@ -1187,7 +1255,7 @@ namespace MiNET.Worlds
 			if (broadcast)
 			{
 				var message = McpeUpdateBlock.CreateObject();
-				message.blockRuntimeId = (uint) block.GetRuntimeId();
+				message.blockRuntimeId = BlockFactory.GetNetworkId(block);
 				message.coordinates = block.Coordinates;
 				message.blockPriority = 0xb;
 				RelayBroadcast(message);
@@ -1253,8 +1321,7 @@ namespace MiNET.Worlds
 
 		public void SetAir(int x, int y, int z, bool broadcast = true)
 		{
-			Block air = BlockFactory.GetBlockById(0);
-			air.Coordinates = new BlockCoordinates(x, y, z);
+			var air = new Air {Coordinates = new BlockCoordinates(x, y, z)};
 			SetBlock(air, broadcast);
 		}
 
@@ -1360,7 +1427,7 @@ namespace MiNET.Worlds
 					player.SendPlayerInventory();
 
 					var message = McpeUpdateBlock.CreateObject();
-					message.blockRuntimeId = (uint) block.GetRuntimeId();
+					message.blockRuntimeId = BlockFactory.GetNetworkId(block);
 					message.coordinates = block.Coordinates;
 					message.blockPriority = 0xb;
 					player.SendPacket(message);
@@ -1408,7 +1475,7 @@ namespace MiNET.Worlds
 		private static void RevertBlockAction(Player player, Block block, BlockEntity blockEntity)
 		{
 			var message = McpeUpdateBlock.CreateObject();
-			message.blockRuntimeId = (uint) block.GetRuntimeId();
+			message.blockRuntimeId = BlockFactory.GetNetworkId(block);
 			message.coordinates = block.Coordinates;
 			message.blockPriority = 0xb;
 			player.SendPacket(message);
@@ -1460,7 +1527,7 @@ namespace MiNET.Worlds
 			if (GameMode == GameMode.Creative) return;
 
 			if (drop == null) return;
-			if (drop.Id == 0) return;
+			if (drop.IsAir) return;
 			if (drop.Count == 0) return;
 
 			if (AutoSmelt) drop = drop.GetSmelt() ?? drop;
@@ -1570,7 +1637,27 @@ namespace MiNET.Worlds
 		public bool NaturalRegeneration { get; set; } = true;
 		public bool TntExplodes { get; set; } = true;
 		public bool SendCommandfeedback { get; set; } = true;
-		public int RandomTickSpeed { get; set; } = 3;
+		public int RandomTickSpeed { get; set; } = 1; // Bedrock default (Java uses 3)
+		public bool RecipesUnlock { get; set; } = true;
+		public bool DoLimitedCrafting { get; set; } = false;
+		public int PlayerWaypoints { get; set; } = 1;
+		public bool Locatorbar { get; set; } = true;
+		public bool ShowDaysPlayed { get; set; } = false;
+		public int MaxCommandChainLength { get; set; } = 65535;
+		public bool DoInsomnia { get; set; } = true;
+		public bool CommandblocksEnabled { get; set; } = true;
+		public bool DoImmediateRespawn { get; set; } = false;
+		public bool ShowDeathMessages { get; set; } = true;
+		public int FunctionCommandLimit { get; set; } = 10000;
+		public int SpawnRadius { get; set; } = 10;
+		public bool ShowTags { get; set; } = true;
+		public bool FreezeDamage { get; set; } = true;
+		public bool RespawnBlocksExplode { get; set; } = true;
+		public bool ShowBorderEffect { get; set; } = true;
+		public bool ShowRecipeMessages { get; set; } = true;
+		public int PlayersSleepingPercentage { get; set; } = 100;
+		public bool ProjectilesCanBreakBlocks { get; set; } = true;
+		public bool TntExplosionDropDecay { get; set; } = false;
 
 		public virtual void BroadcastGameRules()
 		{
@@ -1637,6 +1724,51 @@ namespace MiNET.Worlds
 				case GameRulesEnum.SendCommandfeedback:
 					SendCommandfeedback = value;
 					break;
+				case GameRulesEnum.RecipesUnlock:
+					RecipesUnlock = value;
+					break;
+				case GameRulesEnum.DoLimitedCrafting:
+					DoLimitedCrafting = value;
+					break;
+				case GameRulesEnum.Locatorbar:
+					Locatorbar = value;
+					break;
+				case GameRulesEnum.ShowDaysPlayed:
+					ShowDaysPlayed = value;
+					break;
+				case GameRulesEnum.DoInsomnia:
+					DoInsomnia = value;
+					break;
+				case GameRulesEnum.CommandblocksEnabled:
+					CommandblocksEnabled = value;
+					break;
+				case GameRulesEnum.DoImmediateRespawn:
+					DoImmediateRespawn = value;
+					break;
+				case GameRulesEnum.ShowDeathmessages:
+					ShowDeathMessages = value;
+					break;
+				case GameRulesEnum.ShowTags:
+					ShowTags = value;
+					break;
+				case GameRulesEnum.FreezeDamage:
+					FreezeDamage = value;
+					break;
+				case GameRulesEnum.RespawnBlocksExplode:
+					RespawnBlocksExplode = value;
+					break;
+				case GameRulesEnum.ShowBorderEffect:
+					ShowBorderEffect = value;
+					break;
+				case GameRulesEnum.ShowRecipeMessages:
+					ShowRecipeMessages = value;
+					break;
+				case GameRulesEnum.ProjectilesCanBreakBlocks:
+					ProjectilesCanBreakBlocks = value;
+					break;
+				case GameRulesEnum.TntExplosionDropDecay:
+					TntExplosionDropDecay = value;
+					break;
 			}
 		}
 
@@ -1644,8 +1776,23 @@ namespace MiNET.Worlds
 		{
 			switch (rule)
 			{
-				case GameRulesEnum.DrowningDamage:
+				case GameRulesEnum.RandomTickSpeed:
 					RandomTickSpeed = value;
+					break;
+				case GameRulesEnum.PlayerWaypoints:
+					PlayerWaypoints = value;
+					break;
+				case GameRulesEnum.MaxCommandChainLength:
+					MaxCommandChainLength = value;
+					break;
+				case GameRulesEnum.FunctionCommandLimit:
+					FunctionCommandLimit = value;
+					break;
+				case GameRulesEnum.SpawnRadius:
+					SpawnRadius = value;
+					break;
+				case GameRulesEnum.PlayersSleepingPercentage:
+					PlayersSleepingPercentage = value;
 					break;
 			}
 		}
@@ -1691,6 +1838,36 @@ namespace MiNET.Worlds
 					return TntExplodes;
 				case GameRulesEnum.SendCommandfeedback:
 					return SendCommandfeedback;
+				case GameRulesEnum.RecipesUnlock:
+					return RecipesUnlock;
+				case GameRulesEnum.DoLimitedCrafting:
+					return DoLimitedCrafting;
+				case GameRulesEnum.Locatorbar:
+					return Locatorbar;
+				case GameRulesEnum.ShowDaysPlayed:
+					return ShowDaysPlayed;
+				case GameRulesEnum.DoInsomnia:
+					return DoInsomnia;
+				case GameRulesEnum.CommandblocksEnabled:
+					return CommandblocksEnabled;
+				case GameRulesEnum.DoImmediateRespawn:
+					return DoImmediateRespawn;
+				case GameRulesEnum.ShowDeathmessages:
+					return ShowDeathMessages;
+				case GameRulesEnum.ShowTags:
+					return ShowTags;
+				case GameRulesEnum.FreezeDamage:
+					return FreezeDamage;
+				case GameRulesEnum.RespawnBlocksExplode:
+					return RespawnBlocksExplode;
+				case GameRulesEnum.ShowBorderEffect:
+					return ShowBorderEffect;
+				case GameRulesEnum.ShowRecipeMessages:
+					return ShowRecipeMessages;
+				case GameRulesEnum.ProjectilesCanBreakBlocks:
+					return ProjectilesCanBreakBlocks;
+				case GameRulesEnum.TntExplosionDropDecay:
+					return TntExplosionDropDecay;
 			}
 
 			return false;
@@ -1698,26 +1875,48 @@ namespace MiNET.Worlds
 
 		public virtual GameRules GetGameRules()
 		{
+			// The full 1.26.34 rule set, exact wire names (camelCase) and order. Every value
+			// comes from the level's properties (defaults match vanilla); no literals here.
 			GameRules rules = new GameRules();
-			rules.Add(new GameRule<bool>(GameRulesEnum.DrowningDamage, DrowningDamage));
-			rules.Add(new GameRule<bool>(GameRulesEnum.CommandblockOutput, CommandblockOutput));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoTiledrops, DoTiledrops));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoMobloot, DoMobloot));
-			rules.Add(new GameRule<bool>(GameRulesEnum.KeepInventory, KeepInventory));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoDaylightcycle, DoDaylightcycle));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoMobspawning, DoMobspawning));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoEntitydrops, DoEntitydrops));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoFiretick, DoFiretick));
-			rules.Add(new GameRule<bool>(GameRulesEnum.DoWeathercycle, DoWeathercycle));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Pvp, Pvp));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Falldamage, Falldamage));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Firedamage, Firedamage));
-			rules.Add(new GameRule<bool>(GameRulesEnum.Mobgriefing, Mobgriefing));
-			rules.Add(new GameRule<bool>(GameRulesEnum.ShowCoordinates, ShowCoordinates));
-			rules.Add(new GameRule<bool>(GameRulesEnum.NaturalRegeneration, NaturalRegeneration));
-			rules.Add(new GameRule<bool>(GameRulesEnum.TntExplodes, TntExplodes));
-			rules.Add(new GameRule<bool>(GameRulesEnum.SendCommandfeedback, SendCommandfeedback));
-			rules.Add(new GameRule<bool>(GameRulesEnum.ExperimentalGameplay, true));
+			rules.Add(new GameRule<bool>("commandBlockOutput", CommandblockOutput));
+			rules.Add(new GameRule<bool>("doDayLightCycle", DoDaylightcycle));
+			rules.Add(new GameRule<bool>("doEntityDrops", DoEntitydrops));
+			rules.Add(new GameRule<bool>("doFireTick", DoFiretick));
+			rules.Add(new GameRule<bool>("recipesUnlock", RecipesUnlock));
+			rules.Add(new GameRule<bool>("doLimitedCrafting", DoLimitedCrafting));
+			rules.Add(new GameRule<bool>("doMobLoot", DoMobloot));
+			rules.Add(new GameRule<bool>("doMobSpawning", DoMobspawning));
+			rules.Add(new GameRule<bool>("doTileDrops", DoTiledrops));
+			rules.Add(new GameRule<bool>("doWeatherCycle", DoWeathercycle));
+			rules.Add(new GameRule<bool>("drowningDamage", DrowningDamage));
+			rules.Add(new GameRule<bool>("fallDamage", Falldamage));
+			rules.Add(new GameRule<bool>("fireDamage", Firedamage));
+			rules.Add(new GameRule<bool>("keepInventory", KeepInventory));
+			rules.Add(new GameRule<bool>("mobGriefing", Mobgriefing));
+			rules.Add(new GameRule<bool>("pvp", Pvp));
+			rules.Add(new GameRule<bool>("showCoordinates", ShowCoordinates));
+			rules.Add(new GameRule<int>("playerWaypoints", PlayerWaypoints));
+			rules.Add(new GameRule<bool>("locatorbar", Locatorbar));
+			rules.Add(new GameRule<bool>("showDaysPlayed", ShowDaysPlayed));
+			rules.Add(new GameRule<bool>("naturalRegeneration", NaturalRegeneration));
+			rules.Add(new GameRule<bool>("tntExplodes", TntExplodes));
+			rules.Add(new GameRule<bool>("sendCommandFeedback", SendCommandfeedback));
+			rules.Add(new GameRule<int>("maxCommandChainLength", MaxCommandChainLength));
+			rules.Add(new GameRule<bool>("doInsomnia", DoInsomnia));
+			rules.Add(new GameRule<bool>("commandBlocksEnabled", CommandblocksEnabled));
+			rules.Add(new GameRule<int>("randomTickSpeed", RandomTickSpeed));
+			rules.Add(new GameRule<bool>("doImmediateRespawn", DoImmediateRespawn));
+			rules.Add(new GameRule<bool>("showDeathMessages", ShowDeathMessages));
+			rules.Add(new GameRule<int>("functionCommandLimit", FunctionCommandLimit));
+			rules.Add(new GameRule<int>("spawnRadius", SpawnRadius));
+			rules.Add(new GameRule<bool>("showTags", ShowTags));
+			rules.Add(new GameRule<bool>("freezeDamage", FreezeDamage));
+			rules.Add(new GameRule<bool>("respawnBlocksExplode", RespawnBlocksExplode));
+			rules.Add(new GameRule<bool>("showBorderEffect", ShowBorderEffect));
+			rules.Add(new GameRule<bool>("showRecipeMessages", ShowRecipeMessages));
+			rules.Add(new GameRule<int>("playersSleepingPercentage", PlayersSleepingPercentage));
+			rules.Add(new GameRule<bool>("projectilesCanBreakBlocks", ProjectilesCanBreakBlocks));
+			rules.Add(new GameRule<bool>("tntExplosionDropDecay", TntExplosionDropDecay));
 			return rules;
 		}
 
@@ -1725,7 +1924,9 @@ namespace MiNET.Worlds
 		{
 			var packet = McpeLevelSoundEvent.CreateObject();
 			packet.position = position;
-			packet.soundId = (uint) sound;
+			// TODO: Wire format is a sound name string since protocol 993; verify the
+			// name mapping against BDS traces when the server side is brought to 1001.
+			packet.soundId = sound.ToString();
 			packet.blockId = blockId;
 			RelayBroadcast(sender, packet);
 		}

@@ -31,13 +31,11 @@ namespace MiNET.Blocks
 	{
 		public Clay() : base(82)
 		{
-			BlastResistance = 3;
-			Hardness = 0.6f;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new Item[] {ItemFactory.GetItem(337, 0, 4)};
+			return new Item[] {ItemFactory.GetItemByName("minecraft:clay_ball", 0, 4)};
 		}
 	}
 }

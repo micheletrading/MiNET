@@ -42,25 +42,16 @@ namespace MiNET.BuilderBase.Patterns
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Pattern));
 
+		/// <summary>
+		///     One block the pattern can hand out, resolved when the pattern was read. Holding the
+		///     block rather than a name and a list of states means a bad pattern fails once, while
+		///     the player is typing it, instead of quietly placing the wrong thing per position.
+		/// </summary>
 		internal class BlockDataEntry
 		{
-			public BlockDataEntry()
-			{
-			}
-
-			public int Id { get; set; }
-			public byte Metadata { get; set; }
-			public bool HasMetadata { get; set; }
+			public Block Block { get; set; }
 			public int Weight { get; set; } = 100;
 			public int Accumulated { get; set; } = 100;
-			public List<BlockStateEntry> BlockStates { get; set; } = new List<BlockStateEntry>();
-			public bool HasBlockStates { get; set; }
-		}
-
-		internal class BlockStateEntry
-		{
-			public string Name { get; set; }
-			public string Value { get; set; }
 		}
 
 		internal List<BlockDataEntry> BlockList { get; set; } = new List<BlockDataEntry>();
@@ -73,15 +64,11 @@ namespace MiNET.BuilderBase.Patterns
 			_random = new Random();
 		}
 
-		public Pattern(int blockId, int metadata)
+		public Pattern(Block block)
 		{
-			BlockList.Add(new BlockDataEntry()
-			{
-				Id = (byte) blockId,
-				Metadata = (byte) metadata,
-				HasMetadata = true
-			});
-			OriginalPattern = $"{blockId}:{metadata}";
+			BlockList.Add(new BlockDataEntry {Block = block});
+			OriginalPattern = block.Name;
+			_random = new Random();
 		}
 
 		internal BlockDataEntry GetRandomBlock(Random random, List<BlockDataEntry> blockEntries)
@@ -101,52 +88,9 @@ namespace MiNET.BuilderBase.Patterns
 		{
 			BlockDataEntry blockEntry = GetRandomBlock(_random, BlockList);
 
-			Block block;
-			if (blockEntry.HasMetadata)
-			{
-				Log.Debug($"Using block from metadata");
-				block = BlockFactory.GetBlockById(blockEntry.Id, blockEntry.Metadata);
-			}
-			else
-			{
-				Log.Debug($"Using block with blockstate");
-				block = BlockFactory.GetBlockById(blockEntry.Id);
-				if (blockEntry.HasBlockStates)
-				{
-					Log.Debug($"Has block state, setting block");
-					BlockStateContainer currentStates = block.GetState();
-					foreach (BlockStateEntry stateEntry in blockEntry.BlockStates)
-					{
-						Log.Debug($"Checking block state for block {stateEntry.Name}");
-						IBlockState state = currentStates.States.FirstOrDefault(s => s.Name == stateEntry.Name);
-						Log.Debug($"Found state for block {state?.Name}");
-						if(state == null) continue;
-
-						switch (state)
-						{
-							case BlockStateByte s:
-							{
-								if (byte.TryParse(stateEntry.Value, out byte v)) s.Value = v;
-								break;
-							}
-							case BlockStateInt s:
-							{
-								if (int.TryParse(stateEntry.Value, out int v)) s.Value = v;
-								break;
-							}
-							case BlockStateString s:
-							{
-								s.Value = stateEntry.Value;
-								break;
-							}
-						}
-					}
-					block.SetState(currentStates);
-				}
-			}
-
-			block ??= new Air();
-
+			// A copy per position: the entry's block is the pattern's, and handing the same instance
+			// out twice would have the second placement move the first.
+			var block = (Block) blockEntry.Block.Clone();
 			block.Coordinates = position;
 
 			return block;
@@ -163,68 +107,7 @@ namespace MiNET.BuilderBase.Patterns
 			var patternsEx = new Regex(@",(?![^\[]*])");
 			foreach (string pattern in patternsEx.Split(currentPattern.Trim()))
 			{
-				Log.Debug($"Matching {pattern}");
-				var blockDataEntry = new BlockDataEntry();
-
-				var regex = new Regex(@"(?<pattern>((?<weight>\d+)%)?((?<blockId>\d+)|(?<blockName>(minecraft:)?\w+)){1}(:(?<meta>\d+))?(\[(?<states>[a-zA-Z0-9_=,]*)])?)*");
-				var stateEx = new Regex(@"(?<name>\w+)\=(?<value>\w+)");
-
-				Match match = regex.Match(pattern.Trim());
-				if (match.Success)
-				{
-					foreach (Group matchGroup in match.Groups)
-					{
-						if (matchGroup.Name == "weight" && matchGroup.Success)
-						{
-							Log.Debug($"Matched weight group {matchGroup.Value}");
-							if (int.TryParse(matchGroup.Value.Trim(), out int weight)) blockDataEntry.Weight = weight;
-						}
-						else if (matchGroup.Name == "blockName" && matchGroup.Success)
-						{
-							Log.Debug($"Matched blockName group {matchGroup.Value}");
-							blockDataEntry.Id = BlockFactory.GetBlockIdByName(matchGroup.Value.Trim());
-						}
-						if (matchGroup.Name == "blockId" && matchGroup.Success)
-						{
-							Log.Debug($"Matched blockId group {matchGroup.Value}");
-							if (int.TryParse(matchGroup.Value.Trim(), out int id)) blockDataEntry.Id = id;
-						}
-						else if (matchGroup.Name == "meta" && matchGroup.Success)
-						{
-							Log.Debug($"Matched meta group {matchGroup.Value}");
-							if (byte.TryParse(matchGroup.Value.Trim(), out byte metadata))
-							{
-								blockDataEntry.Metadata = metadata;
-								blockDataEntry.HasBlockStates = true;
-							}
-						}
-						else if (matchGroup.Name == "states" && matchGroup.Success)
-						{
-							Log.Debug($"Matched states group {matchGroup.Value}");
-
-							// Parse block states
-							var stateMatches = stateEx.Matches(matchGroup.Value.Trim());
-							{
-								foreach (Match stateMatch in stateMatches)
-								{
-									Log.Debug($"State:{stateMatch.Value}");
-									blockDataEntry.BlockStates.Add(new BlockStateEntry()
-									{
-										Name = stateMatch.Groups.Values.First(g => g.Name == "name").Value,
-										Value = stateMatch.Groups.Values.First(g => g.Name == "value").Value
-									});
-									blockDataEntry.HasBlockStates = true;
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					throw new Exception("Deprecated code used to be here.");
-				}
-
-				BlockList.Add(blockDataEntry);
+				BlockList.Add(ParseEntry(pattern.Trim()));
 			}
 
 			int acc = 0;
@@ -235,6 +118,34 @@ namespace MiNET.BuilderBase.Patterns
 			}
 
 			BlockList = BlockList.OrderBy(entry => entry.Accumulated).ToList();
+		}
+
+		// weight%name[state=value,state=value], the WorldEdit spelling. No id and no data value:
+		// neither can address a block added since the flattening, and a name that is not a block is
+		// an error rather than air, so the player hears about it once instead of after the fact.
+		private static readonly Regex EntryEx = new Regex(@"^((?<weight>\d+)%)?(?<blockName>[a-zA-Z0-9_:]+)?(?<states>\[[^\]]*\])?$");
+
+		private static BlockDataEntry ParseEntry(string pattern)
+		{
+			Match match = EntryEx.Match(pattern);
+			if (!match.Success) throw new FormatException($"'{pattern}' is not a block pattern.");
+
+			var entry = new BlockDataEntry();
+
+			if (match.Groups["weight"].Success && int.TryParse(match.Groups["weight"].Value, out int weight)) entry.Weight = weight;
+
+			string name = match.Groups["blockName"].Success ? match.Groups["blockName"].Value : "minecraft:air";
+
+			entry.Block = BlockFactory.GetBlockByName(name);
+			if (entry.Block == null) throw new FormatException($"'{name}' is not a block.");
+
+			if (match.Groups["states"].Success)
+			{
+				BlockStates states = BlockStates.Parse(match.Groups["states"].Value);
+				if (states != null && !states.TryApplyTo(entry.Block, out string error)) throw new FormatException(error);
+			}
+
+			return entry;
 		}
 	}
 }

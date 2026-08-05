@@ -27,7 +27,7 @@ namespace MiNET.Items
 {
 	public class ItemWoodenPickaxe : ItemPickaxe
 	{
-		public ItemWoodenPickaxe() : base("minecraft:wooden_pickaxe", 270)
+		public ItemWoodenPickaxe() : base("minecraft:wooden_pickaxe")
 		{
 			ItemMaterial = ItemMaterial.Wood;
 			FuelEfficiency = 10;

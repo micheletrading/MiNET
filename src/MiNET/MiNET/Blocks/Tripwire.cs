@@ -31,13 +31,11 @@ namespace MiNET.Blocks
 	{
 		public TripWire() : base(132)
 		{
-			IsTransparent = true;
-			IsSolid = false;
 		}
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem(287, 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:string", 0, 1)};
 		}
 	}
 }

@@ -40,7 +40,7 @@ namespace MiNET
 		public int Hunger { get; set; } = 20;
 		public int MinHunger { get; set; } = 0;
 		public int MaxHunger { get; set; } = 20;
-		public double Saturation { get; set; }
+		public double Saturation { get; set; } = 5; // vanilla spawn saturation (BDS sends 5, not 20)
 		public double Exhaustion { get; set; }
 
 		public HungerManager(Player player)

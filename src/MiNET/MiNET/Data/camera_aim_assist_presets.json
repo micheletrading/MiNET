@@ -1,0 +1,143 @@
+{
+  "categories": [
+    {
+      "name": "minecraft:bucket",
+      "entityPriorities": [],
+      "blockPriorities": [
+        {
+          "id": "minecraft:cauldron",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:lava",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:water",
+          "priority": 60
+        }
+      ],
+      "blockTags": [],
+      "entityTypeFamilies": [],
+      "entityDefault": 30,
+      "blockDefault": 30
+    },
+    {
+      "name": "minecraft:empty_hand",
+      "entityPriorities": [],
+      "blockPriorities": [
+        {
+          "id": "minecraft:oak_log",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:cherry_log",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:birch_log",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:spruce_log",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:acacia_log",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:jungle_log",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:dark_oak_log",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:mangrove_log",
+          "priority": 60
+        }
+      ],
+      "blockTags": [],
+      "entityTypeFamilies": [],
+      "entityDefault": 30,
+      "blockDefault": 30
+    },
+    {
+      "name": "minecraft:default",
+      "entityPriorities": [],
+      "blockPriorities": [
+        {
+          "id": "minecraft:lever",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:oak_button",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:birch_button",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:spruce_button",
+          "priority": 60
+        },
+        {
+          "id": "minecraft:dark_oak_button",
+          "priority": 60
+        }
+      ],
+      "blockTags": [],
+      "entityTypeFamilies": [],
+      "entityDefault": null,
+      "blockDefault": null
+    }
+  ],
+  "presets": [
+    {
+      "id": "minecraft:aim_assist_default",
+      "exclusionSettings": {
+        "blocks": [
+          "minecraft:bedrock"
+        ],
+        "entities": [
+          "minecraft:arrow"
+        ],
+        "blockTags": [],
+        "entityTypeFamilies": []
+      },
+      "targetLiquids": [
+        "minecraft:bucket",
+        "minecraft:oak_boat",
+        "minecraft:birch_boat",
+        "minecraft:spruce_boat",
+        "minecraft:jungle_boat",
+        "minecraft:acacia_boat",
+        "minecraft:dark_oak_boat",
+        "minecraft:mangrove_boat",
+        "minecraft:cherry_boat",
+        "minecraft:bamboo_raft",
+        "minecraft:oak_chest_boat",
+        "minecraft:birch_chest_boat",
+        "minecraft:spruce_chest_boat",
+        "minecraft:jungle_chest_boat",
+        "minecraft:acacia_chest_boat",
+        "minecraft:dark_oak_chest_boat",
+        "minecraft:mangrove_chest_boat",
+        "minecraft:cherry_chest_boat",
+        "minecraft:bamboo_chest_raft"
+      ],
+      "itemSettings": [
+        {
+          "id": "minecraft:bucket",
+          "category": "minecraft:bucket"
+        }
+      ],
+      "defaultItemSettings": "minecraft:default",
+      "handSettings": "minecraft:empty_hand"
+    }
+  ],
+  "operation": 1
+}

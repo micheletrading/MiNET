@@ -62,9 +62,94 @@ namespace MiNET.Client
 			Log.Warn($"Got soft enum update for {message}");
 		}
 
+		private static int _subChunkPacketsLogged;
+
+		// Positional-id extraction (block-order pipeline): in non-hash mode the palette values in
+		// subchunk storages ARE indexes into BDS's canonical block palette. Dump world coord ->
+		// positional id for the placement region (chunks 0..3, see temp_auto placer.js); joined
+		// with the placement layout this yields the canonical order. Lines: x\ty\tz\tid.
+		private static readonly object _positionalDumpLock = new object();
+		private static StreamWriter _positionalDump;
+		private static int _positionalCells;
+
+		private void DumpPositionalIds(McpeSubChunkPacket message, SubChunkEntryCommon entry)
+		{
+			int chunkX = message.originX + entry.Offset.XOffset;
+			int chunkZ = message.originZ + entry.Offset.ZOffset;
+			if (chunkX < 0 || chunkX > 3 || chunkZ < 0 || chunkZ > 3) return;
+
+			int[] grid = ClientUtils.DecodeSubChunkGrid(entry.Data);
+			if (grid == null) return;
+
+			int baseX = chunkX * 16;
+			int baseY = (message.originY + entry.Offset.YOffset) * 16;
+			int baseZ = chunkZ * 16;
+			lock (_positionalDumpLock)
+			{
+				_positionalDump ??= new StreamWriter(@"c:\Development\github\MiNET\temp_auto\positional-ids.txt", false);
+				for (int i = 0; i < 4096; i++)
+				{
+					int x = baseX + ((i >> 8) & 15), z = baseZ + ((i >> 4) & 15), y = baseY + (i & 15);
+					_positionalDump.WriteLine($"{x}\t{y}\t{z}\t{grid[i]}");
+					_positionalCells++;
+				}
+				_positionalDump.Flush();
+			}
+		}
+
+		public override void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
+		{
+			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
+			foreach (SubChunkEntryCommon entry in message.entries)
+			{
+				switch (entry.RequestResult)
+				{
+					case SubChunkRequestResult.Success:
+						success++;
+						if (ClientUtils.TryParseSubChunkPayload(entry.Data, Client.BlockNetworkIdsAreHashes)) parsedOk++;
+						else parseFail++;
+						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
+						break;
+					case SubChunkRequestResult.SuccessAllAir:
+						allAir++;
+						break;
+					default:
+						other++;
+						break;
+				}
+			}
+
+			// Blob hashes on subchunk entries need answering just like the ones on a LevelChunk, or
+			// the server has no reason to send the blobs and we never see their contents. We hold
+			// no blob storage, so everything is a miss, which is also what a real client reports
+			// the first time it meets a world.
+			if (message.cacheEnabled)
+			{
+				var misses = message.entries
+					.OfType<SubChunkEntryWithCache>()
+					.Select(entry => entry.usedBlobHash)
+					.Where(hash => hash != 0)
+					.Distinct()
+					.ToArray();
+
+				if (misses.Length > 0)
+				{
+					var status = McpeClientCacheBlobStatus.CreateObject();
+					status.hashHits = Array.Empty<ulong>();
+					status.hashMisses = misses;
+					Client.SendPacket(status);
+				}
+			}
+
+			if (System.Threading.Interlocked.Increment(ref _subChunkPacketsLogged) <= 5 || parseFail > 0)
+			{
+				Log.Warn($"SubChunk response: origin=({message.originX},{message.originY},{message.originZ}) entries={message.entries.Length} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
+			}
+		}
+
 		public override void HandleMcpeDisconnect(McpeDisconnect message)
 		{
-			Log.InfoFormat("Disconnect {1}: {0}", message.message, Client.Username);
+			Log.Warn($"Disconnect {Client.Username}: reason={message.reason} message={message.message}");
 
 			base.HandleMcpeDisconnect(message);
 		}
@@ -82,12 +167,6 @@ namespace MiNET.Client
 				sb.AppendLine($"ID={info.UUID}, Version={info.Version}, Unknown={info.Size}");
 			}
 
-			sb.AppendLine("Behavior packs:");
-			foreach (ResourcePackInfo info in message.behahaviorpackinfos)
-			{
-				sb.AppendLine($"ID={info.UUID}, Version={info.Version}");
-			}
-
 			Log.Debug(sb.ToString());
 
 			base.HandleMcpeResourcePacksInfo(message);
@@ -102,12 +181,6 @@ namespace MiNET.Client
 
 			sb.AppendLine("Resource pack stacks:");
 			foreach (var info in message.resourcepackidversions)
-			{
-				sb.AppendLine($"ID={info.Id}, Version={info.Version}, Subpackname={info.SubPackName}");
-			}
-
-			sb.AppendLine("Behavior pack stacks:");
-			foreach (var info in message.behaviorpackidversions)
 			{
 				sb.AppendLine($"ID={info.Id}, Version={info.Version}, Subpackname={info.SubPackName}");
 			}
@@ -147,11 +220,6 @@ namespace MiNET.Client
 				Log.Debug($"Executing command handler: {executioner.GetType().FullName}");
 				Task.Run(() => executioner.Execute(this, text));
 			}
-
-			if (text.Equals(".do"))
-			{
-				Client.SendCraftingEvent();
-			}
 		}
 
 		public override void HandleMcpeInventorySlot(McpeInventorySlot message)
@@ -188,10 +256,16 @@ namespace MiNET.Client
 
 		public override void HandleMcpeCreativeContent(McpeCreativeContent message)
 		{
-			ItemStacks slots = message.input;
+			ItemStacks slots = new ItemStacks();
+			foreach (var entry in message.Entries)
+			{
+				slots.Add(entry.Item);
+			}
 
+			// Off the session thread; blocking here for seconds makes the server
+			// drop the connection during the join sequence.
 			string fileName = Path.GetTempPath() + "Inventory_0x79_" + Guid.NewGuid() + ".txt";
-			Client.WriteInventoryToFile(fileName, slots);
+			Task.Run(() => Client.WriteInventoryToFile(fileName, slots));
 		}
 
 		public override void HandleMcpeAddItemEntity(McpeAddItemEntity message)
@@ -199,9 +273,41 @@ namespace MiNET.Client
 			CallPacketHandlers(message);
 		}
 
+		// Live positional-id capture. In non-hash mode the runtime id on a block-change packet is
+		// the canonical palette index. Bedrock broadcasts the change in the SAME tick as the
+		// placement, before the queued shape update recomputes connection states, so the FIRST id
+		// seen for a coordinate is the state that was actually asked for. Later packets for that
+		// coordinate are the recompute and must not overwrite it, hence first-write-wins.
+		private static readonly object _liveIdLock = new object();
+		private static readonly Dictionary<BlockCoordinates, uint> _liveIds = new Dictionary<BlockCoordinates, uint>();
+		private static StreamWriter _liveIdDump;
+
+		private void RecordLiveId(BlockCoordinates coord, uint runtimeId)
+		{
+			if (Client.BlockNetworkIdsAreHashes) return;
+			lock (_liveIdLock)
+			{
+				if (!_liveIds.TryAdd(coord, runtimeId)) return;
+				_liveIdDump ??= new StreamWriter(@"c:\Development\github\MiNET\temp_auto\live-ids.txt", false) {AutoFlush = true};
+				_liveIdDump.WriteLine($"{coord.X}\t{coord.Y}\t{coord.Z}\t{runtimeId}");
+				if (_liveIds.Count % 2000 == 0) Log.Warn($"Live positional ids captured: {_liveIds.Count}");
+			}
+		}
+
 		public override void HandleMcpeUpdateBlock(McpeUpdateBlock message)
 		{
+			if (message.storage == 0) RecordLiveId(message.coordinates, message.blockRuntimeId);
 			CallPacketHandlers(message);
+		}
+
+		public override void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message)
+		{
+			// Batched changes: coordinates on the entries are absolute, same as McpeUpdateBlock.
+			if (message.layerZeroUpdates == null) return;
+			foreach (UpdateSubChunkBlocksPacketEntry entry in message.layerZeroUpdates)
+			{
+				RecordLiveId(entry.Coordinates, entry.BlockRuntimeId);
+			}
 		}
 
 		public override void HandleMcpeStartGame(McpeStartGame message)
@@ -216,6 +322,46 @@ namespace MiNET.Client
 
 			//var blockPalette = BlockFactory.BlockStates;
 			Log.Warn($"Got position from startgame packet: {Client.CurrentLocation}");
+			Log.Warn($"StartGame: blockNetworkIdsAreHashes={message.blockNetworkIdsAreHashes}, spawn={message.spawn}");
+			Client.BlockNetworkIdsAreHashes = message.blockNetworkIdsAreHashes;
+
+			// Verify the server's block registry checksum like the real client does: compute from
+			// our own palette and compare. 0 from the server means "no claim" (MiNET, PMMP).
+			// Against BDS this is the live known-answer test for the checksum algorithm; MISMATCH
+			// is expected until the algorithm is cracked (see NetworkBlockPalette).
+			if (message.blockPaletteChecksum != 0)
+			{
+				ulong computed = NetworkBlockPalette.ComputeRegistryChecksum();
+				bool match = computed == message.blockPaletteChecksum;
+				Log.Warn($"Registry checksum: received={message.blockPaletteChecksum} computed={computed} => {(match ? "MATCH, algorithm verified" : "MISMATCH, algorithm candidate wrong")}");
+
+				// Ground-truth capture: dump the palette BDS actually transmitted (non-hash mode) so
+				// the checksum algorithm can be verified against BDS's own registry content, not a
+				// third-party dump. Format per line: <runtimeId>\t<name>\t<stateType:stateName=value>|...
+				if (blockPalette != null && blockPalette.Count > 0)
+				{
+					string dumpPath = @"c:\Development\github\MiNET\temp_auto\bds-palette-nonhash.txt";
+					using var dump = new StreamWriter(dumpPath, false);
+					dump.WriteLine($"#checksum\t{message.blockPaletteChecksum}");
+					dump.WriteLine($"#count\t{blockPalette.Count}");
+					foreach (BlockStateContainer entry in blockPalette)
+					{
+						var states = entry.States.Select(s => s switch
+						{
+							BlockStateByte b => $"byte:{b.Name}={b.Value}",
+							BlockStateInt i => $"int:{i.Name}={i.Value}",
+							BlockStateString ss => $"string:{ss.Name}={ss.Value}",
+							_ => $"?:{s.Name}"
+						});
+						dump.WriteLine($"{entry.RuntimeId}\t{entry.Name}\t{string.Join("|", states)}");
+					}
+					Log.Warn($"Wrote BDS non-hash palette ({blockPalette.Count} entries) to {dumpPath}");
+				}
+			}
+			else
+			{
+				Log.Warn("Registry checksum: server sent 0 (no claim), nothing to verify");
+			}
 
 			var settings = new JsonSerializerSettings
 			{
@@ -224,9 +370,6 @@ namespace MiNET.Client
 				Formatting = Formatting.Indented,
 				DefaultValueHandling = DefaultValueHandling.Include
 			};
-
-			var fileNameItemstates = Path.GetTempPath() + "itemstates_" + Guid.NewGuid() + ".json";
-			File.WriteAllText(fileNameItemstates, JsonConvert.SerializeObject(message.itemstates, settings));
 
 			string fileName = Path.GetTempPath() + "MissingBlocks_" + Guid.NewGuid() + ".txt";
 			using(FileStream file = File.OpenWrite(fileName))
@@ -425,8 +568,18 @@ namespace MiNET.Client
 				var packet = McpeRequestChunkRadius.CreateObject();
 				Client.ChunkRadius = 5;
 				packet.chunkRadius = Client.ChunkRadius;
+				packet.maxRadius = 32;
 
 				Client.SendPacket(packet);
+			}
+
+			// A real client opens its loading screen right after requesting the chunk radius
+			// (captured live); the matching type 2 close is sent on PlayStatus(3).
+			{
+				var loadingScreen = McpeServerBoundLoadingScreen.CreateObject();
+				loadingScreen.type = 1;
+				loadingScreen.loadingScreenId = null;
+				Client.SendPacket(loadingScreen);
 			}
 		}
 
@@ -465,7 +618,7 @@ namespace MiNET.Client
 		{
 			if (Client.IsEmulator) return;
 
-			Log.DebugFormat("McpeAddPlayer Entity ID: {0}", message.entityIdSelf);
+			Log.DebugFormat("McpeAddPlayer Unique ID: {0}", message.uniqueId);
 			Log.DebugFormat("McpeAddPlayer Runtime Entity ID: {0}", message.runtimeEntityId);
 			Log.DebugFormat("X: {0}", message.x);
 			Log.DebugFormat("Y: {0}", message.y);
@@ -637,6 +790,14 @@ namespace MiNET.Client
 		{
 			if (Client.IsEmulator) return;
 
+			// Off the session thread; synchronously dumping thousands of recipes stalls
+			// the join sequence long enough for the server to drop the connection.
+			Recipes recipes = message.recipes;
+			Task.Run(() => DumpRecipes(recipes));
+		}
+
+		private static void DumpRecipes(Recipes recipes)
+		{
 			string fileName = Path.GetTempPath() + "Recipes_" + Guid.NewGuid() + ".txt";
 			Log.Info("Writing recipes to filename: " + fileName);
 			FileStream file = File.OpenWrite(fileName);
@@ -654,7 +815,7 @@ namespace MiNET.Client
 			writer.WriteLine("{");
 			writer.Indent++;
 
-			foreach (Recipe recipe in message.recipes)
+			foreach (Recipe recipe in recipes)
 			{
 				var shapelessRecipe = recipe as ShapelessRecipe;
 				if (shapelessRecipe != null)
@@ -667,7 +828,7 @@ namespace MiNET.Client
 					writer.Indent++;
 					foreach (var itemStack in shapelessRecipe.Result)
 					{
-						writer.WriteLine($"new Item({itemStack.Id}, {itemStack.Metadata}, {itemStack.Count}){{ UniqueId = {itemStack.UniqueId}, RuntimeId={itemStack.RuntimeId} }},");
+						writer.WriteLine($"new Item(\"{itemStack.Name}\", {itemStack.Metadata}, {itemStack.Count}){{ UniqueId = {itemStack.UniqueId}, RuntimeId={itemStack.RuntimeId} }},");
 					}
 					writer.Indent--;
 					writer.WriteLine($"}},");
@@ -677,7 +838,7 @@ namespace MiNET.Client
 					writer.Indent++;
 					foreach (var itemStack in shapelessRecipe.Input)
 					{
-						writer.WriteLine($"new Item({itemStack.Id}, {itemStack.Metadata}, {itemStack.Count}){{ UniqueId = {itemStack.UniqueId}, RuntimeId={itemStack.RuntimeId} }},");
+						writer.WriteLine($"new Item(\"{itemStack.Name}\", {itemStack.Metadata}, {itemStack.Count}){{ UniqueId = {itemStack.UniqueId}, RuntimeId={itemStack.RuntimeId} }},");
 					}
 					writer.Indent--;
 					writer.WriteLine($"}}, \"{shapelessRecipe.Block}\"){{ UniqueId = {shapelessRecipe.UniqueId} }},");
@@ -706,7 +867,7 @@ namespace MiNET.Client
 					writer.Indent++;
 					foreach (Item item in shapedRecipe.Result)
 					{
-						writer.WriteLine($"new Item({item.Id}, {item.Metadata}, {item.Count}){{ UniqueId = {item.UniqueId}, RuntimeId={item.RuntimeId} }},");
+						writer.WriteLine($"new Item(\"{item.Name}\", {item.Metadata}, {item.Count}){{ UniqueId = {item.UniqueId}, RuntimeId={item.RuntimeId} }},");
 					}
 					writer.Indent--;
 					writer.WriteLine($"}},");
@@ -716,7 +877,7 @@ namespace MiNET.Client
 					writer.Indent++;
 					foreach (Item item in shapedRecipe.Input)
 					{
-						writer.WriteLine($"new Item({item.Id}, {item.Metadata}, {item.Count}){{ UniqueId = {item.UniqueId}, RuntimeId={item.RuntimeId} }},");
+						writer.WriteLine($"new Item(\"{item.Name}\", {item.Metadata}, {item.Count}){{ UniqueId = {item.UniqueId}, RuntimeId={item.RuntimeId} }},");
 					}
 					writer.Indent--;
 					writer.WriteLine($"}}, \"{shapedRecipe.Block}\"){{ UniqueId = {shapedRecipe.UniqueId} }},");
@@ -729,7 +890,7 @@ namespace MiNET.Client
 				var smeltingRecipe = recipe as SmeltingRecipe;
 				if (smeltingRecipe != null)
 				{
-					writer.WriteLine($"new SmeltingRecipe(new Item({smeltingRecipe.Result.Id}, {smeltingRecipe.Result.Metadata}, {smeltingRecipe.Result.Count}){{ UniqueId = {smeltingRecipe.Result.UniqueId}, RuntimeId={smeltingRecipe.Result.RuntimeId} }}, new Item({smeltingRecipe.Input.Id}, {smeltingRecipe.Input.Metadata}){{ UniqueId = {smeltingRecipe.Input.UniqueId}, RuntimeId={smeltingRecipe.Input.RuntimeId} }}, \"{smeltingRecipe.Block}\"),");
+					writer.WriteLine($"new SmeltingRecipe(new Item(\"{smeltingRecipe.Result.Name}\", {smeltingRecipe.Result.Metadata}, {smeltingRecipe.Result.Count}){{ UniqueId = {smeltingRecipe.Result.UniqueId}, RuntimeId={smeltingRecipe.Result.RuntimeId} }}, new Item(\"{smeltingRecipe.Input.Name}\", {smeltingRecipe.Input.Metadata}){{ UniqueId = {smeltingRecipe.Input.UniqueId}, RuntimeId={smeltingRecipe.Input.RuntimeId} }}, \"{smeltingRecipe.Block}\"),");
 					continue;
 				}
 
@@ -759,6 +920,28 @@ namespace MiNET.Client
 			Log.DebugFormat("NBT:\n{0}", message.namedtag.NbtFile.RootTag);
 		}
 
+		/// <summary>
+		///     Skeleton chunk: the payload is biomes only and block data has to be asked for a
+		///     section at a time. Highest requestable relative index is subChunkCount in limited
+		///     mode; relative index 0 is section y -4.
+		/// </summary>
+		private void SendSubChunkRequest(McpeLevelChunk message)
+		{
+			int highest = message.subChunkRequestMode == SubChunkRequestMode.SubChunkRequestModeLimited ? (int) message.subChunkCount : 23;
+
+			var request = McpeSubChunkRequestPacket.CreateObject();
+			request.dimension = message.dimension;
+			request.originX = message.chunkX;
+			request.originY = 0;
+			request.originZ = message.chunkZ;
+			for (int i = 0; i <= highest; i++)
+			{
+				request.offsets.Add(new SubChunkPositionOffset {XOffset = 0, YOffset = (sbyte) (i - 4), ZOffset = 0});
+			}
+
+			Client.SendPacket(request);
+		}
+
 		public override void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
 			// TODO doesn't work anymore I guess
@@ -766,18 +949,34 @@ namespace MiNET.Client
 
 			if (message.blobHashes != null)
 			{
-				var hits = new ulong[message.blobHashes.Length];
+				// Client.BlobCache isn't wired up to any actual blob storage yet, so every hash is
+				// reported as a miss (matches a real client's behaviour before it has anything
+				// cached). Previously this always reported every hash as a hit and left hashMisses
+				// null, which threw a NullReferenceException in McpeClientCacheBlobStatus.AfterEncode
+				// as soon as UseBlobCache was enabled.
+				var hits = new List<ulong>();
+				var misses = new List<ulong>();
 
-				for (int i = 0; i < message.blobHashes.Length; i++)
+				foreach (ulong hash in message.blobHashes)
 				{
-					ulong hash = message.blobHashes[i];
-					hits[i] = hash;
 					Log.Debug($"Got hashes for {message.chunkX}, {message.chunkZ}, {hash}");
+					if (Client.BlobCache.ContainsKey(hash)) hits.Add(hash);
+					else misses.Add(hash);
 				}
 
 				var status = McpeClientCacheBlobStatus.CreateObject();
-				status.hashHits = hits;
+				status.hashHits = hits.ToArray();
+				status.hashMisses = misses.ToArray();
 				Client.SendPacket(status);
+
+				// The hash on a cached LevelChunk covers the column's biome blob only, so the
+				// subchunks still have to be requested exactly as in the uncached case. Returning
+				// here left the chunk half fetched and, more to the point, meant we never saw the
+				// SubChunk entries that carry the per-section blob hashes.
+				if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
+				{
+					SendSubChunkRequest(message);
+				}
 			}
 			else
 			{
@@ -788,7 +987,13 @@ namespace MiNET.Client
 					ChunkColumn chunk = null;
 					try
 					{
-						chunk = ClientUtils.DecodeChunkColumn((int) message.subChunkCount, message.chunkData);
+						if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
+						{
+							SendSubChunkRequest(message);
+							return null;
+						}
+
+						chunk = ClientUtils.DecodeChunkColumn((int) message.subChunkCount, message.chunkData, blockNetworkIdsAreHashes: Client.BlockNetworkIdsAreHashes);
 						if (chunk != null)
 						{
 							chunk.X = coordinates.X;
@@ -905,9 +1110,13 @@ namespace MiNET.Client
 			//	);
 			//}
 
-			var root = message.namedtag.NbtFile.RootTag;
-			//Log.Debug($"\n{root}");
-			File.WriteAllText(Path.Combine(Path.GetTempPath(), "Biomes_" + Guid.NewGuid() + ".txt"), root.ToString());
+			var sb = new StringBuilder();
+			foreach (var entry in message.Definitions)
+			{
+				string name = entry.NameIndex >= 0 && entry.NameIndex < message.Strings.Count ? message.Strings[entry.NameIndex] : $"index={entry.NameIndex}";
+				sb.AppendLine($"{name}: biomeId={entry.BiomeId}, temperature={entry.Temperature}, downfall={entry.Downfall}, rain={entry.Rain}");
+			}
+			File.WriteAllText(Path.Combine(Path.GetTempPath(), "Biomes_" + Guid.NewGuid() + ".txt"), sb.ToString());
 		}
 
 		public override void HandleMcpeNetworkChunkPublisherUpdate(McpeNetworkChunkPublisherUpdate message)
@@ -919,7 +1128,7 @@ namespace MiNET.Client
 
 			base.HandleMcpePlayStatus(message);
 
-			if (Client.PlayerStatus == 0)
+			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess)
 			{
 				var packet = McpeClientCacheStatus.CreateObject();
 				packet.enabled = Client.UseBlobCache;
@@ -939,3 +1148,9 @@ namespace MiNET.Client
 		}
 	}
 }
+
+
+
+
+
+

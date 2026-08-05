@@ -31,13 +31,11 @@ namespace MiNET.Blocks
 	{
 		public Cobblestone() : base(4)
 		{
-			BlastResistance = 30;
-			Hardness = 2;
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem(1, 0);
+			return ItemFactory.GetItemByName("minecraft:stone", 0);
 		}
 	}
 }

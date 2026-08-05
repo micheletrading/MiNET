@@ -110,20 +110,25 @@ namespace MiNET.Net
 		public ulong[] hashMisses; // = null;
 		public ulong[] hashHits; // = null;
 
+		// Two independent length-prefixed arrays (each count immediately precedes its own
+		// elements), NOT two counts up front followed by both arrays. Verified against
+		// minecraft-data 1.26.30 packet_client_cache_blob_status and live BDS 1.26.34: sending
+		// [lenMisses][lenHits][misses][hits] got "invalid numeric value" / readNoHeader failed
+		// back as a McpePacketViolationWarning for this packet id (135), then a disconnect.
 		partial void AfterEncode()
 		{
 			WriteUnsignedVarInt((uint) hashMisses.Length);
-			WriteUnsignedVarInt((uint) hashHits.Length);
 			WriteSpecial(hashMisses);
+			WriteUnsignedVarInt((uint) hashHits.Length);
 			WriteSpecial(hashHits);
 		}
 
 		partial void AfterDecode()
 		{
 			var lenMisses = ReadUnsignedVarInt();
-			var lenHits = ReadUnsignedVarInt();
-
 			hashMisses = ReadUlongsSpecial(lenMisses);
+
+			var lenHits = ReadUnsignedVarInt();
 			hashHits = ReadUlongsSpecial(lenHits);
 		}
 
@@ -158,6 +163,15 @@ namespace MiNET.Net
 
 		partial void AfterEncode()
 		{
+			// Was empty, so the server could decode this packet but never produce one.
+			WriteUnsignedVarInt((uint) (blobs?.Count ?? 0));
+			if (blobs == null) return;
+
+			foreach (KeyValuePair<ulong, byte[]> blob in blobs)
+			{
+				Write(blob.Key);
+				WriteByteArray(blob.Value);
+			}
 		}
 
 		partial void AfterDecode()

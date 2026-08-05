@@ -26,8 +26,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using fNbt;
 using log4net;
+using MiNET.Crafting;
 using MiNET.Items;
+using MiNET.Net;
 using MiNET.Utils;
 
 namespace MiNET
@@ -46,14 +49,19 @@ namespace MiNET
 		public virtual List<StackResponseContainerInfo> HandleItemStackActions(int requestId, ItemStackActionList actions)
 		{
 			var stackResponses = new List<StackResponseContainerInfo>();
-			uint recipeNetworkId = 0;
+			_activeRecipe = null;
 			foreach (ItemStackAction stackAction in actions)
 			{
 				switch (stackAction)
 				{
 					case CraftAction craftAction:
 					{
-						recipeNetworkId = ProcessCraftAction(craftAction);
+						ProcessCraftAction(craftAction);
+						break;
+					}
+					case CraftAutoAction craftAutoAction:
+					{
+						ProcessCraftAutoAction(craftAutoAction);
 						break;
 					}
 					case CraftCreativeAction craftCreativeAction:
@@ -428,6 +436,10 @@ namespace MiNET
 
 		protected virtual void ProcessCraftResultDeprecatedAction(CraftResultDeprecatedAction action)
 		{
+			// The client's own claim about what it crafted. Whenever the request named a recipe, the
+			// registry already produced the output (ProcessCraftAction) and this claim is ignored.
+			if (_activeRecipe != null) return;
+
 			//BUG: Won't work proper with anvil anymore.
 			if (GetContainerItem(59, 50).UniqueId > 0) return;
 
@@ -443,16 +455,74 @@ namespace MiNET
 		{
 		}
 
-		protected virtual uint ProcessCraftAction(CraftAction action)
+		/// <summary>
+		///     The recipe resolved for the request currently being handled, or null when the request named
+		///     no recipe (creative pick, anvil merge, loom, ...).
+		/// </summary>
+		protected Recipe _activeRecipe;
+
+		protected virtual void ProcessCraftAction(CraftAction action)
 		{
-			return action.RecipeNetworkId;
+			_activeRecipe = SetRecipeResult(ResolveRecipe(action.RecipeNetworkId));
+		}
+
+		// Recipe-book "craft all/auto": same resolution, same server-produced output. The ingredients the
+		// client listed in the action are ignored; the Consume actions that follow do the consuming.
+		protected virtual void ProcessCraftAutoAction(CraftAutoAction action)
+		{
+			_activeRecipe = SetRecipeResult(ResolveRecipe(action.RecipeNetworkId));
+		}
+
+		// A recipe network id the server never published is a desync, or a crafting exploit attempt:
+		// throwing lands in Player's item-stack error path, which rejects the request and resyncs the
+		// client's inventory.
+		private Recipe ResolveRecipe(uint recipeNetworkId)
+		{
+			if (!RecipeManager.TryGetByNetworkId((int) recipeNetworkId, out Recipe recipe))
+			{
+				throw new Exception($"Unknown recipe network id: {recipeNetworkId}");
+			}
+
+			return recipe;
+		}
+
+		// Puts the recipe's own output in the crafting result slot; the client's CraftResultsDeprecated
+		// items are never the source of truth. Returns the recipe when the registry produced the output,
+		// or null for recipe kinds MiNET has no server-side output for yet (multi recipes: map cloning,
+		// banner patterns, firework assembly), which keep using the deprecated-result flow.
+		private Recipe SetRecipeResult(Recipe recipe)
+		{
+			Item result = recipe switch
+			{
+				ShapedRecipe shaped => shaped.Result.FirstOrDefault(),
+				ShapelessRecipe shapeless => shapeless.Result.FirstOrDefault(),
+				SmeltingRecipe smelting => smelting.Result,
+				SmithingTransformRecipe transform => transform.Result,
+				_ => null
+			};
+
+			if (result == null || result.Count == 0) return null;
+
+			// Item.Clone is a shallow copy, so the NBT has to be copied too - otherwise the item handed
+			// to the player shares its component NBT with the registry's recipe.
+			var craftingResult = (Item) result.Clone();
+			if (result.ExtraData != null) craftingResult.ExtraData = (NbtCompound) result.ExtraData.Clone();
+			craftingResult.UniqueId = Environment.TickCount;
+			SetContainerItem(59, 50, craftingResult);
+
+			return recipe;
 		}
 
 		protected virtual void ProcessCraftCreativeAction(CraftCreativeAction action)
 		{
-			Item creativeItem = InventoryUtils.CreativeInventoryItems.FirstOrDefault(i => i.NetworkId == (int) action.CreativeItemNetworkId);
+			// Creative entry ids are positional (index + 1), assigned by SendCreativeInventory
+			// over the same InventoryUtils list; sender and resolver share one source.
+			int index = (int) action.CreativeItemNetworkId - 1;
+			Item creativeItem = index >= 0 && index < InventoryUtils.CreativeInventoryItems.Count
+				? InventoryUtils.CreativeInventoryItems[index]
+				: null;
 			if (creativeItem == null) throw new Exception($"Failed to find inventory item with unique id: {action.CreativeItemNetworkId}");
-			creativeItem = ItemFactory.GetItem(creativeItem.Id, creativeItem.Metadata);
+			creativeItem = ItemFactory.GetItemByName(creativeItem.Name, creativeItem.Metadata);
 			creativeItem.Count = (byte) creativeItem.MaxStackSize;
 			creativeItem.UniqueId = Environment.TickCount;
 			Log.Debug($"Creating {creativeItem}");
@@ -468,22 +538,26 @@ namespace MiNET
 			if (_player.UsingAnvil && containerId < 3) containerId = 13;
 
 			Item item = null;
+			// Container ids per the 1.26 ContainerSlotType table (several shifted since 1.18:
+			// cursor 58->59, creative output 59->60, hotbar 27->28, inventory 28->29,
+			// offhand 33->34, enchanting 21/22->22/23).
 			switch (containerId)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
+				case 13: // crafting input
+				case 14: // crafting output
+				case 22: // enchanting input
+				case 23: // enchanting lapis
+				case 41: // loom input
+				case 59: // cursor
+				case 60: // creative output
 					item = _player.Inventory.UiInventory.Slots[slot];
 					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
+				case 12: // hotbar and inventory
+				case 28: // hotbar
+				case 29: // player inventory
 					item = _player.Inventory.Slots[slot];
 					break;
-				case 33: // off-hand
+				case 34: // off-hand
 					item = _player.Inventory.OffHand;
 					break;
 				case 6: // armor
@@ -500,8 +574,10 @@ namespace MiNET
 					if (_player._openInventory is Inventory inventory) item = inventory.GetSlot((byte) slot);
 					break;
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					// BDS answers a request against a container it can't resolve with an error
+					// response (and an inventory resync); silently no-op'ing here makes items
+					// vanish client-side instead.
+					throw new InvalidOperationException($"Unknown containerId: {containerId}");
 			}
 
 			return item;
@@ -513,20 +589,21 @@ namespace MiNET
 
 			switch (containerId)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
+				case 13: // crafting input
+				case 14: // crafting output
+				case 22: // enchanting input
+				case 23: // enchanting lapis
+				case 41: // loom input
+				case 59: // cursor
+				case 60: // creative output
 					_player.Inventory.UiInventory.Slots[slot] = item;
 					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
+				case 12: // hotbar and inventory
+				case 28: // hotbar
+				case 29: // player inventory
 					_player.Inventory.Slots[slot] = item;
 					break;
-				case 33: // off-hand
+				case 34: // off-hand
 					_player.Inventory.OffHand = item;
 					break;
 				case 6: // armor
@@ -550,8 +627,8 @@ namespace MiNET
 					if (_player._openInventory is Inventory inventory) inventory.SetSlot(_player, (byte) slot, item);
 					break;
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					// See GetContainerItem: unknown container = error response, never a silent drop.
+					throw new InvalidOperationException($"Unknown containerId: {containerId}");
 			}
 		}
 	}

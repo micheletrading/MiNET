@@ -29,7 +29,6 @@ namespace MiNET.Blocks
 	{
 		public EndRod() : base(208)
 		{
-			LightLevel = 14;
 		}
 	}
 }
