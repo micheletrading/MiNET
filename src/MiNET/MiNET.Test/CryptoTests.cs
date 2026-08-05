@@ -184,6 +184,14 @@ namespace MiNET.Test
 			Assert.AreEqual(7, metadataMax);
 		}
 
+		// Kept as a reminder, not as coverage. This is the handshake built on .NET's own crypto
+		// instead of BouncyCastle, and it only runs on Windows: ToDerEncoded reads the raw CNG blob
+		// out of ECDiffieHellmanPublicKey.ToByteArray(), which the OpenSSL implementation does not
+		// support at all, so it throws PlatformNotSupportedException on Linux and the CI runner is
+		// Linux. The server itself does not go through here; LoginMessageHandler encodes the same
+		// key with BouncyCastle. Un-ignore this when .NET can produce the key cross-platform and
+		// the server can drop the dependency.
+		[Ignore("Windows only: ECDiffieHellmanPublicKey.ToByteArray() is unsupported on OpenSSL. Reminder to revisit .NET native crypto.")]
 		[TestMethod]
 		public void TestMethod1()
 		{
