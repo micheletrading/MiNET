@@ -101,7 +101,7 @@ namespace MiNET.Items
 
 			// By name: the legacy id maps every wood type and colour onto one pre-flattening class,
 			// whose state has no palette entry and so cannot be written to the world.
-			Block newBlock = BlockFactory.GetBlockByName(Block.Name) ?? BlockFactory.GetBlockById(Block.Id);
+			Block newBlock = BlockFactory.GetBlockByName(Block.Name);
 			newBlock.Coordinates = currentBlock.IsReplaceable ? targetCoordinates : GetNewCoordinatesFromFace(targetCoordinates, face);
 
 			// This won't work without explicit mapping where an item dictates
@@ -124,7 +124,7 @@ namespace MiNET.Items
 				world.SetBlock(newBlock);
 			}
 
-			if (player.GameMode == GameMode.Survival && newBlock.Id != 0)
+			if (player.GameMode == GameMode.Survival && !(newBlock is Air))
 			{
 				var itemInHand = player.Inventory.GetItemInHand();
 				itemInHand.Count--;

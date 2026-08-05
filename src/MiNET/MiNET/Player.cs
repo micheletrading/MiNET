@@ -560,6 +560,7 @@ namespace MiNET
 			switch ((PlayerAction) message.actionId)
 			{
 				case PlayerAction.StartBreak:
+				case PlayerAction.ContinueDestroyBlock: // same as StartBreak, sent when block breaking is server authoritative
 				{
 					if (message.face == (int) BlockFace.Up)
 					{
@@ -605,6 +606,7 @@ namespace MiNET
 				}
 				case PlayerAction.AbortBreak:
 				case PlayerAction.StopBreak:
+				case PlayerAction.PredictDestroyBlock: // end of breaking; the block itself is broken by the Destroy transaction
 				{
 					McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
 					breakEvent.eventId = 3601;
@@ -663,7 +665,23 @@ namespace MiNET
 					IsSneaking = false;
 					break;
 				}
-				case PlayerAction.CreativeDestroy:
+				case PlayerAction.CreativeDestroy: // redundant: PredictDestroyBlock arrives too when breaking is server authoritative
+				{
+					break;
+				}
+				case PlayerAction.StartItemUseOn:
+				case PlayerAction.StopItemUseOn: // vanilla only uses these for analytics
+				{
+					break;
+				}
+				case PlayerAction.HandledTeleport: // client acknowledging our teleport, nothing to do
+				case PlayerAction.MissedSwing: // arrives on PlayerAuthInput as well, handled there
+				case PlayerAction.StartCrawling:
+				case PlayerAction.StopCrawling: // pose only, movement already comes from PlayerAuthInput
+				case PlayerAction.StartFlying:
+				case PlayerAction.StopFlying: // flight is granted by abilities, not asked for here
+				case PlayerAction.ReceivedServerData: // client confirming it has our data
+				case PlayerAction.StartUsingItem: // arrives on PlayerAuthInput as well, handled there
 				{
 					break;
 				}
@@ -709,8 +727,11 @@ namespace MiNET
 				}
 				default:
 				{
-					Log.Warn($"Unhandled action ID={message.actionId}");
-					throw new ArgumentOutOfRangeException(nameof(message.actionId));
+					// Not implemented is not a protocol error. Throwing here abandons the rest of the
+					// batch this packet arrived in, so one unhandled action drops the movement and
+					// transactions sent with it.
+					Log.Debug($"Unhandled player action {(PlayerAction) message.actionId} ({message.actionId})");
+					break;
 				}
 			}
 
@@ -1313,7 +1334,7 @@ namespace MiNET
 			// client has the position from StartGame.
 			var respawn = McpeRespawn.CreateObject();
 			respawn.x = SpawnPosition.X;
-			respawn.y = SpawnPosition.Y;
+			respawn.y = SpawnPosition.Y + 1.62f;
 			respawn.z = SpawnPosition.Z;
 			respawn.state = (byte) McpeRespawn.RespawnState.Ready;
 			SendPacket(respawn);
@@ -1629,8 +1650,8 @@ namespace MiNET
 			int height = Level.Dimension == Dimension.Overworld ? 256 : 128;
 
 
-			int portalId = new Portal().Id;
-			int obsidionId = new Obsidian().Id;
+			string portalName = new Portal().Name;
+			string obsidianName = new Obsidian().Name;
 
 			Log.Debug($"Starting point: {start}");
 
@@ -1650,18 +1671,18 @@ namespace MiNET
 						var coord = new BlockCoordinates(x, y, z);
 						if (coord.DistanceTo(start) > closestDistance) continue;
 
-						bool b = level.IsBlock(coord, portalId);
-						b &= level.IsBlock(coord.BlockDown(), obsidionId);
+						bool b = level.IsBlock(coord, portalName);
+						b &= level.IsBlock(coord.BlockDown(), obsidianName);
 						if (b)
 						{
 							var portal = (Portal) level.GetBlock(coord);
 							if (portal.PortalAxis == "z")
 							{
-								b &= level.IsBlock(coord.BlockNorth(), portalId);
+								b &= level.IsBlock(coord.BlockNorth(), portalName);
 							}
 							else
 							{
-								b &= level.IsBlock(coord.BlockEast(), portalId);
+								b &= level.IsBlock(coord.BlockEast(), portalName);
 							}
 
 							Log.Debug($"Found portal block at {coord}, axis={portal.PortalAxis}");
@@ -3512,7 +3533,7 @@ namespace MiNET
 
 			if (Level.Entities.TryGetValue((long) message.runtimeEntityId, out var entity))
 			{
-				Item item = ItemFactory.GetItem("minecraft:spawn_egg", (short) EntityHelpers.ToEntityType(entity.EntityTypeId));
+				Item item = ItemFactory.GetItemByName("minecraft:spawn_egg", (short) EntityHelpers.ToEntityType(entity.EntityTypeId));
 
 				Inventory.SetInventorySlot(Inventory.InHandSlot, item);
 			}
@@ -3612,7 +3633,10 @@ namespace MiNET
 			startGame.entityIdSelf = EntityId;
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
 			startGame.playerGamemode = 5; // fallback: use the level's game mode, like vanilla
-			startGame.spawn = SpawnPosition;
+			// Eye height, like every other position we send. SpawnPosition is feet, and the client
+			// subtracts the offset to place them, so sending it raw spawns the player 1.62 low,
+			// which is inside the ground when the spawn is snapped to the surface.
+			startGame.spawn = new PlayerLocation(SpawnPosition.X, SpawnPosition.Y + 1.62f, SpawnPosition.Z);
 			startGame.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.HeadYaw);
 			
 			// A stable but non-legacy level id: the client keys local caches on world identity,

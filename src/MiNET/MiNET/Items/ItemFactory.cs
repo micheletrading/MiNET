@@ -155,11 +155,6 @@ namespace MiNET.Items
 			return map;
 		});
 
-		public static Item GetItem(string name, short metadata = 0, int count = 1)
-		{
-			return GetItemByName(name, metadata, count);
-		}
-
 		// Name-first resolution: registry string ids are the durable identity in modern Bedrock.
 		// Block-items resolve name -> block name (identity, or the exceptions map) -> palette
 		// default state -> ItemBlock; plain items resolve to a typed class when the registry
@@ -173,7 +168,7 @@ namespace MiNET.Items
 			Item custom = CustomItemFactory?.GetItem(name, metadata, count);
 			if (custom != null) return custom;
 
-			Block block = BlockFactory.GetBlockByPaletteName(BlockNameOf(name));
+			Block block = BlockFactory.GetBlockByName(BlockNameOf(name));
 
 			Item item;
 			if (block != null)

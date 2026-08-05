@@ -50,7 +50,7 @@ namespace MiNET.Crafting
 		/// <summary>A plain item ingredient (wire "int_id_meta" variant), resolved by registry name.</summary>
 		public static Item Ingredient(string name, short meta = 0, int count = 1)
 		{
-			Item item = ItemFactory.GetItem(name, meta, count);
+			Item item = ItemFactory.GetItemByName(name, meta, count);
 			item.IngredientDescriptor = new RecipeIngredientDescriptor {Type = 1, Name = name, Metadata = meta};
 			return item;
 		}
@@ -112,7 +112,7 @@ namespace MiNET.Crafting
 			short networkId = ItemFactory.GetNetworkIdByName(name);
 			if (networkId == 0) throw new FormatException($"Recipe result '{name}' is not in the item registry");
 
-			Item item = ItemFactory.GetItem(name, meta, count);
+			Item item = ItemFactory.GetItemByName(name, meta, count);
 			item.NetworkId = networkId;
 			item.NetworkMetadata = meta;
 			item.Count = (byte) count;
@@ -134,7 +134,7 @@ namespace MiNET.Crafting
 			short networkId = ItemFactory.GetNetworkIdByName(name);
 			if (networkId == 0) throw new FormatException($"Recipe result '{name}' is not in the item registry");
 
-			Item item = ItemFactory.GetItem(name, meta, count);
+			Item item = ItemFactory.GetItemByName(name, meta, count);
 			item.NetworkId = networkId;
 			item.NetworkMetadata = meta;
 			item.Count = (byte) count;

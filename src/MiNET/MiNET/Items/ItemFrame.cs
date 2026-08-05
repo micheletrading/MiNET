@@ -31,7 +31,7 @@ namespace MiNET.Items
 	{
 		public ItemFrame() : base("minecraft:frame")
 		{
-			Block = BlockFactory.GetBlockById(199);
+			Block = BlockFactory.GetBlockByName("minecraft:frame");
 		}
 	}
 }

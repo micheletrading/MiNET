@@ -39,10 +39,10 @@ namespace MiNET.Blocks
 			if (Growth == 7)
 			{
 				var random = new Random();
-				return new[] {ItemFactory.GetItem("minecraft:carrot", 0, (byte) random.Next(1, 5))};
+				return new[] {ItemFactory.GetItemByName("minecraft:carrot", 0, (byte) random.Next(1, 5))};
 			}
 
-			return new[] {ItemFactory.GetItem("minecraft:carrot", 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:carrot", 0, 1)};
 		}
 	}
 }

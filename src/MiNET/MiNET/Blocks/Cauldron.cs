@@ -73,7 +73,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem("minecraft:cauldron")};
+			return new[] {ItemFactory.GetItemByName("minecraft:cauldron")};
 		}
 	}
 }

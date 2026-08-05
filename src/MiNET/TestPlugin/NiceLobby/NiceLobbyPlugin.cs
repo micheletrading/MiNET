@@ -431,10 +431,10 @@ namespace TestPlugin.NiceLobby
 			player.Inventory.Slots[idx++] = new ItemBlock(new Loom()) {Count = 64};
 			//player.Inventory.Slots[idx++] = new ItemBlock(new Sapling()) { Count = 64 };
 			//player.Inventory.Slots[idx++] = new ItemBlock(new Sapling(), 2) { Count = 64 };
-			//player.Inventory.Slots[idx++] = new ItemBlock(new Vine(), 0) { Count = 64 };
+			//player.Inventory.Slots[idx++] = new ItemBlock(new Vine()) { Count = 64 };
 			//player.Inventory.Slots[idx++] = new ItemBlock(new SnowLayer()) {Count = 64};
 			//player.Inventory.Slots[idx++] = new ItemBlock(new Dirt()) {Count = 64};
-			//player.Inventory.Slots[idx++] = new ItemBlock(new WoodenButton(), 0) { Count = 64 };
+			//player.Inventory.Slots[idx++] = new ItemBlock(new WoodenButton()) { Count = 64 };
 			//player.Inventory.Slots[idx++] = new CustomTestItem(0xC0FFEE) { Count = 1 };
 			//player.Inventory.Slots[idx++] = new CustomTestItem(0xDEADBEEF) {Count = 10 };
 			//player.Inventory.Slots[idx++] = new CustomTestItem(0xDEADBEEF) {Count = 10 };
@@ -497,8 +497,8 @@ namespace TestPlugin.NiceLobby
 			//player.Inventory.Slots[idx++] = new ItemSnowball() {Count = 16};
 			//player.Inventory.Slots[idx++] = new ItemBow() {Count = 1};
 			//player.Inventory.Slots[idx++] = new ItemArrow() {Count = 64};
-			//player.Inventory.Slots[idx++] = new ItemBlock(new Torch(), 0) {Count = 64};
-			//player.Inventory.Slots[idx++] = new ItemBlock(new Stone(), 0) {Count = 64};
+			//player.Inventory.Slots[idx++] = new ItemBlock(new Torch()) {Count = 64};
+			//player.Inventory.Slots[idx++] = new ItemBlock(new Stone()) {Count = 64};
 			//player.Inventory.Slots[idx++] = new ItemWheat() {Count = 1};
 			//player.Inventory.Slots[idx++] = new ItemCarrot() {Count = 1};
 			//player.Inventory.Slots[idx++] = new ItemWheatSeeds() {Count = 1};

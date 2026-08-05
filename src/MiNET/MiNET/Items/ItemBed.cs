@@ -31,7 +31,7 @@ namespace MiNET.Items
 	{
 		public ItemBed() : base("minecraft:bed", 0)
 		{
-			Block = BlockFactory.GetBlockById(26);
+			Block = BlockFactory.GetBlockByName("minecraft:bed");
 		}
 	}
 }

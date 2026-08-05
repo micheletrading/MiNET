@@ -38,7 +38,7 @@ namespace MiNET.Blocks
 		public override Item[] GetDrops(Item tool)
 		{
 			var rnd = new Random();
-			return new[] {ItemFactory.GetItem("minecraft:melon_slice", 0, (byte) (3 + rnd.Next(5)))};
+			return new[] {ItemFactory.GetItemByName("minecraft:melon_slice", 0, (byte) (3 + rnd.Next(5)))};
 		}
 	}
 }

@@ -1198,10 +1198,10 @@ namespace TestPlugin
 					}
 				}
 			};
-			inventory.Slots[c++] = new ItemBlock(new Anvil(), 0) {Count = 64};
-			inventory.Slots[c++] = new ItemBlock(new EnchantingTable(), 0) {Count = 64};
-			inventory.Slots[c++] = ItemFactory.GetItem("minecraft:dye", 4, 64);
-			inventory.Slots[c++] = new ItemBlock(new Planks(), 0) {Count = 64};
+			inventory.Slots[c++] = new ItemBlock(new Anvil()) {Count = 64};
+			inventory.Slots[c++] = new ItemBlock(new EnchantingTable()) {Count = 64};
+			inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:dye", 4, 64);
+			inventory.Slots[c++] = new ItemBlock(new Planks()) {Count = 64};
 			inventory.Slots[c++] = new ItemCompass(); // Wooden Sword
 			inventory.Slots[c++] = new ItemWoodenSword(); // Wooden Sword
 			inventory.Slots[c++] = new ItemStoneSword(); // Stone Sword
@@ -1241,9 +1241,9 @@ namespace TestPlugin
 			//inventory.Slots[c++] = new ItemBlock(new Block(35), 0) {Count = 64};
 			//inventory.Slots[c++] = new ItemBucket(8);
 
-			//inventory.Slots[c++] = ItemFactory.GetItem("minecraft:brown_mushroom", 0) { Count = 1};
-			//inventory.Slots[c++] = ItemFactory.GetItem("minecraft:red_mushroom", 0), 4);
-			//inventory.Slots[c++] = ItemFactory.GetItem("minecraft:bowl", 0), 4);
+			//inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:brown_mushroom", 0) { Count = 1};
+			//inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:red_mushroom", 0), 4);
+			//inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:bowl", 0), 4);
 
 			//for (byte i = 0; i < inventory.ItemHotbar.Length; i++)
 			//{
@@ -1330,9 +1330,9 @@ namespace TestPlugin
 			var inventory = player.Inventory;
 
 			byte c = 0;
-			inventory.Slots[c++] = new ItemBlock(new Furnace(), 0) {Count = 64}; // Custom command block
+			inventory.Slots[c++] = new ItemBlock(new Furnace()) {Count = 64}; // Custom command block
 			inventory.Slots[c++] = new ItemCoal {Count = 64}; // Custom command block
-			inventory.Slots[c++] = new ItemBlock(new IronOre(), 0) {Count = 64}; // Custom command block
+			inventory.Slots[c++] = new ItemBlock(new IronOre()) {Count = 64}; // Custom command block
 
 			player.SendPlayerInventory();
 			SendEquipmentForPlayer(player);

@@ -1138,14 +1138,24 @@ namespace MiNET.Worlds
 			return chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f) == blockId;
 		}
 
+		/// <summary>
+		///     Which block stands here, asked by name so that it holds for every state the block has.
+		///     Nothing is built to answer it.
+		/// </summary>
+		public bool IsBlock(BlockCoordinates blockCoordinates, string name)
+		{
+			ChunkColumn chunk = GetChunk(blockCoordinates);
+			if (chunk == null) return false;
+
+			return BlockFactory.GetBlockName(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f)) == name;
+		}
+
 		public bool IsAir(BlockCoordinates blockCoordinates)
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 			if (chunk == null) return true;
 
-			int bid = chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
-			return bid == 0;
-			//return bid == 0 || bid == 20 || bid == 241; // Need this for skylight calculations. Revise!
+			return BlockFactory.IsAir(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public bool IsNotBlockingSkylight(BlockCoordinates blockCoordinates)
@@ -1153,8 +1163,7 @@ namespace MiNET.Worlds
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 			if (chunk == null) return true;
 
-			int bid = chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
-			return bid == 0 || bid == 20 || bid == 241; // Need this for skylight calculations. Revise!
+			return BlockFactory.SkyLightPasses(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public bool IsTransparent(BlockCoordinates blockCoordinates)
@@ -1162,8 +1171,7 @@ namespace MiNET.Worlds
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 			if (chunk == null) return true;
 
-			int bid = chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
-			return BlockFactory.TransparentBlocks[bid] == 1;
+			return BlockFactory.IsTransparent(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public int GetHeight(BlockCoordinates blockCoordinates)
@@ -1313,8 +1321,7 @@ namespace MiNET.Worlds
 
 		public void SetAir(int x, int y, int z, bool broadcast = true)
 		{
-			Block air = BlockFactory.GetBlockById(0);
-			air.Coordinates = new BlockCoordinates(x, y, z);
+			var air = new Air {Coordinates = new BlockCoordinates(x, y, z)};
 			SetBlock(air, broadcast);
 		}
 

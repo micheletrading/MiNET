@@ -35,7 +35,7 @@ namespace MiNET.Blocks
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem("minecraft:iron_ingot", 0);
+			return ItemFactory.GetItemByName("minecraft:iron_ingot", 0);
 		}
 
 		public override Item[] GetDrops(Item tool)

@@ -25,13 +25,9 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Blocks\blockstates.json" />
     <None Remove="Blocks\legacy_id_map.json" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Blocks\blockstates.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
     <EmbeddedResource Include="Blocks\Data\block_id_map.json" />
     <EmbeddedResource Include="Blocks\Data\item_id_map.json" />
     <EmbeddedResource Include="Blocks\Data\legacy_id_map.json">

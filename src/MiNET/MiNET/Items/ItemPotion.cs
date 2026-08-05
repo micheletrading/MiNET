@@ -50,7 +50,7 @@ namespace MiNET.Items
 				if (player.GameMode == GameMode.Survival || player.GameMode == GameMode.Adventure)
 				{
 					player.Inventory.ClearInventorySlot((byte) player.Inventory.InHandSlot);
-					player.Inventory.SetFirstEmptySlot(ItemFactory.GetItem("minecraft:glass_bottle"), true);
+					player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName("minecraft:glass_bottle"), true);
 				}
 				_isUsing = false;
 				return;

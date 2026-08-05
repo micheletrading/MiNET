@@ -43,10 +43,19 @@ namespace MiNET.Blocks
 		private int[] _flowCost = new int[4];
 		private bool[] _optimalFlowDirections = new bool[4];
 
-		protected Flowing(byte id) : base(id)
+		private readonly string _stillName;
+
+		protected Flowing(byte id, string stillName) : base(id)
 		{
+			_stillName = stillName;
 			IsBuildable = false;
 			IsReplaceable = true;
+		}
+
+		/// <summary>The still half of this liquid, which flowing water settles into.</summary>
+		public Stationary StillCounterpart()
+		{
+			return (Stationary) BlockFactory.GetBlockByName(_stillName);
 		}
 
 		public override void BlockAdded(Level level)
@@ -370,7 +379,7 @@ namespace MiNET.Blocks
 				//	block.DoDrop(world, i, j, k, world.getData(i, j, k), 0);
 				//}
 
-				Flowing newBlock = (Flowing) BlockFactory.GetBlockById(Id);
+				var newBlock = (Flowing) BlockFactory.GetBlockByName(Name);
 				newBlock.Coordinates = new BlockCoordinates(coord);
 				newBlock.LiquidDepth = decay;
 				world.SetBlock(newBlock, applyPhysics: true);
@@ -404,7 +413,7 @@ namespace MiNET.Blocks
 		{
 			var block = (Flowing) world.GetBlock(coord);
 
-			var stillBlock = (Stationary) BlockFactory.GetBlockById((byte) (Id + 1));
+			Stationary stillBlock = StillCounterpart();
 			stillBlock.LiquidDepth = block.LiquidDepth;
 			stillBlock.Coordinates = new BlockCoordinates(coord);
 			world.SetBlock(stillBlock, applyPhysics: false);

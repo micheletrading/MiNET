@@ -124,7 +124,7 @@ namespace MiNET.Client
 				//	client.SendPacket(request);
 				//})
 
-				//.ContinueWith(t => BotHelpers.DoMobEquipment(client)(t, new ItemBlock(new Cobblestone(), 0) {Count = 64}, 0))
+				//.ContinueWith(t => BotHelpers.DoMobEquipment(client)(t, new ItemBlock(new Cobblestone()) {Count = 64}, 0))
 				//.ContinueWith(t => BotHelpers.DoMoveTo(client)(t, new PlayerLocation(client.CurrentLocation.ToVector3() - new Vector3(0, 1, 0), 180, 180, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(40, 5.62f, -20, 180, 180, 180)))
 				//.ContinueWith(t => doMoveTo(t, new PlayerLocation(0, 5.62, 0, 180 + 45, 180 + 45, 180)))
@@ -137,6 +137,8 @@ namespace MiNET.Client
 				//.ContinueWith(t => Task.Delay(500).Wait())
 				//.ContinueWith(t => doSendCommand(t, "/kill @e[type=sheep]"))
 				.ContinueWith(t => Task.Delay(5000).Wait())
+				// Skin switching test: sends a recoloured skin at the given frames per second.
+				//.ContinueWith(t => BotHelpers.DoCycleSkinColors(client)(t, 20))
 				//.ContinueWith(t =>
 				//{
 				//	Random rnd = new Random();

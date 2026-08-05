@@ -52,7 +52,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem("minecraft:bed", Color)};
+			return new[] {ItemFactory.GetItemByName("minecraft:bed", Color)};
 		}
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)

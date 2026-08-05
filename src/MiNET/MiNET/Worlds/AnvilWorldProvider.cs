@@ -686,9 +686,9 @@ namespace MiNET.Worlds
 							blockId = 243;
 						}
 
-						if (BlockFactory.LuminousBlocks[blockId] != 0)
+						if (BlockFactory.GetLightEmission(subChunk.GetBlockRuntimeId(x, y, z)) != 0)
 						{
-							var block = BlockFactory.GetBlockById(subChunk.GetBlockId(x, y, z));
+							Block block = subChunk.GetBlockObject(x, y, z);
 							block.Coordinates = new BlockCoordinates(x + (chunkColumn.X << 4), yi, z + (chunkColumn.Z << 4));
 							subChunk.SetBlocklight(x, y, z, (byte) block.LightLevel);
 							lock (LightSources) LightSources.Enqueue(block);

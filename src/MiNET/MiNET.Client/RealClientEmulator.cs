@@ -256,7 +256,7 @@ namespace MiNET.Client
 				Position = position,
 				Face = (int) BlockFace.Up,
 				Slot = 0,
-				Item = ItemFactory.GetItem("minecraft:dirt"),
+				Item = ItemFactory.GetItemByName("minecraft:dirt"),
 				FromPosition = playerPosition,
 				ClickPosition = new Vector3(0.5f, 1f, 0.5f),
 				BlockRuntimeId = 0,

@@ -27,7 +27,7 @@ namespace MiNET.Blocks
 {
 	public partial class FlowingWater : Flowing
 	{
-		public FlowingWater() : base(8)
+		public FlowingWater() : base(8, "minecraft:water")
 		{
 		}
 	}

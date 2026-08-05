@@ -39,7 +39,7 @@ namespace MiNET.Blocks
 			var rnd = new Random();
 			if (rnd.Next(2) > 0) // Note that random.Next EXCLUDES the parameter so this is 50/50
 			{
-				return new Item[] {ItemFactory.GetItem("minecraft:chorus_fruit", 0, 1)}; // Chorus Fruit
+				return new Item[] {ItemFactory.GetItemByName("minecraft:chorus_fruit", 0, 1)}; // Chorus Fruit
 			}
 
 			return new Item[0];

@@ -45,17 +45,20 @@ namespace MiNET.Test
 		public void GeneratedRuntimeId_MatchesPaletteIndex_ForEveryState()
 		{
 			var mismatches = new List<string>();
-			int checkedStates = 0;
+			var unresolvable = new List<string>();
 
 			for (int runtimeId = 0; runtimeId < BlockFactory.BlockPalette.Count; runtimeId++)
 			{
 				BlockStateContainer expected = BlockFactory.BlockPalette[runtimeId];
 
 				Block block = BlockFactory.GetBlockByName(expected.Name);
-				if (block == null) continue; // no class for this palette name, nothing to compute
+				if (block == null)
+				{
+					if (unresolvable.Count < 20) unresolvable.Add(expected.Name);
+					continue;
+				}
 
 				block.SetState(expected.States);
-				checkedStates++;
 
 				int actual = block.GetRuntimeId();
 				if (actual != runtimeId)
@@ -64,7 +67,10 @@ namespace MiNET.Test
 				}
 			}
 
-			Assert.IsTrue(checkedStates > 16000, $"only {checkedStates} states were resolvable to a block class, expected essentially the whole palette");
+			// Every palette name has a generated class, so name resolution is total. Callers depend
+			// on that: without it they need a legacy id to fall back to, and the legacy id is the
+			// thing that cannot express a post-flattening block.
+			Assert.AreEqual(0, unresolvable.Count, $"palette names with no block class:\n{string.Join("\n", unresolvable.Distinct())}");
 			Assert.AreEqual(0, mismatches.Count, $"{mismatches.Count} states resolve to the wrong runtime id:\n{string.Join("\n", mismatches)}");
 		}
 

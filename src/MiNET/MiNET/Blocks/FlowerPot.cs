@@ -35,7 +35,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {ItemFactory.GetItem("minecraft:flower_pot", 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:flower_pot", 0, 1)};
 		}
 	}
 }

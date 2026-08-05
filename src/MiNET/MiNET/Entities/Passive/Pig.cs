@@ -51,7 +51,7 @@ namespace MiNET.Entities.Passive
 		{
 			return new[]
 			{
-				ItemFactory.GetItem("minecraft:porkchop", 0, 2)
+				ItemFactory.GetItemByName("minecraft:porkchop", 0, 2)
 			};
 		}
 	}

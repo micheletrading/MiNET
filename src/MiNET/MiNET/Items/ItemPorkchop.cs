@@ -33,7 +33,7 @@ namespace MiNET.Items
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem("minecraft:cooked_porkchop");
+			return ItemFactory.GetItemByName("minecraft:cooked_porkchop");
 		}
 	}
 }

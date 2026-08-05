@@ -70,7 +70,7 @@ namespace MiNET.Blocks
 			var rnd = new Random();
 			if (rnd.NextDouble() > 0.5)
 			{
-				return new[] {ItemFactory.GetItem("minecraft:wheat_seeds")};
+				return new[] {ItemFactory.GetItemByName("minecraft:wheat_seeds")};
 			}
 
 			return new Item[0];

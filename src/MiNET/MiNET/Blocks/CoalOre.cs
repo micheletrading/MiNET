@@ -38,7 +38,7 @@ namespace MiNET.Blocks
 		{
 			if (tool.ItemMaterial < ItemMaterial.Wood) return new Item[0];
 
-			return new[] {ItemFactory.GetItem("minecraft:coal", 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:coal", 0, 1)};
 		}
 
 		public override float GetExperiencePoints()

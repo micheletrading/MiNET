@@ -38,12 +38,12 @@ namespace MiNET.Blocks
 		{
 			if (tool.ItemMaterial < ItemMaterial.Iron) return new Item[0];
 
-			return new[] {ItemFactory.GetItem("minecraft:diamond", 0, 1)};
+			return new[] {ItemFactory.GetItemByName("minecraft:diamond", 0, 1)};
 		}
 
 		public override Item GetSmelt()
 		{
-			return ItemFactory.GetItem("minecraft:diamond", 0);
+			return ItemFactory.GetItemByName("minecraft:diamond", 0);
 		}
 
 		public override float GetExperiencePoints()

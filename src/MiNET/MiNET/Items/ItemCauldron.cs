@@ -31,7 +31,7 @@ namespace MiNET.Items
 	{
 		public ItemCauldron() : base("minecraft:cauldron", 0)
 		{
-			Block = BlockFactory.GetBlockById(118);
+			Block = BlockFactory.GetBlockByName("minecraft:cauldron");
 		}
 	}
 }

@@ -78,7 +78,7 @@ namespace MiNET.Blocks
 			var rnd = new Random();
 			if (rnd.NextDouble() <= 0.1)
 			{
-				return new[] {ItemFactory.GetItem("minecraft:flint")};
+				return new[] {ItemFactory.GetItemByName("minecraft:flint")};
 			}
 
 			return base.GetDrops(tool);

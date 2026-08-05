@@ -49,7 +49,7 @@ namespace MiNET.Blocks
 
 			if (level.GetSubtractedLight(Coordinates.BlockUp()) < 4)
 			{
-				Block dirt = BlockFactory.GetBlockById(3);
+				Block dirt = BlockFactory.GetBlockByName("minecraft:dirt");
 				dirt.Coordinates = Coordinates;
 				level.SetBlock(dirt, true, false, false);
 			}
@@ -63,7 +63,7 @@ namespace MiNET.Blocks
 			var lightLevel = level.GetSubtractedLight(Coordinates.BlockUp());
 			if (lightLevel < 4 /* && check opacity */)
 			{
-				Block dirt = BlockFactory.GetBlockById(3);
+				Block dirt = BlockFactory.GetBlockByName("minecraft:dirt");
 				dirt.Coordinates = Coordinates;
 				level.SetBlock(dirt, true, false, false);
 			}
@@ -220,7 +220,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {new ItemBlock(new Dirt(), 0) {Count = 1}}; //Drop dirt block
+			return new[] {ItemFactory.GetItemByName("minecraft:dirt")}; //Drop dirt block
 		}
 	}
 

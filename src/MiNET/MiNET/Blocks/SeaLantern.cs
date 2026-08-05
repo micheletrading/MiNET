@@ -37,7 +37,7 @@ namespace MiNET.Blocks
 		public override Item[] GetDrops(Item tool)
 		{
 			var rnd = new Random();
-			return new[] {ItemFactory.GetItem("minecraft:prismarine_shard", 0, (byte) (rnd.Next(2, 3)))}; //drop prismarine_shard
+			return new[] {ItemFactory.GetItemByName("minecraft:prismarine_shard", 0, (byte) (rnd.Next(2, 3)))}; //drop prismarine_shard
 		}
 	}
 }

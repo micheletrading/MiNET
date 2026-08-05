@@ -41,7 +41,7 @@ namespace MiNET.Entities.Vehicles
 		{
 			return new[]
 			{
-				ItemFactory.GetItem("minecraft:minecart")
+				ItemFactory.GetItemByName("minecraft:minecart")
 			};
 		}
 	}

@@ -45,7 +45,7 @@ namespace MiNET.Entities.Vehicles
 		{
 			return new[]
 			{
-				ItemFactory.GetItem("minecraft:chest_boat")
+				ItemFactory.GetItemByName("minecraft:chest_boat")
 			};
 		}
 	}

@@ -35,7 +35,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new Item[] {ItemFactory.GetItem("minecraft:brewing_stand", 0, 1)};
+			return new Item[] {ItemFactory.GetItemByName("minecraft:brewing_stand", 0, 1)};
 		}
 	}
 }

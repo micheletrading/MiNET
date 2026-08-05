@@ -49,7 +49,7 @@ namespace MiNET.Items
 			}
 			else
 			{
-				Block = BlockFactory.GetBlockById(230);
+				Block = BlockFactory.GetBlockByName("minecraft:chalkboard");
 			}
 
 			Block.Metadata = (byte) Metadata;

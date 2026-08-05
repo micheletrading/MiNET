@@ -176,10 +176,10 @@ namespace MiNET.Worlds
 		/// </summary>
 		public int GetBlockRuntimeId(int bx, int by, int bz)
 		{
-			if (_runtimeIds.Count == 0) return 0;
+			if (_runtimeIds.Count == 0) return BlockFactory.AirRuntimeId;
 
 			int paletteIndex = _blocks[GetIndex(bx, by, bz)];
-			if (paletteIndex < 0 || paletteIndex >= _runtimeIds.Count) return 0;
+			if (paletteIndex < 0 || paletteIndex >= _runtimeIds.Count) return BlockFactory.AirRuntimeId;
 
 			return _runtimeIds[paletteIndex];
 		}

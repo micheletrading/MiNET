@@ -50,8 +50,8 @@ namespace MiNET.Entities.Passive
 		{
 			return new[]
 			{
-				ItemFactory.GetItem("minecraft:beef", 0, 2),
-				ItemFactory.GetItem("minecraft:leather", 0, 2)
+				ItemFactory.GetItemByName("minecraft:beef", 0, 2),
+				ItemFactory.GetItemByName("minecraft:leather", 0, 2)
 			};
 		}
 	}

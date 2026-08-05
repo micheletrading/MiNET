@@ -31,7 +31,7 @@ namespace MiNET.Items
 	{
 		public ItemBeetrootSeeds() : base("minecraft:beetroot_seeds")
 		{
-			Block = BlockFactory.GetBlockById(244);
+			Block = BlockFactory.GetBlockByName("minecraft:beetroot");
 		}
 	}
 }

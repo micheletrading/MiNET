@@ -87,7 +87,7 @@ namespace MiNET.Blocks
 
 		public override Item[] GetDrops(Item tool)
 		{
-			return new[] {new ItemBlock(new RedstoneTorch(), 0)};
+			return new[] {ItemFactory.GetItemByName("minecraft:redstone_torch")};
 		}
 	}
 }

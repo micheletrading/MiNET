@@ -37,7 +37,7 @@ namespace MiNET.Blocks
 		{
 			if (tool.ItemType != ItemType.PickAxe) return new Item[0];
 
-			return new[] {new ItemBlock(new Cobblestone(), 0) {Count = 1}}; // Drop cobblestone
+			return new[] {ItemFactory.GetItemByName("minecraft:cobblestone")}; // Drop cobblestone
 		}
 	}
 }

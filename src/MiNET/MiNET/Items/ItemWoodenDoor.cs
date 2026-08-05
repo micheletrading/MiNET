@@ -35,11 +35,10 @@ namespace MiNET.Items
 	// and its facing and opened status in the block data of its lower block
 	public class ItemWoodenDoor : ItemBlock
 	{
-		private readonly byte _blockId;
-
-		public ItemWoodenDoor(string name = "minecraft:wooden_door", short itemId = 324, byte blockId = 64) : base(name, itemId)
+		// The door block carries the same registry name as the item, so there is nothing to map.
+		// This used to take a block id that no subclass passed, so every variant placed oak.
+		public ItemWoodenDoor(string name = "minecraft:wooden_door", short itemId = 324) : base(name, itemId)
 		{
-			_blockId = blockId;
 		}
 
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
@@ -49,7 +48,7 @@ namespace MiNET.Items
 			var coordinates = GetNewCoordinatesFromFace(blockCoordinates, face);
 
 			// Base block, meta sets orientation
-			DoorBase block = (DoorBase) BlockFactory.GetBlockById(_blockId);
+			var block = (DoorBase) BlockFactory.GetBlockByName(Name);
 			block.Coordinates = coordinates;
 			block.Direction = direction;
 			block.UpperBlockBit = false;
@@ -87,7 +86,7 @@ namespace MiNET.Items
 
 			// The upper door block, meta marks upper and
 			// sets orientation based on adjacent blocks
-			DoorBase blockUpper = (DoorBase) BlockFactory.GetBlockById(_blockId);
+			var blockUpper = (DoorBase) BlockFactory.GetBlockByName(Name);
 			blockUpper.Coordinates = coordinates + Level.Up;
 			blockUpper.Direction = direction;
 			blockUpper.UpperBlockBit = true;

@@ -42,7 +42,7 @@ namespace MiNET.Entities.Hostile
 		{
 			return new[]
 			{
-				ItemFactory.GetItem("minecraft:spawn_egg", 666, 16)
+				ItemFactory.GetItemByName("minecraft:spawn_egg", 666, 16)
 			};
 		}
 

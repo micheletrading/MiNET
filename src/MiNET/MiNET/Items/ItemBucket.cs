@@ -44,9 +44,19 @@ namespace MiNET.Items
 
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
-			if (Metadata == 8 || Metadata == 10) //Prevent some kind of cheating...
+			// A bucket's contents are still carried as the liquid's pre-flattening id: 8 water,
+			// 10 lava. Only those two can be poured, which is also what stops a crafted metadata
+			// from placing an arbitrary block.
+			string liquid = Metadata switch
 			{
-				var itemBlock = new ItemBlock(BlockFactory.GetBlockById((byte) Metadata));
+				8 => "minecraft:flowing_water",
+				10 => "minecraft:flowing_lava",
+				_ => null
+			};
+
+			if (liquid != null)
+			{
+				var itemBlock = new ItemBlock(BlockFactory.GetBlockByName(liquid));
 				itemBlock.PlaceBlock(world, player, blockCoordinates, face, faceCoords);
 			}
 			else if (Metadata == 0) // Empty bucket

@@ -95,12 +95,12 @@ namespace MiNET.Plotter
 			PlotPattern.BlockList.Add(new Pattern.BlockDataEntry()
 			{
 				Weight = 1,
-				Block = new YellowFlower()
+				Block = new Dandelion()
 			});
 			PlotPattern.BlockList.Add(new Pattern.BlockDataEntry()
 			{
 				Weight = 1,
-				Block = new RedFlower()
+				Block = new Poppy()
 			});
 			//PlotPattern.BlockList.Add(new Pattern.BlockDataEntry() { Weight = 5, Id = 38, Metadata = 1 });
 			//PlotPattern.BlockList.Add(new Pattern.BlockDataEntry() { Weight = 5, Id = 38, Metadata = 2 });
@@ -112,7 +112,7 @@ namespace MiNET.Plotter
 			PlotPattern.BlockList.Add(new Pattern.BlockDataEntry()
 			{
 				Weight = 1,
-				Block = new RedFlower() {FlowerType = "oxeye"}
+				Block = new OxeyeDaisy()
 			});
 			PlotPattern.Order();
 		}
@@ -126,6 +126,16 @@ namespace MiNET.Plotter
 			bbox = bbox.GetAdjustedBoundingBox();
 			ChunkColumn chunk = null;
 			Dictionary<ChunkCoordinates, ChunkColumn> chunks = new Dictionary<ChunkCoordinates, ChunkColumn>();
+
+			// The runtime id each layer wants, resolved once. Every block already sitting on its
+			// target is skipped, so a clear costs one packet per block that actually changes
+			// instead of one per block in the plot.
+			int bedrockId = new Bedrock().GetRuntimeId();
+			int airId = new Air().GetRuntimeId();
+			int grassId = new Grass().GetRuntimeId();
+			int dirtId = new Dirt().GetRuntimeId();
+			int stoneId = new Stone().GetRuntimeId();
+
 			for (int x = (int) bbox.Min.X; x < (int) bbox.Max.X + 1; x++)
 			{
 				for (int z = (int) bbox.Min.Z; z < (int) bbox.Max.Z + 1; z++)
@@ -142,47 +152,32 @@ namespace MiNET.Plotter
 					}
 
 					level.SetBiomeId(blockCoord, 1);
-					int height = 255;
-					if (chunk != null)
-					{
-						height = chunk.GetHeight(blockCoord.X & 0x0f, blockCoord.Z & 0x0f);
-					}
 
 					for (int y = 0; y < 256; y++)
 					{
-						if (y == 0)
+						int current = chunk?.GetBlockRuntimeId(x & 0x0f, y, z & 0x0f) ?? -1;
+
+						if (repopulate && y == PlotHeight)
 						{
-							var block = new Bedrock {Coordinates = new BlockCoordinates(x, y, z)};
-							level.SetBlock(block, applyPhysics: false, calculateLight: false, possibleChunk: chunk); // Bedrock
+							Block pattern = PlotPattern.Next(new BlockCoordinates(x, PlotHeight, z));
+							if (pattern.GetRuntimeId() == current) continue;
+
+							level.SetBlock(pattern, applyPhysics: false, calculateLight: false, possibleChunk: chunk);
+							continue;
 						}
-						else if (repopulate && y == PlotHeight)
-						{
-							var block = PlotPattern.Next(new BlockCoordinates(x, PlotHeight, z));
-							level.SetBlock(block, applyPhysics: false, calculateLight: false, possibleChunk: chunk); // grass
-						}
-						else if (y >= PlotHeight)
-						{
-							if (y <= height || !level.IsAir(new BlockCoordinates(x, y, z)))
-							{
-								var block = new Air {Coordinates = new BlockCoordinates(x, y, z)};
-								level.SetBlock(block, applyPhysics: false, calculateLight: false, possibleChunk: chunk); // air
-							}
-						}
-						else if (y == PlotHeight - 1)
-						{
-							var block = new Grass {Coordinates = new BlockCoordinates(x, y, z)};
-							level.SetBlock(block, applyPhysics: false, calculateLight: false, possibleChunk: chunk); // grass
-						}
-						else if (y > PlotHeight - 4)
-						{
-							var block = new Dirt {Coordinates = new BlockCoordinates(x, y, z)};
-							level.SetBlock(block, applyPhysics: false, calculateLight: false, possibleChunk: chunk); // dirt
-						}
-						else
-						{
-							var block = new Stone {Coordinates = new BlockCoordinates(x, y, z)};
-							level.SetBlock(block, applyPhysics: false, calculateLight: false, possibleChunk: chunk); // stone
-						}
+
+						int wanted =
+							y == 0 ? bedrockId :
+							y >= PlotHeight ? airId :
+							y == PlotHeight - 1 ? grassId :
+							y > PlotHeight - 4 ? dirtId :
+							stoneId;
+
+						if (wanted == current) continue;
+
+						Block block = BlockFactory.GetBlockByRuntimeId(wanted);
+						block.Coordinates = new BlockCoordinates(x, y, z);
+						level.SetBlock(block, applyPhysics: false, calculateLight: false, possibleChunk: chunk);
 					}
 				}
 			}
@@ -238,7 +233,7 @@ namespace MiNET.Plotter
 			}
 
 
-			var leaves = new Leaves();
+			var leaves = new OakLeaves();
 
 			//if (xOffset < 0) xOffset -= PlotAreaWidth;
 			//if (zOffset < 0) zOffset -= PlotAreaDepth;

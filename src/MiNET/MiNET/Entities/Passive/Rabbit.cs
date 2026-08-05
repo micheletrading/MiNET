@@ -49,7 +49,7 @@ namespace MiNET.Entities.Passive
 		{
 			return new[]
 			{
-				ItemFactory.GetItem("minecraft:rabbit")
+				ItemFactory.GetItemByName("minecraft:rabbit")
 			};
 		}
 	}

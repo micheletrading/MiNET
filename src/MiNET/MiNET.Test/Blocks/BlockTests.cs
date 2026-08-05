@@ -27,7 +27,7 @@ namespace MiNET.Blocks.Tests
 		private static void AssertPickYieldsItem(string blockName)
 		{
 			BlockStateContainer state = BlockFactory.BlockPalette.First(b => b.Name == blockName);
-			Block block = BlockFactory.GetBlockByPaletteName(blockName);
+			Block block = BlockFactory.GetBlockByName(blockName);
 			Assert.IsNotNull(block, $"no block class for {blockName}");
 			block.SetState(state.States);
 

@@ -23,6 +23,7 @@
 
 #endregion
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using fNbt;
@@ -141,7 +142,7 @@ namespace MiNET.BlockEntities
 			for (int y = 1; y < height - Coordinates.Y; y++)
 			{
 				if (level.IsTransparent(Coordinates + (BlockCoordinates.Up * y))) continue;
-				if (level.IsBlock(Coordinates + (BlockCoordinates.Up * y), 7)) continue;
+				if (level.IsBlock(Coordinates + (BlockCoordinates.Up * y), "minecraft:bedrock")) continue;
 
 				return false;
 			}
@@ -227,6 +228,14 @@ namespace MiNET.BlockEntities
 			return eff;
 		}
 
+		private static readonly HashSet<string> PyramidBlocks = new HashSet<string>
+		{
+			"minecraft:iron_block",
+			"minecraft:gold_block",
+			"minecraft:diamond_block",
+			"minecraft:emerald_block"
+		};
+
 		private int GetPyramidLevels(Level level)
 		{
 			for (int i = 1; i < 5; i++)
@@ -236,7 +245,7 @@ namespace MiNET.BlockEntities
 					for (int z = -i; z < i + 1; z++)
 					{
 						var block = level.GetBlock(Coordinates + new BlockCoordinates(x, -i, z));
-						if (block.Id == 42 || block.Id == 41 || block.Id == 57 || block.Id == 133) continue;
+						if (PyramidBlocks.Contains(block.Name)) continue;
 
 						return i - 1;
 					}
