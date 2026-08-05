@@ -33,6 +33,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using MiNET.Utils;
+using MiNET.Utils.Nbt;
 using MiNET.Utils.Vectors;
 
 namespace MiNET.Net
@@ -183,6 +184,164 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeStartGame : Packet<McpeStartGame>
+	{
+		public enum Gametype
+		{
+			Undefined = 0,
+			Survival = 1,
+			Creative = 2,
+			Adventure = 3,
+			Default = 4,
+			Spectator = 5,
+			Worlddefault = 6,
+		}
+
+		public long entityIdSelf; // = null;
+		public long runtimeEntityId; // = null;
+		public int gameType; // = null;
+		public Vector3 position; // = null;
+		public Vector2 rotation; // = null;
+		public LevelSettings settings; // = null;
+		public string levelId; // = null;
+		public string levelName; // = null;
+		public string templateContentIdentity; // = null;
+		public bool isTrial; // = null;
+		public SyncedPlayerMovementSettings movementSettings; // = null;
+		public ulong levelCurrentTime; // = null;
+		public int enchantmentSeed; // = null;
+		public List<ServerBlockProperty> blockProperties; // = null;
+		public string multiplayerCorrelationId; // = null;
+		public bool enableItemStackNetManager; // = null;
+		public string serverVersion; // = null;
+		public Nbt playerPropertyData; // = null;
+		public ulong serverBlockTypeRegistryChecksum; // = null;
+		public UUID worldTemplateId; // = null;
+		public bool serverEnabledClientsideGeneration; // = null;
+		public bool blockNetworkIdsAreHashes; // = null;
+		public bool serverAuthSoundEnabled; // = null;
+		public ServerConfig serverConfigurationJoinInfo; // = null;
+		public ServerTelemetryData serverTelemetryData; // = null;
+
+		public McpeStartGame()
+		{
+			Id = 0x0b;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarLong(entityIdSelf);
+			WriteUnsignedVarLong(runtimeEntityId);
+			WriteSignedVarInt(gameType);
+			Write(position);
+			Write(rotation);
+			Write(settings);
+			Write(levelId);
+			Write(levelName);
+			Write(templateContentIdentity);
+			Write(isTrial);
+			Write(movementSettings);
+			Write(levelCurrentTime);
+			WriteSignedVarInt(enchantmentSeed);
+			WriteUnsignedVarInt((uint) blockProperties.Count);
+			foreach (ServerBlockProperty item in blockProperties) Write(item);
+			Write(multiplayerCorrelationId);
+			Write(enableItemStackNetManager);
+			Write(serverVersion);
+			Write(playerPropertyData);
+			Write(serverBlockTypeRegistryChecksum);
+			Write(worldTemplateId);
+			Write(serverEnabledClientsideGeneration);
+			Write(blockNetworkIdsAreHashes);
+			Write(serverAuthSoundEnabled);
+			Write(serverConfigurationJoinInfo != null);
+			if (serverConfigurationJoinInfo != null) Write(serverConfigurationJoinInfo);
+			Write(serverTelemetryData);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			entityIdSelf = ReadSignedVarLong();
+			runtimeEntityId = ReadUnsignedVarLong();
+			gameType = ReadSignedVarInt();
+			position = ReadVector3();
+			rotation = ReadVector2();
+			settings = ReadLevelSettings();
+			levelId = ReadString();
+			levelName = ReadString();
+			templateContentIdentity = ReadString();
+			isTrial = ReadBool();
+			movementSettings = ReadSyncedPlayerMovementSettings();
+			levelCurrentTime = ReadUlong();
+			enchantmentSeed = ReadSignedVarInt();
+			uint blockPropertiesCount = ReadUnsignedVarInt();
+			blockProperties = new List<ServerBlockProperty>((int) blockPropertiesCount);
+			for (int i = 0; i < blockPropertiesCount; i++) blockProperties.Add(ReadServerBlockProperty());
+			multiplayerCorrelationId = ReadString();
+			enableItemStackNetManager = ReadBool();
+			serverVersion = ReadString();
+			playerPropertyData = ReadNbt();
+			serverBlockTypeRegistryChecksum = ReadUlong();
+			worldTemplateId = ReadUUID();
+			serverEnabledClientsideGeneration = ReadBool();
+			blockNetworkIdsAreHashes = ReadBool();
+			serverAuthSoundEnabled = ReadBool();
+			if (ReadBool()) serverConfigurationJoinInfo = ReadServerConfig();
+			serverTelemetryData = ReadServerTelemetryData();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			entityIdSelf=default(long);
+			runtimeEntityId=default(long);
+			gameType=default(int);
+			position=default(Vector3);
+			rotation=default(Vector2);
+			settings=default(LevelSettings);
+			levelId=default(string);
+			levelName=default(string);
+			templateContentIdentity=default(string);
+			isTrial=default(bool);
+			movementSettings=default(SyncedPlayerMovementSettings);
+			levelCurrentTime=default(ulong);
+			enchantmentSeed=default(int);
+			blockProperties=default(List<ServerBlockProperty>);
+			multiplayerCorrelationId=default(string);
+			enableItemStackNetManager=default(bool);
+			serverVersion=default(string);
+			playerPropertyData=default(Nbt);
+			serverBlockTypeRegistryChecksum=default(ulong);
+			worldTemplateId=default(UUID);
+			serverEnabledClientsideGeneration=default(bool);
+			blockNetworkIdsAreHashes=default(bool);
+			serverAuthSoundEnabled=default(bool);
+			serverConfigurationJoinInfo=default(ServerConfig);
+			serverTelemetryData=default(ServerTelemetryData);
+		}
+
+	}
+
 	public partial class McpeMovePlayer : Packet<McpeMovePlayer>
 	{
 		public enum Mode
@@ -323,6 +482,164 @@ namespace MiNET.Net
 	{
 	}
 
+	public class ClientStoreEntryPointConfig
+	{
+		public string storeid;
+		public string storename;
+	}
+
+	public class EduSharedUriResource
+	{
+		public string buttonName;
+		public string linkUri;
+	}
+
+	public class GatheringsConfig
+	{
+		public UUID experienceid;
+		public string experiencename;
+		public UUID worldid;
+		public string worldname;
+		public string creatorid;
+		public UUID targetid;
+		public string scenarioid;
+		public string serverid;
+	}
+
+	public class LevelSettings
+	{
+		public enum Generatortype
+		{
+			Legacy = 0,
+			Overworld = 1,
+			Flat = 2,
+			Nether = 3,
+			Theend = 4,
+			Void = 5,
+			Undefined = 6,
+		}
+
+		public enum Gametype
+		{
+			Undefined = 0,
+			Survival = 1,
+			Creative = 2,
+			Adventure = 3,
+			Default = 4,
+			Spectator = 5,
+			Worlddefault = 6,
+		}
+
+		public enum Gamedifficulty
+		{
+			Peaceful = 0,
+			Easy = 1,
+			Normal = 2,
+			Hard = 3,
+			Count = 4,
+			Unknown = 5,
+		}
+
+		public enum Editorworldtype
+		{
+			Noneditor = 0,
+			Editorproject = 1,
+			Editortestlevel = 2,
+			Editorrealmsupload = 3,
+		}
+
+		public enum Educationeditionoffer
+		{
+			None = 0,
+			Restofworld = 1,
+			ChinaDeprecated = 2,
+		}
+
+		public enum Xboxlivebroadcastsetting
+		{
+			Nomultiplay = 0,
+			Inviteonly = 1,
+			Friendsonly = 2,
+			Friendsoffriends = 3,
+			Public = 4,
+		}
+
+		public enum Platformbroadcastsetting
+		{
+			Nomultiplay = 0,
+			Inviteonly = 1,
+			Friendsonly = 2,
+			Friendsoffriends = 3,
+			Public = 4,
+		}
+
+		public enum Chatrestrictionlevel
+		{
+			None = 0,
+			Dropped = 1,
+			Disabled = 2,
+		}
+
+		public enum Servereditorconnectionpolicy
+		{
+			Matchworldtype = 0,
+			Editoronly = 1,
+			Vanillaonly = 2,
+			Mixed = 3,
+		}
+
+		public ulong seed;
+		public SpawnSettings spawnSettings;
+		public int generatorType;
+		public int gameType;
+		public bool isHardcore;
+		public int gameDifficulty;
+		public BlockCoordinates defaultSpawnBlockPosition;
+		public bool achievementsDisabled;
+		public int editorWorldType;
+		public bool isCreatedInEditor;
+		public bool isExportedFromEditor;
+		public int dayCycleStopTime;
+		public uint educationEditionOffer;
+		public bool educationFeaturesEnabled;
+		public string educationProductId;
+		public float rainLevel;
+		public float lightningLevel;
+		public bool hasConfirmedPlatformLockedContent;
+		public bool multiplayerGameIntent;
+		public bool lanBroadcastIntent;
+		public int xboxLiveBroadcastSetting;
+		public int platformBroadcastSetting;
+		public bool commandsEnabled;
+		public bool texturePacksRequired;
+		public GameRules gamerules;
+		public Experiments experiments;
+		public bool hasBonusChestEnabled;
+		public bool startWithMapEnabled;
+		public byte playerPermissions;
+		public int serverChunkTickRange;
+		public bool hasLockedBehaviorPack;
+		public bool hasLockedResourcePack;
+		public bool isFromLockedTemplate;
+		public bool useMsaGamertagsOnly;
+		public bool isFromWorldTemplate;
+		public bool isWorldTemplateOptionLocked;
+		public bool onlySpawnV1Villagers;
+		public bool personaDisabled;
+		public bool customSkinsDisabled;
+		public bool emoteChatMuted;
+		public string baseGameVersion;
+		public int limitedWorldWidth;
+		public int limitedWorldDepth;
+		public bool netherType;
+		public EduSharedUriResource eduSharedUriResource;
+		public bool? overrideForceExperimentalGameplay;
+		public byte chatRestrictionLevel;
+		public bool disablePlayerInteractions;
+		public int serverEditorConnectionPolicy;
+		public bool allowAnonymousBlockDropsInEditorWorlds;
+	}
+
 	public class MovePlayerTeleportData
 	{
 		public int teleportationCause;
@@ -365,8 +682,213 @@ namespace MiNET.Net
 	{
 	}
 
+	public class ServerBlockProperty
+	{
+		public string blockName;
+		public Nbt blockDefinition;
+	}
+
+	public class ServerConfig
+	{
+		public GatheringsConfig gathering;
+		public ClientStoreEntryPointConfig clientstoreentrypoint;
+		public string presence;
+	}
+
+	public class ServerTelemetryData
+	{
+		public string serverId;
+		public string scenarioId;
+		public string worldId;
+		public string ownerId;
+	}
+
+	public class SpawnSettings
+	{
+		public enum Spawnbiometype
+		{
+			Default = 0,
+			Userdefined = 1,
+		}
+
+		public short spawnBiomeType;
+		public string userDefinedBiomeName;
+		public int dimension;
+	}
+
+	public class SyncedPlayerMovementSettings
+	{
+		public int rewindHistorySize;
+		public bool serverAuthoritativeBlockBreaking;
+	}
+
 	public abstract partial class Packet
 	{
+		public void Write(ClientStoreEntryPointConfig data)
+		{
+			Write(data.storeid);
+			Write(data.storename);
+		}
+
+		public ClientStoreEntryPointConfig ReadClientStoreEntryPointConfig()
+		{
+			var data = new ClientStoreEntryPointConfig();
+			data.storeid = ReadString();
+			data.storename = ReadString();
+			return data;
+		}
+
+		public void Write(EduSharedUriResource data)
+		{
+			Write(data.buttonName);
+			Write(data.linkUri);
+		}
+
+		public EduSharedUriResource ReadEduSharedUriResource()
+		{
+			var data = new EduSharedUriResource();
+			data.buttonName = ReadString();
+			data.linkUri = ReadString();
+			return data;
+		}
+
+		public void Write(GatheringsConfig data)
+		{
+			Write(data.experienceid);
+			Write(data.experiencename);
+			Write(data.worldid);
+			Write(data.worldname);
+			Write(data.creatorid);
+			Write(data.targetid);
+			Write(data.scenarioid);
+			Write(data.serverid);
+		}
+
+		public GatheringsConfig ReadGatheringsConfig()
+		{
+			var data = new GatheringsConfig();
+			data.experienceid = ReadUUID();
+			data.experiencename = ReadString();
+			data.worldid = ReadUUID();
+			data.worldname = ReadString();
+			data.creatorid = ReadString();
+			data.targetid = ReadUUID();
+			data.scenarioid = ReadString();
+			data.serverid = ReadString();
+			return data;
+		}
+
+		public void Write(LevelSettings data)
+		{
+			Write(data.seed);
+			Write(data.spawnSettings);
+			WriteSignedVarInt(data.generatorType);
+			WriteSignedVarInt(data.gameType);
+			Write(data.isHardcore);
+			WriteSignedVarInt(data.gameDifficulty);
+			Write(data.defaultSpawnBlockPosition);
+			Write(data.achievementsDisabled);
+			WriteSignedVarInt(data.editorWorldType);
+			Write(data.isCreatedInEditor);
+			Write(data.isExportedFromEditor);
+			WriteSignedVarInt(data.dayCycleStopTime);
+			WriteUnsignedVarInt(data.educationEditionOffer);
+			Write(data.educationFeaturesEnabled);
+			Write(data.educationProductId);
+			Write(data.rainLevel);
+			Write(data.lightningLevel);
+			Write(data.hasConfirmedPlatformLockedContent);
+			Write(data.multiplayerGameIntent);
+			Write(data.lanBroadcastIntent);
+			WriteSignedVarInt(data.xboxLiveBroadcastSetting);
+			WriteSignedVarInt(data.platformBroadcastSetting);
+			Write(data.commandsEnabled);
+			Write(data.texturePacksRequired);
+			Write(data.gamerules);
+			Write(data.experiments);
+			Write(data.hasBonusChestEnabled);
+			Write(data.startWithMapEnabled);
+			Write(data.playerPermissions);
+			Write(data.serverChunkTickRange);
+			Write(data.hasLockedBehaviorPack);
+			Write(data.hasLockedResourcePack);
+			Write(data.isFromLockedTemplate);
+			Write(data.useMsaGamertagsOnly);
+			Write(data.isFromWorldTemplate);
+			Write(data.isWorldTemplateOptionLocked);
+			Write(data.onlySpawnV1Villagers);
+			Write(data.personaDisabled);
+			Write(data.customSkinsDisabled);
+			Write(data.emoteChatMuted);
+			Write(data.baseGameVersion);
+			Write(data.limitedWorldWidth);
+			Write(data.limitedWorldDepth);
+			Write(data.netherType);
+			Write(data.eduSharedUriResource);
+			Write(data.overrideForceExperimentalGameplay != null);
+			if (data.overrideForceExperimentalGameplay != null) Write(data.overrideForceExperimentalGameplay.Value);
+			Write(data.chatRestrictionLevel);
+			Write(data.disablePlayerInteractions);
+			WriteSignedVarInt(data.serverEditorConnectionPolicy);
+			Write(data.allowAnonymousBlockDropsInEditorWorlds);
+		}
+
+		public LevelSettings ReadLevelSettings()
+		{
+			var data = new LevelSettings();
+			data.seed = ReadUlong();
+			data.spawnSettings = ReadSpawnSettings();
+			data.generatorType = ReadSignedVarInt();
+			data.gameType = ReadSignedVarInt();
+			data.isHardcore = ReadBool();
+			data.gameDifficulty = ReadSignedVarInt();
+			data.defaultSpawnBlockPosition = ReadBlockCoordinates();
+			data.achievementsDisabled = ReadBool();
+			data.editorWorldType = ReadSignedVarInt();
+			data.isCreatedInEditor = ReadBool();
+			data.isExportedFromEditor = ReadBool();
+			data.dayCycleStopTime = ReadSignedVarInt();
+			data.educationEditionOffer = ReadUnsignedVarInt();
+			data.educationFeaturesEnabled = ReadBool();
+			data.educationProductId = ReadString();
+			data.rainLevel = ReadFloat();
+			data.lightningLevel = ReadFloat();
+			data.hasConfirmedPlatformLockedContent = ReadBool();
+			data.multiplayerGameIntent = ReadBool();
+			data.lanBroadcastIntent = ReadBool();
+			data.xboxLiveBroadcastSetting = ReadSignedVarInt();
+			data.platformBroadcastSetting = ReadSignedVarInt();
+			data.commandsEnabled = ReadBool();
+			data.texturePacksRequired = ReadBool();
+			data.gamerules = ReadGameRules();
+			data.experiments = ReadExperiments();
+			data.hasBonusChestEnabled = ReadBool();
+			data.startWithMapEnabled = ReadBool();
+			data.playerPermissions = ReadByte();
+			data.serverChunkTickRange = ReadInt();
+			data.hasLockedBehaviorPack = ReadBool();
+			data.hasLockedResourcePack = ReadBool();
+			data.isFromLockedTemplate = ReadBool();
+			data.useMsaGamertagsOnly = ReadBool();
+			data.isFromWorldTemplate = ReadBool();
+			data.isWorldTemplateOptionLocked = ReadBool();
+			data.onlySpawnV1Villagers = ReadBool();
+			data.personaDisabled = ReadBool();
+			data.customSkinsDisabled = ReadBool();
+			data.emoteChatMuted = ReadBool();
+			data.baseGameVersion = ReadString();
+			data.limitedWorldWidth = ReadInt();
+			data.limitedWorldDepth = ReadInt();
+			data.netherType = ReadBool();
+			data.eduSharedUriResource = ReadEduSharedUriResource();
+			if (ReadBool()) data.overrideForceExperimentalGameplay = ReadBool();
+			data.chatRestrictionLevel = ReadByte();
+			data.disablePlayerInteractions = ReadBool();
+			data.serverEditorConnectionPolicy = ReadSignedVarInt();
+			data.allowAnonymousBlockDropsInEditorWorlds = ReadBool();
+			return data;
+		}
+
 		public void Write(MovePlayerTeleportData data)
 		{
 			Write(data.teleportationCause);
@@ -473,6 +995,87 @@ namespace MiNET.Net
 		{
 			var data = new ResourcePackClientResponseResourcePackStackFinished();
 			ReadString();
+			return data;
+		}
+
+		public void Write(ServerBlockProperty data)
+		{
+			Write(data.blockName);
+			Write(data.blockDefinition);
+		}
+
+		public ServerBlockProperty ReadServerBlockProperty()
+		{
+			var data = new ServerBlockProperty();
+			data.blockName = ReadString();
+			data.blockDefinition = ReadNbt();
+			return data;
+		}
+
+		public void Write(ServerConfig data)
+		{
+			Write(data.gathering != null);
+			if (data.gathering != null) Write(data.gathering);
+			Write(data.clientstoreentrypoint != null);
+			if (data.clientstoreentrypoint != null) Write(data.clientstoreentrypoint);
+			Write(data.presence != null);
+			if (data.presence != null) Write(data.presence);
+		}
+
+		public ServerConfig ReadServerConfig()
+		{
+			var data = new ServerConfig();
+			if (ReadBool()) data.gathering = ReadGatheringsConfig();
+			if (ReadBool()) data.clientstoreentrypoint = ReadClientStoreEntryPointConfig();
+			if (ReadBool()) data.presence = ReadString();
+			return data;
+		}
+
+		public void Write(ServerTelemetryData data)
+		{
+			Write(data.serverId);
+			Write(data.scenarioId);
+			Write(data.worldId);
+			Write(data.ownerId);
+		}
+
+		public ServerTelemetryData ReadServerTelemetryData()
+		{
+			var data = new ServerTelemetryData();
+			data.serverId = ReadString();
+			data.scenarioId = ReadString();
+			data.worldId = ReadString();
+			data.ownerId = ReadString();
+			return data;
+		}
+
+		public void Write(SpawnSettings data)
+		{
+			Write(data.spawnBiomeType);
+			Write(data.userDefinedBiomeName);
+			WriteSignedVarInt(data.dimension);
+		}
+
+		public SpawnSettings ReadSpawnSettings()
+		{
+			var data = new SpawnSettings();
+			data.spawnBiomeType = ReadShort();
+			data.userDefinedBiomeName = ReadString();
+			data.dimension = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(SyncedPlayerMovementSettings data)
+		{
+			WriteSignedVarInt(data.rewindHistorySize);
+			Write(data.serverAuthoritativeBlockBreaking);
+		}
+
+		public SyncedPlayerMovementSettings ReadSyncedPlayerMovementSettings()
+		{
+			var data = new SyncedPlayerMovementSettings();
+			data.rewindHistorySize = ReadSignedVarInt();
+			data.serverAuthoritativeBlockBreaking = ReadBool();
 			return data;
 		}
 	}

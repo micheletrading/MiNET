@@ -73,14 +73,12 @@ namespace MiNET.Console
 		{
 			Client.EntityId = message.runtimeEntityId;
 			Client.NetworkEntityId = message.entityIdSelf;
-			Client.SpawnPoint = message.spawn;
+			Client.SpawnPoint = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
 			Client.CurrentLocation = new PlayerLocation(Client.SpawnPoint, message.rotation.X, message.rotation.X, message.rotation.Y);
 
 			Client.LevelInfo.LevelName = message.levelId;
 			Client.LevelInfo.Version = 19133;
-			Client.LevelInfo.GameType = message.levelSettings.gamemode;
-
-			BlockPalette = message.blockPalette;
+			Client.LevelInfo.GameType = message.settings.gameType;
 
 			_internalStates = new HashSet<BlockStateContainer>(BlockFactory.BlockPalette);
 

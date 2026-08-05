@@ -1206,7 +1206,6 @@ namespace MiNET.Net
 		public ResourcePackIdVersions resourcepackidversions; // = null;
 		public string gameVersion; // = null;
 		public Experiments experiments; // = null;
-		public bool experimentsPreviouslyToggled; // = null;
 		public bool hasEditorPacks; // = null;
 
 		public McpeResourcePackStack()
@@ -1225,7 +1224,6 @@ namespace MiNET.Net
 			Write(resourcepackidversions);
 			Write(gameVersion);
 			Write(experiments);
-			Write(experimentsPreviouslyToggled);
 			Write(hasEditorPacks);
 
 			AfterEncode();
@@ -1244,7 +1242,6 @@ namespace MiNET.Net
 			resourcepackidversions = ReadResourcePackIdVersions();
 			gameVersion = ReadString();
 			experiments = ReadExperiments();
-			experimentsPreviouslyToggled = ReadBool();
 			hasEditorPacks = ReadBool();
 
 			AfterDecode();
@@ -1261,7 +1258,6 @@ namespace MiNET.Net
 			resourcepackidversions=default(ResourcePackIdVersions);
 			gameVersion=default(string);
 			experiments=default(Experiments);
-			experimentsPreviouslyToggled=default(bool);
 			hasEditorPacks=default(bool);
 		}
 
@@ -1370,50 +1366,6 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			time=default(int);
-		}
-
-	}
-
-	public partial class McpeStartGame : Packet<McpeStartGame>
-	{
-
-
-		public McpeStartGame()
-		{
-			Id = 0x0b;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
 		}
 
 	}

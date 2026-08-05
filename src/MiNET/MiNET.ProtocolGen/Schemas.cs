@@ -118,7 +118,18 @@ public class Overrides
 			{
 				foreach (var f in fields.Properties())
 				{
-					p.FieldNames[f.Name] = (string) ((JObject) f.Value)["name"];
+					var o = (JObject) f.Value;
+					if (o["name"] != null) p.FieldNames[f.Name] = (string) o["name"];
+					if (o["type"] != null)
+					{
+						var t = (JObject) o["type"];
+						p.FieldTypes[f.Name] = new TypeMapping
+						{
+							CsType = (string) t["csType"],
+							Write = (string) t["write"],
+							Read = (string) t["read"],
+						};
+					}
 				}
 			}
 			overrides.Packets[prop.Name] = p;
@@ -131,6 +142,9 @@ public class PacketOverride
 {
 	/// <summary>Wire field name -> MiNET member name, where the schema-derived name is not the one the code should carry.</summary>
 	public Dictionary<string, string> FieldNames = new();
+
+	/// <summary>Wire field name -> forced type mapping, for fields the schema leaves untyped (NBT payloads and the like).</summary>
+	public Dictionary<string, TypeMapping> FieldTypes = new();
 }
 
 public class TypeMapping
@@ -202,12 +216,16 @@ public class CerealField
 	/// <summary>For const-discriminator fields inside variant payloads: the literal written on the wire.</summary>
 	public string ConstValue;
 
+	private static readonly HashSet<string> ValueTypes = new() {"bool", "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "float"};
+
+	public bool IsValueType => Kind == FieldKind.Plain && ValueTypes.Contains(Type.CsType);
+
 	public string CsType => Kind switch
 	{
 		FieldKind.Struct => Struct.Name,
 		FieldKind.Array => $"List<{Element.CsType}>",
 		FieldKind.Variant => Variant.BaseName,
-		_ => Type.CsType,
+		_ => Optional && IsValueType ? Type.CsType + "?" : Type.CsType,
 	};
 }
 
@@ -225,6 +243,7 @@ public class CerealStruct
 	/// <summary>Set when this struct is a variant option: the abstract base it extends.</summary>
 	public string BaseName;
 	public List<CerealField> Fields = new();
+	public List<CerealEnum> Enums = new();
 }
 
 /// <summary>An inline Enum-as-Value enum, emitted nested in the packet class, house style.</summary>
@@ -279,10 +298,21 @@ public class CerealPacket
 				Ordinal = (int) ((JObject) prop.Value)["x-ordinal-index"],
 				Optional = !required.Contains(prop.Name),
 			};
-			ResolveType(owner, field, (JObject) prop.Value, schemas, overrides, structs);
 
-			if (field.Optional && field.Kind != FieldKind.Struct)
-				throw new NotImplementedException($"{owner}.{prop.Name}: optional non-struct fields are not implemented yet");
+			TypeMapping forced = null;
+			packetOverride?.FieldTypes.TryGetValue(prop.Name, out forced);
+			if (forced != null)
+			{
+				field.Kind = FieldKind.Plain;
+				field.Type = forced;
+			}
+			else
+			{
+				ResolveType(owner, field, (JObject) prop.Value, schemas, overrides, structs);
+			}
+
+			if (field.Optional && field.Kind != FieldKind.Struct && field.Kind != FieldKind.Plain)
+				throw new NotImplementedException($"{owner}.{prop.Name}: optional {field.Kind} fields are not implemented yet");
 
 			yield return field;
 		}
@@ -381,12 +411,15 @@ public class CerealPacket
 				Values = ((JArray) prop["enum"]).Select(v => CodeNames.CodeName((string) v, true)).ToList(),
 			};
 			field.Kind = FieldKind.Plain;
-			field.Type = Primitive(owner, field.WireName, (string) prop["x-underlying-type"], false);
+			bool enumCompressed = options.Any(o => (string) o == "Compression");
+			field.Type = Primitive(owner, field.WireName, (string) prop["x-underlying-type"], enumCompressed);
 			return;
 		}
 
 		// Strings sometimes carry no x-underlying-type; the JSON type is enough.
 		string underlying = (string) prop["x-underlying-type"] ?? (string) prop["type"];
+		if (underlying == null)
+			throw new NotImplementedException($"{owner}.{field.WireName}: field has no type information; needs a field type override (NBT payload?)");
 		bool compressed = ((JArray) prop["x-serialization-options"])?.Any(o => (string) o == "Compression") ?? false;
 
 		field.Kind = FieldKind.Plain;
@@ -397,18 +430,27 @@ public class CerealPacket
 	{
 		if (structs.TryGetValue(name, out CerealStruct existing)) return existing;
 
-		var result = new CerealStruct {Name = name};
+		var result = new CerealStruct {Name = SanitizeTypeName(name)};
 		structs[name] = result;
+		overrides.Packets.TryGetValue(name, out PacketOverride structOverride);
 
-		foreach (CerealField field in ResolveFields(name, schema, schemas, overrides, structs, null))
+		foreach (CerealField field in ResolveFields(name, schema, schemas, overrides, structs, structOverride))
 		{
-			if (field.Optional) throw new NotImplementedException($"{name}.{field.WireName}: optional fields inside structs are not implemented yet");
-			if (field.Enum != null) throw new NotImplementedException($"{name}.{field.WireName}: enums inside structs are not implemented yet");
 			if (field.Kind == FieldKind.Variant) throw new NotImplementedException($"{name}.{field.WireName}: variants inside structs are not implemented yet");
+			if (field.Enum != null) result.Enums.Add(field.Enum);
 			result.Fields.Add(field);
 		}
 
 		return result;
+	}
+
+	/// <summary>Schema titles are mostly PascalCase already; snake_case ones (server_config) get converted without disturbing existing casing.</summary>
+	private static string SanitizeTypeName(string name)
+	{
+		string joined = name.Contains('_') || name.Contains(' ')
+			? string.Concat(name.Split('_', ' ').Where(p => p.Length > 0).Select(p => char.ToUpperInvariant(p[0]) + p.Substring(1)))
+			: name;
+		return char.ToUpperInvariant(joined[0]) + joined.Substring(1);
 	}
 
 	private static TypeMapping Primitive(string owner, string fieldName, string underlying, bool compressed)
@@ -423,6 +465,7 @@ public class CerealPacket
 				return new TypeMapping {CsType = "float", Write = "Write({0});", Read = "{0} = ReadFloat();"};
 			case "string":
 				return new TypeMapping {CsType = "string", Write = "Write({0});", Read = "{0} = ReadString();"};
+			case "int8" when compressed:
 			case "int32" when compressed:
 				return new TypeMapping {CsType = "int", Write = "WriteSignedVarInt({0});", Read = "{0} = ReadSignedVarInt();"};
 			case "uint32" when compressed:
@@ -438,6 +481,10 @@ public class CerealPacket
 				// Raw 64-bit is little-endian on the wire; Write(ulong)/ReadUlong() are the LE pair
 				// (Write(long)/ReadLong() byte-swap, despite the name).
 				return new TypeMapping {CsType = "ulong", Write = "Write({0});", Read = "{0} = ReadUlong();"};
+			case "int16":
+				return new TypeMapping {CsType = "short", Write = "Write({0});", Read = "{0} = ReadShort();"};
+			case "uint16":
+				return new TypeMapping {CsType = "ushort", Write = "Write({0});", Read = "{0} = ReadUshort();"};
 			default:
 				throw new NotImplementedException($"{owner}.{fieldName}: primitive {underlying}{(compressed ? "+Compression" : "")} is not implemented yet");
 		}

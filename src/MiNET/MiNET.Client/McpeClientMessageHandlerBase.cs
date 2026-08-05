@@ -177,14 +177,12 @@ namespace MiNET.Client
 			var client = Client;
 			client.EntityId = message.runtimeEntityId;
 			client.NetworkEntityId = message.entityIdSelf;
-			client.SpawnPoint = message.spawn;
+			client.SpawnPoint = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
 			client.CurrentLocation = new PlayerLocation(client.SpawnPoint, message.rotation.X, message.rotation.X, message.rotation.Y);
 
-			BlockPalette blockPalette = message.blockPalette;
-			client.BlockPalette = blockPalette;
-			client.LevelInfo.LevelName = message.worldName;
+			client.LevelInfo.LevelName = message.levelName;
 			client.LevelInfo.Version = 19133;
-			client.LevelInfo.GameType = message.levelSettings.gamemode;
+			client.LevelInfo.GameType = message.settings.gameType;
 
 			var packet = McpeRequestChunkRadius.CreateObject();
 			client.ChunkRadius = 5;

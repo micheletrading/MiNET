@@ -21,9 +21,42 @@
 			"csType": "UUID",
 			"write": "Write({0});",
 			"read": "{0} = ReadUUID();"
+		},
+		"Experiments": {
+			"csType": "Experiments",
+			"write": "Write({0});",
+			"read": "{0} = ReadExperiments();"
+		},
+		"GameRulesChangedPacketData": {
+			"csType": "GameRules",
+			"write": "Write({0});",
+			"read": "{0} = ReadGameRules();"
 		}
 	},
 	"packets": {
+		"StartGamePacket": {
+			"fields": {
+				"Player Property Data": {"type": {"csType": "Nbt", "write": "Write({0});", "read": "{0} = ReadNbt();"}},
+				"Entity ID": {"name": "entityIdSelf"},
+				"Runtime ID": {"name": "runtimeEntityId"},
+				"BlockNetworkIds Are Hashes": {"name": "blockNetworkIdsAreHashes"},
+				"NetworkPermissions": {"name": "serverAuthSoundEnabled"}
+			}
+		},
+		"LevelSettings": {
+			"fields": {
+				"Rule Data": {"name": "gamerules"},
+				"Player Permissions": {
+					"type": {"csType": "byte", "write": "Write({0});", "read": "{0} = ReadByte();"},
+					"reason": "Schema claims int8+Compression (zigzag varint) but live BDS 1.26.40.8 sends a raw byte (0x02 where zigzag would be 0x04), verified in the 2168 StartGame byte walk. Cloudburst writes a raw byte too."
+				}
+			}
+		},
+		"ServerBlockProperty": {
+			"fields": {
+				"Block Definition": {"type": {"csType": "Nbt", "write": "Write({0});", "read": "{0} = ReadNbt();"}}
+			}
+		},
 		"ResourcePacksInfoPacket": {
 			"fields": {
 				"Resource Pack Required": {"name": "mustAccept"}

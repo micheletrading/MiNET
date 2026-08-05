@@ -2352,7 +2352,8 @@ namespace MiNET.Net
 					}
 					case 2:
 					{
-						GameRule<int> rule = new GameRule<int>(name, ReadVarInt())
+						// Raw little-endian since 2168 (Cereal); was a varint before.
+						GameRule<int> rule = new GameRule<int>(name, ReadInt())
 						{
 							IsPlayerModifiable = isPlayerModifiable
 						};
@@ -2398,7 +2399,8 @@ namespace MiNET.Net
 				else if (rule is GameRule<int>)
 				{
 					WriteUnsignedVarInt(2);
-					WriteVarInt(((GameRule<int>) rule).Value);
+					// Raw little-endian since 2168 (Cereal); was a varint before.
+					Write(((GameRule<int>) rule).Value);
 				}
 				else if (rule is GameRule<float>)
 				{
@@ -3896,6 +3898,8 @@ namespace MiNET.Net
 				var enabled = ReadBool();
 				experiments.Add(new Experiments.Experiment(experimentName, enabled));
 			}
+			// The trailing ever-toggled bool belongs to the wire type (Experiments in the 2168 schema).
+			experiments.ExperimentsEverToggled = ReadBool();
 			return experiments;
 		}
 
@@ -3904,6 +3908,7 @@ namespace MiNET.Net
 			if (experiments == null)
 			{
 				Write(0);
+				Write(false);
 				return;
 			}
 			Write(experiments.Count);
@@ -3913,6 +3918,8 @@ namespace MiNET.Net
 				Write(experiment.Name);
 				Write(experiment.Enabled);
 			}
+
+			Write(experiments.ExperimentsEverToggled);
 		}
 
 		public void Write(EducationUriResource resource)

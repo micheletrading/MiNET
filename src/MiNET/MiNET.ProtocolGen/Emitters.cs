@@ -234,6 +234,7 @@ public static class CerealEmitter
 		sb.AppendLine("using System.Collections.Generic;");
 		sb.AppendLine("using System.Numerics;");
 		sb.AppendLine("using MiNET.Utils;");
+		sb.AppendLine("using MiNET.Utils.Nbt;");
 		sb.AppendLine("using MiNET.Utils.Vectors;");
 		sb.AppendLine();
 		sb.AppendLine("namespace MiNET.Net");
@@ -329,6 +330,17 @@ public static class CerealEmitter
 			string inherit = s.BaseName != null ? $" : {s.BaseName}" : "";
 			sb.AppendLine($"\tpublic class {s.Name}{inherit}");
 			sb.AppendLine("\t{");
+			foreach (CerealEnum e in s.Enums)
+			{
+				sb.AppendLine($"\t\tpublic enum {e.Name}");
+				sb.AppendLine("\t\t{");
+				for (int i = 0; i < e.Values.Count; i++)
+				{
+					sb.AppendLine($"\t\t\t{e.Values[i]} = {i},");
+				}
+				sb.AppendLine("\t\t}");
+				sb.AppendLine();
+			}
 			foreach (CerealField field in s.Fields.Where(f => f.ConstValue == null))
 			{
 				sb.AppendLine($"\t\tpublic {field.CsType} {field.FieldName};");
@@ -380,19 +392,7 @@ public static class CerealEmitter
 			yield return string.Format(field.Type.Write, "");
 			yield break;
 		}
-		if (field.Kind == FieldKind.Struct)
-		{
-			yield return $"Write(data.{field.FieldName});";
-			yield break;
-		}
-		if (field.Kind == FieldKind.Array)
-		{
-			yield return $"WriteUnsignedVarInt((uint) data.{field.FieldName}.Count);";
-			string writeItem = field.Element.Kind == FieldKind.Struct ? "Write(item);" : string.Format(field.Element.Type.Write, "item");
-			yield return $"foreach ({field.Element.CsType} item in data.{field.FieldName}) {writeItem}";
-			yield break;
-		}
-		yield return string.Format(field.Type.Write, "data." + field.FieldName);
+		foreach (string line in WriteLines(field, "data.")) yield return line;
 	}
 
 	private static IEnumerable<string> StructReadLines(CerealField field)
@@ -402,45 +402,11 @@ public static class CerealEmitter
 			yield return field.Type.Read;
 			yield break;
 		}
-		if (field.Kind == FieldKind.Struct)
-		{
-			yield return $"data.{field.FieldName} = Read{field.Struct.Name}();";
-			yield break;
-		}
-		if (field.Kind == FieldKind.Array)
-		{
-			yield return $"uint {field.FieldName}Count = ReadUnsignedVarInt();";
-			yield return $"data.{field.FieldName} = new List<{field.Element.CsType}>((int) {field.FieldName}Count);";
-			yield return $"for (int i = 0; i < {field.FieldName}Count; i++) data.{field.FieldName}.Add({ReadExpression(field.Element)});";
-			yield break;
-		}
-		yield return string.Format(field.Type.Read, "data." + field.FieldName);
+		foreach (string line in ReadLines(field, "data.")) yield return line;
 	}
 
 	private static IEnumerable<string> EncodeLines(CerealField field)
 	{
-		if (field.Kind == FieldKind.Struct)
-		{
-			if (field.Optional)
-			{
-				yield return $"Write({field.FieldName} != null);";
-				yield return $"if ({field.FieldName} != null) Write({field.FieldName});";
-			}
-			else
-			{
-				yield return $"Write({field.FieldName});";
-			}
-			yield break;
-		}
-
-		if (field.Kind == FieldKind.Array)
-		{
-			yield return $"WriteUnsignedVarInt((uint) {field.FieldName}.Count);";
-			string writeItem = field.Element.Kind == FieldKind.Struct ? "Write(item);" : string.Format(field.Element.Type.Write, "item");
-			yield return $"foreach ({field.Element.CsType} item in {field.FieldName}) {writeItem}";
-			yield break;
-		}
-
 		if (field.Kind == FieldKind.Variant)
 		{
 			yield return $"switch ({field.FieldName})";
@@ -458,32 +424,11 @@ public static class CerealEmitter
 			yield break;
 		}
 
-		yield return string.Format(field.Type.Write, field.FieldName);
+		foreach (string line in WriteLines(field, "")) yield return line;
 	}
 
 	private static IEnumerable<string> DecodeLines(CerealField field)
 	{
-		if (field.Kind == FieldKind.Struct)
-		{
-			if (field.Optional)
-			{
-				yield return $"if (ReadBool()) {field.FieldName} = Read{field.Struct.Name}();";
-			}
-			else
-			{
-				yield return $"{field.FieldName} = Read{field.Struct.Name}();";
-			}
-			yield break;
-		}
-
-		if (field.Kind == FieldKind.Array)
-		{
-			yield return $"uint {field.FieldName}Count = ReadUnsignedVarInt();";
-			yield return $"{field.FieldName} = new List<{field.Element.CsType}>((int) {field.FieldName}Count);";
-			yield return $"for (int i = 0; i < {field.FieldName}Count; i++) {field.FieldName}.Add({ReadExpression(field.Element)});";
-			yield break;
-		}
-
 		if (field.Kind == FieldKind.Variant)
 		{
 			yield return $"{field.FieldName} = ReadUnsignedVarInt() switch";
@@ -497,7 +442,78 @@ public static class CerealEmitter
 			yield break;
 		}
 
-		yield return string.Format(field.Type.Read, field.FieldName);
+		foreach (string line in ReadLines(field, "")) yield return line;
+	}
+
+	private static IEnumerable<string> WriteLines(CerealField field, string prefix)
+	{
+		string name = prefix + field.FieldName;
+
+		if (field.Kind == FieldKind.Struct)
+		{
+			if (field.Optional)
+			{
+				yield return $"Write({name} != null);";
+				yield return $"if ({name} != null) Write({name});";
+			}
+			else
+			{
+				yield return $"Write({name});";
+			}
+			yield break;
+		}
+
+		if (field.Kind == FieldKind.Array)
+		{
+			yield return $"WriteUnsignedVarInt((uint) {name}.Count);";
+			string writeItem = field.Element.Kind == FieldKind.Struct ? "Write(item);" : string.Format(field.Element.Type.Write, "item");
+			yield return $"foreach ({field.Element.CsType} item in {name}) {writeItem}";
+			yield break;
+		}
+
+		if (field.Optional)
+		{
+			string value = field.IsValueType ? name + ".Value" : name;
+			yield return $"Write({name} != null);";
+			yield return $"if ({name} != null) {string.Format(field.Type.Write, value)}";
+			yield break;
+		}
+
+		yield return string.Format(field.Type.Write, name);
+	}
+
+	private static IEnumerable<string> ReadLines(CerealField field, string prefix)
+	{
+		string name = prefix + field.FieldName;
+
+		if (field.Kind == FieldKind.Struct)
+		{
+			if (field.Optional)
+			{
+				yield return $"if (ReadBool()) {name} = Read{field.Struct.Name}();";
+			}
+			else
+			{
+				yield return $"{name} = Read{field.Struct.Name}();";
+			}
+			yield break;
+		}
+
+		if (field.Kind == FieldKind.Array)
+		{
+			yield return $"uint {field.FieldName}Count = ReadUnsignedVarInt();";
+			yield return $"{name} = new List<{field.Element.CsType}>((int) {field.FieldName}Count);";
+			yield return $"for (int i = 0; i < {field.FieldName}Count; i++) {name}.Add({ReadExpression(field.Element)});";
+			yield break;
+		}
+
+		if (field.Optional)
+		{
+			yield return $"if (ReadBool()) {name} = {ReadExpression(field)};";
+			yield break;
+		}
+
+		yield return string.Format(field.Type.Read, name);
 	}
 
 	/// <summary>The read call as an expression, for array elements: "ReadString()" from "{0} = ReadString();".</summary>

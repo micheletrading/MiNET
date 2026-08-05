@@ -3592,89 +3592,97 @@ namespace MiNET
 		{
 			var levelSettings = new LevelSettings
 			{
-				spawnSettings = new SpawnSettings()
+				spawnSettings = new SpawnSettings
 				{
-					Dimension = (int) (Level?.Dimension ?? 0),
-					BiomeName = Level.SpawnBiomeName,
-					BiomeType = Level.SpawnBiomeType
+					dimension = (int) (Level?.Dimension ?? 0),
+					userDefinedBiomeName = Level.SpawnBiomeName,
+					spawnBiomeType = Level.SpawnBiomeType
 				},
-				seed = Level.Seed,
-				generator = Level.GeneratorType,
-				gamemode = (int) GameMode,
-				difficulty = (int) Level.Difficulty,
-				x = (int) SpawnPosition.X,
-				y = (int) (SpawnPosition.Y + Height),
-				z = (int) SpawnPosition.Z,
-				hasAchievementsDisabled = Level.AchievementsDisabled,
-				time = (int) Level.WorldTime,
-				eduOffer = PlayerInfo.Edition == 1 ? 1 : 0,
+				seed = (ulong) Level.Seed,
+				generatorType = Level.GeneratorType,
+				gameType = (int) GameMode,
+				gameDifficulty = (int) Level.Difficulty,
+				defaultSpawnBlockPosition = new BlockCoordinates((int) SpawnPosition.X, (int) (SpawnPosition.Y + Height), (int) SpawnPosition.Z),
+				achievementsDisabled = Level.AchievementsDisabled,
+				dayCycleStopTime = (int) Level.WorldTime,
+				educationEditionOffer = PlayerInfo.Edition == 1 ? 1u : 0u,
+				educationProductId = "",
 				rainLevel = Level.RainLevel,
 				lightningLevel = Level.LightningLevel,
-				isMultiplayer = Level.IsMultiplayer,
-				broadcastToLan = Level.BroadcastToLan,
-				enableCommands = EnableCommands,
-				isTexturepacksRequired = Level.IsTexturepacksRequired,
+				multiplayerGameIntent = Level.IsMultiplayer,
+				lanBroadcastIntent = Level.BroadcastToLan,
+				commandsEnabled = EnableCommands,
+				texturePacksRequired = Level.IsTexturepacksRequired,
 				gamerules = Level.GetGameRules(),
-				bonusChest = Level.BonusChest,
-				mapEnabled = Level.MapEnabled,
-				permissionLevel = (int) PermissionLevel,
+				experiments = new Experiments(),
+				hasBonusChestEnabled = Level.BonusChest,
+				startWithMapEnabled = Level.MapEnabled,
+				playerPermissions = (byte) PermissionLevel,
 				// "*" is what vanilla sends here, not the version string and not empty.
-				gameVersion = "*",
+				baseGameVersion = "*",
 
 				// This server is not Education Edition. Sending true put every client into edu mode,
 				// which changes chat, permissions and the player roster UI.
-				hasEduFeaturesEnabled = false,
+				educationFeaturesEnabled = false,
+				eduSharedUriResource = new EduSharedUriResource {buttonName = "", linkUri = ""},
 
 				serverChunkTickRange = Level.ServerChunkTickRange,
 				useMsaGamertagsOnly = Level.UseMsaGamertagsOnly,
 				limitedWorldWidth = Level.LimitedWorldWidth,
-				limitedWorldLength = Level.LimitedWorldLength,
-				xboxLiveBroadcastMode = Level.XboxLiveBroadcastMode,
-				platformBroadcastMode = Level.PlatformBroadcastMode
+				limitedWorldDepth = Level.LimitedWorldLength,
+				xboxLiveBroadcastSetting = Level.XboxLiveBroadcastMode,
+				platformBroadcastSetting = Level.PlatformBroadcastMode
 			};
 
 			var startGame = McpeStartGame.CreateObject();
-			startGame.levelSettings = levelSettings;
+			startGame.settings = levelSettings;
 			startGame.entityIdSelf = EntityId;
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
-			startGame.playerGamemode = 5; // fallback: use the level's game mode, like vanilla
+			startGame.gameType = 5; // fallback: use the level's game mode, like vanilla
 			// Eye height, like every other position we send. SpawnPosition is feet, and the client
 			// subtracts the offset to place them, so sending it raw spawns the player 1.62 low,
 			// which is inside the ground when the spawn is snapped to the surface.
-			startGame.spawn = new PlayerLocation(SpawnPosition.X, SpawnPosition.Y + 1.62f, SpawnPosition.Z);
+			startGame.position = new Vector3(SpawnPosition.X, SpawnPosition.Y + 1.62f, SpawnPosition.Z);
 			startGame.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.HeadYaw);
-			
+
 			// A stable but non-legacy level id: the client keys local caches on world identity,
 			// and the old constant id may pin poisoned cache entries from early broken sessions.
 			startGame.levelId = "minet-" + (Level.LevelName ?? "world");
-			startGame.worldName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
-			startGame.premiumWorldTemplateId = "00000000-0000-0000-0000-000000000000"; // vanilla sends the zero uuid as a string, not empty
+			startGame.levelName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
+			startGame.templateContentIdentity = "00000000-0000-0000-0000-000000000000"; // vanilla sends the zero uuid as a string, not empty
 			startGame.isTrial = Level.IsTrial;
 			// How SubChunk.WriteStore encodes chunk palettes. The two must always agree, so both
 			// come from the one setting. The palette itself is never sent, in either mode: vanilla
 			// stopped sending it, and index mode indexes the client's own canonical palette. That
 			// is what makes index mode demanding: our palette order has to be the client's, exactly.
 			startGame.blockNetworkIdsAreHashes = SubChunk.BlockNetworkIdsAreHashes;
-			startGame.movementRewindHistorySize = Level.MovementRewindHistorySize;
-			// Wire behaviour switches, not world settings: both must match how this server actually
-			// handles breaking and sound, so they are not somebody's to configure.
-			startGame.enableNewBlockBreakSystem = true;
-			startGame.serverControlledSound = true;
-			startGame.currentTick = Level.TickTime;
+			// Wire behaviour switches, not world settings: server-auth block breaking must match how
+			// this server actually handles breaking, so it is not somebody's to configure.
+			startGame.movementSettings = new SyncedPlayerMovementSettings
+			{
+				rewindHistorySize = Level.MovementRewindHistorySize,
+				serverAuthoritativeBlockBreaking = true
+			};
+			startGame.serverAuthSoundEnabled = true;
+			startGame.levelCurrentTime = (ulong) Level.TickTime;
 			startGame.enchantmentSeed = Level.EnchantmentSeed;
-			startGame.enableNewInventorySystem = true;
+			startGame.enableItemStackNetManager = true;
+			startGame.blockProperties = new List<ServerBlockProperty>();
+			startGame.playerPropertyData = new Nbt {NbtFile = new NbtFile(new NbtCompound("")) {BigEndian = false, UseVarInt = true}};
 			// 0 disables the client's palette-checksum verification. NEVER mirror BDS's value:
 			// the client recomputes the checksum locally and rejects the join with "Blocks
 			// between client and server do not match" on any mismatch (observed live 2026-07-31;
 			// the mirrored 1.26.34 value failed a 1.26.33 client). PMMP ships 0 for the same
 			// reason. Computing the real value needs the exact vanilla algorithm; until then 0.
-			startGame.blockPaletteChecksum = 0;
+			startGame.serverBlockTypeRegistryChecksum = 0;
 			startGame.serverVersion = McpeProtocolInfo.GameVersion;
 			startGame.worldTemplateId = new UUID(new byte[16]);
 			// Session correlation id in vanilla's "<raknet>xxxx-xxxx-xxxx-xxxx" shape.
 			startGame.multiplayerCorrelationId = "<raknet>" + Guid.NewGuid().ToString("N").Substring(0, 16).Insert(4, "-").Insert(9, "-").Insert(14, "-");
+			startGame.serverEnabledClientsideGeneration = false;
 			// Vanilla sends the join-info block with all three optional sub-blocks absent.
-			startGame.hasServerJoinInfo = true;
+			startGame.serverConfigurationJoinInfo = new ServerConfig();
+			startGame.serverTelemetryData = new ServerTelemetryData {serverId = "", scenarioId = "", worldId = "", ownerId = ""};
 
 			SendPacket(startGame);
 		}

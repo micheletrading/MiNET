@@ -31,7 +31,7 @@ namespace MiNET.Test
 			{
 				var fileNameBlockstates = Path.GetTempPath() + "blockstates_" + Guid.NewGuid() + ".json";
 
-				File.WriteAllText(fileNameBlockstates, JsonConvert.SerializeObject(message.blockPalette));
+				File.WriteAllText(fileNameBlockstates, JsonConvert.SerializeObject(message.blockProperties));
 				
 				Finished = true;
 			}
