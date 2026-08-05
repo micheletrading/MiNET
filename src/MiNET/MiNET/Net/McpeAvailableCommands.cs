@@ -633,60 +633,52 @@ namespace MiNET.Net
 			};
 		}
 
-		private int GetParameterTypeId(string type)
+		/// <summary>
+		///     What a command parameter's type is called on the wire. Mojang inserts types into the
+		///     middle of this enum, so everything above 23 has been renumbered at least once since
+		///     these were written: a stale id reaches the client as a type it cannot name and the
+		///     client renders the whole argument as "unknown", which is what every string parameter
+		///     did before this was corrected. Values are PMMP BedrockProtocol's at protocol 1001,
+		///     CommandParameterTypes.php.
+		/// </summary>
+		public static readonly IReadOnlyDictionary<string, int> ParameterTypeIds = new Dictionary<string, int>
 		{
-			return type switch
-			{
-				"unknown" => 0,
-				"int" => 1,
-				"float" => 3,
-				"mixed" => 4,
-				"wildcardint" => 5,
-				"operator" => 6,
-				"commandoperator" => 7,
-				"target" => 8,
-				"wildcardtarget" => 10,
-				"filename" => 17,
-				"integerrange" => 23,
-				"equipmentslots" => 43,
-				"string" => 44,
-				"blockpos" => 52,
-				"entitypos" => 53,
-				"message" => 55,
-				"rawtext" => 58,
-				"json" => 62,
-				"blockstates" => 71,
-				"command" => 75,
-				_ => 0
-			};
+			["int"] = 1,
+			["float"] = 3,
+			["mixed"] = 4,
+			["wildcardint"] = 5,
+			["operator"] = 6,
+			["commandoperator"] = 7,
+			["target"] = 8,
+			["wildcardtarget"] = 10,
+			["filename"] = 17,
+			["integerrange"] = 23,
+			["equipmentslots"] = 47,
+			["string"] = 56,
+			["blockpos"] = 64,
+			["entitypos"] = 65,
+			["message"] = 68,
+			["rawtext"] = 70,
+			["json"] = 74,
+			["blockstates"] = 84,
+			["timemarker"] = 86,
+			["codebuilderargs"] = 88
+		};
+
+		// One table read both ways, because two switches over the same values is how the encode and
+		// decode sides came to disagree.
+		private static readonly IReadOnlyDictionary<int, string> ParameterTypeNames = ParameterTypeIds.ToDictionary(pair => pair.Value, pair => pair.Key);
+
+		/// <summary>The wire id for a parameter type name, 0 for a name with no type.</summary>
+		public static int GetParameterTypeId(string type)
+		{
+			return type != null && ParameterTypeIds.TryGetValue(type, out int id) ? id : 0;
 		}
 
-		private string GetParameterTypeName(int type)
+		/// <summary>The parameter type name for a wire id, "unknown" for an id we have no name for.</summary>
+		public static string GetParameterTypeName(int type)
 		{
-			return type switch
-			{
-				0 => "unknown",
-				1 => "int",
-				3 => "float",
-				4 => "mixed",
-				5 => "wildcardint",
-				6 => "operator",
-				7 => "commandoperator",
-				8 => "target",
-				10 => "wildcardtarget",
-				17 => "filename",
-				23 => "integerrange",
-				43 => "equipmentslots",
-				44 => "string",
-				52 => "blockpos",
-				53 => "entitypos",
-				55 => "message",
-				58 => "rawtext",
-				62 => "json",
-				71 => "blockstates",
-				75 => "command",
-				_ => "unknown"
-			};
+			return ParameterTypeNames.TryGetValue(type, out string name) ? name : "unknown";
 		}
 	}
 }

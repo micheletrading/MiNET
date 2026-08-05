@@ -24,6 +24,7 @@
 #endregion
 
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -148,6 +149,40 @@ namespace MiNET.Test
 			Assert.AreEqual("Value: 1.2, Relative: False, Value: 3.4, Relative: True", result);
 		}
 
+		// A description reaches a player two ways, the AvailableCommands packet from the version and
+		// /help from the overload, so both have to carry it. An undocumented command has to carry
+		// nothing: GetUsage only omits the description when it is empty, so a placeholder there is
+		// printed to the player as if it were documentation.
+
+		[TestMethod]
+		public void AnUndocumentedCommandDescribesItselfAsNothing()
+		{
+			Version version = GetVersion(nameof(TestPlugin.CmdInt));
+
+			Assert.AreEqual("", version.Description);
+			Assert.AreEqual("", version.Overloads.Values.First().Description);
+		}
+
+		[TestMethod]
+		public void EitherWayOfWritingADescriptionReachesTheCommandSet()
+		{
+			Version onAttribute = GetVersion(nameof(TestPlugin.CmdDescribedOnAttribute));
+			Version separate = GetVersion(nameof(TestPlugin.CmdDescribedSeparately));
+
+			Assert.AreEqual("Written on the command attribute", onAttribute.Description);
+			Assert.AreEqual("Written on the command attribute", onAttribute.Overloads.Values.First().Description);
+			Assert.AreEqual("Written as its own attribute", separate.Description);
+			Assert.AreEqual("Written as its own attribute", separate.Overloads.Values.First().Description);
+		}
+
+		private static Version GetVersion(string methodName)
+		{
+			MethodInfo method = typeof(TestPlugin).GetMethod(methodName);
+			CommandSet commands = PluginManager.GenerateCommandSet(new[] {method});
+
+			return commands.Values.First().Versions.First();
+		}
+
 		private static TestPlugin GetTestPlugin()
 		{
 			var manager = new PluginManager();
@@ -173,6 +208,21 @@ namespace MiNET.Test
 		public string CmdInt(int i, short s, byte b)
 		{
 			return $"{i}, {s}, {b}";
+		}
+
+		[Command(Description = "Written on the command attribute")]
+		public string CmdDescribedOnAttribute()
+		{
+			return "";
+		}
+
+		// Qualified because MSTest has a DescriptionAttribute of its own; PluginManager reads
+		// System.ComponentModel's.
+		[Command]
+		[System.ComponentModel.Description("Written as its own attribute")]
+		public string CmdDescribedSeparately()
+		{
+			return "";
 		}
 
 		[Command]

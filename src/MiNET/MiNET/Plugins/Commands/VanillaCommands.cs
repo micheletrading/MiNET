@@ -29,6 +29,7 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using log4net;
+using MiNET.Blocks;
 using MiNET.Entities;
 using MiNET.Entities.Hostile;
 using MiNET.Entities.Passive;
@@ -89,10 +90,18 @@ namespace MiNET.Plugins.Commands
 			commander.SendAdventureSettings();
 		}
 
-		[Command]
-		public string SetBlock(Player commander, BlockPos position, BlockTypeEnum tileName, int tileData = 0)
+		[Command(Description = "Places a block, optionally with block states")]
+		public string SetBlock(Player commander, BlockPos position, BlockTypeEnum tileName, BlockStates blockStates = null)
 		{
-			return $"Set block complete. {position.XRelative} {tileName.Value}";
+			Block block = BlockFactory.GetBlockByName(tileName.Value);
+			if (block == null) return $"There is no block called {tileName.Value}.";
+
+			if (blockStates != null && !blockStates.TryApplyTo(block, out string error)) return error;
+
+			block.Coordinates = position.ToCoordinates((BlockCoordinates) commander.KnownPosition);
+			commander.Level.SetBlock(block);
+
+			return $"Placed {block.Name} at {block.Coordinates}.";
 		}
 
 		[Command]
@@ -221,7 +230,7 @@ namespace MiNET.Plugins.Commands
 					mob = new ZombiePigman(world);
 					break;
 				case EntityType.Slime:
-					mob = new Slime(world);
+					mob = new Entities.Hostile.Slime(world);
 					break;
 				case EntityType.Enderman:
 					mob = new Enderman(world);
@@ -604,8 +613,10 @@ namespace MiNET.Plugins.Commands
 			return $"{player.Username} set day to 5000 and locked time.";
 		}
 
+		// Still a stub, but it takes block states rather than a data value so the signature is not
+		// advertising something the server no longer understands.
 		[Command]
-		public void Fill(Player commander, BlockPos from, BlockPos to, BlockTypeEnum tileName, int tileData = 0)
+		public void Fill(Player commander, BlockPos from, BlockPos to, BlockTypeEnum tileName, BlockStates blockStates = null)
 		{
 		}
 	}

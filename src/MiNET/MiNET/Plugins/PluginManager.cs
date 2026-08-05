@@ -280,8 +280,7 @@ namespace MiNET.Plugins
 					commandAttribute.Name = method.Name;
 				}
 
-				DescriptionAttribute descriptionAttribute = Attribute.GetCustomAttribute(method, typeof(DescriptionAttribute), false) as DescriptionAttribute;
-				if (descriptionAttribute != null) commandAttribute.Description = descriptionAttribute.Description;
+				commandAttribute.Description = GetDescription(method, commandAttribute);
 
 				try
 				{
@@ -292,6 +291,21 @@ namespace MiNET.Plugins
 					Log.Debug($"Command already exist {method.Name}, {method}", e);
 				}
 			}
+		}
+
+		/// <summary>
+		///     A command is documented either on its [Command] or as its own [Description], and both
+		///     are read here so the two callers cannot answer differently. Empty when undocumented,
+		///     never a placeholder: GetUsage omits the description only when it is empty, so anything
+		///     else is printed to the player as if it were documentation.
+		/// </summary>
+		private static string GetDescription(MethodInfo method, CommandAttribute commandAttribute)
+		{
+			if (!string.IsNullOrEmpty(commandAttribute.Description)) return commandAttribute.Description;
+
+			var descriptionAttribute = Attribute.GetCustomAttribute(method, typeof(DescriptionAttribute), false) as DescriptionAttribute;
+
+			return descriptionAttribute?.Description ?? "";
 		}
 
 		public static CommandSet GenerateCommandSet(MethodInfo[] methods)
@@ -310,9 +324,11 @@ namespace MiNET.Plugins
 					commandAttribute.Name = method.Name;
 				}
 
+				string description = GetDescription(method, commandAttribute);
+
 				var overload = new Overload
 				{
-					Description = commandAttribute.Description ?? "Bullshit",
+					Description = description,
 					Method = method,
 					Input = new Input(),
 				};
@@ -347,7 +363,7 @@ namespace MiNET.Plugins
 								CommandPermission = authorizeAttribute.Permission,
 								ErrorMessage = authorizeAttribute.ErrorMessage,
 								Aliases = commandAttribute.Aliases ?? new string[0],
-								Description = commandAttribute.Description ?? "",
+								Description = description,
 								Overloads = new Dictionary<string, Overload>
 								{
 									{"default", overload},
@@ -536,6 +552,8 @@ namespace MiNET.Plugins
 				value = "entitypos";
 			else if (parameter.ParameterType == typeof(RelValue))
 				value = "value";
+			else if (parameter.ParameterType == typeof(BlockStates))
+				value = "blockstates";
 			else if (parameter.ParameterType.IsEnum)
 				value = "stringenum";
 			else if (parameter.ParameterType.BaseType == typeof(EnumBase))
@@ -865,43 +883,17 @@ namespace MiNET.Plugins
 						continue;
 					}
 
+					if (parameter.ParameterType == typeof(BlockStates))
+					{
+						objectArgs[objArgIdx] = BlockStates.Parse(args[argIdx++]);
+						continue;
+					}
+
 					if (parameter.ParameterType == typeof(BlockPos))
 					{
 						if (args.Length < argIdx + 3) return false;
 
-						var blockPos = new BlockPos();
-
-						string val = args[argIdx++];
-						if (val.StartsWith("~"))
-						{
-							val = val.Substring(1);
-							blockPos.XRelative = true;
-						}
-
-						int.TryParse(val, out int x);
-						blockPos.X = x;
-
-						val = args[argIdx++];
-						if (val.StartsWith("~"))
-						{
-							val = val.Substring(1);
-							blockPos.YRelative = true;
-						}
-
-						int.TryParse(val, out int y);
-						blockPos.Y = y;
-
-						val = args[argIdx++];
-						if (val.StartsWith("~"))
-						{
-							val = val.Substring(1);
-							blockPos.ZRelative = true;
-						}
-
-						int.TryParse(val, out int z);
-						blockPos.Z = z;
-
-						objectArgs[objArgIdx] = blockPos;
+						objectArgs[objArgIdx] = BlockPos.Parse(args[argIdx++], args[argIdx++], args[argIdx++]);
 						continue;
 					}
 
@@ -909,57 +901,13 @@ namespace MiNET.Plugins
 					{
 						if (args.Length < argIdx + 3) return false;
 
-						var blockPos = new EntityPos();
-
-						string val = args[argIdx++];
-						if (val.StartsWith("~"))
-						{
-							val = val.Substring(1);
-							blockPos.XRelative = true;
-						}
-
-						double.TryParse(val, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.InvariantInfo, out double x);
-						blockPos.X = x;
-
-						val = args[argIdx++];
-						if (val.StartsWith("~"))
-						{
-							val = val.Substring(1);
-							blockPos.YRelative = true;
-						}
-
-						double.TryParse(val, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.InvariantInfo, out double y);
-						blockPos.Y = y;
-
-						val = args[argIdx++];
-						if (val.StartsWith("~"))
-						{
-							val = val.Substring(1);
-							blockPos.ZRelative = true;
-						}
-
-						double.TryParse(val, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.InvariantInfo, out double z);
-						blockPos.Z = z;
-
-						objectArgs[objArgIdx] = blockPos;
+						objectArgs[objArgIdx] = EntityPos.Parse(args[argIdx++], args[argIdx++], args[argIdx++]);
 						continue;
 					}
 
 					if (parameter.ParameterType == typeof(RelValue))
 					{
-						var relValue = new RelValue();
-
-						string val = args[argIdx++];
-						if (val.StartsWith("~"))
-						{
-							val = val.Substring(1);
-							relValue.Relative = true;
-						}
-
-						double.TryParse(val, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.InvariantInfo, out double x);
-						relValue.Value = x;
-
-						objectArgs[objArgIdx] = relValue;
+						objectArgs[objArgIdx] = RelValue.Parse(args[argIdx++]);
 						continue;
 					}
 
@@ -1072,9 +1020,14 @@ namespace MiNET.Plugins
 			return false;
 		}
 
+		/// <summary>
+		///     Resolves a parsed selector against the world. The parse itself belongs to
+		///     <see cref="Target.Parse" />, next to the syntax it reads; this is the half that needs
+		///     to see the level and so cannot live on the type.
+		/// </summary>
 		public Target FillTargets(Player commander, Level level, string source)
 		{
-			Target target = ParseTarget(source);
+			Target target = Target.Parse(source);
 
 			if (target.Selector == "closestPlayer" && target.Rules == null)
 			{
@@ -1100,73 +1053,6 @@ namespace MiNET.Plugins
 				target.Players = new[] {players[new Random().Next(players.Length)]};
 			}
 
-
-			return target;
-		}
-
-		public static Target ParseTarget(string source)
-		{
-			Target target = new Target();
-			if (!source.StartsWith("@"))
-			{
-				target.Selector = "closestPlayer";
-				target.Rules = new[]
-				{
-					new Target.Rule()
-					{
-						Name = "name",
-						Value = source
-					}
-				};
-			}
-			else
-			{
-				var matches = Regex.Matches(source, @"^(?<selector>@[aeprs])(\[((?<args>(c|dx|dy|dz|l|lm|m|name|r|rm|rx|rxm|rym|type|x|y|z)=.*?)(,*?))*\])*$");
-				var selector = matches[0].Groups["selector"].Captures[0].Value;
-				switch (selector)
-				{
-					case "@a":
-						selector = "allPlayers";
-						break;
-					case "@e":
-						selector = "allEntities";
-						break;
-					case "@p":
-						selector = "closestPlayer";
-						break;
-					case "@r":
-						selector = "randomPlayer";
-						break;
-					case "@s":
-						selector = "yourself";
-						break;
-				}
-				target.Selector = selector;
-				List<Target.Rule> rules = new List<Target.Rule>();
-				foreach (Capture arg in matches[0].Groups["args"].Captures)
-				{
-					string[] split = arg.Value.Split('=');
-					string name = split[0];
-					string value = split[1];
-
-					Target.Rule rule = new Target.Rule();
-					rule.Name = name;
-					if (value.StartsWith("!"))
-					{
-						rule.Inverted = true;
-						rule.Value = value.Substring(1);
-					}
-					else
-					{
-						rule.Value = value;
-					}
-
-					rules.Add(rule);
-				}
-
-
-				if (rules.Count != 0) target.Rules = rules.ToArray();
-			}
 
 			return target;
 		}
