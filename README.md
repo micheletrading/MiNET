@@ -1,11 +1,17 @@
+<p align="center">
+  <img src="assets/minet-logo.svg" alt="MiNET" width="420">
+</p>
+
+<!-- The badges are HTML rather than markdown: GitHub does not parse markdown inside a
+     block-level element, so inside a centred <p> the markdown form renders as text. -->
+<p align="center">
+  <a href="https://discord.gg/xCNrhDd"><img src="https://img.shields.io/badge/chat-on%20discord-7289da.svg" alt="Chat"></a>
+  <a href="https://github.com/NiclasOlofsson/MiNET/actions/workflows/dotnetcore.yml"><img src="https://github.com/NiclasOlofsson/MiNET/actions/workflows/dotnetcore.yml/badge.svg" alt="Build status"></a>
+  <a href="https://www.nuget.org/packages/MiNET"><img src="https://img.shields.io/nuget/v/MiNET" alt="NuGet"></a>
+  <a href="https://www.nuget.org/packages/MiNET"><img src="https://img.shields.io/nuget/dt/MiNET" alt="Downloads"></a>
+</p>
+
 In case you don't find the information you are looking for in the README. Do try the [wiki](https://github.com/NiclasOlofsson/MiNET/wiki)
-
-MiNET
-=====
-
-[![Chat](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/xCNrhDd) 
-[![Build status](https://github.com/NiclasOlofsson/MiNET/actions/workflows/dotnetcore.yml/badge.svg)](https://github.com/NiclasOlofsson/MiNET/actions/workflows/dotnetcore.yml)
-[![NuGet Version and Downloads count](https://buildstats.info/nuget/MiNET)](https://www.nuget.org/packages/MiNET) 
 
 ## What is this?
 
