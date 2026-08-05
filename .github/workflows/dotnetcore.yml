@@ -9,6 +9,11 @@ jobs:
   nuget:
     name: Build & Publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the job ask GitHub for an OIDC token, which nuget.org trades for a
+      # short-lived key. Without it the token request fails quietly.
+      id-token: write
     steps:
       - uses: actions/checkout@v1
       
@@ -38,7 +43,16 @@ jobs:
           dotnet build --configuration Release
           dotnet pack --configuration Release -o ./nuget -p:PackageVersion="$PKG_VERSION" --include-symbols --include-source
       
+      # Trusted publishing: nuget.org checks the token's repository, workflow file and
+      # owner against the trust policy on the account and issues a key that expires
+      # shortly after. There is no stored API key to leak or to expire unnoticed.
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: gurun
+
       - name: Publish Artifacts
         shell: bash
         working-directory: src/MiNET/MiNET
-        run: dotnet nuget push ./nuget/*.symbols.nupkg -s "https://api.nuget.org/v3/index.json" -k ${{ secrets.NUGET_KEY }} --skip-duplicate
+        run: dotnet nuget push ./nuget/*.symbols.nupkg -s "https://api.nuget.org/v3/index.json" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --skip-duplicate
