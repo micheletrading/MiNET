@@ -89,15 +89,6 @@ namespace MiNET.BuilderBase.Commands
 							dataConverter = AnvilWorldProvider.Convert[blockId].Item2;
 							blockId = AnvilWorldProvider.Convert[blockId].Item1;
 						}
-						else
-						{
-							if (BlockFactory.GetBlockById((byte) blockId).GetType() == typeof (Block))
-							{
-								Log.Warn($"No block implemented for block ID={blockId}, Meta={data}");
-								//blockId = 57;
-							}
-						}
-
 						if (blockId > 255)
 						{
 							Log.Warn($"Failed mapping for block ID={blockId}, Meta={data}");
@@ -106,9 +97,14 @@ namespace MiNET.BuilderBase.Commands
 
 						var metadata = dataConverter(blockId, data);
 
-						Block block = BlockFactory.GetBlockById((byte) blockId);
+						// A .schematic stores a pre-flattening id and data value, so this is the one
+						// place in the builder that still reads them, the same job AnvilWorldProvider
+						// does. The pair has to be resolved together: the id alone gives the block at
+						// data value 0, which is oak for every wood and white for every colour.
+						Block block = BlockFactory.GetBlockById(blockId, metadata);
+						if (block.Name == "minecraft:info_update") Log.Warn($"No block for ID={blockId}, Meta={metadata}");
+
 						block.Coordinates = coord;
-						block.Metadata = metadata;
 						buffer.Add(block);
 					}
 				}

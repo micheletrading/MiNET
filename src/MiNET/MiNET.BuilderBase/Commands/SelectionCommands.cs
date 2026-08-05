@@ -415,42 +415,51 @@ namespace MiNET.BuilderBase.Commands
 			                   $"# of blocks: {size.X*size.Y*size.Z}");
 		}
 
+		// Naming states counts only that exact block; a bare name counts it in any state. That is the
+		// same choice the separateByData flag used to offer, asked in the block's own terms.
 		[Command(Description = "Counts the number of a certain type of block")]
-		public void Count(Player player, int tileId, int tileData = 0, bool separateByData = false)
+		public string Count(Player player, BlockTypeEnum tileName, BlockStates blockStates = null)
 		{
+			Block wanted = BlockFactory.GetBlockByName(tileName?.Value);
+			if (wanted == null) return $"There is no block called {tileName?.Value}.";
+
+			bool exact = blockStates != null;
+			if (exact && !blockStates.TryApplyTo(wanted, out string error)) return error;
+
+			int runtimeId = wanted.GetRuntimeId();
 			var selector = RegionSelector.GetSelector(player);
 
-			var selection = selector.GetSelectedBlocks().Where(coord =>
+			int count = selector.GetSelectedBlocks().Count(coord =>
 			{
-				var block = player.Level.GetBlock(coord);
-				return block.Id == tileId && (!separateByData || block.Metadata == tileData);
-			}).ToArray();
+				Block block = player.Level.GetBlock(coord);
+				return exact ? block.GetRuntimeId() == runtimeId : block.Name == wanted.Name;
+			});
 
-			player.SendMessage($"Counted: {selection.Length}");
+			return $"Counted: {count}";
 		}
 
 		[Command(Description = "Get the distribution of blocks in the selection")]
-		public void Distribution(Player player, bool separateByData = false)
+		public void Distribution(Player player, bool separateStates = false)
 		{
 			var selector = RegionSelector.GetSelector(player);
 
 			var selection = selector.GetSelectedBlocks().Select(coord => player.Level.GetBlock(coord)).ToArray();
-			Dictionary<Tuple<int, int>, int> dist = new Dictionary<Tuple<int, int>, int>();
+
+			Dictionary<string, int> dist = new Dictionary<string, int>();
 			foreach (var block in selection)
 			{
-				Tuple<int, int> tuple = Tuple.Create(block.Id, separateByData ? block.Metadata : 0);
-				if (dist.ContainsKey(tuple)) dist[tuple] = dist[tuple] + 1;
-				else dist.Add(tuple, 1);
+				string key = separateStates ? $"{block.Name} #{block.GetRuntimeId()}" : block.Name;
+
+				if (dist.ContainsKey(key)) dist[key] = dist[key] + 1;
+				else dist.Add(key, 1);
 			}
 
 			player.SendMessage($"# total blocks {selection.Length}");
 
-			dist = dist.OrderByDescending(kvp => kvp.Value).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-			foreach (var kvp in dist)
+			foreach (var kvp in dist.OrderByDescending(kvp => kvp.Value))
 			{
-				Block block = BlockFactory.GetBlockById(kvp.Key.Item1);
 				double pct = ((float) kvp.Value)/selection.Length*100f;
-				player.SendMessage($"{kvp.Value}, ({pct :F3}%), {block.GetType().Name} Id={kvp.Key.Item1}, Metadata={kvp.Key.Item2}");
+				player.SendMessage($"{kvp.Value}, ({pct :F3}%), {kvp.Key}");
 			}
 		}
 

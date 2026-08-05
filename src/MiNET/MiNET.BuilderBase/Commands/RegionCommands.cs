@@ -40,17 +40,12 @@ namespace MiNET.BuilderBase.Commands
 		private static readonly ILog Log = LogManager.GetLogger(typeof (RegionCommands));
 
 		[Command(Description = "Set all blocks within selection")]
-		public void SetBlock(Player player, BlockTypeEnum tileName, int tileData = 0)
+		public string SetBlock(Player player, BlockTypeEnum tileName, BlockStates blockStates = null)
 		{
-			var id = BlockFactory.GetBlockIdByName(tileName.Value);
-			Set(player, id, tileData);
-		}
+			if (!TryGetPattern(tileName, blockStates, out Pattern pattern, out string error)) return error;
 
-		[Command(Description = "Set all blocks within selection")]
-		public void Set(Player player, int tileId, int tileData = 0)
-		{
-			var pattern = new Pattern(tileId, tileData);
 			EditSession.SetBlocks(Selector, pattern);
+			return null;
 		}
 
 		[Command(Description = "Set all blocks within selection")]
@@ -60,17 +55,31 @@ namespace MiNET.BuilderBase.Commands
 		}
 
 		[Command(Description = "Draws a line segment between cuboid selection corners")]
-		public void Line(Player player, BlockTypeEnum tileName, int tileData = 0, int thickness = 1, bool shell = false)
+		public string Line(Player player, BlockTypeEnum tileName, BlockStates blockStates = null, int thickness = 1, bool shell = false)
 		{
-			var id = BlockFactory.GetBlockIdByName(tileName.Value);
-			Line(player, id, tileData, thickness, shell);
+			if (!TryGetPattern(tileName, blockStates, out Pattern pattern, out string error)) return error;
+
+			EditSession.DrawLine(Selector, pattern, Selector.Position1, Selector.Position2, thickness, !shell);
+			return null;
 		}
 
-		[Command(Description = "Draws a line segment between cuboid selection corners")]
-		public void Line(Player player, int tileId, int tileData = 0, int thickness = 0, bool shell = false)
+		/// <summary>A one block pattern, resolved and checked before anything is placed.</summary>
+		private static bool TryGetPattern(BlockTypeEnum tileName, BlockStates blockStates, out Pattern pattern, out string error)
 		{
-			var pattern = new Pattern(tileId, tileData);
-			EditSession.DrawLine(Selector, pattern, Selector.Position1, Selector.Position2, thickness, !shell);
+			pattern = null;
+			error = null;
+
+			Block block = BlockFactory.GetBlockByName(tileName?.Value);
+			if (block == null)
+			{
+				error = $"There is no block called {tileName?.Value}.";
+				return false;
+			}
+
+			if (blockStates != null && !blockStates.TryApplyTo(block, out error)) return false;
+
+			pattern = new Pattern(block);
+			return true;
 		}
 
 		[Command(Description = "Replace all blocks in the selection with another")]
@@ -80,11 +89,12 @@ namespace MiNET.BuilderBase.Commands
 		}
 
 		[Command(Description = "Set the center block(s)")]
-		public void Center(Player player, int tileId = 1, int tileData = 0)
+		public string Center(Player player, BlockTypeEnum tileName, BlockStates blockStates = null)
 		{
-			var pattern = new Pattern(tileId, tileData);
+			if (!TryGetPattern(tileName, blockStates, out Pattern pattern, out string error)) return error;
 
 			EditSession.Center(Selector, pattern);
+			return null;
 		}
 
 		[Command(Description = "Move the contents of the selection")]
