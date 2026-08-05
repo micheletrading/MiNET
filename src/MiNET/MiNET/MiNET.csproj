@@ -6,10 +6,11 @@
     <Authors>gurun</Authors>
     <Company>Niclas Olofsson</Company>
     <Description>MiNET - a Minecraft PocketEdition Server</Description>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
     <Copyright>Copyright Niclas Olofsson 2015-2018</Copyright>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/NiclasOlofsson/MiNET/master/LICENSE</PackageLicenseUrl>
+    <PackageLicenseExpression>CPAL-1.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/NiclasOlofsson/MiNET</PackageProjectUrl>
-    <PackageIconUrl><![CDATA[https://secure.gravatar.com/avatar/2ba5d72bdad85108d14512c4d27ea550?s=128&r=g&d=retro]]></PackageIconUrl>
+    <PackageIcon>icon.jpg</PackageIcon>
     <PackageTags>MiNET Plugin API MCPE Minecraft PocketEdition bedrock</PackageTags>
     <FileVersion>10.0.0.0</FileVersion>
     <AssemblyVersion>10.0.0.0</AssemblyVersion>
@@ -21,9 +22,18 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DebugType>full</DebugType>
+    <!-- portable, not full: nuget.org's symbol server indexes portable PDBs only, and a
+         Windows PDB fails .snupkg validation. -->
+    <DebugType>portable</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The package README is its own file: the repository README opens with badges and
+         project history, and links in a package README have to be absolute to resolve. -->
+    <None Include="..\..\..\PACKAGE.md" Pack="true" PackagePath="\" />
+    <!-- Embedded rather than a Gravatar URL, so the icon survives that host changing. -->
+    <None Include="..\..\..\icon.jpg" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <None Remove="Blocks\legacy_id_map.json" />
   </ItemGroup>
