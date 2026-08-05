@@ -104,6 +104,11 @@ namespace MiNET.Items
 		public ItemBlackBundle() : base("minecraft:black_bundle") { }
 	} // class
 
+	public partial class ItemBlackCushion : Item // minecraft:black_cushion
+	{
+		public ItemBlackCushion() : base("minecraft:black_cushion") { }
+	} // class
+
 	public partial class ItemBlackDye : Item // minecraft:black_dye
 	{
 		public ItemBlackDye() : base("minecraft:black_dye") { }
@@ -127,6 +132,11 @@ namespace MiNET.Items
 	public partial class ItemBlueBundle : Item // minecraft:blue_bundle
 	{
 		public ItemBlueBundle() : base("minecraft:blue_bundle") { }
+	} // class
+
+	public partial class ItemBlueCushion : Item // minecraft:blue_cushion
+	{
+		public ItemBlueCushion() : base("minecraft:blue_cushion") { }
 	} // class
 
 	public partial class ItemBlueDye : Item // minecraft:blue_dye
@@ -182,6 +192,11 @@ namespace MiNET.Items
 	public partial class ItemBrownBundle : Item // minecraft:brown_bundle
 	{
 		public ItemBrownBundle() : base("minecraft:brown_bundle") { }
+	} // class
+
+	public partial class ItemBrownCushion : Item // minecraft:brown_cushion
+	{
+		public ItemBrownCushion() : base("minecraft:brown_cushion") { }
 	} // class
 
 	public partial class ItemBrownDye : Item // minecraft:brown_dye
@@ -439,6 +454,11 @@ namespace MiNET.Items
 		public ItemCyanBundle() : base("minecraft:cyan_bundle") { }
 	} // class
 
+	public partial class ItemCyanCushion : Item // minecraft:cyan_cushion
+	{
+		public ItemCyanCushion() : base("minecraft:cyan_cushion") { }
+	} // class
+
 	public partial class ItemCyanDye : Item // minecraft:cyan_dye
 	{
 		public ItemCyanDye() : base("minecraft:cyan_dye") { }
@@ -674,6 +694,11 @@ namespace MiNET.Items
 		public ItemGrayBundle() : base("minecraft:gray_bundle") { }
 	} // class
 
+	public partial class ItemGrayCushion : Item // minecraft:gray_cushion
+	{
+		public ItemGrayCushion() : base("minecraft:gray_cushion") { }
+	} // class
+
 	public partial class ItemGrayDye : Item // minecraft:gray_dye
 	{
 		public ItemGrayDye() : base("minecraft:gray_dye") { }
@@ -687,6 +712,11 @@ namespace MiNET.Items
 	public partial class ItemGreenBundle : Item // minecraft:green_bundle
 	{
 		public ItemGreenBundle() : base("minecraft:green_bundle") { }
+	} // class
+
+	public partial class ItemGreenCushion : Item // minecraft:green_cushion
+	{
+		public ItemGreenCushion() : base("minecraft:green_cushion") { }
 	} // class
 
 	public partial class ItemGreenDye : Item // minecraft:green_dye
@@ -824,6 +854,11 @@ namespace MiNET.Items
 		public ItemLightBlueBundle() : base("minecraft:light_blue_bundle") { }
 	} // class
 
+	public partial class ItemLightBlueCushion : Item // minecraft:light_blue_cushion
+	{
+		public ItemLightBlueCushion() : base("minecraft:light_blue_cushion") { }
+	} // class
+
 	public partial class ItemLightBlueDye : Item // minecraft:light_blue_dye
 	{
 		public ItemLightBlueDye() : base("minecraft:light_blue_dye") { }
@@ -839,6 +874,11 @@ namespace MiNET.Items
 		public ItemLightGrayBundle() : base("minecraft:light_gray_bundle") { }
 	} // class
 
+	public partial class ItemLightGrayCushion : Item // minecraft:light_gray_cushion
+	{
+		public ItemLightGrayCushion() : base("minecraft:light_gray_cushion") { }
+	} // class
+
 	public partial class ItemLightGrayDye : Item // minecraft:light_gray_dye
 	{
 		public ItemLightGrayDye() : base("minecraft:light_gray_dye") { }
@@ -852,6 +892,11 @@ namespace MiNET.Items
 	public partial class ItemLimeBundle : Item // minecraft:lime_bundle
 	{
 		public ItemLimeBundle() : base("minecraft:lime_bundle") { }
+	} // class
+
+	public partial class ItemLimeCushion : Item // minecraft:lime_cushion
+	{
+		public ItemLimeCushion() : base("minecraft:lime_cushion") { }
 	} // class
 
 	public partial class ItemLimeDye : Item // minecraft:lime_dye
@@ -887,6 +932,11 @@ namespace MiNET.Items
 	public partial class ItemMagentaBundle : Item // minecraft:magenta_bundle
 	{
 		public ItemMagentaBundle() : base("minecraft:magenta_bundle") { }
+	} // class
+
+	public partial class ItemMagentaCushion : Item // minecraft:magenta_cushion
+	{
+		public ItemMagentaCushion() : base("minecraft:magenta_cushion") { }
 	} // class
 
 	public partial class ItemMagentaDye : Item // minecraft:magenta_dye
@@ -1064,6 +1114,11 @@ namespace MiNET.Items
 		public ItemOrangeBundle() : base("minecraft:orange_bundle") { }
 	} // class
 
+	public partial class ItemOrangeCushion : Item // minecraft:orange_cushion
+	{
+		public ItemOrangeCushion() : base("minecraft:orange_cushion") { }
+	} // class
+
 	public partial class ItemOrangeDye : Item // minecraft:orange_dye
 	{
 		public ItemOrangeDye() : base("minecraft:orange_dye") { }
@@ -1139,6 +1194,11 @@ namespace MiNET.Items
 		public ItemPinkBundle() : base("minecraft:pink_bundle") { }
 	} // class
 
+	public partial class ItemPinkCushion : Item // minecraft:pink_cushion
+	{
+		public ItemPinkCushion() : base("minecraft:pink_cushion") { }
+	} // class
+
 	public partial class ItemPinkDye : Item // minecraft:pink_dye
 	{
 		public ItemPinkDye() : base("minecraft:pink_dye") { }
@@ -1169,6 +1229,21 @@ namespace MiNET.Items
 		public ItemPolarBearSpawnEgg() : base("minecraft:polar_bear_spawn_egg") { }
 	} // class
 
+	public partial class ItemPoplarBoat : Item // minecraft:poplar_boat
+	{
+		public ItemPoplarBoat() : base("minecraft:poplar_boat") { }
+	} // class
+
+	public partial class ItemPoplarChestBoat : Item // minecraft:poplar_chest_boat
+	{
+		public ItemPoplarChestBoat() : base("minecraft:poplar_chest_boat") { }
+	} // class
+
+	public partial class ItemPoplarSign : Item // minecraft:poplar_sign
+	{
+		public ItemPoplarSign() : base("minecraft:poplar_sign") { }
+	} // class
+
 	public partial class ItemPowderSnowBucket : Item // minecraft:powder_snow_bucket
 	{
 		public ItemPowderSnowBucket() : base("minecraft:powder_snow_bucket") { }
@@ -1192,6 +1267,11 @@ namespace MiNET.Items
 	public partial class ItemPurpleBundle : Item // minecraft:purple_bundle
 	{
 		public ItemPurpleBundle() : base("minecraft:purple_bundle") { }
+	} // class
+
+	public partial class ItemPurpleCushion : Item // minecraft:purple_cushion
+	{
+		public ItemPurpleCushion() : base("minecraft:purple_cushion") { }
 	} // class
 
 	public partial class ItemPurpleDye : Item // minecraft:purple_dye
@@ -1242,6 +1322,11 @@ namespace MiNET.Items
 	public partial class ItemRedBundle : Item // minecraft:red_bundle
 	{
 		public ItemRedBundle() : base("minecraft:red_bundle") { }
+	} // class
+
+	public partial class ItemRedCushion : Item // minecraft:red_cushion
+	{
+		public ItemRedCushion() : base("minecraft:red_cushion") { }
 	} // class
 
 	public partial class ItemRedDye : Item // minecraft:red_dye
@@ -1574,6 +1659,11 @@ namespace MiNET.Items
 		public ItemWhiteBundle() : base("minecraft:white_bundle") { }
 	} // class
 
+	public partial class ItemWhiteCushion : Item // minecraft:white_cushion
+	{
+		public ItemWhiteCushion() : base("minecraft:white_cushion") { }
+	} // class
+
 	public partial class ItemWhiteDye : Item // minecraft:white_dye
 	{
 		public ItemWhiteDye() : base("minecraft:white_dye") { }
@@ -1642,6 +1732,11 @@ namespace MiNET.Items
 	public partial class ItemYellowBundle : Item // minecraft:yellow_bundle
 	{
 		public ItemYellowBundle() : base("minecraft:yellow_bundle") { }
+	} // class
+
+	public partial class ItemYellowCushion : Item // minecraft:yellow_cushion
+	{
+		public ItemYellowCushion() : base("minecraft:yellow_cushion") { }
 	} // class
 
 	public partial class ItemYellowDye : Item // minecraft:yellow_dye

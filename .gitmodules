@@ -1,3 +1,6 @@
 [submodule "src/MiNET/MiNET.BlockGen/Data"]
 	path = src/MiNET/MiNET.BlockGen/Data
 	url = https://github.com/CloudburstMC/Data.git
+[submodule "src/MiNET/MiNET.BlockGen/ProtocolDocs"]
+	path = src/MiNET/MiNET.BlockGen/ProtocolDocs
+	url = https://github.com/Mojang/bedrock-protocol-docs.git

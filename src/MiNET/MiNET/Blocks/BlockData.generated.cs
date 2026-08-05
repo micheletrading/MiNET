@@ -5516,6 +5516,14 @@ namespace MiNET.Blocks
 		}
 	} // class
 
+	public partial class OrangePoplarLeaves : Block // minecraft:orange_poplar_leaves
+	{
+		public OrangePoplarLeaves() : base(1399)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
 	public partial class OrangeShulkerBox : Block // minecraft:orange_shulker_box
 	{
 		public OrangeShulkerBox() : base(868)
@@ -6332,6 +6340,142 @@ namespace MiNET.Blocks
 		}
 	} // class
 
+	public partial class PoplarButton : Block // minecraft:poplar_button
+	{
+		public PoplarButton() : base(1381)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarDoor : Block // minecraft:poplar_door
+	{
+		public PoplarDoor() : base(1382)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarDoubleSlab : Block // minecraft:poplar_double_slab
+	{
+		public PoplarDoubleSlab() : base(1391)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarFence : Block // minecraft:poplar_fence
+	{
+		public PoplarFence() : base(1383)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarFenceGate : Block // minecraft:poplar_fence_gate
+	{
+		public PoplarFenceGate() : base(1384)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarHangingSign : Block // minecraft:poplar_hanging_sign
+	{
+		public PoplarHangingSign() : base(1385)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarLog : Block // minecraft:poplar_log
+	{
+		public PoplarLog() : base(1387)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarPlanks : Block // minecraft:poplar_planks
+	{
+		public PoplarPlanks() : base(1388)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarPressurePlate : Block // minecraft:poplar_pressure_plate
+	{
+		public PoplarPressurePlate() : base(1389)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarSapling : Block // minecraft:poplar_sapling
+	{
+		public PoplarSapling() : base(1398)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarShelf : Block // minecraft:poplar_shelf
+	{
+		public PoplarShelf() : base(1402)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarSlab : Block // minecraft:poplar_slab
+	{
+		public PoplarSlab() : base(1390)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarStairs : Block // minecraft:poplar_stairs
+	{
+		public PoplarStairs() : base(1392)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarStandingSign : Block // minecraft:poplar_standing_sign
+	{
+		public PoplarStandingSign() : base(1393)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarTrapdoor : Block // minecraft:poplar_trapdoor
+	{
+		public PoplarTrapdoor() : base(1394)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarWallSign : Block // minecraft:poplar_wall_sign
+	{
+		public PoplarWallSign() : base(1395)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarWood : Block // minecraft:poplar_wood
+	{
+		public PoplarWood() : base(1397)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
 	public partial class Poppy : Block // minecraft:poppy
 	{
 		public Poppy() : base(38)
@@ -6631,6 +6775,14 @@ namespace MiNET.Blocks
 	public partial class RedNetherBrickWall : Block // minecraft:red_nether_brick_wall
 	{
 		public RedNetherBrickWall() : base(1238)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedPoplarLeaves : Block // minecraft:red_poplar_leaves
+	{
+		public RedPoplarLeaves() : base(1400)
 		{
 			IsGenerated = true;
 		}
@@ -7260,6 +7412,14 @@ namespace MiNET.Blocks
 		}
 	} // class
 
+	public partial class StrawBed : Block // minecraft:straw_bed
+	{
+		public StrawBed() : base(1453)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
 	public partial class StrippedAcaciaLog : Block // minecraft:stripped_acacia_log
 	{
 		public StrippedAcaciaLog() : base(263)
@@ -7407,6 +7567,22 @@ namespace MiNET.Blocks
 	public partial class StrippedPaleOakWood : Block // minecraft:stripped_pale_oak_wood
 	{
 		public StrippedPaleOakWood() : base(1259)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StrippedPoplarLog : Block // minecraft:stripped_poplar_log
+	{
+		public StrippedPoplarLog() : base(1386)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StrippedPoplarWood : Block // minecraft:stripped_poplar_wood
+	{
+		public StrippedPoplarWood() : base(1396)
 		{
 			IsGenerated = true;
 		}
@@ -8703,6 +8879,14 @@ namespace MiNET.Blocks
 	public partial class YellowConcretePowder : Block // minecraft:yellow_concrete_powder
 	{
 		public YellowConcretePowder() : base(967)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class YellowPoplarLeaves : Block // minecraft:yellow_poplar_leaves
+	{
+		public YellowPoplarLeaves() : base(1401)
 		{
 			IsGenerated = true;
 		}
