@@ -161,10 +161,10 @@ namespace MiNET.Client
 			var sb = new StringBuilder();
 			sb.AppendLine();
 
-			sb.AppendLine("Texture packs:");
-			foreach (TexturePackInfo info in message.texturepacks)
+			sb.AppendLine("Resource packs:");
+			foreach (PackInfoData info in message.resourcePacks)
 			{
-				sb.AppendLine($"ID={info.UUID}, Version={info.Version}, Unknown={info.Size}");
+				sb.AppendLine($"ID={info.packIdVersion.packUuid}, Version={info.packIdVersion.packVersion}, Size={info.packSize}");
 			}
 
 			Log.Debug(sb.ToString());

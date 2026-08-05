@@ -1,0 +1,37 @@
+{
+	"_comment": "The Cereal packet roster: packets whose bodies are generated from the Mojang schemas (MiNET.BlockGen/ProtocolDocs/json) instead of MCPE Protocol.xml. A packet is added here in the release where Mojang migrates it to Cereal (see the changelog in the ProtocolDocs submodule), and its pdu is removed from the XML at the same time. The schemas carry field names, order (x-ordinal-index), types and optionality; this file carries the wire facts they do not: our packet id and direction flags.",
+	"packets": [
+		{
+			"name": "MCPE_RESOURCE_PACKS_INFO",
+			"id": "0x06",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "ResourcePacksInfoPacket"
+		},
+		{
+			"name": "MCPE_RESOURCE_PACK_CLIENT_RESPONSE",
+			"id": "0x08",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "ResourcePackClientResponsePacket"
+		},
+		{
+			"name": "MCPE_MOVE_PLAYER",
+			"id": "0x13",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "MovePlayerPacket"
+		},
+		{
+			"name": "MCPE_ANVIL_DAMAGE",
+			"id": "0x8d",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "AnvilDamagePacket"
+		}
+	]
+}

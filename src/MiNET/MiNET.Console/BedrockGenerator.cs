@@ -27,6 +27,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
@@ -121,9 +122,7 @@ namespace MiNET.Console
 
 			var movePlayerPacket = McpeMovePlayer.CreateObject();
 			movePlayerPacket.runtimeEntityId = _client.EntityId;
-			movePlayerPacket.x = playerCoords.X;
-			movePlayerPacket.y = 255;
-			movePlayerPacket.z = playerCoords.Z;
+			movePlayerPacket.position = new Vector3(playerCoords.X, 255, playerCoords.Z);
 			_client.SendPacket(movePlayerPacket);
 
 			while (sw.ElapsedMilliseconds < 2000)

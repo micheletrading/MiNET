@@ -2796,7 +2796,7 @@ namespace MiNET.Net
 				var id = ReadString();
 				var version = ReadString();
 				var subPackName = ReadString();
-				var info = new PackIdVersion
+				var info = new LegacyPackIdVersion
 				{
 					Id = id,
 					Version = version,

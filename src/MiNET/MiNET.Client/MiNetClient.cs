@@ -712,11 +712,8 @@ namespace MiNET.Client
 
 			var movePlayerPacket = McpeMovePlayer.CreateObject();
 			movePlayerPacket.runtimeEntityId = EntityId;
-			movePlayerPacket.x = CurrentLocation.X;
-			movePlayerPacket.y = CurrentLocation.Y;
-			movePlayerPacket.z = CurrentLocation.Z;
-			movePlayerPacket.yaw = CurrentLocation.Yaw;
-			movePlayerPacket.pitch = CurrentLocation.Pitch;
+			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
+			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);
 			movePlayerPacket.headYaw = CurrentLocation.HeadYaw;
 			movePlayerPacket.mode = 1;
 			movePlayerPacket.onGround = false;
@@ -733,11 +730,8 @@ namespace MiNET.Client
 			var movePlayerPacket = McpeMovePlayer.CreateObject();
 			movePlayerPacket.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 			movePlayerPacket.runtimeEntityId = EntityId;
-			movePlayerPacket.x = CurrentLocation.X;
-			movePlayerPacket.y = CurrentLocation.Y;
-			movePlayerPacket.z = CurrentLocation.Z;
-			movePlayerPacket.yaw = CurrentLocation.Yaw;
-			movePlayerPacket.pitch = CurrentLocation.Pitch;
+			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
+			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);
 			movePlayerPacket.headYaw = CurrentLocation.HeadYaw;
 			movePlayerPacket.mode = 1;
 			movePlayerPacket.onGround = false;

@@ -1,0 +1,445 @@
+#region LICENSE
+
+// The contents of this file are subject to the Common Public Attribution
+// License Version 1.0. (the "License"); you may not use this file except in
+// compliance with the License. You may obtain a copy of the License at
+// https://github.com/NiclasOlofsson/MiNET/blob/master/LICENSE.
+// The License is based on the Mozilla Public License Version 1.1, but Sections 14
+// and 15 have been added to cover use of software over a computer network and
+// provide for limited attribution for the Original Developer. In addition, Exhibit A has
+// been modified to be consistent with Exhibit B.
+//
+// Software distributed under the License is distributed on an "AS IS" basis,
+// WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
+// the specific language governing rights and limitations under the License.
+//
+// The Original Code is MiNET.
+//
+// The Original Developer is the Initial Developer.  The Initial Developer of
+// the Original Code is Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+// All Rights Reserved.
+
+#endregion
+
+using System.Xml;
+using Newtonsoft.Json.Linq;
+
+namespace MiNET.ProtocolGen;
+
+/// <summary>One pdu entry from MCPE Protocol.xml, as the registry emitter needs it.</summary>
+public class XmlPdu
+{
+	public string Id;
+	public string Name;
+	public string Namespace;
+	public bool Client;
+	public bool Server;
+
+	public static List<XmlPdu> LoadAll(XmlDocument doc)
+	{
+		var result = new List<XmlPdu>();
+		foreach (XmlNode pdu in doc.SelectNodes("//pdu"))
+		{
+			result.Add(new XmlPdu
+			{
+				Id = pdu.Attributes["id"].Value,
+				Name = pdu.Attributes["name"].Value,
+				Namespace = pdu.Attributes["namespace"]?.Value ?? "mcpe",
+				Client = pdu.Attributes["client"]?.Value == "true",
+				Server = pdu.Attributes["server"]?.Value == "true",
+			});
+		}
+		return result;
+	}
+}
+
+public class Roster
+{
+	public List<RosterEntry> Packets = new();
+
+	public static Roster Load(string path)
+	{
+		var json = JObject.Parse(File.ReadAllText(path));
+		var roster = new Roster();
+		foreach (JObject p in json["packets"])
+		{
+			roster.Packets.Add(new RosterEntry
+			{
+				Name = (string) p["name"],
+				Id = (string) p["id"],
+				Online = (bool?) p["online"] ?? false,
+				Client = (bool?) p["client"] ?? false,
+				Server = (bool?) p["server"] ?? false,
+				Schema = (string) p["schema"],
+			});
+		}
+		return roster;
+	}
+}
+
+public class RosterEntry
+{
+	public string Name;
+	public string Id;
+	public bool Online;
+	public bool Client;
+	public bool Server;
+	public string Schema;
+
+	public string TypeName => CodeNames.CodeTypeName(Name);
+}
+
+public class Overrides
+{
+	public Dictionary<string, TypeMapping> Types = new();
+	public Dictionary<string, PacketOverride> Packets = new();
+
+	public static Overrides Load(string path)
+	{
+		var json = JObject.Parse(File.ReadAllText(path));
+		var overrides = new Overrides();
+		foreach (var prop in ((JObject) json["types"]).Properties())
+		{
+			var t = (JObject) prop.Value;
+			overrides.Types[prop.Name] = new TypeMapping
+			{
+				CsType = (string) t["csType"],
+				Write = (string) t["write"],
+				Read = (string) t["read"],
+			};
+		}
+		foreach (var prop in ((JObject) json["packets"]).Properties())
+		{
+			var p = new PacketOverride();
+			var fields = (JObject) ((JObject) prop.Value)["fields"];
+			if (fields != null)
+			{
+				foreach (var f in fields.Properties())
+				{
+					p.FieldNames[f.Name] = (string) ((JObject) f.Value)["name"];
+				}
+			}
+			overrides.Packets[prop.Name] = p;
+		}
+		return overrides;
+	}
+}
+
+public class PacketOverride
+{
+	/// <summary>Wire field name -> MiNET member name, where the schema-derived name is not the one the code should carry.</summary>
+	public Dictionary<string, string> FieldNames = new();
+}
+
+public class TypeMapping
+{
+	public string CsType;
+	public string Write;
+	public string Read;
+}
+
+/// <summary>Loads and caches the Mojang JSON schema files, resolving "./X.json" refs.</summary>
+public class SchemaRepo
+{
+	private readonly string _dir;
+	private readonly Dictionary<string, JObject> _cache = new();
+
+	public SchemaRepo(string dir)
+	{
+		_dir = dir;
+	}
+
+	public JObject Get(string name)
+	{
+		if (_cache.TryGetValue(name, out JObject cached)) return cached;
+
+		string path = Path.Combine(_dir, name + ".json");
+		if (!File.Exists(path)) throw new FileNotFoundException($"Schema not found: {path}");
+		var schema = JObject.Parse(File.ReadAllText(path));
+		_cache[name] = schema;
+		return schema;
+	}
+
+	/// <summary>Turns "./BlockPos.json" (or "/BlockPos.json") into the schema name "BlockPos".</summary>
+	public static string RefName(string reference)
+	{
+		string name = reference;
+		if (name.StartsWith("./")) name = name.Substring(2);
+		if (name.StartsWith("/")) name = name.Substring(1);
+		if (name.EndsWith(".json")) name = name.Substring(0, name.Length - 5);
+		return name;
+	}
+}
+
+public enum FieldKind
+{
+	/// <summary>Primitive or mapped type: one write call, one read call.</summary>
+	Plain,
+	/// <summary>A generated data class (multi-field schema struct).</summary>
+	Struct,
+	/// <summary>A varint-counted vector of structs or primitives.</summary>
+	Array,
+	/// <summary>A tagged variant (oneOf): varint tag in declaration order, then the selected payload.</summary>
+	Variant,
+}
+
+public class CerealField
+{
+	public string WireName;
+	public string FieldName;
+	public int Ordinal;
+	public bool Optional;
+	public FieldKind Kind;
+	public TypeMapping Type;
+	public CerealStruct Struct;
+	public CerealEnum Enum;
+	/// <summary>For arrays: the element, itself a Plain or Struct field.</summary>
+	public CerealField Element;
+	/// <summary>For variants: the abstract base plus the options in tag order.</summary>
+	public CerealVariant Variant;
+	/// <summary>For const-discriminator fields inside variant payloads: the literal written on the wire.</summary>
+	public string ConstValue;
+
+	public string CsType => Kind switch
+	{
+		FieldKind.Struct => Struct.Name,
+		FieldKind.Array => $"List<{Element.CsType}>",
+		FieldKind.Variant => Variant.BaseName,
+		_ => Type.CsType,
+	};
+}
+
+/// <summary>A oneOf tagged variant: an abstract base class and one struct per option, tag = declaration index.</summary>
+public class CerealVariant
+{
+	public string BaseName;
+	public List<CerealStruct> Options = new();
+}
+
+/// <summary>A multi-field schema struct, emitted as a plain data class plus Packet read/write methods.</summary>
+public class CerealStruct
+{
+	public string Name;
+	/// <summary>Set when this struct is a variant option: the abstract base it extends.</summary>
+	public string BaseName;
+	public List<CerealField> Fields = new();
+}
+
+/// <summary>An inline Enum-as-Value enum, emitted nested in the packet class, house style.</summary>
+public class CerealEnum
+{
+	public string Name;
+	public List<string> Values = new();
+}
+
+/// <summary>A packet resolved from its schema into an ordered list of emittable fields.</summary>
+public class CerealPacket
+{
+	public RosterEntry Entry;
+	public List<CerealField> Fields = new();
+	public List<CerealEnum> Enums = new();
+
+	public static CerealPacket Resolve(RosterEntry entry, SchemaRepo schemas, Overrides overrides, Dictionary<string, CerealStruct> structs)
+	{
+		JObject packetSchema = schemas.Get(entry.Schema);
+
+		string payloadRef = (string) packetSchema["$ref"];
+		if (payloadRef == null) throw new InvalidOperationException($"{entry.Schema}: packet schema has no $ref payload");
+		JObject payload = schemas.Get(SchemaRepo.RefName(payloadRef));
+
+		var packet = new CerealPacket {Entry = entry};
+		overrides.Packets.TryGetValue(entry.Schema, out PacketOverride packetOverride);
+
+		foreach (CerealField field in ResolveFields(entry.Schema, payload, schemas, overrides, structs, packetOverride))
+		{
+			if (field.Enum != null) packet.Enums.Add(field.Enum);
+			packet.Fields.Add(field);
+		}
+
+		return packet;
+	}
+
+	private static IEnumerable<CerealField> ResolveFields(string owner, JObject objectSchema, SchemaRepo schemas, Overrides overrides, Dictionary<string, CerealStruct> structs, PacketOverride packetOverride)
+	{
+		var required = new HashSet<string>(((JArray) objectSchema["required"] ?? new JArray()).Select(t => (string) t));
+		var properties = ((JObject) objectSchema["properties"])?.Properties().ToList() ?? new List<JProperty>();
+
+		foreach (JProperty prop in properties.OrderBy(p => (int) ((JObject) p.Value)["x-ordinal-index"]))
+		{
+			string memberName = null;
+			packetOverride?.FieldNames.TryGetValue(prop.Name, out memberName);
+			memberName ??= CodeNames.CodeName(prop.Name);
+
+			var field = new CerealField
+			{
+				WireName = prop.Name,
+				FieldName = memberName,
+				Ordinal = (int) ((JObject) prop.Value)["x-ordinal-index"],
+				Optional = !required.Contains(prop.Name),
+			};
+			ResolveType(owner, field, (JObject) prop.Value, schemas, overrides, structs);
+
+			if (field.Optional && field.Kind != FieldKind.Struct)
+				throw new NotImplementedException($"{owner}.{prop.Name}: optional non-struct fields are not implemented yet");
+
+			yield return field;
+		}
+	}
+
+	private static void ResolveType(string owner, CerealField field, JObject prop, SchemaRepo schemas, Overrides overrides, Dictionary<string, CerealStruct> structs)
+	{
+		if (prop["const"] != null)
+		{
+			// Variant discriminator: a constant written on the wire, not a class member. The const
+			// value is a string name (matches Cloudburst's writeString of the variant name).
+			field.ConstValue = (string) prop["const"];
+			field.Kind = FieldKind.Plain;
+			field.Type = new TypeMapping {CsType = "string", Write = $"Write(\"{(string) prop["const"]}\");", Read = "ReadString();"};
+			return;
+		}
+
+		if ((string) prop["type"] == "array")
+		{
+			var element = new CerealField {WireName = field.WireName + " element", FieldName = "item"};
+			ResolveType(owner, element, (JObject) prop["items"], schemas, overrides, structs);
+			if (element.Kind == FieldKind.Array) throw new NotImplementedException($"{owner}.{field.WireName}: nested arrays are not implemented yet");
+			field.Kind = FieldKind.Array;
+			field.Element = element;
+			return;
+		}
+
+		string reference = (string) prop["$ref"];
+		if (reference != null)
+		{
+			string name = SchemaRepo.RefName(reference);
+			if (overrides.Types.TryGetValue(name, out TypeMapping mapped))
+			{
+				field.Kind = FieldKind.Plain;
+				field.Type = mapped;
+				return;
+			}
+
+			JObject target = schemas.Get(name);
+			var targetProps = ((JObject) target["properties"])?.Properties().ToList();
+			if (targetProps != null && targetProps.Count == 1)
+			{
+				// Single-field wrapper (ActorRuntimeID and friends): flatten to its primitive.
+				ResolveType(owner, field, (JObject) targetProps[0].Value, schemas, overrides, structs);
+				return;
+			}
+
+			if (targetProps != null && targetProps.Count > 1)
+			{
+				field.Kind = FieldKind.Struct;
+				field.Struct = ResolveStruct(name, target, schemas, overrides, structs);
+				return;
+			}
+
+			throw new NotImplementedException($"{owner}.{field.WireName}: type {name} has no properties; needs a types override");
+		}
+
+		if (prop["oneOf"] != null)
+		{
+			var refs = ((JArray) prop["oneOf"]).Select(o => SchemaRepo.RefName((string) ((JObject) o)["$ref"])).ToList();
+			var titles = refs.Select(r => (string) schemas.Get(r)["title"]).ToList();
+
+			// Base name from the options' common title prefix ("Resource Pack Client Response - Cancel" ...).
+			string prefix = titles.Aggregate((a, b) =>
+			{
+				int i = 0;
+				while (i < a.Length && i < b.Length && a[i] == b[i]) i++;
+				return a.Substring(0, i);
+			}).TrimEnd(' ', '-');
+			if (prefix.Length == 0) throw new NotImplementedException($"{owner}.{field.WireName}: variant options share no title prefix; needs a naming override");
+
+			var variant = new CerealVariant {BaseName = CodeNames.CodeTypeName(prefix.Replace("-", " "))};
+			for (int i = 0; i < refs.Count; i++)
+			{
+				string optionName = CodeNames.CodeTypeName(titles[i].Replace("-", " "));
+				CerealStruct option = ResolveStruct(refs[i], schemas.Get(refs[i]), schemas, overrides, structs);
+				option.Name = optionName;
+				option.BaseName = variant.BaseName;
+				variant.Options.Add(option);
+			}
+
+			field.Kind = FieldKind.Variant;
+			field.Variant = variant;
+			return;
+		}
+
+		if (prop["enum"] != null)
+		{
+			var options = (JArray) prop["x-serialization-options"];
+			if (options == null || !options.Any(o => (string) o == "Enum-as-Value"))
+				throw new NotImplementedException($"{owner}.{field.WireName}: enum without Enum-as-Value is not implemented yet");
+
+			field.Enum = new CerealEnum
+			{
+				Name = CodeNames.CodeName(field.FieldName, true),
+				Values = ((JArray) prop["enum"]).Select(v => CodeNames.CodeName((string) v, true)).ToList(),
+			};
+			field.Kind = FieldKind.Plain;
+			field.Type = Primitive(owner, field.WireName, (string) prop["x-underlying-type"], false);
+			return;
+		}
+
+		// Strings sometimes carry no x-underlying-type; the JSON type is enough.
+		string underlying = (string) prop["x-underlying-type"] ?? (string) prop["type"];
+		bool compressed = ((JArray) prop["x-serialization-options"])?.Any(o => (string) o == "Compression") ?? false;
+
+		field.Kind = FieldKind.Plain;
+		field.Type = Primitive(owner, field.WireName, underlying, compressed);
+	}
+
+	private static CerealStruct ResolveStruct(string name, JObject schema, SchemaRepo schemas, Overrides overrides, Dictionary<string, CerealStruct> structs)
+	{
+		if (structs.TryGetValue(name, out CerealStruct existing)) return existing;
+
+		var result = new CerealStruct {Name = name};
+		structs[name] = result;
+
+		foreach (CerealField field in ResolveFields(name, schema, schemas, overrides, structs, null))
+		{
+			if (field.Optional) throw new NotImplementedException($"{name}.{field.WireName}: optional fields inside structs are not implemented yet");
+			if (field.Enum != null) throw new NotImplementedException($"{name}.{field.WireName}: enums inside structs are not implemented yet");
+			if (field.Kind == FieldKind.Variant) throw new NotImplementedException($"{name}.{field.WireName}: variants inside structs are not implemented yet");
+			result.Fields.Add(field);
+		}
+
+		return result;
+	}
+
+	private static TypeMapping Primitive(string owner, string fieldName, string underlying, bool compressed)
+	{
+		switch (underlying)
+		{
+			case "boolean":
+				return new TypeMapping {CsType = "bool", Write = "Write({0});", Read = "{0} = ReadBool();"};
+			case "uint8":
+				return new TypeMapping {CsType = "byte", Write = "Write({0});", Read = "{0} = ReadByte();"};
+			case "float":
+				return new TypeMapping {CsType = "float", Write = "Write({0});", Read = "{0} = ReadFloat();"};
+			case "string":
+				return new TypeMapping {CsType = "string", Write = "Write({0});", Read = "{0} = ReadString();"};
+			case "int32" when compressed:
+				return new TypeMapping {CsType = "int", Write = "WriteSignedVarInt({0});", Read = "{0} = ReadSignedVarInt();"};
+			case "uint32" when compressed:
+				return new TypeMapping {CsType = "uint", Write = "WriteUnsignedVarInt({0});", Read = "{0} = ReadUnsignedVarInt();"};
+			case "int64" when compressed:
+				return new TypeMapping {CsType = "long", Write = "WriteSignedVarLong({0});", Read = "{0} = ReadSignedVarLong();"};
+			case "uint64" when compressed:
+				return new TypeMapping {CsType = "long", Write = "WriteUnsignedVarLong({0});", Read = "{0} = ReadUnsignedVarLong();"};
+			case "int32":
+				// Write(int)/ReadInt() are little-endian by default, which is the Cereal raw int32.
+				return new TypeMapping {CsType = "int", Write = "Write({0});", Read = "{0} = ReadInt();"};
+			case "uint64":
+				// Raw 64-bit is little-endian on the wire; Write(ulong)/ReadUlong() are the LE pair
+				// (Write(long)/ReadLong() byte-swap, despite the name).
+				return new TypeMapping {CsType = "ulong", Write = "Write({0});", Read = "{0} = ReadUlong();"};
+			default:
+				throw new NotImplementedException($"{owner}.{fieldName}: primitive {underlying}{(compressed ? "+Compression" : "")} is not implemented yet");
+		}
+	}
+}

@@ -343,7 +343,7 @@ namespace MiNET
 		{
 			if (Log.IsDebugEnabled) Log.Debug($"Handled packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
 
-			if (message.responseStatus == 2)
+			if (message.response is ResourcePackClientResponseDownloading)
 			{
 				McpeResourcePackDataInfo dataInfo = McpeResourcePackDataInfo.CreateObject();
 				dataInfo.packageId = "5abdb963-4f3f-4d97-8482-88e2049ab149";
@@ -354,7 +354,7 @@ namespace MiNET
 				SendPacket(dataInfo);
 				return;
 			}
-			else if (message.responseStatus == 3)
+			else if (message.response is ResourcePackClientResponseDownloadingFinished)
 			{
 				//if (_serverHaveResources)
 				{
@@ -366,7 +366,7 @@ namespace MiNET
 				//}
 				return;
 			}
-			else if (message.responseStatus == 4)
+			else if (message.response is ResourcePackClientResponseResourcePackStackFinished)
 			{
 				//if (_serverHaveResources)
 				{
@@ -379,20 +379,28 @@ namespace MiNET
 		public virtual void SendResourcePacksInfo()
 		{
 			McpeResourcePacksInfo packInfo = McpeResourcePacksInfo.CreateObject();
-			packInfo.worldTemplateId = (UUID) Guid.Empty;
-			packInfo.worldTemplateVersion = "0.0.0"; // vanilla sends this, not an empty string
+			packInfo.worldTemplateIdAndVersion = new PackIdVersion
+			{
+				packUuid = (UUID) Guid.Empty,
+				packVersion = "0.0.0" // vanilla sends this, not an empty string
+			};
+			packInfo.resourcePacks = new List<PackInfoData>();
 			if (_serverHaveResources)
 			{
 				packInfo.mustAccept = false;
-				packInfo.texturepacks = new TexturePackInfos
+				packInfo.resourcePacks.Add(new PackInfoData
 				{
-					new TexturePackInfo()
+					packIdVersion = new PackIdVersion
 					{
-						UUID = "5abdb963-4f3f-4d97-8482-88e2049ab149",
-						Version = "0.0.1",
-						Size = 359901
+						packUuid = new UUID("5abdb963-4f3f-4d97-8482-88e2049ab149"),
+						packVersion = "0.0.1"
 					},
-				};
+					packSize = 359901,
+					contentKey = "",
+					subpackName = "",
+					contentIdentity = "",
+					cdnUrl = ""
+				});
 			}
 
 			SendPacket(packInfo);
@@ -409,7 +417,7 @@ namespace MiNET
 				packStack.mustAccept = false;
 				packStack.resourcepackidversions = new ResourcePackIdVersions
 				{
-					new PackIdVersion()
+					new LegacyPackIdVersion()
 					{
 						Id = "5abdb963-4f3f-4d97-8482-88e2049ab149",
 						Version = "0.0.1"
@@ -1433,12 +1441,9 @@ namespace MiNET
 
 			var packet = McpeMovePlayer.CreateObject();
 			packet.runtimeEntityId = EntityManager.EntityIdSelf;
-			packet.x = position.X;
-			packet.y = position.Y + 1.62f;
-			packet.z = position.Z;
-			packet.yaw = position.Yaw;
+			packet.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
+			packet.rotation = new Vector2(position.Pitch, position.Yaw);
 			packet.headYaw = position.HeadYaw;
-			packet.pitch = position.Pitch;
 			packet.mode = (byte) (teleport ? 1 : 0);
 
 			SendPacket(packet);
@@ -2258,11 +2263,11 @@ namespace MiNET
 			}
 
 			var origin = KnownPosition.ToVector3();
-			double distanceTo = Vector3.Distance(origin, new Vector3(message.x, message.y - 1.62f, message.z));
+			double distanceTo = Vector3.Distance(origin, new Vector3(message.position.X, message.position.Y - 1.62f, message.position.Z));
 
 			CurrentSpeed = distanceTo / ((double) (DateTime.UtcNow - LastUpdatedTime).Ticks / TimeSpan.TicksPerSecond);
 
-			double verticalMove = message.y - 1.62 - KnownPosition.Y;
+			double verticalMove = message.position.Y - 1.62 - KnownPosition.Y;
 
 			bool isOnGround = IsOnGround;
 			bool isFlyingHorizontally = false;
@@ -2278,15 +2283,15 @@ namespace MiNET
 			IsOnGround = isOnGround;
 
 			// Hunger management
-			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(message.x, 0, message.z)));
+			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(message.position.X, 0, message.position.Z)));
 
 			KnownPosition = new PlayerLocation
 			{
-				X = message.x,
-				Y = message.y - 1.62f,
-				Z = message.z,
-				Pitch = message.pitch,
-				Yaw = message.yaw,
+				X = message.position.X,
+				Y = message.position.Y - 1.62f,
+				Z = message.position.Z,
+				Pitch = message.rotation.X,
+				Yaw = message.rotation.Y,
 				HeadYaw = message.headYaw
 			};
 
@@ -2325,7 +2330,7 @@ namespace MiNET
 
 		protected virtual bool DetectSimpleFly(McpeMovePlayer message, bool isOnGround)
 		{
-			double d = Math.Abs(KnownPosition.Y - (message.y - 1.62f));
+			double d = Math.Abs(KnownPosition.Y - (message.position.Y - 1.62f));
 			return !(AllowFly || IsOnGround || isOnGround || d > 0.001);
 		}
 
@@ -2337,7 +2342,7 @@ namespace MiNET
 			if (Level == null)
 				return true;
 
-			BlockCoordinates pos = new Vector3(message.x, message.y - 1.62f, message.z);
+			BlockCoordinates pos = new Vector3(message.position.X, message.position.Y - 1.62f, message.position.Z);
 
 			foreach (int layer in Layers)
 			{
@@ -3918,12 +3923,9 @@ namespace MiNET
 		{
 			var packet = McpeMovePlayer.CreateObject();
 			packet.runtimeEntityId = EntityManager.EntityIdSelf;
-			packet.x = KnownPosition.X;
-			packet.y = KnownPosition.Y + 1.62f;
-			packet.z = KnownPosition.Z;
-			packet.yaw = KnownPosition.Yaw;
+			packet.position = new Vector3(KnownPosition.X, KnownPosition.Y + 1.62f, KnownPosition.Z);
+			packet.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
 			packet.headYaw = KnownPosition.HeadYaw;
-			packet.pitch = KnownPosition.Pitch;
 			packet.mode = (byte) (teleport ? 1 : 0);
 
 			SendPacket(packet);

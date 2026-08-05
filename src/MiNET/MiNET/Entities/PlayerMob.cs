@@ -91,12 +91,9 @@ namespace MiNET.Entities
 
 			var package = McpeMovePlayer.CreateObject();
 			package.runtimeEntityId = EntityId;
-			package.x = position.X;
-			package.y = position.Y + 1.62f;
-			package.z = position.Z;
-			package.yaw = position.HeadYaw;
+			package.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
+			package.rotation = new Vector2(position.Pitch, position.HeadYaw);
 			package.headYaw = position.Yaw;
-			package.pitch = position.Pitch;
 			package.mode = (byte) (teleport ? 1 : 0);
 
 			Level.RelayBroadcast(package);

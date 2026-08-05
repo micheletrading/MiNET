@@ -223,11 +223,8 @@ namespace MiNET.Client
 					// First just rotate towards target pos
 					McpeMovePlayer movePlayerPacket = McpeMovePlayer.CreateObject();
 					movePlayerPacket.runtimeEntityId = client.EntityId;
-					movePlayerPacket.x = client.CurrentLocation.X;
-					movePlayerPacket.y = client.CurrentLocation.Y;
-					movePlayerPacket.z = client.CurrentLocation.Z;
-					movePlayerPacket.yaw = lookAtPos.Yaw;
-					movePlayerPacket.pitch = lookAtPos.Pitch;
+					movePlayerPacket.position = new Vector3(client.CurrentLocation.X, client.CurrentLocation.Y, client.CurrentLocation.Z);
+					movePlayerPacket.rotation = new Vector2(lookAtPos.Pitch, lookAtPos.Yaw);
 					movePlayerPacket.headYaw = lookAtPos.HeadYaw;
 				}
 				float lenght = Math.Abs((originalPosition - targetPosition).Length());
@@ -246,11 +243,8 @@ namespace MiNET.Client
 
 						McpeMovePlayer movePlayerPacket = McpeMovePlayer.CreateObject();
 						movePlayerPacket.runtimeEntityId = client.EntityId;
-						movePlayerPacket.x = client.CurrentLocation.X;
-						movePlayerPacket.y = client.CurrentLocation.Y;
-						movePlayerPacket.z = client.CurrentLocation.Z;
-						movePlayerPacket.yaw = lookAtPos.Yaw;
-						movePlayerPacket.pitch = lookAtPos.Pitch;
+						movePlayerPacket.position = new Vector3(client.CurrentLocation.X, client.CurrentLocation.Y, client.CurrentLocation.Z);
+						movePlayerPacket.rotation = new Vector2(lookAtPos.Pitch, lookAtPos.Yaw);
 						movePlayerPacket.headYaw = lookAtPos.HeadYaw;
 
 						client.SendPacket(movePlayerPacket);
@@ -263,11 +257,8 @@ namespace MiNET.Client
 
 						McpeMovePlayer movePlayerPacket = McpeMovePlayer.CreateObject();
 						movePlayerPacket.runtimeEntityId = client.EntityId;
-						movePlayerPacket.x = client.CurrentLocation.X;
-						movePlayerPacket.y = client.CurrentLocation.Y;
-						movePlayerPacket.z = client.CurrentLocation.Z;
-						movePlayerPacket.yaw = lookAtPos.Yaw;
-						movePlayerPacket.pitch = lookAtPos.Pitch;
+						movePlayerPacket.position = new Vector3(client.CurrentLocation.X, client.CurrentLocation.Y, client.CurrentLocation.Z);
+						movePlayerPacket.rotation = new Vector2(lookAtPos.Pitch, lookAtPos.Yaw);
 						movePlayerPacket.headYaw = lookAtPos.HeadYaw;
 
 						client.SendPacket(movePlayerPacket);

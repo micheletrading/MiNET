@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 
-<protocol gameVersion="1.26.34" protocolVersion="1001">
+<protocol gameVersion="1.26.40" protocolVersion="2168">
 
 	<constants>
 		<constant id="OFFLINE_MESSAGE_DATA_ID" type="byte[]"
@@ -152,16 +152,6 @@
 		<field name="Hide disconnect reason" type="bool" />
 	</pdu>
 
-	<pdu id="0x06" online="false" client="false" server="true" name="MCPE_RESOURCE_PACKS_INFO">
-		<field name="Must accept" type="bool" />
-		<field name="Has addon packs" type="bool" />
-		<field name="Has scripts" type="bool" />
-		<field name="Disable vibrant visuals" type="bool" />
-		<field name="World template id" type="UUID" />
-		<field name="World template version" type="string" />
-		<field name="TexturePacks" type="TexturePackInfos" />
-	</pdu>
-
 	<pdu id="0x07" online="false" client="false" server="true" name="MCPE_RESOURCE_PACK_STACK">
 		<field name="Must accept" type="bool" />
 		<field name="ResourcePackIdVersions" type="ResourcePackIdVersions" />
@@ -169,19 +159,6 @@
 		<field name="Experiments" type="Experiments" />
 		<field name="Experiments Previously Toggled" type="bool" />
 		<field name="Has editor packs" type="bool" />
-	</pdu>
-
-	<pdu id="0x08" online="false" client="true" server="false" name="MCPE_RESOURCE_PACK_CLIENT_RESPONSE">
-		<enums id="Response status">
-			<enum id="None" value="0" />
-			<enum id="Refused" value="1" />
-			<enum id="Send packs" value="2" />
-			<enum id="Have all packs" value="3" />
-			<enum id="Completed" value="4" />
-		</enums>
-
-		<field name="Response status" type="byte" />
-		<field name="ResourcePackIds" type="ResourcePackIds" />
 	</pdu>
 
 	<pdu id="0x09" online="false" client="true" server="true" name="MCPE_TEXT">
@@ -298,39 +275,6 @@
 		<field name="Position" type="PlayerLocation" />
 		<!--<field name="On Ground" type="bool" />
 		<field name="Teleport" type="bool" />-->
-	</pdu>
-
-	<pdu id="0x13" online="false" client="true" server="true" name="MCPE_MOVE_PLAYER">
-
-		<enums id="Mode">
-			<enum id="Normal" value="0" />
-			<enum id="Reset" value="1" />
-			<enum id="Teleport" value="2" />
-			<enum id="Rotation" value="3" />
-		</enums>
-
-		<!--
-		These are sent at the end of the packet IF Telport mode is selected.
-		-->
-		<enums id="TeleportCause">
-			<enum id="Unknown" value="0" />
-			<enum id="Projectile" value="1" />
-			<enum id="Chorus Fruit" value="2" />
-			<enum id="Command" value="3" />
-			<enum id="Behavior" value="4" />
-			<enum id="Count" value="5" />
-		</enums>
-
-		<field name="Runtime Entity ID" type="UnsignedVarLong" />
-		<field name="X" type="float" />
-		<field name="Y" type="float" />
-		<field name="Z" type="float" />
-		<field name="Pitch" type="float" />
-		<field name="Yaw" type="float" />
-		<field name="Head Yaw" type="float" />
-		<field name="Mode" type="byte" />
-		<field name="On Ground" type="bool" />
-		<field name="Other Runtime Entity ID" type="UnsignedVarLong" />
 	</pdu>
 
 	<!-- 0x14 RiderJump became PassengerJump at 471 and was removed from the protocol at 800 (Apr 2025) -->
@@ -1120,11 +1064,6 @@
 	<pdu id="0x8c" online="false" client="true" server="false" name="MCPE_SETTINGS_COMMAND">
 		<field name="Command" type="string" />
 		<field name="Suppress Output" type="bool" />
-	</pdu>
-
-	<pdu id="0x8d" online="false" client="true" server="false" name="MCPE_ANVIL_DAMAGE">
-		<field name="Damage Amount" type="byte" />
-		<field name="Block Position" type="BlockCoordinates" />
 	</pdu>
 
 	<pdu id="0x8e" online="false" client="false" server="true" name="MCPE_COMPLETED_USING_ITEM">

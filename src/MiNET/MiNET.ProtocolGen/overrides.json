@@ -1,0 +1,41 @@
+{
+	"_comment": "Patch layer applied on top of the Mojang schemas before emission. 'types' maps schema type refs to existing MiNET types (with the read/write calls the house code uses for them); every entry with a wire divergence from the schema carries a reason, which makes this file our running list of schema bugs. 'packets' holds per-packet field renames and escape hatches (not used yet).",
+	"types": {
+		"BlockPos": {
+			"csType": "BlockCoordinates",
+			"write": "Write({0});",
+			"read": "{0} = ReadBlockCoordinates();",
+			"reason": "Type mapping only, byte-identical to the schema (three zigzag varints, which is also what Write(BlockCoordinates) emits and what BDS accepted at 1001 in PlayerAuthInput block actions and item-use transactions). Note: Cloudburst's inherited writeBlockPosition disagrees (y unsigned varint); their encoding, not ours, is the suspect one for these fields. Confirm against BDS bytes when the 2168 trace loop runs."
+		},
+		"Vec3": {
+			"csType": "Vector3",
+			"write": "Write({0});",
+			"read": "{0} = ReadVector3();"
+		},
+		"Vec2": {
+			"csType": "Vector2",
+			"write": "Write({0});",
+			"read": "{0} = ReadVector2();"
+		},
+		"mce__UUID": {
+			"csType": "UUID",
+			"write": "Write({0});",
+			"read": "{0} = ReadUUID();"
+		}
+	},
+	"packets": {
+		"ResourcePacksInfoPacket": {
+			"fields": {
+				"Resource Pack Required": {"name": "mustAccept"}
+			}
+		},
+		"MovePlayerPacket": {
+			"fields": {
+				"Player Runtime ID": {"name": "runtimeEntityId"},
+				"Riding Runtime ID": {"name": "ridingRuntimeEntityId"},
+				"Position Mode": {"name": "mode"},
+				"Y-Head Rotation": {"name": "headYaw"}
+			}
+		}
+	}
+}

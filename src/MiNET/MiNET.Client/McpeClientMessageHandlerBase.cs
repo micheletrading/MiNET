@@ -126,24 +126,23 @@ namespace MiNET.Client
 			//response.responseStatus = 3;
 			//SendPackage(response);
 
-			if (message.texturepacks.Count != 0)
+			if (message.resourcePacks.Count != 0)
 			{
-				var resourcePackIds = new ResourcePackIds();
+				var downloadingPacks = new List<string>();
 
-				foreach (ResourcePackInfo packInfo in message.texturepacks)
+				foreach (PackInfoData packInfo in message.resourcePacks)
 				{
-					resourcePackIds.Add(packInfo.UUID);
+					downloadingPacks.Add(packInfo.packIdVersion.packUuid.ToString());
 				}
 
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 2;
-				response.resourcepackids = resourcePackIds;
+				response.response = new ResourcePackClientResponseDownloading {downloadingPacks = downloadingPacks};
 				Client.SendPacket(response);
 			}
 			else
 			{
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 3;
+				response.response = new ResourcePackClientResponseDownloadingFinished();
 				Client.SendPacket(response);
 			}
 		}
@@ -160,7 +159,7 @@ namespace MiNET.Client
 			//else
 			{
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 4;
+				response.response = new ResourcePackClientResponseResourcePackStackFinished();
 				Client.SendPacket(response);
 			}
 		}
@@ -241,11 +240,11 @@ namespace MiNET.Client
 		{
 			if (message.runtimeEntityId != Client.EntityId) return;
 
-			Client.CurrentLocation = new PlayerLocation(message.x, message.y, message.z);
+			Client.CurrentLocation = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
 
-			//Client.LevelInfo.SpawnX = (int) message.x;
-			//Client.LevelInfo.SpawnY = (int) message.y;
-			//Client.LevelInfo.SpawnZ = (int) message.z;
+			//Client.LevelInfo.SpawnX = (int) message.position.X;
+			//Client.LevelInfo.SpawnY = (int) message.position.Y;
+			//Client.LevelInfo.SpawnZ = (int) message.position.Z;
 
 			//Client.SendMcpeMovePlayer();
 		}
@@ -486,7 +485,7 @@ namespace MiNET.Client
 			if (_resourcePackDataInfos.Count == 0)
 			{
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 3;
+				response.response = new ResourcePackClientResponseDownloadingFinished();
 				Client.SendPacket(response);
 			}
 		}

@@ -866,15 +866,12 @@ namespace MiNET.Worlds
 
 						var move = McpeMovePlayer.CreateObject();
 						move.runtimeEntityId = player.EntityId;
-						move.x = knownPosition.X;
-						move.y = knownPosition.Y + 1.62f;
-						move.z = knownPosition.Z;
-						move.pitch = knownPosition.Pitch;
-						move.yaw = knownPosition.Yaw;
+						move.position = new Vector3(knownPosition.X, knownPosition.Y + 1.62f, knownPosition.Z);
+						move.rotation = new Vector2(knownPosition.Pitch, knownPosition.Yaw);
 						move.headYaw = knownPosition.HeadYaw;
 						move.mode = (byte) (player.Vehicle == 0 ? 0 : 3);
 						move.onGround = !player.IsGliding && player.IsOnGround;
-						move.otherRuntimeEntityId = player.Vehicle;
+						move.ridingRuntimeEntityId = player.Vehicle;
 						movePackets.Add(move);
 						playerMoveCount++;
 					}
