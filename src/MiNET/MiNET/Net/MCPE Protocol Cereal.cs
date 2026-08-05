@@ -662,6 +662,54 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeMoveEntityDelta : Packet<McpeMoveEntityDelta>
+	{
+
+		public MoveActorDeltaData moveData; // = null;
+
+		public McpeMoveEntityDelta()
+		{
+			Id = 0x6f;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(moveData);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			moveData = ReadMoveActorDeltaData();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			moveData=default(MoveActorDeltaData);
+		}
+
+	}
+
 	public partial class McpeAnvilDamage : Packet<McpeAnvilDamage>
 	{
 
@@ -964,6 +1012,21 @@ namespace MiNET.Net
 		public bool disablePlayerInteractions;
 		public int serverEditorConnectionPolicy;
 		public bool allowAnonymousBlockDropsInEditorWorlds;
+	}
+
+	public class MoveActorDeltaData
+	{
+		public long runtimeEntityId;
+		public float? newPositionX;
+		public float? newPositionY;
+		public float? newPositionZ;
+		public sbyte? rotationX;
+		public sbyte? rotationY;
+		public sbyte? rotationYHead;
+		public bool isOnGround;
+		public bool forceMove;
+		public bool forceMoveLocalEntity;
+		public bool forceCompletion;
 	}
 
 	public class MovePlayerTeleportData
@@ -1324,6 +1387,44 @@ namespace MiNET.Net
 			data.disablePlayerInteractions = ReadBool();
 			data.serverEditorConnectionPolicy = ReadSignedVarInt();
 			data.allowAnonymousBlockDropsInEditorWorlds = ReadBool();
+			return data;
+		}
+
+		public void Write(MoveActorDeltaData data)
+		{
+			WriteUnsignedVarLong(data.runtimeEntityId);
+			Write(data.newPositionX != null);
+			if (data.newPositionX != null) Write(data.newPositionX.Value);
+			Write(data.newPositionY != null);
+			if (data.newPositionY != null) Write(data.newPositionY.Value);
+			Write(data.newPositionZ != null);
+			if (data.newPositionZ != null) Write(data.newPositionZ.Value);
+			Write(data.rotationX != null);
+			if (data.rotationX != null) Write((byte) data.rotationX.Value);
+			Write(data.rotationY != null);
+			if (data.rotationY != null) Write((byte) data.rotationY.Value);
+			Write(data.rotationYHead != null);
+			if (data.rotationYHead != null) Write((byte) data.rotationYHead.Value);
+			Write(data.isOnGround);
+			Write(data.forceMove);
+			Write(data.forceMoveLocalEntity);
+			Write(data.forceCompletion);
+		}
+
+		public MoveActorDeltaData ReadMoveActorDeltaData()
+		{
+			var data = new MoveActorDeltaData();
+			data.runtimeEntityId = ReadUnsignedVarLong();
+			if (ReadBool()) data.newPositionX = ReadFloat();
+			if (ReadBool()) data.newPositionY = ReadFloat();
+			if (ReadBool()) data.newPositionZ = ReadFloat();
+			if (ReadBool()) data.rotationX = (sbyte) ReadByte();
+			if (ReadBool()) data.rotationY = (sbyte) ReadByte();
+			if (ReadBool()) data.rotationYHead = (sbyte) ReadByte();
+			data.isOnGround = ReadBool();
+			data.forceMove = ReadBool();
+			data.forceMoveLocalEntity = ReadBool();
+			data.forceCompletion = ReadBool();
 			return data;
 		}
 

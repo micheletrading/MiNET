@@ -58,6 +58,14 @@
 			"schema": "MovePlayerPacket"
 		},
 		{
+			"name": "MCPE_MOVE_ENTITY_DELTA",
+			"id": "0x6f",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "MoveActorDeltaPacket"
+		},
+		{
 			"name": "MCPE_SUB_CHUNK_PACKET",
 			"id": "0xae",
 			"online": false,

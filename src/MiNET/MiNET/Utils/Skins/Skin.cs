@@ -106,6 +106,9 @@ namespace MiNET.Utils.Skins
 		public List<PersonaPiece> PersonaPieces { get; set; } = new List<PersonaPiece>();
 		public List<SkinPiece> SkinPieces { get; set; } = new List<SkinPiece>();
 		public bool IsVerified { get; set; }
+
+		/// <summary>Authoritative skin cache key, on the wire since 2168 (SerializedSkin mProfileHash).</summary>
+		public string ProfileHash { get; set; } = "";
 		public bool IsPrimaryUser { get; set; }
 		public bool OverrideAppearance { get; set; }
 

@@ -525,12 +525,18 @@ namespace MiNET.Net
 
 		public void Write(PlayerRecords records)
 		{
+			// Since 2168 every entry is its own tagged variant: a varint tag (1 = add, 0 = remove)
+			// plus the old action enum as a byte (0 = add, 1 = remove; yes, inverted). The
+			// packet-level action byte and the trailing per-entry trusted-skin bools are gone;
+			// trusted now travels inside the skin.
+			WriteUnsignedVarInt((uint) records.Count);
+
 			if (records is PlayerAddRecords)
 			{
-				Write((byte) 0);
-				WriteUnsignedVarInt((uint) records.Count);
 				foreach (var record in records)
 				{
+					WriteUnsignedVarInt(1); // variant tag: add
+					Write((byte) 0); // action: add
 					Write(record.ClientUuid);
 					WriteSignedVarLong(record.EntityId);
 					Write(record.DisplayName ?? record.Username);
@@ -546,90 +552,70 @@ namespace MiNET.Net
 			}
 			else if (records is PlayerRemoveRecords)
 			{
-				Write((byte) 1);
-				WriteUnsignedVarInt((uint) records.Count);
 				foreach (var record in records)
 				{
+					WriteUnsignedVarInt(0); // variant tag: remove
+					Write((byte) 1); // action: remove
 					Write(record.ClientUuid);
-				}
-			}
-
-			if (records is PlayerAddRecords)
-			{
-				foreach (var record in records)
-				{
-					Write(record.Skin.IsVerified); // is verified
 				}
 			}
 		}
 
 		public PlayerRecords ReadPlayerRecords()
 		{
-			// This should never be used in production. It is primarily for 
+			// This should never be used in production. It is primarily for
 			// the client to work.
-			byte recordType = ReadByte();
+			// Since 2168 every entry is its own tagged variant ([tag varint][action byte]); a
+			// packet can mix add and remove entries. MiNET's model is one list per action, so a
+			// mixed packet lands in the add list with removes as bare-uuid players.
 			uint count = ReadUnsignedVarInt();
 			PlayerRecords records = null;
-			switch (recordType)
-			{
-				case 0:
-					records = new PlayerAddRecords();
-					for (int i = 0; i < count; i++)
-					{
-						var player = new Player(null, null);
-						player.ClientUuid = ReadUUID();
-						player.EntityId = ReadSignedVarLong();
-						player.DisplayName = ReadString();
-						var xuid =  ReadString();
-						var platformChatId = ReadString();
-						var deviceOS = ReadInt();
-						player.Skin = ReadSkin();
-						ReadBool(); // is teacher
-						ReadBool(); // is host
-						ReadBool(); // is subclient (649+)
-						player.PlayerListColor = ReadInt(); // player color ARGB (800+)
 
-						player.PlayerInfo = new PlayerInfo()
-						{
-							PlatformChatId = platformChatId,
-							DeviceOS = deviceOS,
-							CertificateData = new CertificateData()
-							{
-								ExtraData = new ExtraData()
-								{
-									Xuid = xuid
-								}
-							}
-						};
-						records.Add(player);
-						//Log.Debug($"Reading {player.ClientUuid}, {player.EntityId}, '{player.DisplayName}', {platformChatId}");
-					}
-					break;
-				case 1:
-					records = new PlayerRemoveRecords();
-					for (int i = 0; i < count; i++)
-					{
-						var player = new Player(null, null);
-						player.ClientUuid = ReadUUID();
-						records.Add(player);
-					}
-					break;
-			}
-
-			if (records is PlayerAddRecords)
+			for (int i = 0; i < count; i++)
 			{
-				foreach (Player player in records)
+				uint tag = ReadUnsignedVarInt(); // 1 = add, 0 = remove
+				ReadByte(); // action enum, same information inverted
+
+				if (tag == 1)
 				{
-					bool isVerified = ReadBool();
+					records ??= new PlayerAddRecords();
+					var player = new Player(null, null);
+					player.ClientUuid = ReadUUID();
+					player.EntityId = ReadSignedVarLong();
+					player.DisplayName = ReadString();
+					var xuid =  ReadString();
+					var platformChatId = ReadString();
+					var deviceOS = ReadInt();
+					player.Skin = ReadSkin();
+					ReadBool(); // is teacher
+					ReadBool(); // is host
+					ReadBool(); // is subclient (649+)
+					player.PlayerListColor = ReadInt(); // player color ARGB (800+)
 
-					if (player.Skin != null) 
-						player.Skin.IsVerified = isVerified;
+					player.PlayerInfo = new PlayerInfo()
+					{
+						PlatformChatId = platformChatId,
+						DeviceOS = deviceOS,
+						CertificateData = new CertificateData()
+						{
+							ExtraData = new ExtraData()
+							{
+								Xuid = xuid
+							}
+						}
+					};
+					records.Add(player);
+				}
+				else
+				{
+					records ??= new PlayerRemoveRecords();
+					var player = new Player(null, null);
+					player.ClientUuid = ReadUUID();
+					records.Add(player);
 				}
 			}
-			//if (!_reader.Eof) ReadBool(); // damn BS
-			//if (!_reader.Eof) ReadBool(); // damn BS
 
-			return records;
+			return records ?? new PlayerAddRecords();
 		}
 
 		public void Write(Records records)
@@ -2066,7 +2052,16 @@ namespace MiNET.Net
 		public Item ReadItemLegacy()
 		{
 			int networkId = ReadSignedVarInt(); // network_id
-			if (networkId == 0) return new ItemAir();
+			if (networkId == 0)
+			{
+				// Since 2168 an empty stack carries all its fields zeroed instead of
+				// short-circuiting after the id (Cereal reflection serializes every field).
+				ReadUshort(); // count
+				ReadVarInt(); // metadata
+				ReadSignedVarInt(); // block_runtime_id
+				ReadItemExtraData(includeBlockingTick: false, out _, out _, out _);
+				return new ItemAir();
+			}
 
 			ushort count = ReadUshort(); // count
 			var metadata = ReadVarInt(); // metadata
@@ -2098,7 +2093,13 @@ namespace MiNET.Net
 			int networkId = stack == null || stack.IsAir ? 0 : ItemFactory.GetNetworkIdByName(stack.Name);
 			if (networkId == 0)
 			{
-				WriteSignedVarInt(0); // network_id => void, no further fields
+				// Since 2168 an empty stack carries all its fields zeroed instead of
+				// short-circuiting after the id (Cereal reflection serializes every field).
+				WriteSignedVarInt(0); // network_id
+				Write((ushort) 0); // count
+				WriteVarInt(0); // metadata
+				WriteSignedVarInt(0); // block_runtime_id
+				WriteLength(0); // empty extra data blob
 				return;
 			}
 
@@ -2850,7 +2851,8 @@ namespace MiNET.Net
 
 			if (skin.Animations?.Count > 0)
 			{
-				Write(skin.Animations.Count);
+				// List counts are varints since 2168 (Cereal reflected vectors); they were le32.
+			WriteUnsignedVarInt((uint) skin.Animations.Count);
 				foreach (Animation animation in skin.Animations)
 				{
 					Write(animation.ImageWidth);
@@ -2879,9 +2881,11 @@ namespace MiNET.Net
 			// append a millisecond timestamp, so the same player's skin carried a different full id
 			// every time the server mentioned them, and nothing keyed on it could ever match.
 			Write(string.IsNullOrEmpty(skin.FullSkinId) ? skin.SkinId : skin.FullSkinId);
-			Write(skin.ArmSize);
-			Write(skin.SkinColor);
-			Write(skin.PersonaPieces.Count);
+			// Since 2168 arm size is one byte (1 = wide, 0 = slim) and the skin color is a raw
+			// ARGB le32; both were strings before. The model keeps the string forms from the JWT.
+			Write((byte) ("wide".Equals(skin.ArmSize, StringComparison.OrdinalIgnoreCase) ? 1 : 0));
+			Write(ParseSkinColor(skin.SkinColor));
+			WriteUnsignedVarInt((uint) skin.PersonaPieces.Count);
 			foreach (PersonaPiece piece in skin.PersonaPieces)
 			{
 				Write(piece.PieceId);
@@ -2890,11 +2894,11 @@ namespace MiNET.Net
 				Write(piece.IsDefaultPiece);
 				Write(piece.ProductId);
 			}
-			Write(skin.SkinPieces.Count);
+			WriteUnsignedVarInt((uint) skin.SkinPieces.Count);
 			foreach (SkinPiece skinPiece in skin.SkinPieces)
 			{
 				Write(skinPiece.PieceType);
-				Write(skinPiece.Colors.Count);
+				WriteUnsignedVarInt((uint) skinPiece.Colors.Count);
 				foreach (string color in skinPiece.Colors)
 				{
 					Write(color);
@@ -2906,6 +2910,17 @@ namespace MiNET.Net
 			Write(skin.Cape.OnClassicSkin);
 			Write(skin.IsPrimaryUser);
 			Write(skin.OverrideAppearance); // overriding_player_appearance (protocol 1001+)
+			// Since 2168 the trusted flag travels inside the skin, as a string of all things,
+			// followed by the profile hash (SerializedSkin mProfileHash).
+			Write(skin.IsVerified ? "true" : "false");
+			Write(skin.ProfileHash ?? "");
+		}
+
+		private static int ParseSkinColor(string color)
+		{
+			if (string.IsNullOrEmpty(color)) return 0;
+			string hex = color.TrimStart('#');
+			return int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out int argb) ? argb : 0;
 		}
 
 		public Skin ReadSkin()
@@ -2919,7 +2934,8 @@ namespace MiNET.Net
 			skin.Height = ReadInt();
 			skin.Data = ReadByteArray(false);
 
-			int animationCount = ReadInt();
+			// List counts are varints since 2168 (Cereal reflected vectors); they were le32.
+			int animationCount = (int) ReadUnsignedVarInt();
 			for (int i = 0; i < animationCount; i++)
 			{
 				skin.Animations.Add(
@@ -2944,9 +2960,11 @@ namespace MiNET.Net
 
 			skin.Cape.Id = ReadString();
 			skin.FullSkinId = ReadString();
-			skin.ArmSize = ReadString();
-			skin.SkinColor = ReadString();
-			int personaPieceCount = ReadInt();
+			// Since 2168 arm size is one byte (1 = wide, 0 = slim) and the skin color is a raw
+			// ARGB le32; both were strings before. The model keeps the string forms from the JWT.
+			skin.ArmSize = ReadByte() == 1 ? "wide" : "slim";
+			skin.SkinColor = "#" + ((uint) ReadInt()).ToString("x8");
+			int personaPieceCount = (int) ReadUnsignedVarInt();
 			for (int i = 0; i < personaPieceCount; i++)
 			{
 				var p = new PersonaPiece();
@@ -2958,12 +2976,12 @@ namespace MiNET.Net
 				skin.PersonaPieces.Add(p);
 			}
 
-			int skinPieceCount = ReadInt();
+			int skinPieceCount = (int) ReadUnsignedVarInt();
 			for (int i = 0; i < skinPieceCount; i++)
 			{
 				var piece = new SkinPiece();
 				piece.PieceType = ReadString();
-				int colorAmount = ReadInt();
+				int colorAmount = (int) ReadUnsignedVarInt();
 				for (int i2 = 0; i2 < colorAmount; i2++)
 				{
 					piece.Colors.Add(ReadString());
@@ -2976,6 +2994,10 @@ namespace MiNET.Net
 			skin.Cape.OnClassicSkin = ReadBool();
 			skin.IsPrimaryUser = ReadBool();
 			skin.OverrideAppearance = ReadBool(); // overriding_player_appearance (protocol 1001+)
+			// Since 2168 the trusted flag travels inside the skin, as a string of all things,
+			// followed by the profile hash (SerializedSkin mProfileHash).
+			skin.IsVerified = "true".Equals(ReadString(), StringComparison.OrdinalIgnoreCase);
+			skin.ProfileHash = ReadString();
 			//Log.Debug($"SkinId={skin.SkinId}");
 			//Log.Debug($"SkinData lenght={skin.Data.Length}");
 			//Log.Debug($"CapeData lenght={skin.Cape.Data.Length}");
@@ -3003,104 +3025,146 @@ namespace MiNET.Net
 		// ReadItemLegacy), not the newer ItemNew shape used by inventory content packets.
 		public void Write(Recipes recipes)
 		{
-			// The furnace entry types (2 and 3) were removed from the protocol at 962, so a smelting
-			// recipe has no wire representation any more and a 1001 client fails to decode the whole
-			// packet if one shows up. Smelting recipes stay server-side only and are left out here.
-			int count = 0;
-			foreach (Recipe recipe in recipes)
-			{
-				if (recipe is SmeltingRecipe) continue;
-				count++;
-			}
-
-			WriteUnsignedVarInt((uint) count);
+			// Since 2168 recipes travel as separate vectors per type (Cereal), in a fixed order,
+			// instead of one type-tagged list. The furnace entry types (2 and 3) were removed from
+			// the protocol at 962, so a smelting recipe still has no wire representation and stays
+			// server-side only.
+			var shaped = new List<ShapedRecipe>();
+			var shapeless = new List<ShapelessRecipe>();
+			var multi = new List<MultiRecipe>();
+			var shulkerBox = new List<ShapelessRecipe>();
+			var shapelessChemistry = new List<ShapelessRecipe>();
+			var shapedChemistry = new List<ShapedRecipe>();
+			var smithingTransform = new List<SmithingTransformRecipe>();
+			var smithingTrim = new List<SmithingTrimRecipe>();
 
 			foreach (Recipe recipe in recipes)
 			{
 				switch (recipe)
 				{
-					case ShapelessRecipe shapelessRecipe:
-					{
-						var rec = shapelessRecipe;
-						WriteSignedVarInt(rec.RecipeType); // Type (Shapeless/ShulkerBox/ShapelessChemistry)
-						WriteLatinString(rec.RecipeId);
-						WriteVarInt(rec.Input.Count);
-						foreach (Item stack in rec.Input)
-						{
-							WriteRecipeIngredient(stack);
-						}
-						WriteVarInt(rec.Result.Count);
-						foreach (Item item in rec.Result)
-						{
-							WriteItemLegacy(item);
-						}
-						Write(rec.Id);
-						Write(rec.Block);
-						WriteSignedVarInt(rec.Priority);
-						WriteUnlockingRequirement(rec.Unlocking);
-						WriteVarInt(rec.NetworkId); // network id
+					case ShapedRecipe r when r.RecipeType == ShapedChemistry:
+						shapedChemistry.Add(r);
 						break;
-					}
-					case ShapedRecipe shapedRecipe:
-					{
-						var rec = shapedRecipe;
-						WriteSignedVarInt(rec.RecipeType); // Type (Shaped/ShapedChemistry)
-						WriteLatinString(rec.RecipeId);
-						WriteSignedVarInt(rec.Width);
-						WriteSignedVarInt(rec.Height);
-
-						for (int w = 0; w < rec.Width; w++)
-						{
-							for (int h = 0; h < rec.Height; h++)
-							{
-								WriteRecipeIngredient(rec.Input[(h * rec.Width) + w]);
-							}
-						}
-						WriteVarInt(rec.Result.Count);
-						foreach (Item item in rec.Result)
-						{
-							WriteItemLegacy(item);
-						}
-						Write(rec.Id);
-						Write(rec.Block);
-						WriteSignedVarInt(rec.Priority);
-						Write(rec.AssumeSymmetry);
-						WriteUnlockingRequirement(rec.Unlocking);
-						WriteVarInt(rec.NetworkId); // network id
+					case ShapedRecipe r:
+						shaped.Add(r);
 						break;
-					}
-					case MultiRecipe multiRecipe:
-					{
-						WriteSignedVarInt(Multi); // Type
-						Write(recipe.Id);
-						WriteVarInt(multiRecipe.NetworkId); // network id
+					case ShapelessRecipe r when r.RecipeType == ShulkerBox:
+						shulkerBox.Add(r);
 						break;
-					}
-					case SmithingTransformRecipe transformRecipe:
-					{
-						WriteSignedVarInt(SmithingTransform); // Type
-						WriteLatinString(transformRecipe.RecipeId);
-						WriteRecipeIngredient(transformRecipe.Template);
-						WriteRecipeIngredient(transformRecipe.Base);
-						WriteRecipeIngredient(transformRecipe.Addition);
-						WriteItemLegacy(transformRecipe.Result);
-						Write(transformRecipe.Tag);
-						WriteVarInt(transformRecipe.NetworkId); // network id
+					case ShapelessRecipe r when r.RecipeType == ShapelessChemistry:
+						shapelessChemistry.Add(r);
 						break;
-					}
-					case SmithingTrimRecipe trimRecipe:
-					{
-						WriteSignedVarInt(SmithingTrim); // Type
-						WriteLatinString(trimRecipe.RecipeId);
-						WriteRecipeIngredient(trimRecipe.Template);
-						WriteRecipeIngredient(trimRecipe.Input);
-						WriteRecipeIngredient(trimRecipe.Addition);
-						Write(trimRecipe.Block);
-						WriteVarInt(trimRecipe.NetworkId); // network id
+					case ShapelessRecipe r:
+						shapeless.Add(r);
 						break;
-					}
+					case MultiRecipe r:
+						multi.Add(r);
+						break;
+					case SmithingTransformRecipe r:
+						smithingTransform.Add(r);
+						break;
+					case SmithingTrimRecipe r:
+						smithingTrim.Add(r);
+						break;
 				}
 			}
+
+			WriteUnsignedVarInt((uint) shaped.Count);
+			foreach (ShapedRecipe rec in shaped) WriteShapedRecipeBody(rec, carriesRequirement: true);
+
+			WriteUnsignedVarInt((uint) shapeless.Count);
+			foreach (ShapelessRecipe rec in shapeless) WriteShapelessRecipeBody(rec, carriesRequirement: true);
+
+			WriteUnsignedVarInt((uint) multi.Count);
+			foreach (MultiRecipe rec in multi)
+			{
+				Write(rec.Id);
+				WriteVarInt(rec.NetworkId); // network id
+			}
+
+			WriteUnsignedVarInt((uint) shulkerBox.Count);
+			foreach (ShapelessRecipe rec in shulkerBox) WriteShapelessRecipeBody(rec, carriesRequirement: true);
+
+			WriteUnsignedVarInt((uint) shapelessChemistry.Count);
+			foreach (ShapelessRecipe rec in shapelessChemistry) WriteShapelessRecipeBody(rec, carriesRequirement: false);
+
+			WriteUnsignedVarInt((uint) shapedChemistry.Count);
+			foreach (ShapedRecipe rec in shapedChemistry) WriteShapedRecipeBody(rec, carriesRequirement: false);
+
+			WriteUnsignedVarInt((uint) smithingTransform.Count);
+			foreach (SmithingTransformRecipe rec in smithingTransform)
+			{
+				WriteLatinString(rec.RecipeId);
+				WriteRecipeIngredient(rec.Template);
+				WriteRecipeIngredient(rec.Base);
+				WriteRecipeIngredient(rec.Addition);
+				WriteItemLegacy(rec.Result);
+				Write(rec.Tag);
+				WriteVarInt(rec.NetworkId); // network id
+			}
+
+			WriteUnsignedVarInt((uint) smithingTrim.Count);
+			foreach (SmithingTrimRecipe rec in smithingTrim)
+			{
+				WriteLatinString(rec.RecipeId);
+				WriteRecipeIngredient(rec.Template);
+				WriteRecipeIngredient(rec.Input);
+				WriteRecipeIngredient(rec.Addition);
+				Write(rec.Block);
+				WriteVarInt(rec.NetworkId); // network id
+			}
+		}
+
+		private void WriteShapedRecipeBody(ShapedRecipe rec, bool carriesRequirement)
+		{
+			WriteLatinString(rec.RecipeId);
+			WriteSignedVarInt(rec.Width);
+			WriteSignedVarInt(rec.Height);
+			// Counted since 2168; the count must equal width*height and the element order is
+			// unchanged (column-major, as verified against BDS at 1001).
+			WriteUnsignedVarInt((uint) (rec.Width * rec.Height));
+			for (int w = 0; w < rec.Width; w++)
+			{
+				for (int h = 0; h < rec.Height; h++)
+				{
+					WriteRecipeIngredient(rec.Input[(h * rec.Width) + w]);
+				}
+			}
+			WriteVarInt(rec.Result.Count);
+			foreach (Item item in rec.Result)
+			{
+				WriteItemLegacy(item);
+			}
+			Write(rec.Id);
+			Write(rec.Block);
+			WriteSignedVarInt(rec.Priority);
+			Write(rec.AssumeSymmetry);
+			// Presence bool since 2168; vanilla sends the requirement on plain shaped/shapeless
+			// recipes and false on the chemistry variants.
+			Write(carriesRequirement);
+			if (carriesRequirement) WriteUnlockingRequirement(rec.Unlocking);
+			WriteVarInt(rec.NetworkId); // network id
+		}
+
+		private void WriteShapelessRecipeBody(ShapelessRecipe rec, bool carriesRequirement)
+		{
+			WriteLatinString(rec.RecipeId);
+			WriteVarInt(rec.Input.Count);
+			foreach (Item stack in rec.Input)
+			{
+				WriteRecipeIngredient(stack);
+			}
+			WriteVarInt(rec.Result.Count);
+			foreach (Item item in rec.Result)
+			{
+				WriteItemLegacy(item);
+			}
+			Write(rec.Id);
+			Write(rec.Block);
+			WriteSignedVarInt(rec.Priority);
+			Write(carriesRequirement);
+			if (carriesRequirement) WriteUnlockingRequirement(rec.Unlocking);
+			WriteVarInt(rec.NetworkId); // network id
 		}
 
 		// context 0 ("none") is the only unlocking-requirement context that carries an ingredients
@@ -3110,8 +3174,12 @@ namespace MiNET.Net
 		private void WriteUnlockingRequirement(UnlockingRequirement requirement)
 		{
 			requirement ??= new UnlockingRequirement();
-			Write(requirement.Context);
-			if (requirement.Context == 0)
+			// Context is a zigzag varint since 2168 (was one byte), and the ingredients array sits
+			// behind its own presence bool, sent true only for context 0 ("none").
+			WriteSignedVarInt(requirement.Context);
+			bool carriesIngredients = requirement.Context == 0;
+			Write(carriesIngredients);
+			if (carriesIngredients)
 			{
 				var ingredients = requirement.Ingredients ?? new List<Item>();
 				WriteUnsignedVarInt((uint) ingredients.Count);
@@ -3124,8 +3192,8 @@ namespace MiNET.Net
 
 		private UnlockingRequirement ReadUnlockingRequirement()
 		{
-			var requirement = new UnlockingRequirement {Context = ReadByte()};
-			if (requirement.Context == 0)
+			var requirement = new UnlockingRequirement {Context = ReadSignedVarInt()};
+			if (ReadBool())
 			{
 				uint count = ReadUnsignedVarInt();
 				requirement.Ingredients = new List<Item>((int) count);
@@ -3139,105 +3207,87 @@ namespace MiNET.Net
 
 		public Recipes ReadRecipes()
 		{
+			// Since 2168 recipes travel as separate vectors per type (Cereal), in a fixed order;
+			// the per-recipe type tag is gone and the furnace types no longer exist on the wire.
 			var recipes = new Recipes();
 
-			int count = (int) ReadUnsignedVarInt();
-			Log.Trace($"Reading {count} recipes");
-
-			for (int i = 0; i < count; i++)
+			uint shapedCount = ReadUnsignedVarInt();
+			for (int i = 0; i < shapedCount; i++)
 			{
-				int recipeType = ReadSignedVarInt();
-
-				Log.Trace($"Read recipe no={i} type={recipeType}");
-
-				if (recipeType < 0 /*|| len == 0*/)
-				{
-					Log.Error("Read void recipe");
-					break;
-				}
-
-				switch (recipeType)
-				{
-					case Shapeless:
-					case ShulkerBox:
-					case ShapelessChemistry:
-					{
-						var recipe = ReadShapelessLikeRecipe();
-						recipe.RecipeType = recipeType;
-						recipes.Add(recipe);
-						break;
-					}
-					case Shaped:
-					case ShapedChemistry:
-					{
-						var recipe = ReadShapedLikeRecipe();
-						recipe.RecipeType = recipeType;
-						recipes.Add(recipe);
-						break;
-					}
-					case Furnace:
-					{
-						var recipe = new SmeltingRecipe();
-						short id = (short) ReadSignedVarInt(); // input_id
-						Item result = ReadItemLegacy(); // Result
-						recipe.Block = ReadString(); // block?
-						recipe.Input = ItemFactory.GetItemByNetworkId(id, 0);
-						recipe.Result = result;
-						recipes.Add(recipe);
-						break;
-					}
-					case FurnaceData:
-					{
-						var recipe = new SmeltingRecipe();
-						short id = (short) ReadSignedVarInt(); // input_id
-						short meta = (short) ReadSignedVarInt(); // input_meta
-						Item result = ReadItemLegacy(); // Result
-						recipe.Block = ReadString(); // block?
-						recipe.Input = ItemFactory.GetItemByNetworkId(id, meta);
-						recipe.Result = result;
-						recipes.Add(recipe);
-						break;
-					}
-					case Multi:
-					{
-						var recipe = new MultiRecipe();
-						recipe.Id = ReadUUID();
-						recipe.NetworkId = ReadVarInt(); // network id
-						recipes.Add(recipe);
-						break;
-					}
-					case SmithingTransform:
-					{
-						var recipe = new SmithingTransformRecipe();
-						recipe.RecipeId = ReadLatinString(); // recipe id
-						recipe.Template = ReadRecipeIngredient();
-						recipe.Base = ReadRecipeIngredient();
-						recipe.Addition = ReadRecipeIngredient();
-						recipe.Result = ReadItemLegacy();
-						recipe.Tag = ReadString();
-						recipe.NetworkId = ReadVarInt(); // network id
-						recipes.Add(recipe);
-						break;
-					}
-					case SmithingTrim:
-					{
-						var recipe = new SmithingTrimRecipe();
-						recipe.RecipeId = ReadLatinString(); // recipe id
-						recipe.Template = ReadRecipeIngredient();
-						recipe.Input = ReadRecipeIngredient();
-						recipe.Addition = ReadRecipeIngredient();
-						recipe.Block = ReadString();
-						recipe.NetworkId = ReadVarInt(); // network id
-						recipes.Add(recipe);
-						break;
-					}
-					default:
-						Log.Error($"Read unknown recipe type: {recipeType}");
-						break;
-				}
+				var recipe = ReadShapedLikeRecipe();
+				recipe.RecipeType = Shaped;
+				recipes.Add(recipe);
 			}
 
-			Log.Trace($"Done reading {count} recipes");
+			uint shapelessCount = ReadUnsignedVarInt();
+			for (int i = 0; i < shapelessCount; i++)
+			{
+				var recipe = ReadShapelessLikeRecipe();
+				recipe.RecipeType = Shapeless;
+				recipes.Add(recipe);
+			}
+
+			uint multiCount = ReadUnsignedVarInt();
+			for (int i = 0; i < multiCount; i++)
+			{
+				var recipe = new MultiRecipe();
+				recipe.Id = ReadUUID();
+				recipe.NetworkId = ReadVarInt(); // network id
+				recipes.Add(recipe);
+			}
+
+			uint shulkerBoxCount = ReadUnsignedVarInt();
+			for (int i = 0; i < shulkerBoxCount; i++)
+			{
+				var recipe = ReadShapelessLikeRecipe();
+				recipe.RecipeType = ShulkerBox;
+				recipes.Add(recipe);
+			}
+
+			uint shapelessChemistryCount = ReadUnsignedVarInt();
+			for (int i = 0; i < shapelessChemistryCount; i++)
+			{
+				var recipe = ReadShapelessLikeRecipe();
+				recipe.RecipeType = ShapelessChemistry;
+				recipes.Add(recipe);
+			}
+
+			uint shapedChemistryCount = ReadUnsignedVarInt();
+			for (int i = 0; i < shapedChemistryCount; i++)
+			{
+				var recipe = ReadShapedLikeRecipe();
+				recipe.RecipeType = ShapedChemistry;
+				recipes.Add(recipe);
+			}
+
+			uint smithingTransformCount = ReadUnsignedVarInt();
+			for (int i = 0; i < smithingTransformCount; i++)
+			{
+				var recipe = new SmithingTransformRecipe();
+				recipe.RecipeId = ReadLatinString(); // recipe id
+				recipe.Template = ReadRecipeIngredient();
+				recipe.Base = ReadRecipeIngredient();
+				recipe.Addition = ReadRecipeIngredient();
+				recipe.Result = ReadItemLegacy();
+				recipe.Tag = ReadString();
+				recipe.NetworkId = ReadVarInt(); // network id
+				recipes.Add(recipe);
+			}
+
+			uint smithingTrimCount = ReadUnsignedVarInt();
+			for (int i = 0; i < smithingTrimCount; i++)
+			{
+				var recipe = new SmithingTrimRecipe();
+				recipe.RecipeId = ReadLatinString(); // recipe id
+				recipe.Template = ReadRecipeIngredient();
+				recipe.Input = ReadRecipeIngredient();
+				recipe.Addition = ReadRecipeIngredient();
+				recipe.Block = ReadString();
+				recipe.NetworkId = ReadVarInt(); // network id
+				recipes.Add(recipe);
+			}
+
+			Log.Trace($"Done reading {recipes.Count} recipes");
 
 			return recipes;
 		}
@@ -3259,7 +3309,8 @@ namespace MiNET.Net
 			recipe.Id = ReadUUID();
 			recipe.Block = ReadString();
 			recipe.Priority = ReadSignedVarInt();
-			recipe.Unlocking = ReadUnlockingRequirement();
+			// Presence bool since 2168; false on the chemistry variants.
+			if (ReadBool()) recipe.Unlocking = ReadUnlockingRequirement();
 			recipe.NetworkId = ReadVarInt(); // network id
 			return recipe;
 		}
@@ -3273,6 +3324,10 @@ namespace MiNET.Net
 			recipe.RecipeId = recipeId;
 			if (width > 3 || height > 3)
 				throw new Exception("Wrong number of ingredients, Width=" + width + ", height=" + height);
+			// Counted since 2168; the count must equal width*height, element order unchanged.
+			uint inputCount = ReadUnsignedVarInt();
+			if (inputCount != width * height)
+				throw new Exception($"Shaped recipe input count {inputCount} does not match {width}x{height}");
 			for (int w = 0; w < width; w++)
 			{
 				for (int h = 0; h < height; h++)
@@ -3290,7 +3345,8 @@ namespace MiNET.Net
 			recipe.Block = ReadString();
 			recipe.Priority = ReadSignedVarInt();
 			recipe.AssumeSymmetry = ReadBool();
-			recipe.Unlocking = ReadUnlockingRequirement();
+			// Presence bool since 2168; false on the chemistry variants.
+			if (ReadBool()) recipe.Unlocking = ReadUnlockingRequirement();
 			recipe.NetworkId = ReadVarInt(); // network id
 			return recipe;
 		}
@@ -3303,98 +3359,106 @@ namespace MiNET.Net
 		// instead of a stored number.
 		public void WriteRecipeIngredient(Item stack)
 		{
-			if (stack?.IngredientDescriptor != null)
+			// Since 2168 the ingredient descriptor is name-addressed: the numeric tag is 0 for an
+			// empty slot and 1 for anything real, and a serialize-name string selects the kind.
+			// The numeric int_id_meta variant is gone, which suits MiNET: recipe data is name-based
+			// already. Vanilla writes aux 32767 on the invalid and item_tag kinds.
+			var descriptor = stack?.IngredientDescriptor;
+			if (descriptor != null)
 			{
-				var descriptor = stack.IngredientDescriptor;
-				Write(descriptor.Type);
+				WriteUnsignedVarInt(1);
 				switch (descriptor.Type)
 				{
-					case 1: // int_id_meta, by registry string id
-					{
-						short descriptorNetworkId = ItemFactory.GetNetworkIdByName(descriptor.Name);
-						Write(descriptorNetworkId);
-						if (descriptorNetworkId != 0) Write(descriptor.Metadata);
-						break;
-					}
 					case 2: // molang
+						Write("molang");
 						Write(descriptor.Text); // expression
-						Write(descriptor.MolangVersion); // version
+						Write((short) descriptor.MolangVersion); // version
 						break;
 					case 3: // item_tag
+						Write("item_tag");
 						Write(descriptor.Text); // tag
+						WriteSignedVarInt(32767); // aux
 						break;
 					case 4: // string_id_meta
+						Write("name");
 						Write(descriptor.Text); // name
-						Write(descriptor.Metadata);
+						WriteSignedVarInt(descriptor.Metadata);
 						break;
 					case 5: // complex_alias
+						Write("complex_alias");
 						Write(descriptor.Text); // name
+						break;
+					default: // 1: by registry string id
+						Write("name");
+						Write(descriptor.Name);
+						WriteSignedVarInt(descriptor.Metadata);
 						break;
 				}
 				WriteSignedVarInt(stack.Count);
 				return;
 			}
 
-			// An ingredient with no descriptor is the plain int_id_meta variant. The id on the wire is
-			// the registry network id, resolved from the item's name like every other write path.
-			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
-			short networkId = stack == null || stack.IsAir ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
-			if (networkId == 0)
+			if (stack == null || stack.IsAir)
 			{
-				Write((byte) 0); // type = invalid
+				WriteUnsignedVarInt(0); // invalid = empty slot
+				WriteSignedVarInt(32767); // aux
 				WriteSignedVarInt(stack?.Count ?? 0); // count
 				return;
 			}
 
-			Write((byte) 1); // type = int_id_meta
-			Write(networkId);
-			Write((short) stack.Metadata);
+			WriteUnsignedVarInt(1);
+			Write("name");
+			Write(stack.Name);
+			WriteSignedVarInt(stack.Metadata);
 			WriteSignedVarInt(stack.Count == 0 ? 1 : stack.Count);
 		}
 
 		public Item ReadRecipeIngredient()
 		{
-			byte type = ReadByte();
+			uint type = ReadUnsignedVarInt();
 
 			Item item;
-			switch (type)
+			if (type == 0) // invalid = empty slot
 			{
-				case 1: // int_id_meta
+				ReadSignedVarInt(); // aux, vanilla writes 32767
+				item = new ItemAir();
+			}
+			else
+			{
+				string kind = ReadString();
+				switch (kind)
 				{
-					short id = ReadShort();
-					short metadata = id == 0 ? (short) 0 : ReadShort();
-					item = id == 0 ? new ItemAir() : ItemFactory.GetItemByNetworkId(id, metadata);
-					break;
+					case "name":
+					{
+						string name = ReadString();
+						int metadata = ReadSignedVarInt();
+						item = ItemFactory.GetItemByName(name, (short) metadata);
+						item.IngredientDescriptor = new RecipeIngredientDescriptor {Type = 1, Name = name, Metadata = (short) metadata};
+						break;
+					}
+					case "molang":
+					{
+						string expression = ReadString();
+						short version = ReadShort();
+						item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = 2, Text = expression, MolangVersion = (byte) version}};
+						break;
+					}
+					case "item_tag":
+					{
+						string tag = ReadString();
+						ReadSignedVarInt(); // aux, vanilla writes 32767
+						item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = 3, Text = tag}};
+						break;
+					}
+					case "complex_alias":
+					{
+						string name = ReadString();
+						item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = 5, Text = name}};
+						break;
+					}
+					default:
+						throw new Exception($"Unknown recipe ingredient descriptor kind: {kind}");
 				}
-				case 2: // molang
-				{
-					string expression = ReadString();
-					byte version = ReadByte();
-					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = expression, MolangVersion = version}};
-					break;
-				}
-				case 3: // item_tag
-				{
-					string tag = ReadString();
-					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = tag}};
-					break;
-				}
-				case 4: // string_id_meta
-				{
-					string name = ReadString();
-					short metadata = ReadShort();
-					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = name, Metadata = metadata}};
-					break;
-				}
-				case 5: // complex_alias
-				{
-					string name = ReadString();
-					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = type, Text = name}};
-					break;
-				}
-				default: // invalid
-					item = new ItemAir();
-					break;
 			}
 
 			int count = ReadSignedVarInt();

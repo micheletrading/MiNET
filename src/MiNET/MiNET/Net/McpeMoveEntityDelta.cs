@@ -32,142 +32,74 @@ namespace MiNET.Net
 {
 	public partial class McpeMoveEntityDelta
 	{
-		private static readonly ILog Log = LogManager.GetLogger(typeof(McpeMoveEntityDelta));
-
-		public const int HasX = 0x01;
-		public const int HasY = 0x02;
-		public const int HasZ = 0x04;
-		public const int HasRotX = 0x08;
-		public const int HasRotY = 0x10;
-		public const int HasRotZ = 0x20;
-		public const int OnGround = 0x40;
-
+		// Convenience state for building deltas from entity positions; the wire shape lives in
+		// the generated moveData struct (per-field presence optionals since 2168, replacing the
+		// old 16-bit flags header).
 		public PlayerLocation currentPosition; // = null;
 		public PlayerLocation prevSentPosition; // = null;
 		public bool isOnGround; // = null;
 
-		private float _dX;
-		private float _dY;
-		private float _dZ;
+		public long runtimeEntityId
+		{
+			get => moveData?.runtimeEntityId ?? 0;
+			set => (moveData ??= new MoveActorDeltaData()).runtimeEntityId = value;
+		}
 
 		partial void BeforeEncode()
 		{
-			// set the flags
-			bool shouldSend = flags != 0 || SetFlags();
+			if (currentPosition == null || prevSentPosition == null) return; // decoded or prebuilt moveData
 
-			if (Log.IsDebugEnabled && !shouldSend) Log.Warn("Sending delta move with no change. Please fix!");
+			SetFlags();
 		}
 
+		/// <summary>
+		///     Builds the wire fields from currentPosition/prevSentPosition and reports whether the
+		///     delta carries any change worth sending, mirroring the old flags-header contract.
+		/// </summary>
 		public bool SetFlags()
 		{
-			flags = 0;
-
 			if (currentPosition == null || prevSentPosition == null) return false;
 
-			_dX = currentPosition.X;
-			_dY = currentPosition.Y;
-			_dZ = currentPosition.Z;
+			long id = runtimeEntityId;
+			var d = new MoveActorDeltaData {runtimeEntityId = id};
+			moveData = d;
 
-			if (_dX != 0) flags |= HasX;
-			if (_dY != 0) flags |= HasY;
-			if (_dZ != 0) flags |= HasZ;
+			if (currentPosition.X != 0) d.newPositionX = currentPosition.X;
+			if (currentPosition.Y != 0) d.newPositionY = currentPosition.Y;
+			if (currentPosition.Z != 0) d.newPositionZ = currentPosition.Z;
 
-			if (prevSentPosition.Pitch != currentPosition.Pitch) flags |= HasRotX;
-			if (prevSentPosition.Yaw != currentPosition.Yaw) flags |= HasRotY;
-			if (prevSentPosition.HeadYaw != currentPosition.HeadYaw) flags |= HasRotZ;
+			float k = 256f / 360f;
+			if (prevSentPosition.Pitch != currentPosition.Pitch) d.rotationX = unchecked((sbyte) (byte) Math.Round(currentPosition.Pitch * k));
+			if (prevSentPosition.Yaw != currentPosition.Yaw) d.rotationY = unchecked((sbyte) (byte) Math.Round(currentPosition.Yaw * k));
+			if (prevSentPosition.HeadYaw != currentPosition.HeadYaw) d.rotationYHead = unchecked((sbyte) (byte) Math.Round(currentPosition.HeadYaw * k));
 
-			if (flags != 0 && isOnGround) flags |= OnGround;
+			d.isOnGround = isOnGround;
 
-			return flags != 0;
+			return d.newPositionX != null || d.newPositionY != null || d.newPositionZ != null
+				|| d.rotationX != null || d.rotationY != null || d.rotationYHead != null;
 		}
 
-		partial void AfterEncode()
+		partial void AfterDecode()
 		{
-			// write the values. Read from currentPosition directly rather than the _dX/_dY/_dZ
-			// cache: that cache is only populated as a side effect of SetFlags(), which BeforeEncode
-			// skips whenever flags is already non-zero (e.g. after a decode), leaving it stale.
-			if ((flags & 0x1) != 0)
-			{
-				Write(currentPosition.X);
-			}
-			if ((flags & 0x2) != 0)
-			{
-				Write(currentPosition.Y);
-			}
-			if ((flags & 0x4) != 0)
-			{
-				Write(currentPosition.Z);
-			}
-
-			float d = 256f / 360f;
-			if ((flags & 0x8) != 0)
-			{
-				Write((byte) Math.Round(currentPosition.Pitch * d)); // 256/360
-			}
-
-			if ((flags & 0x10) != 0)
-			{
-				Write((byte) Math.Round(currentPosition.Yaw * d)); // 256/360
-			}
-
-			if ((flags & 0x20) != 0)
-			{
-				Write((byte) Math.Round(currentPosition.HeadYaw * d)); // 256/360
-			}
+			isOnGround = moveData.isOnGround;
+			currentPosition = new PlayerLocation(moveData.newPositionX ?? 0, moveData.newPositionY ?? 0, moveData.newPositionZ ?? 0);
+			float k = 360f / 256f;
+			if (moveData.rotationX != null) currentPosition.Pitch = moveData.rotationX.Value * k;
+			if (moveData.rotationY != null) currentPosition.Yaw = moveData.rotationY.Value * k;
+			if (moveData.rotationYHead != null) currentPosition.HeadYaw = moveData.rotationYHead.Value * k;
 		}
 
 		public PlayerLocation GetCurrentPosition(PlayerLocation previousPosition)
 		{
 			var pos = previousPosition;
-			pos.X = ((flags & HasX) != 0) ? currentPosition.X : previousPosition.X;
-			pos.Y = ((flags & HasY) != 0) ? currentPosition.Y : previousPosition.Y;
-			pos.Z = ((flags & HasZ) != 0) ? currentPosition.Z : previousPosition.Z;
-      
-			pos.HeadYaw = ((flags & HasRotZ) != 0) ? -currentPosition.HeadYaw : previousPosition.HeadYaw;
-			pos.Yaw = ((flags & HasRotY) != 0) ? -currentPosition.Yaw : previousPosition.Yaw;
-			pos.Pitch = ((flags & HasRotX) != 0) ? -currentPosition.Pitch : previousPosition.Pitch;
-
-			//pos.OnGround = this.isOnGround;
+			float k = 360f / 256f;
+			pos.X = moveData.newPositionX ?? previousPosition.X;
+			pos.Y = moveData.newPositionY ?? previousPosition.Y;
+			pos.Z = moveData.newPositionZ ?? previousPosition.Z;
+			pos.Pitch = moveData.rotationX != null ? -(moveData.rotationX.Value * k) : previousPosition.Pitch;
+			pos.Yaw = moveData.rotationY != null ? -(moveData.rotationY.Value * k) : previousPosition.Yaw;
+			pos.HeadYaw = moveData.rotationYHead != null ? -(moveData.rotationYHead.Value * k) : previousPosition.HeadYaw;
 			return pos;
-		}
-
-		partial void AfterDecode()
-		{
-			currentPosition = new PlayerLocation();
-
-			if ((flags & HasX) != 0)
-			{
-				currentPosition.X = ReadFloat();
-			}
-			if ((flags & HasY) != 0)
-			{
-				currentPosition.Y = ReadFloat();
-			}
-			if ((flags & HasZ) != 0)
-			{
-				currentPosition.Z = ReadFloat();
-			}
-
-			float d = 1f / (256f / 360f);
-			if ((flags & HasRotX) != 0)
-			{
-				currentPosition.Pitch = ReadByte() * d;
-			}
-
-			if ((flags & HasRotY) != 0)
-			{
-				currentPosition.Yaw = ReadByte() * d;
-			}
-
-			if ((flags & HasRotZ) != 0)
-			{
-				currentPosition.HeadYaw = ReadByte() * d;
-			}
-
-			if ((flags & OnGround) != 0)
-			{
-				isOnGround = true;
-			}
 		}
 	}
 }

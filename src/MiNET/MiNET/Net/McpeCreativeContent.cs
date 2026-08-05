@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -54,7 +54,8 @@ namespace MiNET.Net
 			{
 				Groups.Add(new CreativeItemGroup
 				{
-					Category = ReadInt(),
+					// One byte since 2168; was a raw le32.
+					Category = ReadByte(),
 					Name = ReadString(),
 					Icon = ReadItemLegacy(),
 				});
@@ -77,7 +78,8 @@ namespace MiNET.Net
 			WriteUnsignedVarInt((uint) Groups.Count);
 			foreach (var group in Groups)
 			{
-				Write(group.Category);
+				// One byte since 2168; was a raw le32.
+				Write((byte) group.Category);
 				Write(group.Name);
 				WriteItemLegacy(group.Icon);
 			}

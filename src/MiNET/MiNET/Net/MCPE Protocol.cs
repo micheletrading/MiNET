@@ -6377,58 +6377,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeMoveEntityDelta : Packet<McpeMoveEntityDelta>
-	{
-
-		public long runtimeEntityId; // = null;
-		public ushort flags; // = null;
-
-		public McpeMoveEntityDelta()
-		{
-			Id = 0x6f;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			WriteUnsignedVarLong(runtimeEntityId);
-			Write(flags);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			runtimeEntityId = ReadUnsignedVarLong();
-			flags = ReadUshort();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			runtimeEntityId=default(long);
-			flags=default(ushort);
-		}
-
-	}
-
 	public partial class McpeSetScoreboardIdentity : Packet<McpeSetScoreboardIdentity>
 	{
 		public enum Operations
