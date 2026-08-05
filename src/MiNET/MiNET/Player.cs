@@ -169,7 +169,7 @@ namespace MiNET
 			NoAi = false;
 		}
 
-		public void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
+		public virtual void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
 		{
 			// Beware that message might be null here.
 
@@ -232,7 +232,7 @@ namespace MiNET
 
 		protected Form CurrentForm { get; set; } = null;
 
-		public void HandleMcpeModalFormResponse(McpeModalFormResponse message)
+		public virtual void HandleMcpeModalFormResponse(McpeModalFormResponse message)
 		{
 			if (CurrentForm == null) Log.Warn("No current form set for player when processing response");
 
@@ -299,7 +299,7 @@ namespace MiNET
 			return customForm;
 		}
 
-		public void HandleMcpeServerSettingsRequest(McpeServerSettingsRequest message)
+		public virtual void HandleMcpeServerSettingsRequest(McpeServerSettingsRequest message)
 		{
 			var form = GetServerSettingsForm();
 			if (form == null) return;
@@ -429,7 +429,7 @@ namespace MiNET
 			}
 		}
 
-		public void HandleMcpeNpcRequest(McpeNpcRequest message)
+		public virtual void HandleMcpeNpcRequest(McpeNpcRequest message)
 		{
 			// Only used by EDU NPC.
 
@@ -514,7 +514,7 @@ namespace MiNET
 			//Level.RelayBroadcast((McpeSetEntityMotion) message.Clone());
 		}
 
-		public void HandleMcpeMoveEntity(McpeMoveEntity message)
+		public virtual void HandleMcpeMoveEntity(McpeMoveEntity message)
 		{
 			//Level.RelayBroadcast((McpeMoveEntity) message.Clone());
 			if (Vehicle == message.runtimeEntityId && Level.TryGetEntity(message.runtimeEntityId, out Entity entity))
@@ -2390,7 +2390,7 @@ namespace MiNET
 			if (Log.IsDebugEnabled) Log.Debug($"Emote list from {Username}: {message.emotePieceIds.Length} emotes");
 		}
 
-		public void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
+		public virtual void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
 		{
 			UseBlobCache = message.enabled && BlobStore.Enabled;
 			Log.Info($"Cache status from {Username}: client={(message.enabled ? "enabled" : "disabled")}, serving blobs={UseBlobCache}");
@@ -2402,7 +2402,7 @@ namespace MiNET
 		///     out of the store after we advertised it, which would strand the chunk, so it is
 		///     logged rather than passed over.
 		/// </summary>
-		public void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
+		public virtual void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
 		{
 			if (message.hashMisses == null || message.hashMisses.Length == 0) return;
 
@@ -2420,28 +2420,28 @@ namespace MiNET
 			SendPacket(response);
 		}
 
-		public void HandleMcpeNetworkSettings(McpeNetworkSettings message)
+		public virtual void HandleMcpeNetworkSettings(McpeNetworkSettings message)
 		{
 		}
 
-		public void HandleMcpeEmote(McpeEmote message)
+		public virtual void HandleMcpeEmote(McpeEmote message)
 		{
 		}
 
-		public void HandleMcpeMultiplayerSettings(McpeMultiplayerSettings message)
+		public virtual void HandleMcpeMultiplayerSettings(McpeMultiplayerSettings message)
 		{
 		}
 
-		public void HandleMcpeSettingsCommand(McpeSettingsCommand message)
+		public virtual void HandleMcpeSettingsCommand(McpeSettingsCommand message)
 		{
 		}
 
-		public void HandleMcpeAnvilDamage(McpeAnvilDamage message)
+		public virtual void HandleMcpeAnvilDamage(McpeAnvilDamage message)
 		{
 		}
 
 		/// <inheritdoc />
-		public void HandleMcpePlayerAuthInput(McpePlayerAuthInput message)
+		public virtual void HandleMcpePlayerAuthInput(McpePlayerAuthInput message)
 		{
 			// The 1.26 client sends PlayerAuthInput every tick as its only movement packet
 			// (MovePlayer is server->client only now). Position is at eye height, like
@@ -2684,7 +2684,7 @@ namespace MiNET
 			if (stackResponse.Result != StackResponseStatus.Ok) ResyncInventoryAfterFailedStackRequest();
 		}
 
-		public void HandleMcpeItemStackRequest(McpeItemStackRequest message)
+		public virtual void HandleMcpeItemStackRequest(McpeItemStackRequest message)
 		{
 			var response = McpeItemStackResponse.CreateObject();
 			response.responses = new ItemStackResponses();
@@ -2812,31 +2812,31 @@ namespace MiNET
 			}
 		}
 
-		public void HandleMcpeUpdatePlayerGameType(McpeUpdatePlayerGameType message)
+		public virtual void HandleMcpeUpdatePlayerGameType(McpeUpdatePlayerGameType message)
 		{
 		}
 
-		public void HandleMcpePositionTrackingDbClientRequest(McpePositionTrackingDbClientRequest message)
+		public virtual void HandleMcpePositionTrackingDbClientRequest(McpePositionTrackingDbClientRequest message)
 		{
 		}
 
-		public void HandleMcpeDebugInfo(McpeDebugInfo message)
+		public virtual void HandleMcpeDebugInfo(McpeDebugInfo message)
 		{
 		}
 
-		public void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
+		public virtual void HandleMcpePacketViolationWarning(McpePacketViolationWarning message)
 		{
 			Log.Error($"Client reported a level {message.severity} packet violation of type {message.violationType} for packet 0x{message.packetId:X2}: {message.reason}");
 		}
 
 		/// <inheritdoc />
-		public void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message)
+		public virtual void HandleMcpeUpdateSubChunkBlocksPacket(McpeUpdateSubChunkBlocksPacket message)
 		{
 			
 		}
 
 		/// <inheritdoc />
-		public void HandleMcpeSubChunkRequestPacket(McpeSubChunkRequestPacket message)
+		public virtual void HandleMcpeSubChunkRequestPacket(McpeSubChunkRequestPacket message)
 		{
 			/*McpeSubChunkPacket response = McpeSubChunkPacket.CreateObject();
 			if (message.dimension != (int) Level.Dimension)
@@ -3004,7 +3004,7 @@ namespace MiNET
 		}
 
 
-		public void HandleMcpeInventorySlot(McpeInventorySlot message)
+		public virtual void HandleMcpeInventorySlot(McpeInventorySlot message)
 		{
 		}
 
@@ -3423,11 +3423,11 @@ namespace MiNET
 			}
 		}
 
-		public void HandleMcpePlayerHotbar(McpePlayerHotbar message)
+		public virtual void HandleMcpePlayerHotbar(McpePlayerHotbar message)
 		{
 		}
 
-		public void HandleMcpeInventoryContent(McpeInventoryContent message)
+		public virtual void HandleMcpeInventoryContent(McpeInventoryContent message)
 		{
 		}
 
