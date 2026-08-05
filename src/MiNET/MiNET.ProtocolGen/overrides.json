@@ -45,11 +45,7 @@
 		},
 		"LevelSettings": {
 			"fields": {
-				"Rule Data": {"name": "gamerules"},
-				"Player Permissions": {
-					"type": {"csType": "byte", "write": "Write({0});", "read": "{0} = ReadByte();"},
-					"reason": "Schema claims int8+Compression (zigzag varint) but live BDS 1.26.40.8 sends a raw byte (0x02 where zigzag would be 0x04), verified in the 2168 StartGame byte walk. Cloudburst writes a raw byte too."
-				}
+				"Rule Data": {"name": "gamerules"}
 			}
 		},
 		"ServerBlockProperty": {

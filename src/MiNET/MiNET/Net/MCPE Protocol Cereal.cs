@@ -573,6 +573,14 @@ namespace MiNET.Net
 			Public = 4,
 		}
 
+		public enum Playerpermissions
+		{
+			Visitor = 0,
+			Member = 1,
+			Operator = 2,
+			Custom = 3,
+		}
+
 		public enum Chatrestrictionlevel
 		{
 			None = 0,

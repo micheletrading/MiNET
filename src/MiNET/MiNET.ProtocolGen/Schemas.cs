@@ -465,7 +465,10 @@ public class CerealPacket
 				return new TypeMapping {CsType = "float", Write = "Write({0});", Read = "{0} = ReadFloat();"};
 			case "string":
 				return new TypeMapping {CsType = "string", Write = "Write({0});", Read = "{0} = ReadString();"};
-			case "int8" when compressed:
+			case "int8":
+				// One byte is one byte; Compression cannot shrink it and BDS confirms it stays raw
+				// (Player Permissions in StartGame: 0x02 on the wire, not zigzag 0x04).
+				return new TypeMapping {CsType = "byte", Write = "Write({0});", Read = "{0} = ReadByte();"};
 			case "int32" when compressed:
 				return new TypeMapping {CsType = "int", Write = "WriteSignedVarInt({0});", Read = "{0} = ReadSignedVarInt();"};
 			case "uint32" when compressed:
