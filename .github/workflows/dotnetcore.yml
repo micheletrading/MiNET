@@ -10,7 +10,10 @@ jobs:
     name: Build & Publish
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # write, not read: the build number is stored as a git ref by the counter
+      # action, and naming permissions at all replaces the defaults rather than
+      # adding to them.
+      contents: write
       # Lets the job ask GitHub for an OIDC token, which nuget.org trades for a
       # short-lived key. Without it the token request fails quietly.
       id-token: write
