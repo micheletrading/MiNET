@@ -306,15 +306,19 @@ namespace MiNET
 					if (Log.IsDebugEnabled) Log.Debug($"Certificate JSON:\n{json}");
 
 					// Protocol 1.21.90+ wraps the login identity in an authentication
-					// envelope: {Certificate, AuthenticationType, Token}. The real cert
-					// chain (online auth) lives in Certificate; offline identity is in the
-					// self-signed OIDC Token (protocol 944+), with an empty chain.
+					// envelope: {Certificate, AuthenticationType, Token}. Identity comes from
+					// the Token, which is a PlayFab/OIDC JWT; Certificate carries the legacy
+					// chain, which a real client still sends alongside it.
 					string multiplayerToken = null;
+					// Kept for diagnostics: json is reassigned to the Certificate contents below,
+					// which loses the envelope, and the envelope is what a failed login needs named.
+					string authenticationType = null;
 					if (json["AuthenticationType"] != null)
 					{
 						// 1.21.90+ authentication envelope: {AuthenticationType, Token[, Certificate]}.
 						// Online auth (type 0) omits the cert chain entirely; identity is in the Token.
 						// Offline (type 2) carries an empty chain and our self-signed OIDC Token.
+						authenticationType = (string) json["AuthenticationType"];
 						multiplayerToken = (string) json["Token"];
 						string certificate = (string) json["Certificate"];
 						if (!string.IsNullOrEmpty(certificate)) json = JObject.Parse(certificate);
@@ -326,12 +330,18 @@ namespace MiNET
 					string validationKey = null;
 					string identityPublicKey = null;
 
-					bool offlineChain = chain == null || chain.Count == 0 || string.IsNullOrEmpty((string) chain[0]);
-					if (offlineChain && !string.IsNullOrEmpty(multiplayerToken))
+					// The Token is the identity whenever there is one, chain or no chain. A real
+					// 1.26.40 client authenticating for real (type 0) sends BOTH a Token and a
+					// three-token legacy chain, so gating this on an empty chain sent those logins
+					// down the chain walk, where nothing matches the Mojang root any more and every
+					// token is skipped. Vanilla and gophertunnel both read the token first and only
+					// consult the chain afterwards, for the numeric title id the OIDC token omits,
+					// which is not something we use.
+					if (!string.IsNullOrEmpty(multiplayerToken))
 					{
 						// Identity comes from the Token. Two shapes: our offline OIDC token has
 						// {cpk, xname, identity}; the real client's online token (Full auth) has
-						// {cpk, xname, xid, mid, sub} with no identity GUID.
+						// {cpk, xname, xid, mid, tid, ipt} and carries its identity GUID as leguuid.
 						//
 						// Nothing below proves any of it. The payload is read without checking the
 						// signature, so the gamertag and XUID are whatever the client typed. With
@@ -365,7 +375,11 @@ namespace MiNET
 
 						dynamic tokenPayload = JObject.Parse(JWT.Payload(multiplayerToken));
 						string xuid = (string) tokenPayload.xid;
-						string identity = (string) tokenPayload.identity;
+						// leguuid is the legacy identity UUID a real client's token carries; only
+						// our own offline token writes it as "identity". Reading just the latter
+						// sent every real login down the derive-from-XUID fallback below, giving the
+						// player a UUID that matches neither Mojang's nor any other server's.
+						string identity = (string) tokenPayload.leguuid ?? (string) tokenPayload.identity;
 						if (string.IsNullOrEmpty(identity))
 						{
 							string seed = !string.IsNullOrEmpty(xuid) ? xuid : (string) tokenPayload.mid ?? (string) tokenPayload.sub;
@@ -383,7 +397,10 @@ namespace MiNET
 							}
 						};
 					}
-					else
+					// chain is null whenever the envelope carried no Certificate, which is every
+					// online (type 0) login. Reaching the loop with it null threw before the
+					// identity check below could report anything.
+					else if (chain != null)
 					foreach (JToken token in chain)
 					{
 						IDictionary<string, dynamic> headers = JWT.Headers(token.ToString());
@@ -479,7 +496,22 @@ namespace MiNET
 						}
 					}
 
-					//TODO: Implement disconnect here
+					// Neither path above produced an identity: an authentication envelope with no
+					// usable chain and no Token lands here, as does a chain whose every token
+					// failed validation. This used to fall straight into the dereference below and
+					// take the decode path down with an NRE, which closed the session telling
+					// neither the client nor the log anything about why.
+					if (_playerInfo.CertificateData?.ExtraData == null)
+					{
+						Log.Warn(
+							$"Rejecting login from {_session.EndPoint}: the login carried no readable identity. "
+							+ $"AuthenticationType={authenticationType ?? "<absent>"}, "
+							+ $"Token={(string.IsNullOrEmpty(multiplayerToken) ? "<absent>" : $"{multiplayerToken.Length} chars")}, "
+							+ $"chain={(chain == null ? "<absent>" : $"{chain.Count} token(s)")}");
+
+						_session.Disconnect("Could not read your login identity.");
+						return;
+					}
 
 					{
 						_playerInfo.Username = _playerInfo.CertificateData.ExtraData.DisplayName;
