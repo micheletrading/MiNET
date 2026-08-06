@@ -106,6 +106,12 @@ public static class Program
 			Path.Combine(dataDir, "item_mappings.json"));
 		Console.WriteLine($"ItemData.generated.cs: {itemClasses} classes");
 
+		// The creative catalog, regenerated from Cloudburst's name-addressed creative_items.json
+		// through the same registry ids, so it can never drift from the item registry the way the
+		// old hand-captured file did. Data, not symbols, like the biome table below.
+		var networkIdByName = items.ToDictionary(i => i.Name, i => i.NetworkId, StringComparer.OrdinalIgnoreCase);
+		CreativeGenerator.Run(dataDir, Path.Combine(itemsDir, "Data", "creative_groups.json"), networkIdByName);
+
 		// Not code: this one emits our own data file, because biomes are a table nobody writes
 		// against by symbol. Their file stays here, ours ships.
 		BiomeGenerator.Run(dataDir, Path.Combine(repoRoot, "src", "MiNET", "MiNET", "Data", "biome_definitions.json.gz"));
