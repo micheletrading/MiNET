@@ -121,6 +121,7 @@ public class Overrides
 					var o = (JObject) f.Value;
 					if (o["name"] != null) p.FieldNames[f.Name] = (string) o["name"];
 					if (o["enum"] != null) p.FieldEnums[f.Name] = ((JArray) o["enum"]).Select(v => (string) v).ToList();
+					if (o["optional"] != null) p.FieldOptional[f.Name] = (bool) o["optional"];
 					if (o["type"] != null)
 					{
 						var t = (JObject) o["type"];
@@ -149,6 +150,13 @@ public class PacketOverride
 
 	/// <summary>Wire field name -> replacement enum value list, for inline enums the schema gets wrong.</summary>
 	public Dictionary<string, List<string>> FieldEnums = new();
+
+	/// <summary>
+	///     Wire field name -> forced optionality, for fields the schema's "required" list contradicts.
+	///     A field that is optional carries a presence byte, so getting this wrong desyncs the rest
+	///     of the struct; the schema has been wrong about it, so the changelog wins.
+	/// </summary>
+	public Dictionary<string, bool> FieldOptional = new();
 }
 
 public class TypeMapping
@@ -303,12 +311,18 @@ public class CerealPacket
 			packetOverride?.FieldNames.TryGetValue(prop.Name, out memberName);
 			memberName ??= CodeNames.CodeName(prop.Name);
 
+			bool optional = !required.Contains(prop.Name);
+			if (packetOverride != null && packetOverride.FieldOptional.TryGetValue(prop.Name, out bool forcedOptional))
+			{
+				optional = forcedOptional;
+			}
+
 			var field = new CerealField
 			{
 				WireName = prop.Name,
 				FieldName = memberName,
 				Ordinal = (int) ((JObject) prop.Value)["x-ordinal-index"],
-				Optional = !required.Contains(prop.Name),
+				Optional = optional,
 			};
 
 			TypeMapping forced = null;

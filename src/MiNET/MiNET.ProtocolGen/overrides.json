@@ -142,6 +142,15 @@
 				"Position Mode": {"name": "mode"},
 				"Y-Head Rotation": {"name": "headYaw"}
 			}
+		},
+		"gatheringsConfig": {
+			"fields": {
+				"worldId": {"optional": true, "reason": "Schema bug: gatheringsConfig.json lists all eight fields as required, but Mojang's own 2168 changelog says 'GatheringsConfigurationJoinInfo: The worldId, worldName, targetId, scenarioId, and serverId fields are now optional.' Optional means a presence byte, so reading these unconditionally desyncs the rest of the struct. Not reproducible against BDS: it sends serverConfigurationJoinInfo with gathering null, so this path never runs against vanilla."},
+				"worldName": {"optional": true},
+				"targetId": {"optional": true},
+				"scenarioId": {"optional": true},
+				"serverId": {"optional": true}
+			}
 		}
 	}
 }

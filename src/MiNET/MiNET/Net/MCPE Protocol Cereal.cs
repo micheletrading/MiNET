@@ -1258,12 +1258,17 @@ namespace MiNET.Net
 		{
 			Write(data.experienceid);
 			Write(data.experiencename);
-			Write(data.worldid);
-			Write(data.worldname);
+			Write(data.worldid != null);
+			if (data.worldid != null) Write(data.worldid);
+			Write(data.worldname != null);
+			if (data.worldname != null) Write(data.worldname);
 			Write(data.creatorid);
-			Write(data.targetid);
-			Write(data.scenarioid);
-			Write(data.serverid);
+			Write(data.targetid != null);
+			if (data.targetid != null) Write(data.targetid);
+			Write(data.scenarioid != null);
+			if (data.scenarioid != null) Write(data.scenarioid);
+			Write(data.serverid != null);
+			if (data.serverid != null) Write(data.serverid);
 		}
 
 		public GatheringsConfig ReadGatheringsConfig()
@@ -1271,12 +1276,12 @@ namespace MiNET.Net
 			var data = new GatheringsConfig();
 			data.experienceid = ReadUUID();
 			data.experiencename = ReadString();
-			data.worldid = ReadUUID();
-			data.worldname = ReadString();
+			if (ReadBool()) data.worldid = ReadUUID();
+			if (ReadBool()) data.worldname = ReadString();
 			data.creatorid = ReadString();
-			data.targetid = ReadUUID();
-			data.scenarioid = ReadString();
-			data.serverid = ReadString();
+			if (ReadBool()) data.targetid = ReadUUID();
+			if (ReadBool()) data.scenarioid = ReadString();
+			if (ReadBool()) data.serverid = ReadString();
 			return data;
 		}
 
