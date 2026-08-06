@@ -52,7 +52,8 @@ Logs, two different files:
 
 - `MiNET` - the core server library and the NuGet package. Everything below refers to this project.
 - `MiNET.Console` - console host that boots `MiNetServer`. Configured via `server.conf` (key=value, read through `MiNET.Utils.Config`).
-- `MiNET.Client` - a Bedrock client/bot used to trace and reverse-engineer the protocol against a real server (e.g. vanilla BDS). `BedrockTraceHandler` dumps packets; this is the main tool when updating protocol versions.
+- `MiNET.Client` - a Bedrock client/bot used to trace and reverse-engineer the protocol against a real server (e.g. vanilla BDS). `BedrockTraceHandler` dumps packets; this is the main tool when updating protocol versions. `MINET_TARGET=host:port` aims it somewhere other than the local BDS, `MINET_PACKET_DUMP=<dir>` writes every received frame as `<seq>-<name>.bin`, `MINET_BLOB_CACHE=1` makes it announce the client-side cache the way a real client does.
+- `MiNET.Tunnel` - MITM proxy for capturing a real client's session against a real server: client -> tunnel -> BDS. Each leg handles only its own login and crypto and forwards every other frame verbatim, dumping both directions into one interleaved sequence (`MINET_TUNNEL_TARGET`, `MINET_TUNNEL_DUMP`). Point it at MiNET instead of BDS to capture our own output in the identical format for diffing.
 - `MiNET.ServiceKiller` - load-test emulator that spawns many fake clients.
 - `TestPlugin`, `MiNET.Plotter`, `MiNET.BuilderBase` - example/real plugins loaded at runtime (see plugin system below).
 - `MiNETTests`, `MiNET.BuilderBase.Tests` - MSTest projects.
@@ -70,14 +71,42 @@ Most work in this repo is keeping up with Mojang protocol changes. The network c
   - Live BDS bytes are the ground-truth tiebreaker. Zero leftover bytes proves byte alignment, not field meaning.
 - `McpeProtocolInfo.ProtocolVersion` / `GameVersion` (generated from XML attributes) gate client connections.
 
-### Updating the protocol (the working loop)
+### Updating the protocol (the working order)
 
-Protocol updates are done by reverse-engineering against a real vanilla BDS, in a strict ping-pong loop. `MiNET.Client` is the tool: point it at a running BDS (`Startup.cs`, default `127.0.0.1:19132`) and trace.
+A protocol update is reverse engineering against a real vanilla BDS. Work it in this order; the early steps are not preamble, they are what makes the later evidence trustworthy.
+
+**1. Get the reference server right.** Download the BDS build matching the target protocol and run it with the configuration we are comparing against. Note its `server.properties`: `view-distance` and `tick-distance` both show up on the wire (tick-distance is the join-burst publisher radius), and `online-mode=false` is what lets our client and the tunnel log into it.
+
+**2. Get the client right.** Confirm the real Bedrock client is the target version. Its error screen reports the version and `RakNet:<protocol>`, which is the fastest way to be sure.
+
+**3. Scout the data sources and refresh them.** Bump the CloudburstMC `Data` submodule pin, rerun `MiNET.BlockGen`, and check what it did and did not touch: each data folder's own `CLAUDE.md` says per file what is generated and what has a distinct source. Files with no generator (the pmmp legacy maps, the join-sequence captures) do not move on a protocol bump and go stale silently.
+
+**4. Read Mojang's specifications and generate.** Bump the `ProtocolDocs` submodule and move packets from the XML to schema generation as Mojang completes them (see `MiNET.ProtocolGen`). The schemas are authoritative for field semantics and wire order via `x-ordinal-index`.
+
+**5. Capture a real session through the tunnel, as early as possible.** `MiNET.Tunnel` sits between the real client and BDS, handles login on both legs locally, and forwards everything else verbatim while dumping both directions into one interleaved sequence. That capture is the ground truth every later step is measured against, so take it before guessing at packet shapes. Forwarding is raw bytes and unknown packet ids survive as `UnknownPacket`, so this does not need a finished protocol; what it does need is that a frame whose decode throws is still forwarded rather than dropped. Login and crypto are the only packets each leg handles itself, so a reshaped login handshake is the one thing that must be updated before the tunnel runs.
+
+**6. Iterate in spawn-sequence order, one packet at a time, round-tripping each.** Priority comes from the captured order: fix what the client needs first, first. For each packet, decode the captured BDS frame, re-encode it, and require byte-identical output.
+
+Then the ping-pong loop, which is where the remaining bugs live:
 
 1. Our client -> BDS: parse EVERY server->client packet with zero unknown ids, zero leftover bytes, zero decode exceptions, and record the packet ORDER. Do NOT skip or leniently swallow a packet you can't parse: an unrecognized or unparseable packet is the signal to stop and fix it, not move on. Unknown ids surface as `Unknown packet with id N` (decimal), decode failures as `Error parsing bedrock message ... id=N`, leftovers as `... Still have N` in `minetlog.log`.
-2. Implement the fix (XML pdu + regenerate, per above).
-3. Our client -> MiNET server: confirm MiNET emits the same packets, same order, same 1.26 formats.
-4. Real Bedrock client -> MiNET server: reach spawn, and watch for packets the real client sends that we don't expect, or order differences.
+2. Implement the fix (XML pdu + regenerate, or the schema generator).
+3. Our client -> MiNET server: confirm MiNET emits the same packets, same order, same formats.
+4. Real Bedrock client -> MiNET server: reach spawn.
+
+### Diagnosing a strict client
+
+The real client rejects with no useful diagnostic (`InitialConnection-90`). What works:
+
+**Read the disconnect timing first.** Roughly 100ms after a batch means the client parsed something and rejected it. Tens of seconds means it is waiting for something that never arrived, or the human closed the window. These are opposite bugs, and guessing which one you have wastes every join that follows.
+
+**Space the burst to name the packet.** Put a one second sleep between each send in `Player.Start()`. The disconnect then lands inside a named gap and identifies the packet outright, instead of being bisected over many joins. Confirm by disabling that packet and checking the failure mode changes from rejection to timeout.
+
+**A round-trip test proves the codec, never the content.** Decoding a captured BDS frame and re-encoding it byte-identical only exercises values BDS itself sends. Every confirmed client-killer so far was invisible to it, because the bug was in content MiNET generates and vanilla never emits. To see those, capture MiNET's own output in the same format and diff the two.
+
+**Compare by name, never by array position.** Two registries holding the same data in a different order produce thousands of false differences. Recipes, biomes, item registries and command sets are all ordered differently from vanilla.
+
+**Beware fields that are not on the wire.** After decode they hold their C# defaults, so the same frame decoded twice can differ (`Item.UniqueId` defaults to `Environment.TickCount`). If a difference changes between runs, it is an artifact of the harness, not the server.
 
 Stale-binary trap: building `MiNET.csproj` alone does NOT refresh `MiNET.Console/bin` or `MiNET.Client/bin`, so you end up running old code. Always build the SOLUTION (`dotnet build src/MiNET/MiNET.sln`) before running the server or client.
 

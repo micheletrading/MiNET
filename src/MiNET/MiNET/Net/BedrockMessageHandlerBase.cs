@@ -248,8 +248,13 @@ namespace MiNET.Net
 							catch (Exception e)
 							{
 								if (Log.IsDebugEnabled) Log.Warn($"Error parsing bedrock message #{count} id={id}\n{Packet.HexDump(internalBuffer)}", e);
-								// Packets are length-framed, so realign and keep processing the
-								// rest of the batch instead of dropping it.
+
+								// Packets are length-framed, so realign and keep processing the rest
+								// of the batch instead of dropping it. The frame itself is kept as an
+								// UnknownPacket rather than discarded: a handler that forwards raw
+								// frames (MiNET.Tunnel) must not lose exactly the packets whose shape
+								// changed, which are the ones worth capturing.
+								messages.Add(new UnknownPacket(id, internalBuffer));
 							}
 
 							s.Position = pos + len;
