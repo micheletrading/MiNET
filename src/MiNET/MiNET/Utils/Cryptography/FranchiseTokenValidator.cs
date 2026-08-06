@@ -32,6 +32,8 @@ using System.Threading;
 using Jose;
 using log4net;
 using Newtonsoft.Json.Linq;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Security;
 
 namespace MiNET.Utils.Cryptography
 {
@@ -65,6 +67,9 @@ namespace MiNET.Utils.Cryptography
 		// nonsense kids cannot turn logins into a request flood against Mojang.
 		private static DateTime _lastFetch = DateTime.MinValue;
 		private static readonly TimeSpan MinimumRefetchInterval = TimeSpan.FromMinutes(5);
+
+		/// <summary>Tolerance on the expiry and not-before checks, for clock skew between us and the issuer.</summary>
+		private static readonly TimeSpan ClockSkewLeeway = TimeSpan.FromMinutes(2);
 
 		public class Identity
 		{
@@ -122,10 +127,22 @@ namespace MiNET.Utils.Cryptography
 					return null;
 				}
 
+				// The token is an entry ticket, not a heartbeat: it is checked once, and the session
+				// stays authenticated afterwards by the encryption keyed from the cpk it names. A
+				// four hour lifetime is therefore not a session limit.
+				// The leeway is for clock skew. Without it a server running slightly fast refuses
+				// genuine logins near the boundary, and the player only sees a generic kick.
 				var exp = (long?) claims["exp"];
-				if (exp == null || DateTimeOffset.FromUnixTimeSeconds(exp.Value) <= DateTimeOffset.UtcNow)
+				if (exp == null || DateTimeOffset.FromUnixTimeSeconds(exp.Value) + ClockSkewLeeway <= DateTimeOffset.UtcNow)
 				{
 					Log.Warn($"Login token rejected: expired at {(exp == null ? "<no exp>" : DateTimeOffset.FromUnixTimeSeconds(exp.Value).ToString("u"))}");
+					return null;
+				}
+
+				var nbf = (long?) claims["nbf"];
+				if (nbf != null && DateTimeOffset.FromUnixTimeSeconds(nbf.Value) - ClockSkewLeeway > DateTimeOffset.UtcNow)
+				{
+					Log.Warn($"Login token rejected: not valid until {DateTimeOffset.FromUnixTimeSeconds(nbf.Value):u}");
 					return null;
 				}
 
@@ -140,6 +157,41 @@ namespace MiNET.Utils.Cryptography
 			{
 				Log.Warn($"Login token rejected: {e.GetType().Name}: {e.Message}");
 				return null;
+			}
+		}
+
+		/// <summary>
+		///     Checks that the client-data (skin) document was signed by the key the verified token
+		///     names in cpk. Without this a verified identity could carry a client-data blob it did
+		///     not sign: an attacker who captured someone's token could present it with their own
+		///     appearance and device claims attached.
+		/// </summary>
+		public static bool VerifyClientData(string clientDataJwt, string clientPublicKey)
+		{
+			if (string.IsNullOrEmpty(clientDataJwt) || string.IsNullOrEmpty(clientPublicKey)) return false;
+
+			try
+			{
+				var bouncyKey = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(Convert.FromBase64String(clientPublicKey));
+				var parameters = new ECParameters
+				{
+					Curve = ECCurve.NamedCurves.nistP384,
+					Q =
+					{
+						X = bouncyKey.Q.AffineXCoord.GetEncoded(),
+						Y = bouncyKey.Q.AffineYCoord.GetEncoded()
+					}
+				};
+				parameters.Validate();
+
+				// Throws unless the signature verifies under exactly this key and algorithm.
+				JWT.Decode(clientDataJwt, ECDsa.Create(parameters), JwsAlgorithm.ES384);
+				return true;
+			}
+			catch (Exception e)
+			{
+				Log.Warn($"Client data rejected: not signed by the key the token names ({e.GetType().Name}: {e.Message})");
+				return false;
 			}
 		}
 

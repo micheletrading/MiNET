@@ -349,6 +349,17 @@ namespace MiNET
 								return;
 							}
 
+							// The identity is genuine; this ties the rest of the login to it. The
+							// client data (skin, device, language) travels in its own document, and
+							// unverified it can be swapped for anything: a captured token would let
+							// someone wear another player's identity with their own everything else.
+							if (!FranchiseTokenValidator.VerifyClientData(skinData, verified.ClientPublicKey))
+							{
+								Log.Warn($"Rejecting login from {_session.EndPoint}: client data is not signed by {verified.DisplayName}'s key");
+								_session.Disconnect(Config.GetProperty("ForceXBLLogin", "You must authenticate to XBOX Live to join this server."));
+								return;
+							}
+
 							Log.Info($"Verified Xbox Live identity {verified.DisplayName} (XUID {verified.Xuid})");
 						}
 
