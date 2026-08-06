@@ -332,9 +332,26 @@ namespace MiNET
 						// Identity comes from the Token. Two shapes: our offline OIDC token has
 						// {cpk, xname, identity}; the real client's online token (Full auth) has
 						// {cpk, xname, xid, mid, sub} with no identity GUID.
-						// NOTE: a public server MUST validate this token's signature against the
-						// franchise JWKS (authorization.franchise.minecraft-services.net). We trust
-						// it here for local play.
+						//
+						// Nothing below proves any of it. The payload is read without checking the
+						// signature, so the gamertag and XUID are whatever the client typed. With
+						// ForceXBLAuthentication on we verify the token against the issuer's
+						// published keys first and refuse the login if it does not hold up; the
+						// claims are then Mojang-issued, and the encryption handshake proves this
+						// connection holds the private half of the cpk they name.
+						if (Config.GetProperty("ForceXBLAuthentication", false))
+						{
+							FranchiseTokenValidator.Identity verified = FranchiseTokenValidator.Validate(multiplayerToken);
+							if (verified?.Xuid == null)
+							{
+								Log.Warn($"Rejecting login from {_session.EndPoint}: the multiplayer token is not a valid Xbox Live identity");
+								_session.Disconnect(Config.GetProperty("ForceXBLLogin", "You must authenticate to XBOX Live to join this server."));
+								return;
+							}
+
+							Log.Info($"Verified Xbox Live identity {verified.DisplayName} (XUID {verified.Xuid})");
+						}
+
 						dynamic tokenPayload = JObject.Parse(JWT.Payload(multiplayerToken));
 						string xuid = (string) tokenPayload.xid;
 						string identity = (string) tokenPayload.identity;
