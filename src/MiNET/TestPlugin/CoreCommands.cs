@@ -1733,21 +1733,23 @@ namespace TestPlugin
 			//ident.entries = new ScoreboardIdentityEntries() {new ScoreboardRegisterIdentityEntry(){}};
 
 			McpeSetScore score = McpeSetScore.CreateObject();
-			score.entries = new ScoreEntries();
-			score.entries.Add(new ScoreEntryChangeFakePlayer
+			score.scoreInfo = new List<ScoreInfoElement>
 			{
-				Id = 3,
-				CustomName = "CustomName1",
-				ObjectiveName = "ObjectiveName",
-				Score = 2
-			});
-			score.entries.Add(new ScoreEntryChangeFakePlayer
-			{
-				Id = 4,
-				CustomName = "CustomName2",
-				ObjectiveName = "ObjectiveName",
-				Score = 3
-			});
+				new ChangeFakePlayerScore
+				{
+					scoreboardId = 3,
+					fakePlayerName = "CustomName1",
+					objectiveName = "ObjectiveName",
+					scoreValue = 2
+				},
+				new ChangeFakePlayerScore
+				{
+					scoreboardId = 4,
+					fakePlayerName = "CustomName2",
+					objectiveName = "ObjectiveName",
+					scoreValue = 3
+				}
+			};
 
 			player.SendPacket(score);
 

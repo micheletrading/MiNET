@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -394,7 +394,9 @@ public class CerealPacket
 					Values = ((JArray) target["enum"]).Select(v => CodeNames.CodeName((string) v, true)).ToList(),
 				};
 				field.Kind = FieldKind.Plain;
-				bool refCompressed = ((JArray) target["x-serialization-options"])?.Any(o => (string) o == "Compression") ?? false;
+				// Compression is a property of the reference, not of the enum: GameType.json says
+				// nothing, while AddPlayer's Player Game Type asks for it and StartGame's does too.
+				bool refCompressed = HasOption(prop, "Compression") || HasOption(target, "Compression");
 				field.Type = Primitive(owner, field.WireName, (string) target["x-underlying-type"], refCompressed);
 				return;
 			}
@@ -419,7 +421,11 @@ public class CerealPacket
 
 		if (prop["oneOf"] != null)
 		{
-			var refs = ((JArray) prop["oneOf"]).Select(o => SchemaRepo.RefName((string) ((JObject) o)["$ref"])).ToList();
+			var options = ((JArray) prop["oneOf"]).Cast<JObject>().ToList();
+			if (options.Any(o => o["$ref"] == null))
+				throw new NotImplementedException($"{owner}.{field.WireName}: inline variant options (a bare 'null' alternative and the like) are not implemented yet");
+
+			var refs = options.Select(o => SchemaRepo.RefName((string) o["$ref"])).ToList();
 			var titles = refs.Select(r => (string) schemas.Get(r)["title"]).ToList();
 
 			// Base name from the options' common title prefix ("Resource Pack Client Response - Cancel" ...).
@@ -429,14 +435,31 @@ public class CerealPacket
 				while (i < a.Length && i < b.Length && a[i] == b[i]) i++;
 				return a.Substring(0, i);
 			}).TrimEnd(' ', '-');
-			if (prefix.Length == 0) throw new NotImplementedException($"{owner}.{field.WireName}: variant options share no title prefix; needs a naming override");
-
-			var variant = new CerealVariant {BaseName = CodeNames.CodeTypeName(prefix.Replace("-", " "))};
+			// Options are usually named after the choice they belong to ("Resource Pack Client
+			// Response - Cancel"), so the shared prefix names the base. Where they are not
+			// (EmptyItemDescriptor / ItemNameDescriptor / MolangItemDescriptor share no prefix at
+			// all), the field's own wire name is the choice, so use that.
+			var variant = new CerealVariant
+			{
+				BaseName = SanitizeTypeName((prefix.Length > 0 ? prefix : field.WireName).Replace("-", " "))
+			};
 			for (int i = 0; i < refs.Count; i++)
 			{
-				string optionName = CodeNames.CodeTypeName(titles[i].Replace("-", " "));
+				string optionName = SanitizeTypeName(titles[i].Replace("-", " "));
 				CerealStruct option = ResolveStruct(refs[i], schemas.Get(refs[i]), schemas, overrides, structs);
 				option.Name = optionName;
+
+				// ResolveStruct qualified any nested enums against the schema-derived name, which
+				// the line above just replaced. Re-qualify, or the class and its own enum
+				// references disagree and neither resolves.
+				foreach (CerealField optionField in option.Fields)
+				{
+					foreach (CerealField carrier in new[] {optionField, optionField.Element})
+					{
+						if (carrier?.Enum != null) carrier.EnumRef = $"{optionName}.{carrier.Enum.Name}";
+					}
+				}
+
 				option.BaseName = variant.BaseName;
 				variant.Options.Add(option);
 			}
@@ -448,18 +471,19 @@ public class CerealPacket
 
 		if (prop["enum"] != null)
 		{
-			var options = (JArray) prop["x-serialization-options"];
-			if (options == null || !options.Any(o => (string) o == "Enum-as-Value"))
+			if (!HasOption(prop, "Enum-as-Value"))
 				throw new NotImplementedException($"{owner}.{field.WireName}: enum without Enum-as-Value is not implemented yet");
 
 			field.Enum = new CerealEnum
 			{
-				Name = CodeNames.CodeName(field.FieldName, true),
+				// Named from the wire name, not the field name: the field name is one lower-case
+				// token by then (and may have been renamed by an override), so it would come back
+				// out as "Creativecategory" where the wire name still carries the word breaks.
+				Name = CodeNames.CodeTypeName(field.WireName),
 				Values = ((JArray) prop["enum"]).Select(v => CodeNames.CodeName((string) v, true)).ToList(),
 			};
 			field.Kind = FieldKind.Plain;
-			bool enumCompressed = options.Any(o => (string) o == "Compression");
-			field.Type = Primitive(owner, field.WireName, (string) prop["x-underlying-type"], enumCompressed);
+			field.Type = Primitive(owner, field.WireName, (string) prop["x-underlying-type"], HasOption(prop, "Compression"));
 			return;
 		}
 
@@ -467,10 +491,13 @@ public class CerealPacket
 		string underlying = (string) prop["x-underlying-type"] ?? (string) prop["type"];
 		if (underlying == null)
 			throw new NotImplementedException($"{owner}.{field.WireName}: field has no type information; needs a field type override (NBT payload?)");
-		bool compressed = ((JArray) prop["x-serialization-options"])?.Any(o => (string) o == "Compression") ?? false;
-
 		field.Kind = FieldKind.Plain;
-		field.Type = Primitive(owner, field.WireName, underlying, compressed);
+		field.Type = Primitive(owner, field.WireName, underlying, HasOption(prop, "Compression"));
+	}
+
+	private static bool HasOption(JObject schema, string option)
+	{
+		return ((JArray) schema["x-serialization-options"])?.Any(o => (string) o == option) ?? false;
 	}
 
 	private static CerealStruct ResolveStruct(string name, JObject schema, SchemaRepo schemas, Overrides overrides, Dictionary<string, CerealStruct> structs)
@@ -508,6 +535,11 @@ public class CerealPacket
 	/// <summary>Schema titles are mostly PascalCase already; snake_case ones (server_config) get converted without disturbing existing casing.</summary>
 	private static string SanitizeTypeName(string name)
 	{
+		// Nested schema titles carry their owner ("RequestAbilityPacketPayload::Type"). We emit the
+		// type nested in that same owner, so only the last segment is the name.
+		int nested = name.LastIndexOf("::", StringComparison.Ordinal);
+		if (nested >= 0) name = name.Substring(nested + 2);
+
 		string joined = name.Contains('_') || name.Contains(' ')
 			? string.Concat(name.Split('_', ' ').Where(p => p.Length > 0).Select(p => char.ToUpperInvariant(p[0]) + p.Substring(1)))
 			: name;
@@ -542,10 +574,16 @@ public class CerealPacket
 			case "int32":
 				// Write(int)/ReadInt() are little-endian by default, which is the Cereal raw int32.
 				return new TypeMapping {CsType = "int", Write = "Write({0});", Read = "{0} = ReadInt();"};
+			case "uint32":
+				// Unsigned twin of int32, through the same little-endian pair.
+				return new TypeMapping {CsType = "uint", Write = "Write((int) {0});", Read = "{0} = (uint) ReadInt();"};
 			case "uint64":
 				// Raw 64-bit is little-endian on the wire; Write(ulong)/ReadUlong() are the LE pair
 				// (Write(long)/ReadLong() byte-swap, despite the name).
 				return new TypeMapping {CsType = "ulong", Write = "Write({0});", Read = "{0} = ReadUlong();"};
+			case "int64":
+				// Signed twin of the above, through the same little-endian pair for the same reason.
+				return new TypeMapping {CsType = "long", Write = "Write((ulong) {0});", Read = "{0} = (long) ReadUlong();"};
 			case "int16":
 				return new TypeMapping {CsType = "short", Write = "Write({0});", Read = "{0} = ReadShort();"};
 			case "uint16":

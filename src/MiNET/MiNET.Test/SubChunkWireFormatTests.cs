@@ -148,7 +148,7 @@ namespace MiNET.Test
 				{
 					entryCount++;
 
-					var requestResult = (SubChunkPacketData.Subchunkrequestresult) entry.subchunkRequestResult;
+					var requestResult = (SubChunkPacketData.SubchunkRequestResult) entry.subchunkRequestResult;
 					string result = requestResult.ToString();
 					results.TryGetValue(result, out int seenResult);
 					results[result] = seenResult + 1;

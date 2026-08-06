@@ -94,7 +94,7 @@ namespace MiNET.Entities
 			package.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
 			package.rotation = new Vector2(position.Pitch, position.HeadYaw);
 			package.headYaw = position.Yaw;
-			package.mode = teleport ? McpeMovePlayer.Mode.Respawn : McpeMovePlayer.Mode.Normal;
+			package.mode = teleport ? McpeMovePlayer.PositionMode.Respawn : McpeMovePlayer.PositionMode.Normal;
 
 			Level.RelayBroadcast(package);
 		}
@@ -142,14 +142,11 @@ namespace MiNET.Entities
 				message.uuid = ClientUuid;
 				message.username = NameTag;
 				message.runtimeEntityId = EntityId;
-				message.x = KnownPosition.X;
-				message.y = KnownPosition.Y;
-				message.z = KnownPosition.Z;
-				message.yaw = KnownPosition.Yaw;
-				message.headYaw = KnownPosition.HeadYaw;
-				message.pitch = KnownPosition.Pitch;
+				message.position = KnownPosition.ToVector3();
+				message.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
+				message.yHeadRotation = KnownPosition.HeadYaw;
 				message.metadata = GetMetadata();
-				message.uniqueId = -1;
+				message.abilitiesData = new SerializedAbilitiesData {targetPlayerRawId = -1};
 				Level.RelayBroadcast(players, message);
 			}
 

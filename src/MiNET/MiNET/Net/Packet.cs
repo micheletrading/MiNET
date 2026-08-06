@@ -2149,7 +2149,9 @@ namespace MiNET.Net
 			if (networkId == 0) return new ItemAir();
 
 			Item stack = ItemFactory.GetItemByNetworkId(networkId, (short) metadata, count);
-			if (hasNetId) stack.UniqueId = uniqueId;
+			// Always assign, never only when present: Item.UniqueId defaults to Environment.TickCount,
+			// so a stack that arrived without a net id would otherwise go back out carrying one.
+			stack.UniqueId = uniqueId;
 			stack.RuntimeId = blockRuntimeId;
 			stack.NetworkId = networkId;
 			stack.NetworkMetadata = metadata;
@@ -3859,87 +3861,6 @@ namespace MiNET.Net
 			//}
 
 			return map;
-		}
-
-		public void Write(ScoreEntries list)
-		{
-			if (list == null) list = new ScoreEntries();
-
-			Write((byte) (list.FirstOrDefault() is ScoreEntryRemove ? McpeSetScore.Types.Remove : McpeSetScore.Types.Change));
-			WriteUnsignedVarInt((uint) list.Count);
-			foreach (var entry in list)
-			{
-				WriteSignedVarLong(entry.Id);
-				Write(entry.ObjectiveName);
-				Write(entry.Score);
-
-				if (entry is ScoreEntryRemove)
-				{
-					continue;
-				}
-
-				if (entry is ScoreEntryChangePlayer player)
-				{
-					Write((byte) McpeSetScore.ChangeTypes.Player);
-					WriteSignedVarLong(player.EntityId);
-				}
-				else if (entry is ScoreEntryChangeEntity entity)
-				{
-					Write((byte) McpeSetScore.ChangeTypes.Entity);
-					WriteSignedVarLong(entity.EntityId);
-				}
-				else if (entry is ScoreEntryChangeFakePlayer fakePlayer)
-				{
-					Write((byte) McpeSetScore.ChangeTypes.FakePlayer);
-					Write(fakePlayer.CustomName);
-				}
-			}
-		}
-
-		public ScoreEntries ReadScoreEntries()
-		{
-			var list = new ScoreEntries();
-			byte type = ReadByte();
-			var length = ReadUnsignedVarInt();
-			for (var i = 0; i < length; ++i)
-			{
-				var entryId = ReadSignedVarLong();
-				var entryObjectiveName = ReadString();
-				var entryScore = ReadUint();
-
-				ScoreEntry entry = null;
-
-				if (type == (int) McpeSetScore.Types.Remove)
-				{
-					entry = new ScoreEntryRemove();
-				}
-				else
-				{
-					McpeSetScore.ChangeTypes changeType = (McpeSetScore.ChangeTypes) ReadByte();
-					switch (changeType)
-					{
-						case McpeSetScore.ChangeTypes.Player:
-							entry = new ScoreEntryChangePlayer {EntityId = ReadSignedVarLong()};
-							break;
-						case McpeSetScore.ChangeTypes.Entity:
-							entry = new ScoreEntryChangeEntity {EntityId = ReadSignedVarLong()};
-							break;
-						case McpeSetScore.ChangeTypes.FakePlayer:
-							entry = new ScoreEntryChangeFakePlayer {CustomName = ReadString()};
-							break;
-					}
-				}
-
-				if (entry == null) continue;
-
-				entry.Id = entryId;
-				entry.ObjectiveName = entryObjectiveName;
-				entry.Score = entryScore;
-
-				list.Add(entry);
-			}
-
-			return list;
 		}
 
 		public void Write(ScoreboardIdentityEntries list)

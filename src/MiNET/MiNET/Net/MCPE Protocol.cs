@@ -1055,54 +1055,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeServerToClientHandshake : Packet<McpeServerToClientHandshake>
-	{
-
-		public string token; // = null;
-
-		public McpeServerToClientHandshake()
-		{
-			Id = 0x03;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(token);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			token = ReadString();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			token=default(string);
-		}
-
-	}
-
 	public partial class McpeClientToServerHandshake : Packet<McpeClientToServerHandshake>
 	{
 
@@ -1370,102 +1322,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeAddPlayer : Packet<McpeAddPlayer>
-	{
-
-		public UUID uuid; // = null;
-		public string username; // = null;
-		public long runtimeEntityId; // = null;
-		public string platformChatId; // = null;
-		public float x; // = null;
-		public float y; // = null;
-		public float z; // = null;
-		public float speedX; // = null;
-		public float speedY; // = null;
-		public float speedZ; // = null;
-		public float pitch; // = null;
-		public float yaw; // = null;
-		public float headYaw; // = null;
-
-		public McpeAddPlayer()
-		{
-			Id = 0x0c;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(uuid);
-			Write(username);
-			WriteUnsignedVarLong(runtimeEntityId);
-			Write(platformChatId);
-			Write(x);
-			Write(y);
-			Write(z);
-			Write(speedX);
-			Write(speedY);
-			Write(speedZ);
-			Write(pitch);
-			Write(yaw);
-			Write(headYaw);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			uuid = ReadUUID();
-			username = ReadString();
-			runtimeEntityId = ReadUnsignedVarLong();
-			platformChatId = ReadString();
-			x = ReadFloat();
-			y = ReadFloat();
-			z = ReadFloat();
-			speedX = ReadFloat();
-			speedY = ReadFloat();
-			speedZ = ReadFloat();
-			pitch = ReadFloat();
-			yaw = ReadFloat();
-			headYaw = ReadFloat();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			uuid=default(UUID);
-			username=default(string);
-			runtimeEntityId=default(long);
-			platformChatId=default(string);
-			x=default(float);
-			y=default(float);
-			z=default(float);
-			speedX=default(float);
-			speedY=default(float);
-			speedZ=default(float);
-			pitch=default(float);
-			yaw=default(float);
-			headYaw=default(float);
-		}
-
-	}
-
 	public partial class McpeRemoveEntity : Packet<McpeRemoveEntity>
 	{
 
@@ -1510,94 +1366,6 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			entityIdSelf=default(long);
-		}
-
-	}
-
-	public partial class McpeAddItemEntity : Packet<McpeAddItemEntity>
-	{
-
-		public long entityIdSelf; // = null;
-		public long runtimeEntityId; // = null;
-		public Item item; // = null;
-		public float x; // = null;
-		public float y; // = null;
-		public float z; // = null;
-		public float speedX; // = null;
-		public float speedY; // = null;
-		public float speedZ; // = null;
-		public MetadataDictionary metadata; // = null;
-		public bool isFromFishing; // = null;
-
-		public McpeAddItemEntity()
-		{
-			Id = 0x0f;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			WriteSignedVarLong(entityIdSelf);
-			WriteUnsignedVarLong(runtimeEntityId);
-			WriteItemInstance(item);
-			Write(x);
-			Write(y);
-			Write(z);
-			Write(speedX);
-			Write(speedY);
-			Write(speedZ);
-			Write(metadata);
-			Write(isFromFishing);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			entityIdSelf = ReadSignedVarLong();
-			runtimeEntityId = ReadUnsignedVarLong();
-			item = ReadItemInstance();
-			x = ReadFloat();
-			y = ReadFloat();
-			z = ReadFloat();
-			speedX = ReadFloat();
-			speedY = ReadFloat();
-			speedZ = ReadFloat();
-			metadata = ReadMetadataDictionary();
-			isFromFishing = ReadBool();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			entityIdSelf=default(long);
-			runtimeEntityId=default(long);
-			item=default(Item);
-			x=default(float);
-			y=default(float);
-			z=default(float);
-			speedX=default(float);
-			speedY=default(float);
-			speedZ=default(float);
-			metadata=default(MetadataDictionary);
-			isFromFishing=default(bool);
 		}
 
 	}
@@ -4950,62 +4718,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeTransfer : Packet<McpeTransfer>
-	{
-
-		public string serverAddress; // = null;
-		public ushort port; // = null;
-		public bool reloadWorld; // = null;
-
-		public McpeTransfer()
-		{
-			Id = 0x55;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(serverAddress);
-			Write(port);
-			Write(reloadWorld);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			serverAddress = ReadString();
-			port = ReadUshort();
-			reloadWorld = ReadBool();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			serverAddress=default(string);
-			port=default(ushort);
-			reloadWorld=default(bool);
-		}
-
-	}
-
 	public partial class McpePlaySound : Packet<McpePlaySound>
 	{
 
@@ -5246,50 +4958,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeStructureBlockUpdate : Packet<McpeStructureBlockUpdate>
-	{
-
-
-		public McpeStructureBlockUpdate()
-		{
-			Id = 0x5a;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-		}
-
-	}
-
 	public partial class McpeShowStoreOffer : Packet<McpeShowStoreOffer>
 	{
 
@@ -5382,70 +5050,6 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-		}
-
-	}
-
-	public partial class McpePlayerSkin : Packet<McpePlayerSkin>
-	{
-
-		public UUID uuid; // = null;
-		public Skin skin; // = null;
-		public string skinName; // = null;
-		public string oldSkinName; // = null;
-		public bool isVerified; // = null;
-
-		public McpePlayerSkin()
-		{
-			Id = 0x5d;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(uuid);
-			Write(skin);
-			Write(skinName);
-			Write(oldSkinName);
-			Write(isVerified);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			uuid = ReadUUID();
-			skin = ReadSkin();
-			skinName = ReadString();
-			oldSkinName = ReadString();
-			isVerified = ReadBool();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			uuid=default(UUID);
-			skin=default(Skin);
-			skinName=default(string);
-			oldSkinName=default(string);
-			isVerified=default(bool);
 		}
 
 	}
@@ -5706,78 +5310,6 @@ namespace MiNET.Net
 			unknown1=default(string);
 			unknown2=default(byte);
 			sceneName=default(string);
-		}
-
-	}
-
-	public partial class McpePhotoTransfer : Packet<McpePhotoTransfer>
-	{
-
-		public string fileName; // = null;
-		public string imageData; // = null;
-		public string unknown2; // = null;
-		public byte type; // = null;
-		public byte sourceType; // = null;
-		public long ownerUniqueId; // = null;
-		public string newPhotoName; // = null;
-
-		public McpePhotoTransfer()
-		{
-			Id = 0x63;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(fileName);
-			Write(imageData);
-			Write(unknown2);
-			Write(type);
-			Write(sourceType);
-			WriteLe(ownerUniqueId);
-			Write(newPhotoName);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			fileName = ReadString();
-			imageData = ReadString();
-			unknown2 = ReadString();
-			type = ReadByte();
-			sourceType = ReadByte();
-			ownerUniqueId = ReadLongLe();
-			newPhotoName = ReadString();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			fileName=default(string);
-			imageData=default(string);
-			unknown2=default(string);
-			type=default(byte);
-			sourceType=default(byte);
-			ownerUniqueId=default(long);
-			newPhotoName=default(string);
 		}
 
 	}
@@ -6182,65 +5714,6 @@ namespace MiNET.Net
 			displayName=default(string);
 			criteriaName=default(string);
 			sortOrder=default(int);
-		}
-
-	}
-
-	public partial class McpeSetScore : Packet<McpeSetScore>
-	{
-		public enum Types
-		{
-			Change = 0,
-			Remove = 1,
-		}
-		public enum ChangeTypes
-		{
-			Player = 1,
-			Entity = 2,
-			FakePlayer = 3,
-		}
-
-		public ScoreEntries entries; // = null;
-
-		public McpeSetScore()
-		{
-			Id = 0x6c;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(entries);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			entries = ReadScoreEntries();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			entries=default(ScoreEntries);
 		}
 
 	}
@@ -7663,50 +7136,6 @@ namespace MiNET.Net
 		public McpePlayerAuthInput()
 		{
 			Id = 0x90;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-		}
-
-	}
-
-	public partial class McpeCreativeContent : Packet<McpeCreativeContent>
-	{
-
-
-		public McpeCreativeContent()
-		{
-			Id = 0x91;
 			IsMcpe = true;
 		}
 
@@ -9593,66 +9022,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeRequestAbility : Packet<McpeRequestAbility>
-	{
-
-		public int abilityId; // = null;
-		public byte valueType; // = null;
-		public bool boolValue; // = null;
-		public float floatValue; // = null;
-
-		public McpeRequestAbility()
-		{
-			Id = 0xb8;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			WriteSignedVarInt(abilityId);
-			Write(valueType);
-			Write(boolValue);
-			Write(floatValue);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			abilityId = ReadSignedVarInt();
-			valueType = ReadByte();
-			boolValue = ReadBool();
-			floatValue = ReadFloat();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			abilityId=default(int);
-			valueType=default(byte);
-			boolValue=default(bool);
-			floatValue=default(float);
-		}
-
-	}
-
 	public partial class McpeRequestPermissions : Packet<McpeRequestPermissions>
 	{
 
@@ -10993,86 +10362,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeServerBoundDiagnostics : Packet<McpeServerBoundDiagnostics>
-	{
-
-		public float averageFramesPerSecond; // = null;
-		public float averageServerSimTickTime; // = null;
-		public float averageClientSimTickTime; // = null;
-		public float averageBeginFrameTime; // = null;
-		public float averageInputTime; // = null;
-		public float averageRenderTime; // = null;
-		public float averageEndFrameTime; // = null;
-		public float averageRemainderTimePercent; // = null;
-		public float averageUnaccountedTimePercent; // = null;
-
-		public McpeServerBoundDiagnostics()
-		{
-			Id = 0x13b;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(averageFramesPerSecond);
-			Write(averageServerSimTickTime);
-			Write(averageClientSimTickTime);
-			Write(averageBeginFrameTime);
-			Write(averageInputTime);
-			Write(averageRenderTime);
-			Write(averageEndFrameTime);
-			Write(averageRemainderTimePercent);
-			Write(averageUnaccountedTimePercent);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			averageFramesPerSecond = ReadFloat();
-			averageServerSimTickTime = ReadFloat();
-			averageClientSimTickTime = ReadFloat();
-			averageBeginFrameTime = ReadFloat();
-			averageInputTime = ReadFloat();
-			averageRenderTime = ReadFloat();
-			averageEndFrameTime = ReadFloat();
-			averageRemainderTimePercent = ReadFloat();
-			averageUnaccountedTimePercent = ReadFloat();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			averageFramesPerSecond=default(float);
-			averageServerSimTickTime=default(float);
-			averageClientSimTickTime=default(float);
-			averageBeginFrameTime=default(float);
-			averageInputTime=default(float);
-			averageRenderTime=default(float);
-			averageEndFrameTime=default(float);
-			averageRemainderTimePercent=default(float);
-			averageUnaccountedTimePercent=default(float);
-		}
-
-	}
-
 	public partial class McpeCameraAimAssist : Packet<McpeCameraAimAssist>
 	{
 
@@ -11537,62 +10826,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpePlayerUpdateEntityOverrides : Packet<McpePlayerUpdateEntityOverrides>
-	{
-
-		public long actorRuntimeId; // = null;
-		public uint propertyIndex; // = null;
-		public byte updateType; // = null;
-
-		public McpePlayerUpdateEntityOverrides()
-		{
-			Id = 0x145;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			WriteUnsignedVarLong(actorRuntimeId);
-			WriteUnsignedVarInt(propertyIndex);
-			Write(updateType);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			actorRuntimeId = ReadUnsignedVarLong();
-			propertyIndex = ReadUnsignedVarInt();
-			updateType = ReadByte();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			actorRuntimeId=default(long);
-			propertyIndex=default(uint);
-			updateType=default(byte);
-		}
-
-	}
-
 	public partial class McpeClientboundControlSchemeSet : Packet<McpeClientboundControlSchemeSet>
 	{
 
@@ -11737,58 +10970,6 @@ namespace MiNET.Net
 			packId=default(UUID);
 			name=default(string);
 			typeId=default(uint);
-		}
-
-	}
-
-	public partial class McpePlayerLocation : Packet<McpePlayerLocation>
-	{
-
-		public int type; // = null;
-		public long entityUniqueId; // = null;
-
-		public McpePlayerLocation()
-		{
-			Id = 0x146;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(type);
-			WriteSignedVarLong(entityUniqueId);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			type = ReadInt();
-			entityUniqueId = ReadSignedVarLong();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			type=default(int);
-			entityUniqueId=default(long);
 		}
 
 	}

@@ -135,13 +135,14 @@ namespace MiNET.Client
 			CryptoUtils.StampSkinId(clientData, client.Username);
 
 			Skin skin = clientData.ToSkin();
+			// Since 2168 the trusted flag rides inside SerializedSkin, not as a trailing packet field.
+			skin.IsVerified = true;
 
 			McpePlayerSkin message = McpePlayerSkin.CreateObject();
 			message.uuid = uuid;
 			message.skin = skin;
 			message.skinName = skin.SkinId;
 			message.oldSkinName = "";
-			message.isVerified = true;
 			client.SendPacket(message);
 		}
 

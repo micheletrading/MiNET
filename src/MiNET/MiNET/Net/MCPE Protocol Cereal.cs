@@ -32,13 +32,63 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using MiNET.Items;
 using MiNET.Utils;
 using MiNET.Utils.Metadata;
 using MiNET.Utils.Nbt;
+using MiNET.Utils.Skins;
 using MiNET.Utils.Vectors;
 
 namespace MiNET.Net
 {
+	public partial class McpeServerToClientHandshake : Packet<McpeServerToClientHandshake>
+	{
+
+		public string token; // = null;
+
+		public McpeServerToClientHandshake()
+		{
+			Id = 0x03;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(token);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			token = ReadString();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			token=default(string);
+		}
+
+	}
+
 	public partial class McpeResourcePacksInfo : Packet<McpeResourcePacksInfo>
 	{
 
@@ -187,7 +237,7 @@ namespace MiNET.Net
 
 	public partial class McpeStartGame : Packet<McpeStartGame>
 	{
-		public enum Gametype
+		public enum GameType
 		{
 			Survival = 0,
 			Creative = 1,
@@ -200,7 +250,7 @@ namespace MiNET.Net
 
 		public long entityIdSelf; // = null;
 		public long runtimeEntityId; // = null;
-		public McpeStartGame.Gametype gameType; // = null;
+		public McpeStartGame.GameType gameType; // = null;
 		public Vector3 position; // = null;
 		public Vector2 rotation; // = null;
 		public LevelSettings settings; // = null;
@@ -278,7 +328,7 @@ namespace MiNET.Net
 
 			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
-			gameType = (McpeStartGame.Gametype) ReadSignedVarInt();
+			gameType = (McpeStartGame.GameType) ReadSignedVarInt();
 			position = ReadVector3();
 			rotation = ReadVector2();
 			settings = ReadLevelSettings();
@@ -316,7 +366,7 @@ namespace MiNET.Net
 
 			entityIdSelf=default(long);
 			runtimeEntityId=default(long);
-			gameType=default(McpeStartGame.Gametype);
+			gameType=default(McpeStartGame.GameType);
 			position=default(Vector3);
 			rotation=default(Vector2);
 			settings=default(LevelSettings);
@@ -339,6 +389,141 @@ namespace MiNET.Net
 			serverAuthSoundEnabled=default(bool);
 			serverConfigurationJoinInfo=default(ServerConfig);
 			serverTelemetryData=default(ServerTelemetryData);
+		}
+
+	}
+
+	public partial class McpeAddPlayer : Packet<McpeAddPlayer>
+	{
+		public enum GameType
+		{
+			Survival = 0,
+			Creative = 1,
+			Adventure = 2,
+			Survivalspectator = 3,
+			Creativespectator = 4,
+			Default = 5,
+			Spectator = 6,
+		}
+		public enum BuildPlatform
+		{
+			Google = 0,
+			Ios = 1,
+			Osx = 2,
+			Amazon = 3,
+			Win32 = 4,
+			Dedicated = 5,
+			Sony = 6,
+			Nx = 7,
+			Xbox = 8,
+			Linux = 9,
+			Unknown = 10,
+		}
+
+		public UUID uuid; // = null;
+		public string username; // = null;
+		public long runtimeEntityId; // = null;
+		public string platformChatId; // = null;
+		public Vector3 position; // = null;
+		public Vector3 velocity; // = null;
+		public Vector2 rotation; // = null;
+		public float yHeadRotation; // = null;
+		public Item item; // = null;
+		public McpeAddPlayer.GameType gamemode; // = null;
+		public MetadataDictionary metadata; // = null;
+		public PropertySyncData synchedProperties; // = null;
+		public SerializedAbilitiesData abilitiesData; // = null;
+		public List<ActorLink> links; // = null;
+		public string deviceId; // = null;
+		public McpeAddPlayer.BuildPlatform buildPlatform; // = null;
+
+		public McpeAddPlayer()
+		{
+			Id = 0x0c;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(uuid);
+			Write(username);
+			WriteUnsignedVarLong(runtimeEntityId);
+			Write(platformChatId);
+			Write(position);
+			Write(velocity);
+			Write(rotation);
+			Write(yHeadRotation);
+			WriteItemInstance(item);
+			WriteSignedVarInt((int) gamemode);
+			Write(metadata);
+			Write(synchedProperties ?? new PropertySyncData());
+			Write(abilitiesData ?? new SerializedAbilitiesData());
+			WriteUnsignedVarInt((uint) (links?.Count ?? 0));
+			if (links != null) foreach (ActorLink item in links) Write(item);
+			Write(deviceId);
+			Write((int) buildPlatform);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			uuid = ReadUUID();
+			username = ReadString();
+			runtimeEntityId = ReadUnsignedVarLong();
+			platformChatId = ReadString();
+			position = ReadVector3();
+			velocity = ReadVector3();
+			rotation = ReadVector2();
+			yHeadRotation = ReadFloat();
+			item = ReadItemInstance();
+			gamemode = (McpeAddPlayer.GameType) ReadSignedVarInt();
+			metadata = ReadMetadataDictionary();
+			synchedProperties = ReadPropertySyncData();
+			abilitiesData = ReadSerializedAbilitiesData();
+			uint linksCount = ReadUnsignedVarInt();
+			links = new List<ActorLink>((int) linksCount);
+			for (int i = 0; i < linksCount; i++) links.Add(ReadActorLink());
+			deviceId = ReadString();
+			buildPlatform = (McpeAddPlayer.BuildPlatform) ReadInt();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			uuid=default(UUID);
+			username=default(string);
+			runtimeEntityId=default(long);
+			platformChatId=default(string);
+			position=default(Vector3);
+			velocity=default(Vector3);
+			rotation=default(Vector2);
+			yHeadRotation=default(float);
+			item=default(Item);
+			gamemode=default(McpeAddPlayer.GameType);
+			metadata=default(MetadataDictionary);
+			synchedProperties=default(PropertySyncData);
+			abilitiesData=default(SerializedAbilitiesData);
+			links=default(List<ActorLink>);
+			deviceId=default(string);
+			buildPlatform=default(McpeAddPlayer.BuildPlatform);
 		}
 
 	}
@@ -438,9 +623,81 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeAddItemEntity : Packet<McpeAddItemEntity>
+	{
+
+		public long entityIdSelf; // = null;
+		public long runtimeEntityId; // = null;
+		public Item item; // = null;
+		public Vector3 position; // = null;
+		public Vector3 velocity; // = null;
+		public MetadataDictionary metadata; // = null;
+		public bool isFromFishing; // = null;
+
+		public McpeAddItemEntity()
+		{
+			Id = 0x0f;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarLong(entityIdSelf);
+			WriteUnsignedVarLong(runtimeEntityId);
+			WriteItemInstance(item);
+			Write(position);
+			Write(velocity);
+			Write(metadata);
+			Write(isFromFishing);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			entityIdSelf = ReadSignedVarLong();
+			runtimeEntityId = ReadUnsignedVarLong();
+			item = ReadItemInstance();
+			position = ReadVector3();
+			velocity = ReadVector3();
+			metadata = ReadMetadataDictionary();
+			isFromFishing = ReadBool();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			entityIdSelf=default(long);
+			runtimeEntityId=default(long);
+			item=default(Item);
+			position=default(Vector3);
+			velocity=default(Vector3);
+			metadata=default(MetadataDictionary);
+			isFromFishing=default(bool);
+		}
+
+	}
+
 	public partial class McpeMovePlayer : Packet<McpeMovePlayer>
 	{
-		public enum Mode
+		public enum PositionMode
 		{
 			Normal = 0,
 			Respawn = 1,
@@ -452,7 +709,7 @@ namespace MiNET.Net
 		public Vector3 position; // = null;
 		public Vector2 rotation; // = null;
 		public float headYaw; // = null;
-		public McpeMovePlayer.Mode mode; // = null;
+		public McpeMovePlayer.PositionMode mode; // = null;
 		public bool onGround; // = null;
 		public long ridingRuntimeEntityId; // = null;
 		public MovePlayerTeleportData teleportData; // = null;
@@ -497,7 +754,7 @@ namespace MiNET.Net
 			position = ReadVector3();
 			rotation = ReadVector2();
 			headYaw = ReadFloat();
-			mode = (McpeMovePlayer.Mode) ReadByte();
+			mode = (McpeMovePlayer.PositionMode) ReadByte();
 			onGround = ReadBool();
 			ridingRuntimeEntityId = ReadUnsignedVarLong();
 			if (ReadBool()) teleportData = ReadMovePlayerTeleportData();
@@ -517,7 +774,7 @@ namespace MiNET.Net
 			position=default(Vector3);
 			rotation=default(Vector2);
 			headYaw=default(float);
-			mode=default(McpeMovePlayer.Mode);
+			mode=default(McpeMovePlayer.PositionMode);
 			onGround=default(bool);
 			ridingRuntimeEntityId=default(long);
 			teleportData=default(MovePlayerTeleportData);
@@ -662,6 +919,346 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeTransfer : Packet<McpeTransfer>
+	{
+
+		public string serverAddress; // = null;
+		public ushort port; // = null;
+		public bool reloadWorld; // = null;
+		public GatheringsConfig gatheringsConfiguration; // = null;
+
+		public McpeTransfer()
+		{
+			Id = 0x55;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(serverAddress);
+			Write(port);
+			Write(reloadWorld);
+			Write(gatheringsConfiguration != null);
+			if (gatheringsConfiguration != null) Write(gatheringsConfiguration);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			serverAddress = ReadString();
+			port = ReadUshort();
+			reloadWorld = ReadBool();
+			if (ReadBool()) gatheringsConfiguration = ReadGatheringsConfig();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			serverAddress=default(string);
+			port=default(ushort);
+			reloadWorld=default(bool);
+			gatheringsConfiguration=default(GatheringsConfig);
+		}
+
+	}
+
+	public partial class McpeStructureBlockUpdate : Packet<McpeStructureBlockUpdate>
+	{
+
+		public BlockCoordinates blockPosition; // = null;
+		public StructureEditorData structureData; // = null;
+		public bool trigger; // = null;
+		public bool iswaterlogged; // = null;
+
+		public McpeStructureBlockUpdate()
+		{
+			Id = 0x5a;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(blockPosition);
+			Write(structureData ?? new StructureEditorData());
+			Write(trigger);
+			Write(iswaterlogged);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			blockPosition = ReadBlockCoordinates();
+			structureData = ReadStructureEditorData();
+			trigger = ReadBool();
+			iswaterlogged = ReadBool();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			blockPosition=default(BlockCoordinates);
+			structureData=default(StructureEditorData);
+			trigger=default(bool);
+			iswaterlogged=default(bool);
+		}
+
+	}
+
+	public partial class McpePlayerSkin : Packet<McpePlayerSkin>
+	{
+
+		public UUID uuid; // = null;
+		public Skin skin; // = null;
+		public string skinName; // = null;
+		public string oldSkinName; // = null;
+
+		public McpePlayerSkin()
+		{
+			Id = 0x5d;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(uuid);
+			Write(skin);
+			Write(skinName);
+			Write(oldSkinName);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			uuid = ReadUUID();
+			skin = ReadSkin();
+			skinName = ReadString();
+			oldSkinName = ReadString();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			uuid=default(UUID);
+			skin=default(Skin);
+			skinName=default(string);
+			oldSkinName=default(string);
+		}
+
+	}
+
+	public partial class McpePhotoTransfer : Packet<McpePhotoTransfer>
+	{
+		public enum PhotoType
+		{
+			Portfolio = 0,
+			Photoitem = 1,
+			Book = 2,
+		}
+
+		public string photoName; // = null;
+		public string photoData; // = null;
+		public string bookId; // = null;
+		public McpePhotoTransfer.PhotoType type; // = null;
+		public McpePhotoTransfer.PhotoType sourceType; // = null;
+		public long ownerId; // = null;
+		public string newPhotoName; // = null;
+
+		public McpePhotoTransfer()
+		{
+			Id = 0x63;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(photoName);
+			Write(photoData);
+			Write(bookId);
+			Write((byte) type);
+			Write((byte) sourceType);
+			Write((ulong) ownerId);
+			Write(newPhotoName);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			photoName = ReadString();
+			photoData = ReadString();
+			bookId = ReadString();
+			type = (McpePhotoTransfer.PhotoType) ReadByte();
+			sourceType = (McpePhotoTransfer.PhotoType) ReadByte();
+			ownerId = (long) ReadUlong();
+			newPhotoName = ReadString();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			photoName=default(string);
+			photoData=default(string);
+			bookId=default(string);
+			type=default(McpePhotoTransfer.PhotoType);
+			sourceType=default(McpePhotoTransfer.PhotoType);
+			ownerId=default(long);
+			newPhotoName=default(string);
+		}
+
+	}
+
+	public partial class McpeSetScore : Packet<McpeSetScore>
+	{
+
+		public List<ScoreInfoElement> scoreInfo; // = null;
+
+		public McpeSetScore()
+		{
+			Id = 0x6c;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(scoreInfo != null);
+			if (scoreInfo != null)
+			{
+				WriteUnsignedVarInt((uint) scoreInfo.Count);
+				foreach (ScoreInfoElement item in scoreInfo)
+				{
+					switch (item)
+					{
+						case RemoveScore v0:
+							WriteUnsignedVarInt(0);
+							Write(v0);
+							break;
+						case ChangePlayerScore v1:
+							WriteUnsignedVarInt(1);
+							Write(v1);
+							break;
+						case ChangeEntityScore v2:
+							WriteUnsignedVarInt(2);
+							Write(v2);
+							break;
+						case ChangeFakePlayerScore v3:
+							WriteUnsignedVarInt(3);
+							Write(v3);
+							break;
+						default:
+							throw new Exception($"scoreInfo element variant not set or unknown: {item}");
+					}
+				}
+			}
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			if (ReadBool())
+			{
+				uint scoreInfoCount = ReadUnsignedVarInt();
+				scoreInfo = new List<ScoreInfoElement>((int) scoreInfoCount);
+				for (int i = 0; i < scoreInfoCount; i++) scoreInfo.Add(ReadUnsignedVarInt() switch { 0 => ReadRemoveScore(), 1 => ReadChangePlayerScore(), 2 => ReadChangeEntityScore(), 3 => ReadChangeFakePlayerScore(), uint other => throw new Exception($"Unknown item variant tag {other}") });
+			}
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			scoreInfo=default(List<ScoreInfoElement>);
+		}
+
+	}
+
 	public partial class McpeMoveEntityDelta : Packet<McpeMoveEntityDelta>
 	{
 
@@ -758,6 +1355,64 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeCreativeContent : Packet<McpeCreativeContent>
+	{
+
+		public List<CreativeGroupInfoPayload> groups; // = null;
+		public List<CreativeItemEntryPayload> entries; // = null;
+
+		public McpeCreativeContent()
+		{
+			Id = 0x91;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarInt((uint) (groups?.Count ?? 0));
+			if (groups != null) foreach (CreativeGroupInfoPayload item in groups) Write(item);
+			WriteUnsignedVarInt((uint) (entries?.Count ?? 0));
+			if (entries != null) foreach (CreativeItemEntryPayload item in entries) Write(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			uint groupsCount = ReadUnsignedVarInt();
+			groups = new List<CreativeGroupInfoPayload>((int) groupsCount);
+			for (int i = 0; i < groupsCount; i++) groups.Add(ReadCreativeGroupInfoPayload());
+			uint entriesCount = ReadUnsignedVarInt();
+			entries = new List<CreativeItemEntryPayload>((int) entriesCount);
+			for (int i = 0; i < entriesCount; i++) entries.Add(ReadCreativeItemEntryPayload());
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			groups=default(List<CreativeGroupInfoPayload>);
+			entries=default(List<CreativeItemEntryPayload>);
+		}
+
+	}
+
 	public partial class McpeSubChunkPacket : Packet<McpeSubChunkPacket>
 	{
 
@@ -821,7 +1476,352 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeRequestAbility : Packet<McpeRequestAbility>
+	{
+		public enum Type
+		{
+			Unset = 0,
+			Bool = 1,
+			Float = 2,
+		}
+
+		public int ability; // = null;
+		public McpeRequestAbility.Type valueType; // = null;
+		public bool @bool; // = null;
+		public float @float; // = null;
+
+		public McpeRequestAbility()
+		{
+			Id = 0xb8;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarInt(ability);
+			Write((byte) valueType);
+			Write(@bool);
+			Write(@float);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			ability = ReadSignedVarInt();
+			valueType = (McpeRequestAbility.Type) ReadByte();
+			@bool = ReadBool();
+			@float = ReadFloat();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			ability=default(int);
+			valueType=default(McpeRequestAbility.Type);
+			@bool=default(bool);
+			@float=default(float);
+		}
+
+	}
+
+	public partial class McpeServerBoundDiagnostics : Packet<McpeServerBoundDiagnostics>
+	{
+
+		public float averageFramesPerSecond; // = null;
+		public float averageServerSimTickTime; // = null;
+		public float averageClientSimTickTime; // = null;
+		public float averageBeginFrameTime; // = null;
+		public float averageInputTime; // = null;
+		public float averageRenderTime; // = null;
+		public float averageEndFrameTime; // = null;
+		public float averageRemainderTimePercent; // = null;
+		public float averageUnaccountedTimePercent; // = null;
+		public List<MemoryCategoryCounter> memoryCategoryValues; // = null;
+		public List<EntityDiagnosticTimingInfo> entityDiagnostics; // = null;
+		public List<SystemDiagnosticTimingInfo> systemDiagnostics; // = null;
+		public List<SystemCategory> systemCategories; // = null;
+		public List<WhiskerScopeDataSummary> whiskerScopes; // = null;
+
+		public McpeServerBoundDiagnostics()
+		{
+			Id = 0x13b;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(averageFramesPerSecond);
+			Write(averageServerSimTickTime);
+			Write(averageClientSimTickTime);
+			Write(averageBeginFrameTime);
+			Write(averageInputTime);
+			Write(averageRenderTime);
+			Write(averageEndFrameTime);
+			Write(averageRemainderTimePercent);
+			Write(averageUnaccountedTimePercent);
+			WriteUnsignedVarInt((uint) (memoryCategoryValues?.Count ?? 0));
+			if (memoryCategoryValues != null) foreach (MemoryCategoryCounter item in memoryCategoryValues) Write(item);
+			WriteUnsignedVarInt((uint) (entityDiagnostics?.Count ?? 0));
+			if (entityDiagnostics != null) foreach (EntityDiagnosticTimingInfo item in entityDiagnostics) Write(item);
+			WriteUnsignedVarInt((uint) (systemDiagnostics?.Count ?? 0));
+			if (systemDiagnostics != null) foreach (SystemDiagnosticTimingInfo item in systemDiagnostics) Write(item);
+			WriteUnsignedVarInt((uint) (systemCategories?.Count ?? 0));
+			if (systemCategories != null) foreach (SystemCategory item in systemCategories) Write(item);
+			WriteUnsignedVarInt((uint) (whiskerScopes?.Count ?? 0));
+			if (whiskerScopes != null) foreach (WhiskerScopeDataSummary item in whiskerScopes) Write(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			averageFramesPerSecond = ReadFloat();
+			averageServerSimTickTime = ReadFloat();
+			averageClientSimTickTime = ReadFloat();
+			averageBeginFrameTime = ReadFloat();
+			averageInputTime = ReadFloat();
+			averageRenderTime = ReadFloat();
+			averageEndFrameTime = ReadFloat();
+			averageRemainderTimePercent = ReadFloat();
+			averageUnaccountedTimePercent = ReadFloat();
+			uint memoryCategoryValuesCount = ReadUnsignedVarInt();
+			memoryCategoryValues = new List<MemoryCategoryCounter>((int) memoryCategoryValuesCount);
+			for (int i = 0; i < memoryCategoryValuesCount; i++) memoryCategoryValues.Add(ReadMemoryCategoryCounter());
+			uint entityDiagnosticsCount = ReadUnsignedVarInt();
+			entityDiagnostics = new List<EntityDiagnosticTimingInfo>((int) entityDiagnosticsCount);
+			for (int i = 0; i < entityDiagnosticsCount; i++) entityDiagnostics.Add(ReadEntityDiagnosticTimingInfo());
+			uint systemDiagnosticsCount = ReadUnsignedVarInt();
+			systemDiagnostics = new List<SystemDiagnosticTimingInfo>((int) systemDiagnosticsCount);
+			for (int i = 0; i < systemDiagnosticsCount; i++) systemDiagnostics.Add(ReadSystemDiagnosticTimingInfo());
+			uint systemCategoriesCount = ReadUnsignedVarInt();
+			systemCategories = new List<SystemCategory>((int) systemCategoriesCount);
+			for (int i = 0; i < systemCategoriesCount; i++) systemCategories.Add(ReadSystemCategory());
+			uint whiskerScopesCount = ReadUnsignedVarInt();
+			whiskerScopes = new List<WhiskerScopeDataSummary>((int) whiskerScopesCount);
+			for (int i = 0; i < whiskerScopesCount; i++) whiskerScopes.Add(ReadWhiskerScopeDataSummary());
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			averageFramesPerSecond=default(float);
+			averageServerSimTickTime=default(float);
+			averageClientSimTickTime=default(float);
+			averageBeginFrameTime=default(float);
+			averageInputTime=default(float);
+			averageRenderTime=default(float);
+			averageEndFrameTime=default(float);
+			averageRemainderTimePercent=default(float);
+			averageUnaccountedTimePercent=default(float);
+			memoryCategoryValues=default(List<MemoryCategoryCounter>);
+			entityDiagnostics=default(List<EntityDiagnosticTimingInfo>);
+			systemDiagnostics=default(List<SystemDiagnosticTimingInfo>);
+			systemCategories=default(List<SystemCategory>);
+			whiskerScopes=default(List<WhiskerScopeDataSummary>);
+		}
+
+	}
+
+	public partial class McpePlayerUpdateEntityOverrides : Packet<McpePlayerUpdateEntityOverrides>
+	{
+
+		public long targetId; // = null;
+		public uint propertyIndex; // = null;
+		public Update update; // = null;
+
+		public McpePlayerUpdateEntityOverrides()
+		{
+			Id = 0x145;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarLong(targetId);
+			WriteUnsignedVarInt(propertyIndex);
+			switch (update)
+			{
+				case ClearOverride v0:
+					WriteUnsignedVarInt(0);
+					Write(v0);
+					break;
+				case RemoveOverride v1:
+					WriteUnsignedVarInt(1);
+					Write(v1);
+					break;
+				case IntOverride v2:
+					WriteUnsignedVarInt(2);
+					Write(v2);
+					break;
+				case FloatOverride v3:
+					WriteUnsignedVarInt(3);
+					Write(v3);
+					break;
+				default:
+					throw new Exception($"update variant not set or unknown: {update}");
+			}
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			targetId = ReadSignedVarLong();
+			propertyIndex = ReadUnsignedVarInt();
+			update = ReadUnsignedVarInt() switch
+			{
+				0 => ReadClearOverride(),
+				1 => ReadRemoveOverride(),
+				2 => ReadIntOverride(),
+				3 => ReadFloatOverride(),
+				uint other => throw new Exception($"Unknown update variant tag {other}"),
+			};
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			targetId=default(long);
+			propertyIndex=default(uint);
+			update=default(Update);
+		}
+
+	}
+
+	public partial class McpePlayerLocation : Packet<McpePlayerLocation>
+	{
+
+		public long targetActorId; // = null;
+		public Location location; // = null;
+
+		public McpePlayerLocation()
+		{
+			Id = 0x146;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarLong(targetActorId);
+			switch (location)
+			{
+				case CoordinatesLocation v0:
+					WriteUnsignedVarInt(0);
+					Write(v0);
+					break;
+				case HiddenLocation v1:
+					WriteUnsignedVarInt(1);
+					Write(v1);
+					break;
+				default:
+					throw new Exception($"location variant not set or unknown: {location}");
+			}
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			targetActorId = ReadSignedVarLong();
+			location = ReadUnsignedVarInt() switch
+			{
+				0 => ReadCoordinatesLocation(),
+				1 => ReadHiddenLocation(),
+				uint other => throw new Exception($"Unknown location variant tag {other}"),
+			};
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			targetActorId=default(long);
+			location=default(Location);
+		}
+
+	}
+
+	public abstract class Location
+	{
+	}
+
 	public abstract class ResourcePackClientResponse
+	{
+	}
+
+	public abstract class ScoreInfoElement
+	{
+	}
+
+	public abstract class Update
 	{
 	}
 
@@ -842,10 +1842,44 @@ namespace MiNET.Net
 		public float vehicleAngularVelocity;
 	}
 
+	public class BedrockSafetyRedactableString
+	{
+		public string unredacted;
+		public string redacted;
+	}
+
+	public class ChangeEntityScore : ScoreInfoElement
+	{
+		public long scoreboardId;
+		public string objectiveName;
+		public int scoreValue;
+		public long actorId;
+	}
+
+	public class ChangeFakePlayerScore : ScoreInfoElement
+	{
+		public long scoreboardId;
+		public string objectiveName;
+		public int scoreValue;
+		public string fakePlayerName;
+	}
+
+	public class ChangePlayerScore : ScoreInfoElement
+	{
+		public long scoreboardId;
+		public string objectiveName;
+		public int scoreValue;
+		public long playerUniqueId;
+	}
+
 	public class ChunkPos
 	{
 		public int x;
 		public int z;
+	}
+
+	public class ClearOverride : Update
+	{
 	}
 
 	public class ClientStoreEntryPointConfig
@@ -854,10 +1888,59 @@ namespace MiNET.Net
 		public string storename;
 	}
 
+	public class CoordinatesLocation : Location
+	{
+		public enum PacketType
+		{
+			PlayerLocationCoordinates = 0,
+		}
+
+		public CoordinatesLocation.PacketType packetType;
+		public Vector3 position;
+	}
+
+	public class CreativeGroupInfoPayload
+	{
+		public enum CreativeCategory
+		{
+			All = 0,
+			Construction = 1,
+			Nature = 2,
+			Equipment = 3,
+			Items = 4,
+			Itemcommandonly = 5,
+			Undefined = 6,
+		}
+
+		public CreativeGroupInfoPayload.CreativeCategory creativeCategory;
+		public string name;
+		public Item groupIconItem;
+	}
+
+	public class CreativeItemEntryPayload
+	{
+		public uint creativeNetId;
+		public Item itemInstance;
+		public uint groupIndex;
+	}
+
 	public class EduSharedUriResource
 	{
 		public string buttonName;
 		public string linkUri;
+	}
+
+	public class EntityDiagnosticTimingInfo
+	{
+		public string displayName;
+		public string entity;
+		public ulong timeInNs;
+		public byte percentOfTotal;
+	}
+
+	public class FloatOverride : Update
+	{
+		public float value;
 	}
 
 	public class GatheringsConfig
@@ -872,9 +1955,24 @@ namespace MiNET.Net
 		public string serverid;
 	}
 
+	public class HiddenLocation : Location
+	{
+		public enum PacketType
+		{
+			PlayerLocationHide = 0,
+		}
+
+		public HiddenLocation.PacketType packetType;
+	}
+
+	public class IntOverride : Update
+	{
+		public int value;
+	}
+
 	public class LevelSettings
 	{
-		public enum Generatortype
+		public enum GeneratorType
 		{
 			Legacy = 0,
 			Overworld = 1,
@@ -885,7 +1983,7 @@ namespace MiNET.Net
 			Undefined = 6,
 		}
 
-		public enum Gametype
+		public enum GameType
 		{
 			Survival = 0,
 			Creative = 1,
@@ -896,7 +1994,7 @@ namespace MiNET.Net
 			Spectator = 6,
 		}
 
-		public enum Gamedifficulty
+		public enum GameDifficulty
 		{
 			Peaceful = 0,
 			Easy = 1,
@@ -906,7 +2004,7 @@ namespace MiNET.Net
 			Unknown = 5,
 		}
 
-		public enum Editorworldtype
+		public enum EditorWorldType
 		{
 			Noneditor = 0,
 			Editorproject = 1,
@@ -914,14 +2012,14 @@ namespace MiNET.Net
 			Editorrealmsupload = 3,
 		}
 
-		public enum Educationeditionoffer
+		public enum EducationEditionOffer
 		{
 			None = 0,
 			Restofworld = 1,
 			ChinaDeprecated = 2,
 		}
 
-		public enum Xboxlivebroadcastsetting
+		public enum XboxLiveBroadcastSetting
 		{
 			Nomultiplay = 0,
 			Inviteonly = 1,
@@ -930,7 +2028,7 @@ namespace MiNET.Net
 			Public = 4,
 		}
 
-		public enum Platformbroadcastsetting
+		public enum PlatformBroadcastSetting
 		{
 			Nomultiplay = 0,
 			Inviteonly = 1,
@@ -939,7 +2037,7 @@ namespace MiNET.Net
 			Public = 4,
 		}
 
-		public enum Playerpermissions
+		public enum PlayerPermissions
 		{
 			Visitor = 0,
 			Member = 1,
@@ -947,14 +2045,14 @@ namespace MiNET.Net
 			Custom = 3,
 		}
 
-		public enum Chatrestrictionlevel
+		public enum ChatRestrictionLevel
 		{
 			None = 0,
 			Dropped = 1,
 			Disabled = 2,
 		}
 
-		public enum Servereditorconnectionpolicy
+		public enum ServerEditorConnectionPolicy
 		{
 			Matchworldtype = 0,
 			Editoronly = 1,
@@ -964,17 +2062,17 @@ namespace MiNET.Net
 
 		public ulong seed;
 		public SpawnSettings spawnSettings;
-		public LevelSettings.Generatortype generatorType;
-		public LevelSettings.Gametype gameType;
+		public LevelSettings.GeneratorType generatorType;
+		public LevelSettings.GameType gameType;
 		public bool isHardcore;
-		public LevelSettings.Gamedifficulty gameDifficulty;
+		public LevelSettings.GameDifficulty gameDifficulty;
 		public BlockCoordinates defaultSpawnBlockPosition;
 		public bool achievementsDisabled;
-		public LevelSettings.Editorworldtype editorWorldType;
+		public LevelSettings.EditorWorldType editorWorldType;
 		public bool isCreatedInEditor;
 		public bool isExportedFromEditor;
 		public int dayCycleStopTime;
-		public LevelSettings.Educationeditionoffer educationEditionOffer;
+		public LevelSettings.EducationEditionOffer educationEditionOffer;
 		public bool educationFeaturesEnabled;
 		public string educationProductId;
 		public float rainLevel;
@@ -982,15 +2080,15 @@ namespace MiNET.Net
 		public bool hasConfirmedPlatformLockedContent;
 		public bool multiplayerGameIntent;
 		public bool lanBroadcastIntent;
-		public LevelSettings.Xboxlivebroadcastsetting xboxLiveBroadcastSetting;
-		public LevelSettings.Platformbroadcastsetting platformBroadcastSetting;
+		public LevelSettings.XboxLiveBroadcastSetting xboxLiveBroadcastSetting;
+		public LevelSettings.PlatformBroadcastSetting platformBroadcastSetting;
 		public bool commandsEnabled;
 		public bool texturePacksRequired;
 		public GameRules gamerules;
 		public Experiments experiments;
 		public bool hasBonusChestEnabled;
 		public bool startWithMapEnabled;
-		public LevelSettings.Playerpermissions playerPermissions;
+		public LevelSettings.PlayerPermissions playerPermissions;
 		public int serverChunkTickRange;
 		public bool hasLockedBehaviorPack;
 		public bool hasLockedResourcePack;
@@ -1008,10 +2106,131 @@ namespace MiNET.Net
 		public bool netherType;
 		public EduSharedUriResource eduSharedUriResource;
 		public bool? overrideForceExperimentalGameplay;
-		public LevelSettings.Chatrestrictionlevel chatRestrictionLevel;
+		public LevelSettings.ChatRestrictionLevel chatRestrictionLevel;
 		public bool disablePlayerInteractions;
-		public LevelSettings.Servereditorconnectionpolicy serverEditorConnectionPolicy;
+		public LevelSettings.ServerEditorConnectionPolicy serverEditorConnectionPolicy;
 		public bool allowAnonymousBlockDropsInEditorWorlds;
+	}
+
+	public class MemoryCategoryCounter
+	{
+		public enum MemoryCategory
+		{
+			Unknown = 0,
+			InvalidSizeunknown = 1,
+			Actor = 2,
+			Actoranimation = 3,
+			Actorrendering = 4,
+			Blocktickingqueues = 5,
+			BiomeStorage = 6,
+			Blobs = 7,
+			Cereal = 8,
+			Circuitsystem = 9,
+			Client = 10,
+			Commands = 11,
+			Dbstorage = 12,
+			Debug = 13,
+			Documentation = 14,
+			Ecssystems = 15,
+			Fmod = 16,
+			Fonts = 17,
+			Imgui = 18,
+			Input = 19,
+			Jsonui = 20,
+			JsonuiControlfactoryJson = 21,
+			JsonuiControltree = 22,
+			JsonuiControltreeControlelement = 23,
+			JsonuiControltreePopulatedatabinding = 24,
+			JsonuiControltreePopulatefocus = 25,
+			JsonuiControltreePopulatelayout = 26,
+			JsonuiControltreePopulateother = 27,
+			JsonuiControltreePopulatesprite = 28,
+			JsonuiControltreePopulatetext = 29,
+			JsonuiControltreePopulatetts = 30,
+			JsonuiControltreeVisibility = 31,
+			JsonuiCreateui = 32,
+			JsonuiDefs = 33,
+			JsonuiLayoutmanager = 34,
+			JsonuiLayoutmanagerRemovedependencies = 35,
+			JsonuiLayoutmanagerInitvariable = 36,
+			Languages = 37,
+			Level = 38,
+			Levelstructures = 39,
+			Levelchunk = 40,
+			Levelchunkgen = 41,
+			Levelchunkgenthreadlocal = 42,
+			Lightvolumemanager = 43,
+			Network = 44,
+			Marketplace = 45,
+			MaterialDragoncompileddefinition = 46,
+			MaterialDragonmaterial = 47,
+			MaterialDragonresource = 48,
+			MaterialDragonuniformmap = 49,
+			MaterialRendermaterial = 50,
+			MaterialRendermaterialgroup = 51,
+			MaterialVariationmanager = 52,
+			Molang = 53,
+			Oreui = 54,
+			OreuiClient = 55,
+			PersonaPieces = 56,
+			PersonaAnimations = 57,
+			PersonaTextures = 58,
+			PersonaCharacters = 59,
+			PersonaSkinpacks = 60,
+			PersonaRepo = 61,
+			Player = 62,
+			Renderchunk = 63,
+			RenderchunkIndexbuffer = 64,
+			RenderchunkVertexbuffer = 65,
+			Rendering = 66,
+			RenderingBgfxinit = 67,
+			RenderingBgfxstartframe = 68,
+			RenderingBlocktessellator = 69,
+			RenderingEndframe = 70,
+			RenderingGraphicstasksinit = 71,
+			RenderingLibrary = 72,
+			RenderingPolygonoperatorpool = 73,
+			RenderingPbrtexturedata = 74,
+			RenderingRenderregistry = 75,
+			RenderingSetup = 76,
+			RenderingVertices = 77,
+			Requestlog = 78,
+			Resourcepacks = 79,
+			Sound = 80,
+			SubchunkBiomedata = 81,
+			SubchunkBlockdata = 82,
+			SubchunkLightdata = 83,
+			Textures = 84,
+			Weatherrenderer = 85,
+			WorldGenerator = 86,
+			Tasks = 87,
+			Test = 88,
+			TestLoadtesttags = 89,
+			Scripting = 90,
+			ScriptingRuntime = 91,
+			ScriptingContext = 92,
+			ScriptingContextBindingsMc = 93,
+			ScriptingContextBindingsGt = 94,
+			ScriptingContextRun = 95,
+			Datadrivenui = 96,
+			DatadrivenuiDefs = 97,
+			Gameface = 98,
+			GamefaceSystem = 99,
+			GamefaceDom = 100,
+			GamefaceCss = 101,
+			GamefaceDisplay = 102,
+			GamefaceTempallocator = 103,
+			GamefacePoolallocator = 104,
+			GamefaceDump = 105,
+			GamefaceMedia = 106,
+			GamefaceJson = 107,
+			GamefaceScriptengine = 108,
+			GamefaceScript = 109,
+			GamefaceLayout = 110,
+		}
+
+		public MemoryCategoryCounter.MemoryCategory category;
+		public ulong currentBytes;
 	}
 
 	public class MoveActorDeltaData
@@ -1072,6 +2291,16 @@ namespace MiNET.Net
 		public int data;
 	}
 
+	public class RemoveOverride : Update
+	{
+	}
+
+	public class RemoveScore : ScoreInfoElement
+	{
+		public long scoreboardId;
+		public string objectiveName;
+	}
+
 	public class ResourcePackClientResponseCancel : ResourcePackClientResponse
 	{
 	}
@@ -1087,6 +2316,32 @@ namespace MiNET.Net
 
 	public class ResourcePackClientResponseResourcePackStackFinished : ResourcePackClientResponse
 	{
+	}
+
+	public class SerializedAbilitiesData
+	{
+		public enum PlayerPermissionLevel
+		{
+			Visitor = 0,
+			Member = 1,
+			Operator = 2,
+			Custom = 3,
+		}
+
+		public enum CommandPermissionLevel
+		{
+			Any = 0,
+			Gamedirectors = 1,
+			Admin = 2,
+			Host = 3,
+			Owner = 4,
+			Internal = 5,
+		}
+
+		public long targetPlayerRawId;
+		public SerializedAbilitiesData.PlayerPermissionLevel playerPermissions;
+		public SerializedAbilitiesData.CommandPermissionLevel commandPermissions;
+		public List<AbilityLayer> layers;
 	}
 
 	public class ServerBlockProperty
@@ -1112,20 +2367,47 @@ namespace MiNET.Net
 
 	public class SpawnSettings
 	{
-		public enum Spawnbiometype
+		public enum SpawnBiomeType
 		{
 			Default = 0,
 			Userdefined = 1,
 		}
 
-		public SpawnSettings.Spawnbiometype spawnBiomeType;
+		public SpawnSettings.SpawnBiomeType spawnBiomeType;
 		public string userDefinedBiomeName;
 		public int dimension;
 	}
 
+	public class StructureEditorData
+	{
+		public enum StructureBlockType
+		{
+			Data = 0,
+			Save = 1,
+			Load = 2,
+			Corner = 3,
+			Invalid = 4,
+			Export = 5,
+		}
+
+		public enum StructureRedstoneSaveMode
+		{
+			Savestomemory = 0,
+			Savestodisk = 1,
+		}
+
+		public BedrockSafetyRedactableString structureName;
+		public string dataField;
+		public bool shouldIncludePlayers;
+		public bool shouldShowBoundingBox;
+		public StructureEditorData.StructureBlockType structureBlockType;
+		public StructureSettings structureSettings;
+		public StructureEditorData.StructureRedstoneSaveMode redstoneSaveMode;
+	}
+
 	public class SubChunkHeightmapData
 	{
-		public enum Heightmaptype
+		public enum HeightMapType
 		{
 			Nodata = 0,
 			Hasdata = 1,
@@ -1133,7 +2415,7 @@ namespace MiNET.Net
 			Alltoolow = 3,
 		}
 
-		public enum Renderheightmaptype
+		public enum RenderHeightMapType
 		{
 			Nodata = 0,
 			Hasdata = 1,
@@ -1142,15 +2424,15 @@ namespace MiNET.Net
 			Allcopied = 4,
 		}
 
-		public SubChunkHeightmapData.Heightmaptype heightMapType;
+		public SubChunkHeightmapData.HeightMapType heightMapType;
 		public byte[] heights;
-		public SubChunkHeightmapData.Renderheightmaptype renderHeightMapType;
+		public SubChunkHeightmapData.RenderHeightMapType renderHeightMapType;
 		public byte[] renderHeights;
 	}
 
 	public class SubChunkPacketData
 	{
-		public enum Subchunkrequestresult
+		public enum SubchunkRequestResult
 		{
 			Undefined = 0,
 			Success = 1,
@@ -1162,7 +2444,7 @@ namespace MiNET.Net
 		}
 
 		public SubChunkPosOffset subchunkPosOffset;
-		public SubChunkPacketData.Subchunkrequestresult subchunkRequestResult;
+		public SubChunkPacketData.SubchunkRequestResult subchunkRequestResult;
 		public byte[] serializedSubChunk;
 		public SubChunkHeightmapData heightMapData;
 		public ulong? blobId;
@@ -1186,6 +2468,29 @@ namespace MiNET.Net
 	{
 		public int rewindHistorySize;
 		public bool serverAuthoritativeBlockBreaking;
+	}
+
+	public class SystemCategory
+	{
+		public string categoryName;
+		public ulong systemIndex;
+	}
+
+	public class SystemDiagnosticTimingInfo
+	{
+		public string displayName;
+		public ulong systemIndex;
+		public ulong timeInNs;
+		public byte percentOfTotal;
+	}
+
+	public class WhiskerScopeDataSummary
+	{
+		public string label;
+		public string indentation;
+		public ulong totalhighcostns;
+		public ulong totalmidcostns;
+		public ulong totallowcostns;
 	}
 
 	public abstract partial class Packet
@@ -1212,6 +2517,81 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(BedrockSafetyRedactableString data)
+		{
+			Write(data.unredacted);
+			Write(data.redacted != null);
+			if (data.redacted != null) Write(data.redacted);
+		}
+
+		public BedrockSafetyRedactableString ReadBedrockSafetyRedactableString()
+		{
+			var data = new BedrockSafetyRedactableString();
+			data.unredacted = ReadString();
+			if (ReadBool()) data.redacted = ReadString();
+			return data;
+		}
+
+		public void Write(ChangeEntityScore data)
+		{
+			Write("changeentity");
+			WriteSignedVarLong(data.scoreboardId);
+			Write(data.objectiveName);
+			Write(data.scoreValue);
+			WriteSignedVarLong(data.actorId);
+		}
+
+		public ChangeEntityScore ReadChangeEntityScore()
+		{
+			var data = new ChangeEntityScore();
+			ReadString();
+			data.scoreboardId = ReadSignedVarLong();
+			data.objectiveName = ReadString();
+			data.scoreValue = ReadInt();
+			data.actorId = ReadSignedVarLong();
+			return data;
+		}
+
+		public void Write(ChangeFakePlayerScore data)
+		{
+			Write("changefakeplayer");
+			WriteSignedVarLong(data.scoreboardId);
+			Write(data.objectiveName);
+			Write(data.scoreValue);
+			Write(data.fakePlayerName);
+		}
+
+		public ChangeFakePlayerScore ReadChangeFakePlayerScore()
+		{
+			var data = new ChangeFakePlayerScore();
+			ReadString();
+			data.scoreboardId = ReadSignedVarLong();
+			data.objectiveName = ReadString();
+			data.scoreValue = ReadInt();
+			data.fakePlayerName = ReadString();
+			return data;
+		}
+
+		public void Write(ChangePlayerScore data)
+		{
+			Write("changeplayer");
+			WriteSignedVarLong(data.scoreboardId);
+			Write(data.objectiveName);
+			Write(data.scoreValue);
+			WriteSignedVarLong(data.playerUniqueId);
+		}
+
+		public ChangePlayerScore ReadChangePlayerScore()
+		{
+			var data = new ChangePlayerScore();
+			ReadString();
+			data.scoreboardId = ReadSignedVarLong();
+			data.objectiveName = ReadString();
+			data.scoreValue = ReadInt();
+			data.playerUniqueId = ReadSignedVarLong();
+			return data;
+		}
+
 		public void Write(ChunkPos data)
 		{
 			WriteSignedVarInt(data.x);
@@ -1223,6 +2603,18 @@ namespace MiNET.Net
 			var data = new ChunkPos();
 			data.x = ReadSignedVarInt();
 			data.z = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(ClearOverride data)
+		{
+			Write("clearoverrides");
+		}
+
+		public ClearOverride ReadClearOverride()
+		{
+			var data = new ClearOverride();
+			ReadString();
 			return data;
 		}
 
@@ -1240,6 +2632,52 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(CoordinatesLocation data)
+		{
+			WriteSignedVarInt((int) data.packetType);
+			Write(data.position);
+		}
+
+		public CoordinatesLocation ReadCoordinatesLocation()
+		{
+			var data = new CoordinatesLocation();
+			data.packetType = (CoordinatesLocation.PacketType) ReadSignedVarInt();
+			data.position = ReadVector3();
+			return data;
+		}
+
+		public void Write(CreativeGroupInfoPayload data)
+		{
+			Write((byte) data.creativeCategory);
+			Write(data.name);
+			WriteItemLegacy(data.groupIconItem);
+		}
+
+		public CreativeGroupInfoPayload ReadCreativeGroupInfoPayload()
+		{
+			var data = new CreativeGroupInfoPayload();
+			data.creativeCategory = (CreativeGroupInfoPayload.CreativeCategory) ReadByte();
+			data.name = ReadString();
+			data.groupIconItem = ReadItemLegacy();
+			return data;
+		}
+
+		public void Write(CreativeItemEntryPayload data)
+		{
+			WriteUnsignedVarInt(data.creativeNetId);
+			WriteItemLegacy(data.itemInstance);
+			WriteUnsignedVarInt(data.groupIndex);
+		}
+
+		public CreativeItemEntryPayload ReadCreativeItemEntryPayload()
+		{
+			var data = new CreativeItemEntryPayload();
+			data.creativeNetId = ReadUnsignedVarInt();
+			data.itemInstance = ReadItemLegacy();
+			data.groupIndex = ReadUnsignedVarInt();
+			return data;
+		}
+
 		public void Write(EduSharedUriResource data)
 		{
 			Write(data.buttonName);
@@ -1251,6 +2689,38 @@ namespace MiNET.Net
 			var data = new EduSharedUriResource();
 			data.buttonName = ReadString();
 			data.linkUri = ReadString();
+			return data;
+		}
+
+		public void Write(EntityDiagnosticTimingInfo data)
+		{
+			Write(data.displayName);
+			Write(data.entity);
+			Write(data.timeInNs);
+			Write(data.percentOfTotal);
+		}
+
+		public EntityDiagnosticTimingInfo ReadEntityDiagnosticTimingInfo()
+		{
+			var data = new EntityDiagnosticTimingInfo();
+			data.displayName = ReadString();
+			data.entity = ReadString();
+			data.timeInNs = ReadUlong();
+			data.percentOfTotal = ReadByte();
+			return data;
+		}
+
+		public void Write(FloatOverride data)
+		{
+			Write("setfloatoverride");
+			Write(data.value);
+		}
+
+		public FloatOverride ReadFloatOverride()
+		{
+			var data = new FloatOverride();
+			ReadString();
+			data.value = ReadFloat();
 			return data;
 		}
 
@@ -1282,6 +2752,32 @@ namespace MiNET.Net
 			if (ReadBool()) data.targetid = ReadUUID();
 			if (ReadBool()) data.scenarioid = ReadString();
 			if (ReadBool()) data.serverid = ReadString();
+			return data;
+		}
+
+		public void Write(HiddenLocation data)
+		{
+			WriteSignedVarInt((int) data.packetType);
+		}
+
+		public HiddenLocation ReadHiddenLocation()
+		{
+			var data = new HiddenLocation();
+			data.packetType = (HiddenLocation.PacketType) ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(IntOverride data)
+		{
+			Write("setintoverride");
+			Write(data.value);
+		}
+
+		public IntOverride ReadIntOverride()
+		{
+			var data = new IntOverride();
+			ReadString();
+			data.value = ReadInt();
 			return data;
 		}
 
@@ -1345,17 +2841,17 @@ namespace MiNET.Net
 			var data = new LevelSettings();
 			data.seed = ReadUlong();
 			data.spawnSettings = ReadSpawnSettings();
-			data.generatorType = (LevelSettings.Generatortype) ReadSignedVarInt();
-			data.gameType = (LevelSettings.Gametype) ReadSignedVarInt();
+			data.generatorType = (LevelSettings.GeneratorType) ReadSignedVarInt();
+			data.gameType = (LevelSettings.GameType) ReadSignedVarInt();
 			data.isHardcore = ReadBool();
-			data.gameDifficulty = (LevelSettings.Gamedifficulty) ReadSignedVarInt();
+			data.gameDifficulty = (LevelSettings.GameDifficulty) ReadSignedVarInt();
 			data.defaultSpawnBlockPosition = ReadBlockCoordinates();
 			data.achievementsDisabled = ReadBool();
-			data.editorWorldType = (LevelSettings.Editorworldtype) ReadSignedVarInt();
+			data.editorWorldType = (LevelSettings.EditorWorldType) ReadSignedVarInt();
 			data.isCreatedInEditor = ReadBool();
 			data.isExportedFromEditor = ReadBool();
 			data.dayCycleStopTime = ReadSignedVarInt();
-			data.educationEditionOffer = (LevelSettings.Educationeditionoffer) ReadUnsignedVarInt();
+			data.educationEditionOffer = (LevelSettings.EducationEditionOffer) ReadUnsignedVarInt();
 			data.educationFeaturesEnabled = ReadBool();
 			data.educationProductId = ReadString();
 			data.rainLevel = ReadFloat();
@@ -1363,15 +2859,15 @@ namespace MiNET.Net
 			data.hasConfirmedPlatformLockedContent = ReadBool();
 			data.multiplayerGameIntent = ReadBool();
 			data.lanBroadcastIntent = ReadBool();
-			data.xboxLiveBroadcastSetting = (LevelSettings.Xboxlivebroadcastsetting) ReadSignedVarInt();
-			data.platformBroadcastSetting = (LevelSettings.Platformbroadcastsetting) ReadSignedVarInt();
+			data.xboxLiveBroadcastSetting = (LevelSettings.XboxLiveBroadcastSetting) ReadSignedVarInt();
+			data.platformBroadcastSetting = (LevelSettings.PlatformBroadcastSetting) ReadSignedVarInt();
 			data.commandsEnabled = ReadBool();
 			data.texturePacksRequired = ReadBool();
 			data.gamerules = ReadGameRules();
 			data.experiments = ReadExperiments();
 			data.hasBonusChestEnabled = ReadBool();
 			data.startWithMapEnabled = ReadBool();
-			data.playerPermissions = (LevelSettings.Playerpermissions) (sbyte) ReadByte();
+			data.playerPermissions = (LevelSettings.PlayerPermissions) (sbyte) ReadByte();
 			data.serverChunkTickRange = ReadInt();
 			data.hasLockedBehaviorPack = ReadBool();
 			data.hasLockedResourcePack = ReadBool();
@@ -1389,10 +2885,24 @@ namespace MiNET.Net
 			data.netherType = ReadBool();
 			data.eduSharedUriResource = ReadEduSharedUriResource();
 			if (ReadBool()) data.overrideForceExperimentalGameplay = ReadBool();
-			data.chatRestrictionLevel = (LevelSettings.Chatrestrictionlevel) ReadByte();
+			data.chatRestrictionLevel = (LevelSettings.ChatRestrictionLevel) ReadByte();
 			data.disablePlayerInteractions = ReadBool();
-			data.serverEditorConnectionPolicy = (LevelSettings.Servereditorconnectionpolicy) ReadSignedVarInt();
+			data.serverEditorConnectionPolicy = (LevelSettings.ServerEditorConnectionPolicy) ReadSignedVarInt();
 			data.allowAnonymousBlockDropsInEditorWorlds = ReadBool();
+			return data;
+		}
+
+		public void Write(MemoryCategoryCounter data)
+		{
+			Write((byte) data.category);
+			Write(data.currentBytes);
+		}
+
+		public MemoryCategoryCounter ReadMemoryCategoryCounter()
+		{
+			var data = new MemoryCategoryCounter();
+			data.category = (MemoryCategoryCounter.MemoryCategory) ReadByte();
+			data.currentBytes = ReadUlong();
 			return data;
 		}
 
@@ -1538,6 +3048,35 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(RemoveOverride data)
+		{
+			Write("removeoverride");
+		}
+
+		public RemoveOverride ReadRemoveOverride()
+		{
+			var data = new RemoveOverride();
+			ReadString();
+			return data;
+		}
+
+		public void Write(RemoveScore data)
+		{
+			Write("remove");
+			WriteSignedVarLong(data.scoreboardId);
+			Write(data.objectiveName != null);
+			if (data.objectiveName != null) Write(data.objectiveName);
+		}
+
+		public RemoveScore ReadRemoveScore()
+		{
+			var data = new RemoveScore();
+			ReadString();
+			data.scoreboardId = ReadSignedVarLong();
+			if (ReadBool()) data.objectiveName = ReadString();
+			return data;
+		}
+
 		public void Write(ResourcePackClientResponseCancel data)
 		{
 			Write("cancel");
@@ -1588,6 +3127,27 @@ namespace MiNET.Net
 		{
 			var data = new ResourcePackClientResponseResourcePackStackFinished();
 			ReadString();
+			return data;
+		}
+
+		public void Write(SerializedAbilitiesData data)
+		{
+			Write((ulong) data.targetPlayerRawId);
+			Write((byte) (sbyte) data.playerPermissions);
+			Write((byte) data.commandPermissions);
+			WriteUnsignedVarInt((uint) (data.layers?.Count ?? 0));
+			if (data.layers != null) foreach (AbilityLayer item in data.layers) Write(item);
+		}
+
+		public SerializedAbilitiesData ReadSerializedAbilitiesData()
+		{
+			var data = new SerializedAbilitiesData();
+			data.targetPlayerRawId = (long) ReadUlong();
+			data.playerPermissions = (SerializedAbilitiesData.PlayerPermissionLevel) (sbyte) ReadByte();
+			data.commandPermissions = (SerializedAbilitiesData.CommandPermissionLevel) ReadByte();
+			uint layersCount = ReadUnsignedVarInt();
+			data.layers = new List<AbilityLayer>((int) layersCount);
+			for (int i = 0; i < layersCount; i++) data.layers.Add(ReadAbilityLayer());
 			return data;
 		}
 
@@ -1652,9 +3212,33 @@ namespace MiNET.Net
 		public SpawnSettings ReadSpawnSettings()
 		{
 			var data = new SpawnSettings();
-			data.spawnBiomeType = (SpawnSettings.Spawnbiometype) ReadShort();
+			data.spawnBiomeType = (SpawnSettings.SpawnBiomeType) ReadShort();
 			data.userDefinedBiomeName = ReadString();
 			data.dimension = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(StructureEditorData data)
+		{
+			Write(data.structureName ?? new BedrockSafetyRedactableString());
+			Write(data.dataField);
+			Write(data.shouldIncludePlayers);
+			Write(data.shouldShowBoundingBox);
+			WriteSignedVarInt((int) data.structureBlockType);
+			Write(data.structureSettings);
+			Write((byte) data.redstoneSaveMode);
+		}
+
+		public StructureEditorData ReadStructureEditorData()
+		{
+			var data = new StructureEditorData();
+			data.structureName = ReadBedrockSafetyRedactableString();
+			data.dataField = ReadString();
+			data.shouldIncludePlayers = ReadBool();
+			data.shouldShowBoundingBox = ReadBool();
+			data.structureBlockType = (StructureEditorData.StructureBlockType) ReadSignedVarInt();
+			data.structureSettings = ReadStructureSettings();
+			data.redstoneSaveMode = (StructureEditorData.StructureRedstoneSaveMode) ReadByte();
 			return data;
 		}
 
@@ -1671,9 +3255,9 @@ namespace MiNET.Net
 		public SubChunkHeightmapData ReadSubChunkHeightmapData()
 		{
 			var data = new SubChunkHeightmapData();
-			data.heightMapType = (SubChunkHeightmapData.Heightmaptype) ReadByte();
+			data.heightMapType = (SubChunkHeightmapData.HeightMapType) ReadByte();
 			if (ReadBool()) data.heights = ReadBytes(256);
-			data.renderHeightMapType = (SubChunkHeightmapData.Renderheightmaptype) ReadByte();
+			data.renderHeightMapType = (SubChunkHeightmapData.RenderHeightMapType) ReadByte();
 			if (ReadBool()) data.renderHeights = ReadBytes(256);
 			return data;
 		}
@@ -1693,7 +3277,7 @@ namespace MiNET.Net
 		{
 			var data = new SubChunkPacketData();
 			data.subchunkPosOffset = ReadSubChunkPosOffset();
-			data.subchunkRequestResult = (SubChunkPacketData.Subchunkrequestresult) ReadByte();
+			data.subchunkRequestResult = (SubChunkPacketData.SubchunkRequestResult) ReadByte();
 			if (ReadBool()) data.serializedSubChunk = ReadByteArray();
 			data.heightMapData = ReadSubChunkHeightmapData();
 			if (ReadBool()) data.blobId = ReadUlong();
@@ -1743,6 +3327,58 @@ namespace MiNET.Net
 			var data = new SyncedPlayerMovementSettings();
 			data.rewindHistorySize = ReadSignedVarInt();
 			data.serverAuthoritativeBlockBreaking = ReadBool();
+			return data;
+		}
+
+		public void Write(SystemCategory data)
+		{
+			Write(data.categoryName);
+			Write(data.systemIndex);
+		}
+
+		public SystemCategory ReadSystemCategory()
+		{
+			var data = new SystemCategory();
+			data.categoryName = ReadString();
+			data.systemIndex = ReadUlong();
+			return data;
+		}
+
+		public void Write(SystemDiagnosticTimingInfo data)
+		{
+			Write(data.displayName);
+			Write(data.systemIndex);
+			Write(data.timeInNs);
+			Write(data.percentOfTotal);
+		}
+
+		public SystemDiagnosticTimingInfo ReadSystemDiagnosticTimingInfo()
+		{
+			var data = new SystemDiagnosticTimingInfo();
+			data.displayName = ReadString();
+			data.systemIndex = ReadUlong();
+			data.timeInNs = ReadUlong();
+			data.percentOfTotal = ReadByte();
+			return data;
+		}
+
+		public void Write(WhiskerScopeDataSummary data)
+		{
+			Write(data.label);
+			Write(data.indentation);
+			Write(data.totalhighcostns);
+			Write(data.totalmidcostns);
+			Write(data.totallowcostns);
+		}
+
+		public WhiskerScopeDataSummary ReadWhiskerScopeDataSummary()
+		{
+			var data = new WhiskerScopeDataSummary();
+			data.label = ReadString();
+			data.indentation = ReadString();
+			data.totalhighcostns = ReadUlong();
+			data.totalmidcostns = ReadUlong();
+			data.totallowcostns = ReadUlong();
 			return data;
 		}
 	}

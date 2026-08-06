@@ -145,8 +145,8 @@ namespace MiNET.Worlds
 		public bool IsMultiplayer { get; set; } = true;
 		public bool BroadcastToLan { get; set; } = true;
 		// Enum-typed, not int: the client rejects a broadcast setting outside GamePublishSetting.
-		public LevelSettings.Xboxlivebroadcastsetting XboxLiveBroadcastMode { get; set; } = LevelSettings.Xboxlivebroadcastsetting.Nomultiplay;
-		public LevelSettings.Platformbroadcastsetting PlatformBroadcastMode { get; set; } = LevelSettings.Platformbroadcastsetting.Nomultiplay;
+		public LevelSettings.XboxLiveBroadcastSetting XboxLiveBroadcastMode { get; set; } = LevelSettings.XboxLiveBroadcastSetting.Nomultiplay;
+		public LevelSettings.PlatformBroadcastSetting PlatformBroadcastMode { get; set; } = LevelSettings.PlatformBroadcastSetting.Nomultiplay;
 		public bool UseMsaGamertagsOnly { get; set; } = true;
 		public bool IsTexturepacksRequired { get; set; }
 		public bool BonusChest { get; set; }
@@ -870,7 +870,7 @@ namespace MiNET.Worlds
 						move.position = new Vector3(knownPosition.X, knownPosition.Y + 1.62f, knownPosition.Z);
 						move.rotation = new Vector2(knownPosition.Pitch, knownPosition.Yaw);
 						move.headYaw = knownPosition.HeadYaw;
-						move.mode = player.Vehicle == 0 ? McpeMovePlayer.Mode.Normal : McpeMovePlayer.Mode.Onlyheadrot;
+						move.mode = player.Vehicle == 0 ? McpeMovePlayer.PositionMode.Normal : McpeMovePlayer.PositionMode.Onlyheadrot;
 						move.onGround = !player.IsGliding && player.IsOnGround;
 						move.ridingRuntimeEntityId = player.Vehicle;
 						movePackets.Add(move);

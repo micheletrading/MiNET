@@ -2,6 +2,110 @@
 	"_comment": "The Cereal packet roster: packets whose bodies are generated from the Mojang schemas (MiNET.BlockGen/ProtocolDocs/json) instead of MCPE Protocol.xml. A packet is added here in the release where Mojang migrates it to Cereal (see the changelog in the ProtocolDocs submodule), and its pdu is removed from the XML at the same time. The schemas carry field names, order (x-ordinal-index), types and optionality; this file carries the wire facts they do not: our packet id and direction flags.",
 	"packets": [
 		{
+			"name": "MCPE_ADD_ITEM_ENTITY",
+			"id": "0x0f",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "AddItemActorPacket"
+		},
+		{
+			"name": "MCPE_ADD_PLAYER",
+			"id": "0x0c",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "AddPlayerPacket"
+		},
+		{
+			"name": "MCPE_STRUCTURE_BLOCK_UPDATE",
+			"id": "0x5a",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "StructureBlockUpdatePacket"
+		},
+		{
+			"name": "MCPE_PLAYER_SKIN",
+			"id": "0x5d",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "PlayerSkinPacket"
+		},
+		{
+			"name": "MCPE_CREATIVE_CONTENT",
+			"id": "0x91",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "CreativeContentPacket"
+		},
+		{
+			"name": "MCPE_SERVER_TO_CLIENT_HANDSHAKE",
+			"id": "0x03",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "ServerToClientHandshakePacket"
+		},
+		{
+			"name": "MCPE_TRANSFER",
+			"id": "0x55",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "TransferPacket"
+		},
+		{
+			"name": "MCPE_PHOTO_TRANSFER",
+			"id": "0x63",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "PhotoTransferPacket"
+		},
+		{
+			"name": "MCPE_SET_SCORE",
+			"id": "0x6c",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "SetScorePacket"
+		},
+		{
+			"name": "MCPE_REQUEST_ABILITY",
+			"id": "0xb8",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "RequestAbilityPacket"
+		},
+		{
+			"name": "MCPE_SERVER_BOUND_DIAGNOSTICS",
+			"id": "0x13b",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "ServerBoundDiagnosticsPacket"
+		},
+		{
+			"name": "MCPE_PLAYER_UPDATE_ENTITY_OVERRIDES",
+			"id": "0x145",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "PlayerUpdateEntityOverridesPacket"
+		},
+		{
+			"name": "MCPE_PLAYER_LOCATION",
+			"id": "0x146",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "PlayerLocationPacket"
+		},
+		{
 			"name": "MCPE_START_GAME",
 			"id": "0x0b",
 			"online": false,

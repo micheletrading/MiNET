@@ -102,15 +102,15 @@ namespace MiNET.Client
 			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
 			foreach (SubChunkPacketData entry in message.subchunkData)
 			{
-				switch ((SubChunkPacketData.Subchunkrequestresult) entry.subchunkRequestResult)
+				switch ((SubChunkPacketData.SubchunkRequestResult) entry.subchunkRequestResult)
 				{
-					case SubChunkPacketData.Subchunkrequestresult.Success:
+					case SubChunkPacketData.SubchunkRequestResult.Success:
 						success++;
 						if (ClientUtils.TryParseSubChunkPayload(entry.serializedSubChunk, Client.BlockNetworkIdsAreHashes)) parsedOk++;
 						else parseFail++;
 						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
 						break;
-					case SubChunkPacketData.Subchunkrequestresult.Successallair:
+					case SubChunkPacketData.SubchunkRequestResult.Successallair:
 						allAir++;
 						break;
 					default:
@@ -257,9 +257,9 @@ namespace MiNET.Client
 		public override void HandleMcpeCreativeContent(McpeCreativeContent message)
 		{
 			ItemStacks slots = new ItemStacks();
-			foreach (var entry in message.Entries)
+			foreach (var entry in message.entries)
 			{
-				slots.Add(entry.Item);
+				slots.Add(entry.itemInstance);
 			}
 
 			// Off the session thread; blocking here for seconds makes the server
@@ -370,16 +370,12 @@ namespace MiNET.Client
 		{
 			if (Client.IsEmulator) return;
 
-			Log.DebugFormat("McpeAddPlayer Unique ID: {0}", message.uniqueId);
+			Log.DebugFormat("McpeAddPlayer Unique ID: {0}", message.abilitiesData?.targetPlayerRawId);
 			Log.DebugFormat("McpeAddPlayer Runtime Entity ID: {0}", message.runtimeEntityId);
-			Log.DebugFormat("X: {0}", message.x);
-			Log.DebugFormat("Y: {0}", message.y);
-			Log.DebugFormat("Z: {0}", message.z);
-			Log.DebugFormat("Yaw: {0}", message.yaw);
-			Log.DebugFormat("Pitch: {0}", message.pitch);
-			Log.DebugFormat("Velocity X: {0}", message.speedX);
-			Log.DebugFormat("Velocity Y: {0}", message.speedY);
-			Log.DebugFormat("Velocity Z: {0}", message.speedZ);
+			Log.DebugFormat("Position: {0}", message.position);
+			Log.DebugFormat("Rotation: {0}", message.rotation);
+			Log.DebugFormat("Head rotation: {0}", message.yHeadRotation);
+			Log.DebugFormat("Velocity: {0}", message.velocity);
 			Log.DebugFormat("Metadata: {0}", Client.MetadataToCode(message.metadata));
 			Log.DebugFormat("Links count: {0}", message.links?.Count);
 		}

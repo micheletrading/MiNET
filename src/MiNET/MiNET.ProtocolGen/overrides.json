@@ -22,6 +22,58 @@
 			"write": "Write({0});",
 			"read": "{0} = ReadUUID();"
 		},
+		"ItemStackNetIdVariant": {
+			"csType": "int",
+			"write": "WriteSignedVarInt({0});",
+			"read": "{0} = ReadSignedVarInt();",
+			"reason": "The schema declares no properties, but the 2168 changelog is explicit: the binding 'now projects to and from a single signed-VarInt encoding (non-negative = server net id, negative-odd = client request id, negative-even = legacy client request id) instead of cereal's default tagged-variant encoding'."
+		},
+		"StructureSettings": {
+			"csType": "StructureSettings",
+			"write": "Write({0});",
+			"read": "{0} = ReadStructureSettings();",
+			"reason": "Already hand-written in Net/StructureSettings.cs and still referenced by an XML pdu (structure template data request), so the generator maps onto it instead of emitting a second type and a second pair of Packet methods."
+		},
+		"SerializedSkin": {
+			"csType": "Skin",
+			"write": "Write({0});",
+			"read": "{0} = ReadSkin();",
+			"reason": "Not generatable: PieceTintColors is typed 'object' with no layout, so the schema does not say how it is written (it is a bare type name plus exactly four raw colours, no count). The hand-written ReadSkin/Write(Skin) is verified byte-identical against a real 284KB persona PlayerList from BDS 1.26.40, so packets that carry a skin use it."
+		},
+		"WebToken": {
+			"csType": "string",
+			"write": "Write({0});",
+			"read": "{0} = ReadString();",
+			"reason": "WebToken.json is a self-reference with no properties; the only thing it says is 'Verify the input is a valid JWT'. On the wire it is the length-prefixed JWT string the XML pdu already carried."
+		},
+		"Json__Value": {
+			"csType": "string",
+			"write": "Write({0});",
+			"read": "{0} = ReadString();"
+		},
+		"MinEngineVersion": {
+			"csType": "string",
+			"write": "Write({0});",
+			"read": "{0} = ReadString();"
+		},
+		"NetworkItemInstanceDescriptor": {
+			"csType": "Item",
+			"write": "WriteItemLegacy({0});",
+			"read": "{0} = ReadItemLegacy();",
+			"reason": "The schema declares no properties. This is the id/count/aux/nbt form without the stack-id section, which is what creative entries and recipe results carry; the hand-written pair is verified against live BDS CraftingData and CreativeContent."
+		},
+		"NetworkItemStackDescriptor": {
+			"csType": "Item",
+			"write": "WriteItemInstance({0});",
+			"read": "{0} = ReadItemInstance();",
+			"reason": "The schema declares the type with no properties, so it cannot be generated. Item stacks stay on the hand-written codec: at 2168 this variant is li16 network id, no air short-circuit, block runtime id as a plain varint (see ReadItemInstance/WriteItemInstance), verified against live BDS bytes."
+		},
+		"SerializedAbilitiesDataSerializedLayer": {
+			"csType": "AbilityLayer",
+			"write": "Write({0});",
+			"read": "{0} = ReadAbilityLayer();",
+			"reason": "Field-for-field the same wire as the hand-written AbilityLayer (ushort layer, two raw uint32 ability sets, three floats), which McpeUpdateAbilities and the whole ability layer already build."
+		},
 		"Experiments": {
 			"csType": "Experiments",
 			"write": "Write({0});",
@@ -135,12 +187,71 @@
 				"Resource Pack Required": {"name": "mustAccept"}
 			}
 		},
+		"AddItemActorPacket": {
+			"fields": {
+				"Target Actor ID": {"name": "entityIdSelf"},
+				"Target Runtime ID": {"name": "runtimeEntityId"},
+				"Entity Data": {"name": "metadata"}
+			}
+		},
+		"AddPlayerPacket": {
+			"fields": {
+				"Player Name": {"name": "username"},
+				"Target Runtime ID": {"name": "runtimeEntityId"},
+				"Carried Item": {"name": "item"},
+				"Player Game Type": {
+					"name": "gamemode",
+					"enum": ["Survival", "Creative", "Adventure", "SurvivalSpectator", "CreativeSpectator", "Default", "Spectator"],
+					"reason": "Same GameType schema bug as StartGamePacket's Game Type: Undefined is -1 in the engine, wire starts at Survival=0."
+				},
+				"Entity Data": {"name": "metadata"},
+				"Actor Links": {"name": "links"}
+			}
+		},
+		"TransferPacket": {
+			"fields": {
+				"Server Port": {"name": "port"}
+			}
+		},
+		"ServerBoundDiagnosticsPacket": {
+			"fields": {
+				"AvgFps": {"name": "averageFramesPerSecond"},
+				"AvgServerSimTickTimeMS": {"name": "averageServerSimTickTime"},
+				"AvgClientSimTickTimeMS": {"name": "averageClientSimTickTime"},
+				"AvgBeginFrameTimeMS": {"name": "averageBeginFrameTime"},
+				"AvgInputTimeMS": {"name": "averageInputTime"},
+				"AvgRenderTimeMS": {"name": "averageRenderTime"},
+				"AvgEndFrameTimeMS": {"name": "averageEndFrameTime"},
+				"AvgRemainderTimePercent": {"name": "averageRemainderTimePercent"},
+				"AvgUnaccountedTimePercent": {"name": "averageUnaccountedTimePercent"}
+			}
+		},
+		"ServerToClientHandshakePacket": {
+			"fields": {
+				"Handshake WebToken": {"name": "token"}
+			}
+		},
+		"PlayerSkinPacket": {
+			"fields": {
+				"Serialized Skin": {"name": "skin"},
+				"Localized New Skin Name": {"name": "skinName"},
+				"Localized Old Skin Name": {"name": "oldSkinName"}
+			}
+		},
 		"MovePlayerPacket": {
 			"fields": {
 				"Player Runtime ID": {"name": "runtimeEntityId"},
 				"Riding Runtime ID": {"name": "ridingRuntimeEntityId"},
 				"Position Mode": {"name": "mode"},
 				"Y-Head Rotation": {"name": "headYaw"}
+			}
+		},
+		"CreativeGroupInfoPayload": {
+			"fields": {
+				"Creative Category": {
+					"enum": ["All", "Construction", "Nature", "Equipment", "Items", "ItemCommandOnly", "Undefined"],
+					"reason": "The inline enum lists only the five legal group categories and so starts numbering at 0, while its own description says 'Valid values are 1 through 5'. The standalone CreativeItemCategory schema and __protocoldoc.json both give the real numbering, All=0 first; our captured vanilla groups use 1-4."
+				}
 			}
 		},
 		"gatheringsConfig": {

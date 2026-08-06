@@ -1444,7 +1444,7 @@ namespace MiNET
 			packet.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
 			packet.rotation = new Vector2(position.Pitch, position.Yaw);
 			packet.headYaw = position.HeadYaw;
-			packet.mode = teleport ? McpeMovePlayer.Mode.Respawn : McpeMovePlayer.Mode.Normal;
+			packet.mode = teleport ? McpeMovePlayer.PositionMode.Respawn : McpeMovePlayer.PositionMode.Normal;
 
 			SendPacket(packet);
 		}
@@ -2081,6 +2081,8 @@ namespace MiNET
 			if (!UseCreativeInventory) return;
 
 			var creativeContent = McpeCreativeContent.CreateObject();
+			creativeContent.groups = new List<CreativeGroupInfoPayload>();
+			creativeContent.entries = new List<CreativeItemEntryPayload>();
 
 			// Vanilla tab groups (captured 1.26.34 data): groups with category/name/icon, and each
 			// entry referencing its group by index. Without correct groups the client shows empty
@@ -2106,11 +2108,11 @@ namespace MiNET
 					}
 				}
 
-				creativeContent.Groups.Add(new CreativeItemGroup
+				creativeContent.groups.Add(new CreativeGroupInfoPayload
 				{
-					Category = def.Category,
-					Name = def.Name ?? string.Empty,
-					Icon = icon,
+					creativeCategory = (CreativeGroupInfoPayload.CreativeCategory) def.Category,
+					name = def.Name ?? string.Empty,
+					groupIconItem = icon,
 				});
 			}
 
@@ -2128,11 +2130,11 @@ namespace MiNET
 					item.ExtraData = (NbtCompound) nbtFile.RootTag;
 				}
 
-				creativeContent.Entries.Add(new CreativeContentEntry
+				creativeContent.entries.Add(new CreativeItemEntryPayload
 				{
-					GroupIndex = def.GroupIndex,
-					EntryId = i + 1,
-					Item = item,
+					groupIndex = (uint) def.GroupIndex,
+					creativeNetId = (uint) (i + 1),
+					itemInstance = item,
 				});
 			}
 
@@ -2869,25 +2871,25 @@ namespace MiNET
 
 		private SubChunkPacketData BuildSubChunkEntry(McpeSubChunkRequestPacket message, SubChunkPosOffset offset)
 		{
-			SubChunkPacketData Rejected(SubChunkPacketData.Subchunkrequestresult result) => new SubChunkPacketData
+			SubChunkPacketData Rejected(SubChunkPacketData.SubchunkRequestResult result) => new SubChunkPacketData
 			{
 				subchunkPosOffset = offset,
 				subchunkRequestResult = result,
 				heightMapData = new SubChunkHeightmapData
 				{
-					heightMapType = SubChunkHeightmapData.Heightmaptype.Nodata,
-					renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Nodata
+					heightMapType = SubChunkHeightmapData.HeightMapType.Nodata,
+					renderHeightMapType = SubChunkHeightmapData.RenderHeightMapType.Nodata
 				}
 			};
 
-			if (message.dimension != (int) Level.Dimension) return Rejected(SubChunkPacketData.Subchunkrequestresult.Wrongdimension);
+			if (message.dimension != (int) Level.Dimension) return Rejected(SubChunkPacketData.SubchunkRequestResult.Wrongdimension);
 
 			int sectionY = message.originY + offset.subchunkOffsetY;
-			if (!ChunkColumn.IsSectionInBounds(sectionY)) return Rejected(SubChunkPacketData.Subchunkrequestresult.Indexoutofbounds);
+			if (!ChunkColumn.IsSectionInBounds(sectionY)) return Rejected(SubChunkPacketData.SubchunkRequestResult.Indexoutofbounds);
 
 			var coordinates = new ChunkCoordinates(message.originX + offset.subchunkOffsetX, message.originZ + offset.subchunkOffsetZ);
 			ChunkColumn chunkColumn = Level.GetChunk(coordinates, cacheOnly: true);
-			if (chunkColumn == null) return Rejected(SubChunkPacketData.Subchunkrequestresult.Levelchunkdoesntexist);
+			if (chunkColumn == null) return Rejected(SubChunkPacketData.SubchunkRequestResult.Levelchunkdoesntexist);
 
 			return chunkColumn.GetSubChunkData(offset, sectionY, UseBlobCache);
 		}
@@ -3604,16 +3606,16 @@ namespace MiNET
 				{
 					dimension = (int) (Level?.Dimension ?? 0),
 					userDefinedBiomeName = Level.SpawnBiomeName,
-					spawnBiomeType = (SpawnSettings.Spawnbiometype) Level.SpawnBiomeType
+					spawnBiomeType = (SpawnSettings.SpawnBiomeType) Level.SpawnBiomeType
 				},
 				seed = (ulong) Level.Seed,
-				generatorType = (LevelSettings.Generatortype) Level.GeneratorType,
-				gameType = (LevelSettings.Gametype) GameMode,
-				gameDifficulty = (LevelSettings.Gamedifficulty) Level.Difficulty,
+				generatorType = (LevelSettings.GeneratorType) Level.GeneratorType,
+				gameType = (LevelSettings.GameType) GameMode,
+				gameDifficulty = (LevelSettings.GameDifficulty) Level.Difficulty,
 				defaultSpawnBlockPosition = new BlockCoordinates((int) SpawnPosition.X, (int) (SpawnPosition.Y + Height), (int) SpawnPosition.Z),
 				achievementsDisabled = Level.AchievementsDisabled,
 				dayCycleStopTime = (int) Level.WorldTime,
-				educationEditionOffer = PlayerInfo.Edition == 1 ? LevelSettings.Educationeditionoffer.Restofworld : LevelSettings.Educationeditionoffer.None,
+				educationEditionOffer = PlayerInfo.Edition == 1 ? LevelSettings.EducationEditionOffer.Restofworld : LevelSettings.EducationEditionOffer.None,
 				educationProductId = "",
 				rainLevel = Level.RainLevel,
 				lightningLevel = Level.LightningLevel,
@@ -3625,7 +3627,7 @@ namespace MiNET
 				experiments = new Experiments(),
 				hasBonusChestEnabled = Level.BonusChest,
 				startWithMapEnabled = Level.MapEnabled,
-				playerPermissions = (LevelSettings.Playerpermissions) PermissionLevel,
+				playerPermissions = (LevelSettings.PlayerPermissions) PermissionLevel,
 				// "*" is what vanilla sends here, not the version string and not empty.
 				baseGameVersion = "*",
 
@@ -3646,7 +3648,7 @@ namespace MiNET
 			startGame.settings = levelSettings;
 			startGame.entityIdSelf = EntityId;
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
-			startGame.gameType = McpeStartGame.Gametype.Default; // fallback: use the level's game mode, like vanilla
+			startGame.gameType = McpeStartGame.GameType.Default; // fallback: use the level's game mode, like vanilla
 			// Eye height, like every other position we send. SpawnPosition is feet, and the client
 			// subtracts the offset to place them, so sending it raw spawns the player 1.62 low,
 			// which is inside the ground when the spawn is snapped to the surface.
@@ -3960,7 +3962,7 @@ namespace MiNET
 			packet.position = new Vector3(KnownPosition.X, KnownPosition.Y + 1.62f, KnownPosition.Z);
 			packet.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
 			packet.headYaw = KnownPosition.HeadYaw;
-			packet.mode = teleport ? McpeMovePlayer.Mode.Respawn : McpeMovePlayer.Mode.Normal;
+			packet.mode = teleport ? McpeMovePlayer.PositionMode.Respawn : McpeMovePlayer.PositionMode.Normal;
 
 			SendPacket(packet);
 		}
@@ -4389,28 +4391,26 @@ namespace MiNET
 			mcpeAddPlayer.uuid = ClientUuid;
 			mcpeAddPlayer.username = Username;
 			mcpeAddPlayer.runtimeEntityId = EntityId;
-			mcpeAddPlayer.x = KnownPosition.X;
-			mcpeAddPlayer.y = KnownPosition.Y;
-			mcpeAddPlayer.z = KnownPosition.Z;
-			mcpeAddPlayer.speedX = Velocity.X;
-			mcpeAddPlayer.speedY = Velocity.Y;
-			mcpeAddPlayer.speedZ = Velocity.Z;
-			mcpeAddPlayer.yaw = KnownPosition.Yaw;
-			mcpeAddPlayer.headYaw = KnownPosition.HeadYaw;
-			mcpeAddPlayer.pitch = KnownPosition.Pitch;
-			mcpeAddPlayer.gamemode = (int) GameMode;
+			mcpeAddPlayer.position = KnownPosition.ToVector3();
+			mcpeAddPlayer.velocity = Velocity;
+			mcpeAddPlayer.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
+			mcpeAddPlayer.yHeadRotation = KnownPosition.HeadYaw;
+			mcpeAddPlayer.gamemode = (McpeAddPlayer.GameType) GameMode;
 			mcpeAddPlayer.metadata = GetMetadata();
-			mcpeAddPlayer.uniqueId = EntityId;
-			mcpeAddPlayer.permissionLevel = (byte) PermissionLevel;
-			mcpeAddPlayer.commandPermission = (byte) CommandPermission;
 			mcpeAddPlayer.deviceId = PlayerInfo.DeviceId;
-			mcpeAddPlayer.deviceOs = PlayerInfo.DeviceOS;
+			mcpeAddPlayer.buildPlatform = (McpeAddPlayer.BuildPlatform) PlayerInfo.DeviceOS;
 
 			// A spawned player must arrive with its ability layers. This went out with none, where
 			// vanilla BDS 1.26.34 sends two, leaving the receiving client a player it has no base
 			// layer to read walk and fly speed from. The layer is the same one UpdateAbilities
 			// sends for this player, so the two cannot describe the player differently.
-			mcpeAddPlayer.abilities = new List<AbilityLayer> {BuildBaseAbilityLayer()};
+			mcpeAddPlayer.abilitiesData = new SerializedAbilitiesData
+			{
+				targetPlayerRawId = EntityId,
+				playerPermissions = (SerializedAbilitiesData.PlayerPermissionLevel) PermissionLevel,
+				commandPermissions = (SerializedAbilitiesData.CommandPermissionLevel) CommandPermission,
+				layers = new List<AbilityLayer> {BuildBaseAbilityLayer()}
+			};
 
 			//NOT WORKING: Reported to Mojang
 			//if (IsRiding)

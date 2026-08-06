@@ -233,9 +233,11 @@ public static class CerealEmitter
 		sb.AppendLine("using System;");
 		sb.AppendLine("using System.Collections.Generic;");
 		sb.AppendLine("using System.Numerics;");
+		sb.AppendLine("using MiNET.Items;");
 		sb.AppendLine("using MiNET.Utils;");
 		sb.AppendLine("using MiNET.Utils.Metadata;");
 		sb.AppendLine("using MiNET.Utils.Nbt;");
+		sb.AppendLine("using MiNET.Utils.Skins;");
 		sb.AppendLine("using MiNET.Utils.Vectors;");
 		sb.AppendLine();
 		sb.AppendLine("namespace MiNET.Net");
@@ -466,6 +468,36 @@ public static class CerealEmitter
 			yield break;
 		}
 
+		// A vector of tagged variants: each element carries its own discriminator, so the element
+		// cannot be written by a single expression the way a struct or primitive can. PlayerList is
+		// this shape since 2168, where add and remove entries are dispatched per entry.
+		if (field.Kind == FieldKind.Array && field.Element.Kind == FieldKind.Variant)
+		{
+			if (field.Optional) yield return $"Write({name} != null);";
+			yield return $"if ({name} != null)";
+			yield return "{";
+			yield return $"\tWriteUnsignedVarInt((uint) {name}.Count);";
+			yield return $"\tforeach ({field.Element.CsType} item in {name})";
+			yield return "\t{";
+			yield return "\t\tswitch (item)";
+			yield return "\t\t{";
+			for (int i = 0; i < field.Element.Variant.Options.Count; i++)
+			{
+				yield return $"\t\t\tcase {field.Element.Variant.Options[i].Name} v{i}:";
+				yield return $"\t\t\t\tWriteUnsignedVarInt({i});";
+				yield return $"\t\t\t\tWrite(v{i});";
+				yield return "\t\t\t\tbreak;";
+			}
+			yield return "\t\t\tdefault:";
+			yield return $"\t\t\t\tthrow new Exception($\"{field.FieldName} element variant not set or unknown: {{item}}\");";
+			yield return "\t\t}";
+			yield return "\t}";
+			yield return "}";
+			// Cereal has no null: a required vector that was never set is an empty vector, count 0.
+			if (!field.Optional) yield return $"else WriteUnsignedVarInt(0);";
+			yield break;
+		}
+
 		if (field.Kind == FieldKind.Array)
 		{
 			string itemValue = field.Element.Enum != null ? $"({field.Element.Type.CsType}) item" : "item";
@@ -557,6 +589,13 @@ public static class CerealEmitter
 	private static string ReadExpression(CerealField element)
 	{
 		if (element.Kind == FieldKind.Struct) return $"Read{element.Struct.Name}()";
+
+		// Each element of a variant vector reads its own discriminator first.
+		if (element.Kind == FieldKind.Variant)
+		{
+			string arms = string.Join(" ", element.Variant.Options.Select((o, i) => $"{i} => Read{o.Name}(),"));
+			return $"ReadUnsignedVarInt() switch {{ {arms} uint other => throw new Exception($\"Unknown {element.FieldName} variant tag {{other}}\") }}";
+		}
 
 		string read = string.Format(element.Type.Read, "");
 		if (!read.StartsWith(" = ") || !read.EndsWith(";"))

@@ -593,14 +593,14 @@ namespace MiNET.Worlds
 				subchunkPosOffset = offset,
 				heightMapData = new SubChunkHeightmapData
 				{
-					heightMapType = SubChunkHeightmapData.Heightmaptype.Nodata,
-					renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Nodata
+					heightMapType = SubChunkHeightmapData.HeightMapType.Nodata,
+					renderHeightMapType = SubChunkHeightmapData.RenderHeightMapType.Nodata
 				}
 			};
 
 			if (!IsSectionInBounds(sectionY))
 			{
-				entry.subchunkRequestResult = SubChunkPacketData.Subchunkrequestresult.Indexoutofbounds;
+				entry.subchunkRequestResult = SubChunkPacketData.SubchunkRequestResult.Indexoutofbounds;
 				return entry;
 			}
 
@@ -617,25 +617,25 @@ namespace MiNET.Worlds
 
 			if (allBelow)
 			{
-				entry.heightMapData.heightMapType = SubChunkHeightmapData.Heightmaptype.Alltoolow;
-				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Alltoolow;
+				entry.heightMapData.heightMapType = SubChunkHeightmapData.HeightMapType.Alltoolow;
+				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.RenderHeightMapType.Alltoolow;
 			}
 			else if (allAbove)
 			{
-				entry.heightMapData.heightMapType = SubChunkHeightmapData.Heightmaptype.Alltoohigh;
-				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Alltoohigh;
+				entry.heightMapData.heightMapType = SubChunkHeightmapData.HeightMapType.Alltoohigh;
+				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.RenderHeightMapType.Alltoohigh;
 			}
 			else
 			{
-				entry.heightMapData.heightMapType = SubChunkHeightmapData.Heightmaptype.Hasdata;
+				entry.heightMapData.heightMapType = SubChunkHeightmapData.HeightMapType.Hasdata;
 				entry.heightMapData.heights = heights;
-				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Allcopied;
+				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.RenderHeightMapType.Allcopied;
 			}
 
 			SubChunk subChunk = this[sectionY - (WorldMinY / 16), generateIfMissing: false];
 			if (subChunk == null || subChunk.IsAllAir())
 			{
-				entry.subchunkRequestResult = SubChunkPacketData.Subchunkrequestresult.Successallair;
+				entry.subchunkRequestResult = SubChunkPacketData.SubchunkRequestResult.Successallair;
 				return entry;
 			}
 
@@ -646,7 +646,7 @@ namespace MiNET.Worlds
 				else entry.serializedSubChunk = stream.ToArray();
 			}
 
-			entry.subchunkRequestResult = SubChunkPacketData.Subchunkrequestresult.Success;
+			entry.subchunkRequestResult = SubChunkPacketData.SubchunkRequestResult.Success;
 			return entry;
 		}
 
