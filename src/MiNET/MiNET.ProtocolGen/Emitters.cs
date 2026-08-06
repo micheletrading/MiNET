@@ -459,14 +459,17 @@ public static class CerealEmitter
 			}
 			else
 			{
-				yield return $"Write({name});";
+				// Cereal has no null: a default-constructed value is what goes on the wire, so a
+				// null reference writes as one (its vectors as zero counts, below).
+				yield return $"Write({name} ?? new {field.Struct.Name}());";
 			}
 			yield break;
 		}
 
 		if (field.Kind == FieldKind.Array)
 		{
-			string writeItem = field.Element.Kind == FieldKind.Struct ? "Write(item);" : string.Format(field.Element.Type.Write, "item");
+			string itemValue = field.Element.Enum != null ? $"({field.Element.Type.CsType}) item" : "item";
+			string writeItem = field.Element.Kind == FieldKind.Struct ? "Write(item);" : string.Format(field.Element.Type.Write, itemValue);
 			if (field.Optional)
 			{
 				yield return $"Write({name} != null);";
@@ -478,8 +481,9 @@ public static class CerealEmitter
 			}
 			else
 			{
-				yield return $"WriteUnsignedVarInt((uint) {name}.Count);";
-				yield return $"foreach ({field.Element.CsType} item in {name}) {writeItem}";
+				// Cereal has no null: an unset vector is an empty vector, count 0.
+				yield return $"WriteUnsignedVarInt((uint) ({name}?.Count ?? 0));";
+				yield return $"if ({name} != null) foreach ({field.Element.CsType} item in {name}) {writeItem}";
 			}
 			yield break;
 		}
@@ -487,12 +491,14 @@ public static class CerealEmitter
 		if (field.Optional)
 		{
 			string value = field.IsValueType ? name + ".Value" : name;
+			// Enum-typed fields go on the wire as their underlying primitive.
+			if (field.Enum != null) value = $"({field.Type.CsType}) {value}";
 			yield return $"Write({name} != null);";
 			yield return $"if ({name} != null) {string.Format(field.Type.Write, value)}";
 			yield break;
 		}
 
-		yield return string.Format(field.Type.Write, name);
+		yield return string.Format(field.Type.Write, field.Enum != null ? $"({field.Type.CsType}) {name}" : name);
 	}
 
 	private static IEnumerable<string> ReadLines(CerealField field, string prefix)
@@ -538,6 +544,12 @@ public static class CerealEmitter
 			yield break;
 		}
 
+		if (field.Enum != null)
+		{
+			yield return $"{name} = {ReadExpression(field)};";
+			yield break;
+		}
+
 		yield return string.Format(field.Type.Read, name);
 	}
 
@@ -549,6 +561,8 @@ public static class CerealEmitter
 		string read = string.Format(element.Type.Read, "");
 		if (!read.StartsWith(" = ") || !read.EndsWith(";"))
 			throw new NotImplementedException($"array element read is not expression-shaped: {element.Type.Read}");
-		return read.Substring(3, read.Length - 4);
+		string expression = read.Substring(3, read.Length - 4);
+		// Enum-typed fields come off the wire as their underlying primitive.
+		return element.Enum != null ? $"({element.EnumRef ?? element.Enum.Name}) {expression}" : expression;
 	}
 }

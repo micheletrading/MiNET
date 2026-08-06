@@ -81,6 +81,10 @@
 		},
 		"SubChunkPacketData": {
 			"fields": {
+				"SubChunk Request Result": {
+					"enum": ["Undefined", "Success", "LevelChunkDoesntExist", "WrongDimension", "PlayerDoesntExist", "IndexOutOfBounds", "SuccessAllAir"],
+					"reason": "The field's inline enum omits the leading Undefined value; the standalone SubChunkPacketPayload::SubChunkRequestResult schema, Cloudburst's enum and live BDS bytes (Success=1, SuccessAllAir=6) all include it."
+				},
 				"Serialized Sub Chunk": {
 					"type": {"csType": "byte[]", "write": "WriteByteArray({0});", "read": "{0} = ReadByteArray();"},
 					"reason": "The schema calls the serialized subchunk a string; it is raw bytes with a varint length, the house byte-array codec."
@@ -105,12 +109,20 @@
 				"Entity ID": {"name": "entityIdSelf"},
 				"Runtime ID": {"name": "runtimeEntityId"},
 				"BlockNetworkIds Are Hashes": {"name": "blockNetworkIdsAreHashes"},
-				"NetworkPermissions": {"name": "serverAuthSoundEnabled"}
+				"NetworkPermissions": {"name": "serverAuthSoundEnabled"},
+				"Game Type": {
+					"enum": ["Survival", "Creative", "Adventure", "SurvivalSpectator", "CreativeSpectator", "Default", "Spectator"],
+					"reason": "GameType.json lists Undefined first, but engine GameType::Undefined is -1 and never on the wire; wire values start at Survival=0 and include the deprecated 3/4 spectator pair the schema omits (BDS-verified at 1001, mirrored by MiNET.Worlds.GameMode). WorldDefault's value is undocumented and dropped."
+				}
 			}
 		},
 		"LevelSettings": {
 			"fields": {
-				"Rule Data": {"name": "gamerules"}
+				"Rule Data": {"name": "gamerules"},
+				"Game Type": {
+					"enum": ["Survival", "Creative", "Adventure", "SurvivalSpectator", "CreativeSpectator", "Default", "Spectator"],
+					"reason": "Same GameType schema bug as StartGamePacket's Game Type: Undefined is -1 in the engine, wire starts at Survival=0."
+				}
 			}
 		},
 		"ServerBlockProperty": {

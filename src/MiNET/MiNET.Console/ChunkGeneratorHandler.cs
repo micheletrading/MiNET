@@ -78,7 +78,7 @@ namespace MiNET.Console
 
 			Client.LevelInfo.LevelName = message.levelId;
 			Client.LevelInfo.Version = 19133;
-			Client.LevelInfo.GameType = message.settings.gameType;
+			Client.LevelInfo.GameType = (int) message.settings.gameType;
 
 			_internalStates = new HashSet<BlockStateContainer>(BlockFactory.BlockPalette);
 

@@ -65,9 +65,9 @@ namespace MiNET.Net
 			Write(hasAddonPacks);
 			Write(hasScripts);
 			Write(forceDisableVibrantVisuals);
-			Write(worldTemplateIdAndVersion);
-			WriteUnsignedVarInt((uint) resourcePacks.Count);
-			foreach (PackInfoData item in resourcePacks) Write(item);
+			Write(worldTemplateIdAndVersion ?? new PackIdVersion());
+			WriteUnsignedVarInt((uint) (resourcePacks?.Count ?? 0));
+			if (resourcePacks != null) foreach (PackInfoData item in resourcePacks) Write(item);
 
 			AfterEncode();
 		}
@@ -189,18 +189,18 @@ namespace MiNET.Net
 	{
 		public enum Gametype
 		{
-			Undefined = 0,
-			Survival = 1,
-			Creative = 2,
-			Adventure = 3,
-			Default = 4,
-			Spectator = 5,
-			Worlddefault = 6,
+			Survival = 0,
+			Creative = 1,
+			Adventure = 2,
+			Survivalspectator = 3,
+			Creativespectator = 4,
+			Default = 5,
+			Spectator = 6,
 		}
 
 		public long entityIdSelf; // = null;
 		public long runtimeEntityId; // = null;
-		public int gameType; // = null;
+		public McpeStartGame.Gametype gameType; // = null;
 		public Vector3 position; // = null;
 		public Vector2 rotation; // = null;
 		public LevelSettings settings; // = null;
@@ -238,19 +238,19 @@ namespace MiNET.Net
 
 			WriteSignedVarLong(entityIdSelf);
 			WriteUnsignedVarLong(runtimeEntityId);
-			WriteSignedVarInt(gameType);
+			WriteSignedVarInt((int) gameType);
 			Write(position);
 			Write(rotation);
-			Write(settings);
+			Write(settings ?? new LevelSettings());
 			Write(levelId);
 			Write(levelName);
 			Write(templateContentIdentity);
 			Write(isTrial);
-			Write(movementSettings);
+			Write(movementSettings ?? new SyncedPlayerMovementSettings());
 			Write(levelCurrentTime);
 			WriteSignedVarInt(enchantmentSeed);
-			WriteUnsignedVarInt((uint) blockProperties.Count);
-			foreach (ServerBlockProperty item in blockProperties) Write(item);
+			WriteUnsignedVarInt((uint) (blockProperties?.Count ?? 0));
+			if (blockProperties != null) foreach (ServerBlockProperty item in blockProperties) Write(item);
 			Write(multiplayerCorrelationId);
 			Write(enableItemStackNetManager);
 			Write(serverVersion);
@@ -262,7 +262,7 @@ namespace MiNET.Net
 			Write(serverAuthSoundEnabled);
 			Write(serverConfigurationJoinInfo != null);
 			if (serverConfigurationJoinInfo != null) Write(serverConfigurationJoinInfo);
-			Write(serverTelemetryData);
+			Write(serverTelemetryData ?? new ServerTelemetryData());
 
 			AfterEncode();
 		}
@@ -278,7 +278,7 @@ namespace MiNET.Net
 
 			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
-			gameType = ReadSignedVarInt();
+			gameType = (McpeStartGame.Gametype) ReadSignedVarInt();
 			position = ReadVector3();
 			rotation = ReadVector2();
 			settings = ReadLevelSettings();
@@ -316,7 +316,7 @@ namespace MiNET.Net
 
 			entityIdSelf=default(long);
 			runtimeEntityId=default(long);
-			gameType=default(int);
+			gameType=default(McpeStartGame.Gametype);
 			position=default(Vector3);
 			rotation=default(Vector2);
 			settings=default(LevelSettings);
@@ -381,9 +381,9 @@ namespace MiNET.Net
 			Write(yBodyRotation);
 			Write(attributes);
 			Write(metadata);
-			Write(synchedProperties);
-			WriteUnsignedVarInt((uint) links.Count);
-			foreach (ActorLink item in links) Write(item);
+			Write(synchedProperties ?? new PropertySyncData());
+			WriteUnsignedVarInt((uint) (links?.Count ?? 0));
+			if (links != null) foreach (ActorLink item in links) Write(item);
 
 			AfterEncode();
 		}
@@ -452,7 +452,7 @@ namespace MiNET.Net
 		public Vector3 position; // = null;
 		public Vector2 rotation; // = null;
 		public float headYaw; // = null;
-		public byte mode; // = null;
+		public McpeMovePlayer.Mode mode; // = null;
 		public bool onGround; // = null;
 		public long ridingRuntimeEntityId; // = null;
 		public MovePlayerTeleportData teleportData; // = null;
@@ -474,7 +474,7 @@ namespace MiNET.Net
 			Write(position);
 			Write(rotation);
 			Write(headYaw);
-			Write(mode);
+			Write((byte) mode);
 			Write(onGround);
 			WriteUnsignedVarLong(ridingRuntimeEntityId);
 			Write(teleportData != null);
@@ -497,7 +497,7 @@ namespace MiNET.Net
 			position = ReadVector3();
 			rotation = ReadVector2();
 			headYaw = ReadFloat();
-			mode = ReadByte();
+			mode = (McpeMovePlayer.Mode) ReadByte();
 			onGround = ReadBool();
 			ridingRuntimeEntityId = ReadUnsignedVarLong();
 			if (ReadBool()) teleportData = ReadMovePlayerTeleportData();
@@ -517,7 +517,7 @@ namespace MiNET.Net
 			position=default(Vector3);
 			rotation=default(Vector2);
 			headYaw=default(float);
-			mode=default(byte);
+			mode=default(McpeMovePlayer.Mode);
 			onGround=default(bool);
 			ridingRuntimeEntityId=default(long);
 			teleportData=default(MovePlayerTeleportData);
@@ -548,7 +548,7 @@ namespace MiNET.Net
 
 			WriteUnsignedVarLong(runtimeEntityId);
 			Write(metadata);
-			Write(synchedProperties);
+			Write(synchedProperties ?? new PropertySyncData());
 			WriteUnsignedVarLong(tick);
 
 			AfterEncode();
@@ -609,14 +609,14 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(chunkPosition);
+			Write(chunkPosition ?? new ChunkPos());
 			WriteSignedVarInt(dimension);
 			WriteUnsignedVarInt(subChunkCount);
 			Write(clientRequestSubchunkLimit != null);
 			if (clientRequestSubchunkLimit != null) WriteSignedVarInt(clientRequestSubchunkLimit.Value);
 			Write(cacheEnabled);
-			WriteUnsignedVarInt((uint) cacheMetadata.Count);
-			foreach (ulong item in cacheMetadata) Write(item);
+			WriteUnsignedVarInt((uint) (cacheMetadata?.Count ?? 0));
+			if (cacheMetadata != null) foreach (ulong item in cacheMetadata) Write(item);
 			WriteByteArray(chunkData);
 
 			AfterEncode();
@@ -679,7 +679,7 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(moveData);
+			Write(moveData ?? new MoveActorDeltaData());
 
 			AfterEncode();
 		}
@@ -780,9 +780,9 @@ namespace MiNET.Net
 
 			Write(cacheEnabled);
 			WriteSignedVarInt(dimensionType);
-			Write(centerPos);
-			WriteUnsignedVarInt((uint) subchunkData.Count);
-			foreach (SubChunkPacketData item in subchunkData) Write(item);
+			Write(centerPos ?? new SubChunkPos());
+			WriteUnsignedVarInt((uint) (subchunkData?.Count ?? 0));
+			if (subchunkData != null) foreach (SubChunkPacketData item in subchunkData) Write(item);
 
 			AfterEncode();
 		}
@@ -836,7 +836,7 @@ namespace MiNET.Net
 
 		public long targetA;
 		public long targetB;
-		public byte type;
+		public ActorLink.ActorLinkType type;
 		public bool immediate;
 		public bool passengerInitiated;
 		public float vehicleAngularVelocity;
@@ -887,13 +887,13 @@ namespace MiNET.Net
 
 		public enum Gametype
 		{
-			Undefined = 0,
-			Survival = 1,
-			Creative = 2,
-			Adventure = 3,
-			Default = 4,
-			Spectator = 5,
-			Worlddefault = 6,
+			Survival = 0,
+			Creative = 1,
+			Adventure = 2,
+			Survivalspectator = 3,
+			Creativespectator = 4,
+			Default = 5,
+			Spectator = 6,
 		}
 
 		public enum Gamedifficulty
@@ -964,17 +964,17 @@ namespace MiNET.Net
 
 		public ulong seed;
 		public SpawnSettings spawnSettings;
-		public int generatorType;
-		public int gameType;
+		public LevelSettings.Generatortype generatorType;
+		public LevelSettings.Gametype gameType;
 		public bool isHardcore;
-		public int gameDifficulty;
+		public LevelSettings.Gamedifficulty gameDifficulty;
 		public BlockCoordinates defaultSpawnBlockPosition;
 		public bool achievementsDisabled;
-		public int editorWorldType;
+		public LevelSettings.Editorworldtype editorWorldType;
 		public bool isCreatedInEditor;
 		public bool isExportedFromEditor;
 		public int dayCycleStopTime;
-		public uint educationEditionOffer;
+		public LevelSettings.Educationeditionoffer educationEditionOffer;
 		public bool educationFeaturesEnabled;
 		public string educationProductId;
 		public float rainLevel;
@@ -982,15 +982,15 @@ namespace MiNET.Net
 		public bool hasConfirmedPlatformLockedContent;
 		public bool multiplayerGameIntent;
 		public bool lanBroadcastIntent;
-		public int xboxLiveBroadcastSetting;
-		public int platformBroadcastSetting;
+		public LevelSettings.Xboxlivebroadcastsetting xboxLiveBroadcastSetting;
+		public LevelSettings.Platformbroadcastsetting platformBroadcastSetting;
 		public bool commandsEnabled;
 		public bool texturePacksRequired;
 		public GameRules gamerules;
 		public Experiments experiments;
 		public bool hasBonusChestEnabled;
 		public bool startWithMapEnabled;
-		public sbyte playerPermissions;
+		public LevelSettings.Playerpermissions playerPermissions;
 		public int serverChunkTickRange;
 		public bool hasLockedBehaviorPack;
 		public bool hasLockedResourcePack;
@@ -1008,9 +1008,9 @@ namespace MiNET.Net
 		public bool netherType;
 		public EduSharedUriResource eduSharedUriResource;
 		public bool? overrideForceExperimentalGameplay;
-		public byte chatRestrictionLevel;
+		public LevelSettings.Chatrestrictionlevel chatRestrictionLevel;
 		public bool disablePlayerInteractions;
-		public int serverEditorConnectionPolicy;
+		public LevelSettings.Servereditorconnectionpolicy serverEditorConnectionPolicy;
 		public bool allowAnonymousBlockDropsInEditorWorlds;
 	}
 
@@ -1118,7 +1118,7 @@ namespace MiNET.Net
 			Userdefined = 1,
 		}
 
-		public short spawnBiomeType;
+		public SpawnSettings.Spawnbiometype spawnBiomeType;
 		public string userDefinedBiomeName;
 		public int dimension;
 	}
@@ -1142,9 +1142,9 @@ namespace MiNET.Net
 			Allcopied = 4,
 		}
 
-		public byte heightMapType;
+		public SubChunkHeightmapData.Heightmaptype heightMapType;
 		public byte[] heights;
-		public byte renderHeightMapType;
+		public SubChunkHeightmapData.Renderheightmaptype renderHeightMapType;
 		public byte[] renderHeights;
 	}
 
@@ -1152,16 +1152,17 @@ namespace MiNET.Net
 	{
 		public enum Subchunkrequestresult
 		{
-			Success = 0,
-			Levelchunkdoesntexist = 1,
-			Wrongdimension = 2,
-			Playerdoesntexist = 3,
-			Indexoutofbounds = 4,
-			Successallair = 5,
+			Undefined = 0,
+			Success = 1,
+			Levelchunkdoesntexist = 2,
+			Wrongdimension = 3,
+			Playerdoesntexist = 4,
+			Indexoutofbounds = 5,
+			Successallair = 6,
 		}
 
 		public SubChunkPosOffset subchunkPosOffset;
-		public byte subchunkRequestResult;
+		public SubChunkPacketData.Subchunkrequestresult subchunkRequestResult;
 		public byte[] serializedSubChunk;
 		public SubChunkHeightmapData heightMapData;
 		public ulong? blobId;
@@ -1193,7 +1194,7 @@ namespace MiNET.Net
 		{
 			WriteSignedVarLong(data.targetA);
 			WriteSignedVarLong(data.targetB);
-			Write(data.type);
+			Write((byte) data.type);
 			Write(data.immediate);
 			Write(data.passengerInitiated);
 			Write(data.vehicleAngularVelocity);
@@ -1204,7 +1205,7 @@ namespace MiNET.Net
 			var data = new ActorLink();
 			data.targetA = ReadSignedVarLong();
 			data.targetB = ReadSignedVarLong();
-			data.type = ReadByte();
+			data.type = (ActorLink.ActorLinkType) ReadByte();
 			data.immediate = ReadBool();
 			data.passengerInitiated = ReadBool();
 			data.vehicleAngularVelocity = ReadFloat();
@@ -1282,18 +1283,18 @@ namespace MiNET.Net
 		public void Write(LevelSettings data)
 		{
 			Write(data.seed);
-			Write(data.spawnSettings);
-			WriteSignedVarInt(data.generatorType);
-			WriteSignedVarInt(data.gameType);
+			Write(data.spawnSettings ?? new SpawnSettings());
+			WriteSignedVarInt((int) data.generatorType);
+			WriteSignedVarInt((int) data.gameType);
 			Write(data.isHardcore);
-			WriteSignedVarInt(data.gameDifficulty);
+			WriteSignedVarInt((int) data.gameDifficulty);
 			Write(data.defaultSpawnBlockPosition);
 			Write(data.achievementsDisabled);
-			WriteSignedVarInt(data.editorWorldType);
+			WriteSignedVarInt((int) data.editorWorldType);
 			Write(data.isCreatedInEditor);
 			Write(data.isExportedFromEditor);
 			WriteSignedVarInt(data.dayCycleStopTime);
-			WriteUnsignedVarInt(data.educationEditionOffer);
+			WriteUnsignedVarInt((uint) data.educationEditionOffer);
 			Write(data.educationFeaturesEnabled);
 			Write(data.educationProductId);
 			Write(data.rainLevel);
@@ -1301,15 +1302,15 @@ namespace MiNET.Net
 			Write(data.hasConfirmedPlatformLockedContent);
 			Write(data.multiplayerGameIntent);
 			Write(data.lanBroadcastIntent);
-			WriteSignedVarInt(data.xboxLiveBroadcastSetting);
-			WriteSignedVarInt(data.platformBroadcastSetting);
+			WriteSignedVarInt((int) data.xboxLiveBroadcastSetting);
+			WriteSignedVarInt((int) data.platformBroadcastSetting);
 			Write(data.commandsEnabled);
 			Write(data.texturePacksRequired);
 			Write(data.gamerules);
 			Write(data.experiments);
 			Write(data.hasBonusChestEnabled);
 			Write(data.startWithMapEnabled);
-			Write((byte) data.playerPermissions);
+			Write((byte) (sbyte) data.playerPermissions);
 			Write(data.serverChunkTickRange);
 			Write(data.hasLockedBehaviorPack);
 			Write(data.hasLockedResourcePack);
@@ -1325,12 +1326,12 @@ namespace MiNET.Net
 			Write(data.limitedWorldWidth);
 			Write(data.limitedWorldDepth);
 			Write(data.netherType);
-			Write(data.eduSharedUriResource);
+			Write(data.eduSharedUriResource ?? new EduSharedUriResource());
 			Write(data.overrideForceExperimentalGameplay != null);
 			if (data.overrideForceExperimentalGameplay != null) Write(data.overrideForceExperimentalGameplay.Value);
-			Write(data.chatRestrictionLevel);
+			Write((byte) data.chatRestrictionLevel);
 			Write(data.disablePlayerInteractions);
-			WriteSignedVarInt(data.serverEditorConnectionPolicy);
+			WriteSignedVarInt((int) data.serverEditorConnectionPolicy);
 			Write(data.allowAnonymousBlockDropsInEditorWorlds);
 		}
 
@@ -1339,17 +1340,17 @@ namespace MiNET.Net
 			var data = new LevelSettings();
 			data.seed = ReadUlong();
 			data.spawnSettings = ReadSpawnSettings();
-			data.generatorType = ReadSignedVarInt();
-			data.gameType = ReadSignedVarInt();
+			data.generatorType = (LevelSettings.Generatortype) ReadSignedVarInt();
+			data.gameType = (LevelSettings.Gametype) ReadSignedVarInt();
 			data.isHardcore = ReadBool();
-			data.gameDifficulty = ReadSignedVarInt();
+			data.gameDifficulty = (LevelSettings.Gamedifficulty) ReadSignedVarInt();
 			data.defaultSpawnBlockPosition = ReadBlockCoordinates();
 			data.achievementsDisabled = ReadBool();
-			data.editorWorldType = ReadSignedVarInt();
+			data.editorWorldType = (LevelSettings.Editorworldtype) ReadSignedVarInt();
 			data.isCreatedInEditor = ReadBool();
 			data.isExportedFromEditor = ReadBool();
 			data.dayCycleStopTime = ReadSignedVarInt();
-			data.educationEditionOffer = ReadUnsignedVarInt();
+			data.educationEditionOffer = (LevelSettings.Educationeditionoffer) ReadUnsignedVarInt();
 			data.educationFeaturesEnabled = ReadBool();
 			data.educationProductId = ReadString();
 			data.rainLevel = ReadFloat();
@@ -1357,15 +1358,15 @@ namespace MiNET.Net
 			data.hasConfirmedPlatformLockedContent = ReadBool();
 			data.multiplayerGameIntent = ReadBool();
 			data.lanBroadcastIntent = ReadBool();
-			data.xboxLiveBroadcastSetting = ReadSignedVarInt();
-			data.platformBroadcastSetting = ReadSignedVarInt();
+			data.xboxLiveBroadcastSetting = (LevelSettings.Xboxlivebroadcastsetting) ReadSignedVarInt();
+			data.platformBroadcastSetting = (LevelSettings.Platformbroadcastsetting) ReadSignedVarInt();
 			data.commandsEnabled = ReadBool();
 			data.texturePacksRequired = ReadBool();
 			data.gamerules = ReadGameRules();
 			data.experiments = ReadExperiments();
 			data.hasBonusChestEnabled = ReadBool();
 			data.startWithMapEnabled = ReadBool();
-			data.playerPermissions = (sbyte) ReadByte();
+			data.playerPermissions = (LevelSettings.Playerpermissions) (sbyte) ReadByte();
 			data.serverChunkTickRange = ReadInt();
 			data.hasLockedBehaviorPack = ReadBool();
 			data.hasLockedResourcePack = ReadBool();
@@ -1383,9 +1384,9 @@ namespace MiNET.Net
 			data.netherType = ReadBool();
 			data.eduSharedUriResource = ReadEduSharedUriResource();
 			if (ReadBool()) data.overrideForceExperimentalGameplay = ReadBool();
-			data.chatRestrictionLevel = ReadByte();
+			data.chatRestrictionLevel = (LevelSettings.Chatrestrictionlevel) ReadByte();
 			data.disablePlayerInteractions = ReadBool();
-			data.serverEditorConnectionPolicy = ReadSignedVarInt();
+			data.serverEditorConnectionPolicy = (LevelSettings.Servereditorconnectionpolicy) ReadSignedVarInt();
 			data.allowAnonymousBlockDropsInEditorWorlds = ReadBool();
 			return data;
 		}
@@ -1458,7 +1459,7 @@ namespace MiNET.Net
 
 		public void Write(PackInfoData data)
 		{
-			Write(data.packIdVersion);
+			Write(data.packIdVersion ?? new PackIdVersion());
 			Write(data.packSize);
 			Write(data.contentKey);
 			Write(data.subpackName);
@@ -1486,10 +1487,10 @@ namespace MiNET.Net
 
 		public void Write(PropertySyncData data)
 		{
-			WriteUnsignedVarInt((uint) data.intEntriesList.Count);
-			foreach (PropertySyncDataPropertySyncIntEntry item in data.intEntriesList) Write(item);
-			WriteUnsignedVarInt((uint) data.floatEntriesList.Count);
-			foreach (PropertySyncDataPropertySyncFloatEntry item in data.floatEntriesList) Write(item);
+			WriteUnsignedVarInt((uint) (data.intEntriesList?.Count ?? 0));
+			if (data.intEntriesList != null) foreach (PropertySyncDataPropertySyncIntEntry item in data.intEntriesList) Write(item);
+			WriteUnsignedVarInt((uint) (data.floatEntriesList?.Count ?? 0));
+			if (data.floatEntriesList != null) foreach (PropertySyncDataPropertySyncFloatEntry item in data.floatEntriesList) Write(item);
 		}
 
 		public PropertySyncData ReadPropertySyncData()
@@ -1547,8 +1548,8 @@ namespace MiNET.Net
 		public void Write(ResourcePackClientResponseDownloading data)
 		{
 			Write("downloading");
-			WriteUnsignedVarInt((uint) data.downloadingPacks.Count);
-			foreach (string item in data.downloadingPacks) Write(item);
+			WriteUnsignedVarInt((uint) (data.downloadingPacks?.Count ?? 0));
+			if (data.downloadingPacks != null) foreach (string item in data.downloadingPacks) Write(item);
 		}
 
 		public ResourcePackClientResponseDownloading ReadResourcePackClientResponseDownloading()
@@ -1638,7 +1639,7 @@ namespace MiNET.Net
 
 		public void Write(SpawnSettings data)
 		{
-			Write(data.spawnBiomeType);
+			Write((short) data.spawnBiomeType);
 			Write(data.userDefinedBiomeName);
 			WriteSignedVarInt(data.dimension);
 		}
@@ -1646,7 +1647,7 @@ namespace MiNET.Net
 		public SpawnSettings ReadSpawnSettings()
 		{
 			var data = new SpawnSettings();
-			data.spawnBiomeType = ReadShort();
+			data.spawnBiomeType = (SpawnSettings.Spawnbiometype) ReadShort();
 			data.userDefinedBiomeName = ReadString();
 			data.dimension = ReadSignedVarInt();
 			return data;
@@ -1654,10 +1655,10 @@ namespace MiNET.Net
 
 		public void Write(SubChunkHeightmapData data)
 		{
-			Write(data.heightMapType);
+			Write((byte) data.heightMapType);
 			Write(data.heights != null);
 			if (data.heights != null) Write(data.heights);
-			Write(data.renderHeightMapType);
+			Write((byte) data.renderHeightMapType);
 			Write(data.renderHeights != null);
 			if (data.renderHeights != null) Write(data.renderHeights);
 		}
@@ -1665,20 +1666,20 @@ namespace MiNET.Net
 		public SubChunkHeightmapData ReadSubChunkHeightmapData()
 		{
 			var data = new SubChunkHeightmapData();
-			data.heightMapType = ReadByte();
+			data.heightMapType = (SubChunkHeightmapData.Heightmaptype) ReadByte();
 			if (ReadBool()) data.heights = ReadBytes(256);
-			data.renderHeightMapType = ReadByte();
+			data.renderHeightMapType = (SubChunkHeightmapData.Renderheightmaptype) ReadByte();
 			if (ReadBool()) data.renderHeights = ReadBytes(256);
 			return data;
 		}
 
 		public void Write(SubChunkPacketData data)
 		{
-			Write(data.subchunkPosOffset);
-			Write(data.subchunkRequestResult);
+			Write(data.subchunkPosOffset ?? new SubChunkPosOffset());
+			Write((byte) data.subchunkRequestResult);
 			Write(data.serializedSubChunk != null);
 			if (data.serializedSubChunk != null) WriteByteArray(data.serializedSubChunk);
-			Write(data.heightMapData);
+			Write(data.heightMapData ?? new SubChunkHeightmapData());
 			Write(data.blobId != null);
 			if (data.blobId != null) Write(data.blobId.Value);
 		}
@@ -1687,7 +1688,7 @@ namespace MiNET.Net
 		{
 			var data = new SubChunkPacketData();
 			data.subchunkPosOffset = ReadSubChunkPosOffset();
-			data.subchunkRequestResult = ReadByte();
+			data.subchunkRequestResult = (SubChunkPacketData.Subchunkrequestresult) ReadByte();
 			if (ReadBool()) data.serializedSubChunk = ReadByteArray();
 			data.heightMapData = ReadSubChunkHeightmapData();
 			if (ReadBool()) data.blobId = ReadUlong();

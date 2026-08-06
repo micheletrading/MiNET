@@ -120,6 +120,7 @@ public class Overrides
 				{
 					var o = (JObject) f.Value;
 					if (o["name"] != null) p.FieldNames[f.Name] = (string) o["name"];
+					if (o["enum"] != null) p.FieldEnums[f.Name] = ((JArray) o["enum"]).Select(v => (string) v).ToList();
 					if (o["type"] != null)
 					{
 						var t = (JObject) o["type"];
@@ -145,6 +146,9 @@ public class PacketOverride
 
 	/// <summary>Wire field name -> forced type mapping, for fields the schema leaves untyped (NBT payloads and the like).</summary>
 	public Dictionary<string, TypeMapping> FieldTypes = new();
+
+	/// <summary>Wire field name -> replacement enum value list, for inline enums the schema gets wrong.</summary>
+	public Dictionary<string, List<string>> FieldEnums = new();
 }
 
 public class TypeMapping
@@ -216,15 +220,23 @@ public class CerealField
 	/// <summary>For const-discriminator fields inside variant payloads: the literal written on the wire.</summary>
 	public string ConstValue;
 
+	/// <summary>
+	///     Qualified reference to the field's nested enum type ("LevelSettings.Xboxlivebroadcastsetting"),
+	///     stamped once the owning class is known. Enum-schema'd fields are declared with this type so an
+	///     out-of-enum constant cannot be assigned silently; the wire keeps the underlying primitive.
+	/// </summary>
+	public string EnumRef;
+
 	private static readonly HashSet<string> ValueTypes = new() {"bool", "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "float"};
 
-	public bool IsValueType => Kind == FieldKind.Plain && ValueTypes.Contains(Type.CsType);
+	public bool IsValueType => Kind == FieldKind.Plain && (Enum != null || ValueTypes.Contains(Type.CsType));
 
 	public string CsType => Kind switch
 	{
 		FieldKind.Struct => Struct.Name,
 		FieldKind.Array => $"List<{Element.CsType}>",
 		FieldKind.Variant => Variant.BaseName,
+		_ when Enum != null => Optional ? (EnumRef ?? Enum.Name) + "?" : EnumRef ?? Enum.Name,
 		_ => Optional && IsValueType ? Type.CsType + "?" : Type.CsType,
 	};
 }
@@ -273,7 +285,7 @@ public class CerealPacket
 
 		foreach (CerealField field in ResolveFields(entry.Schema, payload, schemas, overrides, structs, packetOverride))
 		{
-			if (field.Enum != null) packet.Enums.Add(field.Enum);
+			AttachEnum(field, entry.TypeName, packet.Enums);
 			packet.Fields.Add(field);
 		}
 
@@ -309,6 +321,11 @@ public class CerealPacket
 			else
 			{
 				ResolveType(owner, field, (JObject) prop.Value, schemas, overrides, structs);
+			}
+
+			if (field.Enum != null && packetOverride != null && packetOverride.FieldEnums.TryGetValue(prop.Name, out List<string> enumValues))
+			{
+				field.Enum.Values = enumValues.Select(v => CodeNames.CodeName(v, true)).ToList();
 			}
 
 			if (field.Optional && field.Kind == FieldKind.Variant)
@@ -453,11 +470,25 @@ public class CerealPacket
 		foreach (CerealField field in ResolveFields(name, schema, schemas, overrides, structs, structOverride))
 		{
 			if (field.Kind == FieldKind.Variant) throw new NotImplementedException($"{name}.{field.WireName}: variants inside structs are not implemented yet");
-			if (field.Enum != null) result.Enums.Add(field.Enum);
+			AttachEnum(field, result.Name, result.Enums);
 			result.Fields.Add(field);
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	///     Qualifies a field's (or array element's) enum against its owning class and registers the
+	///     declaration, deduplicated by name so two fields sharing an enum schema emit it once.
+	/// </summary>
+	private static void AttachEnum(CerealField field, string ownerTypeName, List<CerealEnum> declarations)
+	{
+		foreach (CerealField carrier in new[] {field, field.Element})
+		{
+			if (carrier?.Enum == null) continue;
+			carrier.EnumRef = $"{ownerTypeName}.{carrier.Enum.Name}";
+			if (declarations.All(e => e.Name != carrier.Enum.Name)) declarations.Add(carrier.Enum);
+		}
 	}
 
 	/// <summary>Schema titles are mostly PascalCase already; snake_case ones (server_config) get converted without disturbing existing casing.</summary>

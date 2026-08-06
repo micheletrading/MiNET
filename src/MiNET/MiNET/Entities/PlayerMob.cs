@@ -94,7 +94,7 @@ namespace MiNET.Entities
 			package.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
 			package.rotation = new Vector2(position.Pitch, position.HeadYaw);
 			package.headYaw = position.Yaw;
-			package.mode = (byte) (teleport ? 1 : 0);
+			package.mode = teleport ? McpeMovePlayer.Mode.Respawn : McpeMovePlayer.Mode.Normal;
 
 			Level.RelayBroadcast(package);
 		}
