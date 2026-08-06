@@ -90,6 +90,13 @@ namespace MiNET
 		[JsonProperty] public string SkinAnimationData { get; set; }
 		[JsonProperty] public string SkinColor { get; set; }
 		[JsonProperty] public string ArmSize { get; set; }
+
+		/// <summary>
+		///     The skin's cache key, which SerializedSkin has carried on the wire since 2168. The
+		///     client sends it at login and expects it back when the server relays the skin, so
+		///     dropping it means relaying a persona identity with an empty hash.
+		/// </summary>
+		[JsonProperty] public string ProfileHash { get; set; }
 		[JsonProperty] public bool PremiumSkin { get; set; }
 		[JsonProperty] public bool PersonaSkin { get; set; }
 		[JsonProperty] public bool OverrideSkin { get; set; }
@@ -141,6 +148,7 @@ namespace MiNET
 				AnimationData = SkinAnimationData,
 				ArmSize = ArmSize,
 				SkinColor = SkinColor,
+				ProfileHash = ProfileHash ?? "",
 				IsPremiumSkin = PremiumSkin,
 				IsPersonaSkin = PersonaSkin,
 				OverrideAppearance = OverrideSkin,
