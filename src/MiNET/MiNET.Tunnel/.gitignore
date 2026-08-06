@@ -1,0 +1,6 @@
+# The downstream leg is a full MiNetServer, so it creates a level on startup even though the
+# tunnel never serves one: every chunk the client sees comes from upstream. Scratch, never ours.
+World/
+
+# Frame dumps, when MINET_TUNNEL_DUMP points here instead of temp_auto.
+tunnel/

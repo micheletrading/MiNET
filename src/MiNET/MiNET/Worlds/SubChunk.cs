@@ -287,6 +287,28 @@ namespace MiNET.Worlds
 			_skylight[GetIndex(bx, by, bz)] = data;
 		}
 
+		/// <summary>
+		///     The sub-chunk request form (McpeSubChunk entries): version 9 with the absolute
+		///     section index after the storage count. The inline LevelChunk form (<see cref="Write" />)
+		///     stays version 8, where the section index is implied by stream order.
+		/// </summary>
+		public void WriteVersion9(MemoryStream stream, sbyte yIndex)
+		{
+			stream.WriteByte(9); // version
+
+			int numberOfStores = 0;
+			if (_runtimeIds != null && _runtimeIds.Count > 0) numberOfStores++;
+			if (_loggedRuntimeIds != null && _loggedRuntimeIds.Count > 0) numberOfStores++;
+
+			stream.WriteByte((byte) numberOfStores);
+			stream.WriteByte((byte) yIndex);
+
+			if (WriteStore(stream, _blocks, null, false, _runtimeIds))
+			{
+				WriteStore(stream, null, _loggedBlocks, false, _loggedRuntimeIds);
+			}
+		}
+
 		public void Write(MemoryStream stream)
 		{
 			if (!DisableCache && !IsDirty && _cache != null)
@@ -345,7 +367,7 @@ namespace MiNET.Worlds
 			IsDirty = false;
 		}
 
-		public static bool WriteStore(MemoryStream stream, short[] blocks, byte[] loggedBlocks, bool forceWrite, List<int> palette)
+		public static bool WriteStore(MemoryStream stream, short[] blocks, byte[] loggedBlocks, bool forceWrite, List<int> palette, bool isBlockPalette = true)
 		{
 			if (palette.Count == 0) return false;
 
@@ -424,7 +446,10 @@ namespace MiNET.Worlds
 			VarInt.WriteSInt32(stream, palette.Count); // count
 			foreach (var val in palette)
 			{
-				VarInt.WriteSInt32(stream, (int) BlockFactory.GetNetworkId(val));
+				// Only BLOCK palettes go through the wire id conversion (hash mode); biome palettes
+				// carry plain biome ids, and hashing them poisons every chunk the moment
+				// BlockNetworkIdsAreHashes is on.
+				VarInt.WriteSInt32(stream, isBlockPalette ? (int) BlockFactory.GetNetworkId(val) : val);
 			}
 
 			return true;

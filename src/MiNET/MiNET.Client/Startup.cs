@@ -60,7 +60,18 @@ namespace MiNET.Client
 			// are the same list.
 			string username = Environment.GetEnvironmentVariable("MINET_USERNAME") ?? "TheGrey";
 
-			var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), username);
+			// MINET_TARGET=host:port points the bot somewhere other than the local BDS, e.g. at
+			// MiNET itself or at MiNET.Tunnel.
+			string targetEnv = Environment.GetEnvironmentVariable("MINET_TARGET");
+			IPEndPoint target = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132);
+			if (!string.IsNullOrWhiteSpace(targetEnv))
+			{
+				string[] parts = targetEnv.Split(':');
+				IPAddress ip = IPAddress.TryParse(parts[0], out var parsed) ? parsed : Dns.GetHostAddresses(parts[0])[0];
+				target = new IPEndPoint(ip, parts.Length > 1 ? int.Parse(parts[1]) : 19132);
+			}
+
+			var client = new MiNetClient(target, username);
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), "TheGrey");
 			//var client = new MiNetClient(new IPEndPoint(Dns.GetHostEntry("test.pmmp.io").AddressList[0], 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("192.168.0.4"), 19162), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
@@ -69,7 +80,9 @@ namespace MiNET.Client
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Loopback, 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 
 			client.MessageHandler = new BedrockTraceHandler(client);
-			client.UseBlobCache = false;
+			// MINET_BLOB_CACHE=1 makes the bot announce ClientCacheStatus enabled, the way every
+			// real client does; vanilla then serves blob-addressed chunks. Off keeps the plain flow.
+			client.UseBlobCache = Environment.GetEnvironmentVariable("MINET_BLOB_CACHE") == "1";
 
 			client.StartClient();
 			Log.Warn("Client listening for connecting on: " + client.ClientEndpoint);

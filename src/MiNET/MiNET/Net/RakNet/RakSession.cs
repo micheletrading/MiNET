@@ -314,7 +314,15 @@ namespace MiNET.Net.RakNet
 				{
 					try
 					{
-						CustomMessageHandler.HandlePacket(message);
+						// Close() nulls the handler while datagrams already in flight keep arriving.
+						ICustomMessageHandler handler = CustomMessageHandler;
+						if (handler == null)
+						{
+							if (Log.IsDebugEnabled) Log.Debug($"Dropped {message.GetType().Name} for {Username}: session is closing");
+							return;
+						}
+
+						handler.HandlePacket(message);
 					}
 					catch (Exception e)
 					{
@@ -583,7 +591,11 @@ namespace MiNET.Net.RakNet
 
 				if (sendList.Count == 0) return;
 
-				List<Packet> prepareSend = CustomMessageHandler.PrepareSend(sendList);
+				// Same teardown race as HandlePacket: a send can be in progress when Close() runs.
+				ICustomMessageHandler sendHandler = CustomMessageHandler;
+				if (sendHandler == null) return;
+
+				List<Packet> prepareSend = sendHandler.PrepareSend(sendList);
 				var preppedSendList = new List<Packet>();
 				foreach (Packet packet in prepareSend)
 				{

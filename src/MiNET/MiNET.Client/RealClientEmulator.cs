@@ -63,6 +63,12 @@ namespace MiNET.Client
 			// sent by every bot session, emulated or not.
 			SendInventoryOptions(client);
 
+			// A real client sends these two after the join burst; without them the server side
+			// they exercise is never reached. Values are what a real 1.26.40 client puts on the
+			// wire: game type 5, and three identical aim-assist frames.
+			SendSetPlayerGameType(client);
+			for (int i = 0; i < 3; i++) SendClientCameraAimAssist(client);
+
 			Vector3 position = client.CurrentLocation.ToVector3();
 			Vector3 lastPosition = position;
 			float yaw = client.CurrentLocation.Yaw;
@@ -134,6 +140,22 @@ namespace MiNET.Client
 			}
 
 			Log.Warn("RealClientEmulator: emulation complete");
+		}
+
+		private static void SendSetPlayerGameType(MiNetClient client)
+		{
+			var packet = McpeSetPlayerGameType.CreateObject();
+			packet.gamemode = 5; // GameType.Default, what the real client sends at join
+			client.SendPacket(packet);
+		}
+
+		private static void SendClientCameraAimAssist(MiNetClient client)
+		{
+			var packet = McpeClientCameraAimAssist.CreateObject();
+			packet.presetId = string.Empty;
+			packet.action = 1;
+			packet.allowAimAssist = false;
+			client.SendPacket(packet);
 		}
 
 		private static void SendInventoryOptions(MiNetClient client)

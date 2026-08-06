@@ -79,6 +79,10 @@ namespace MiNET.Net
 
 			if (message == null) return;
 
+			// Raw intercept (MiNET.Tunnel and friends): a handler that consumes the frame here
+			// keeps it out of normal dispatch entirely.
+			if (handler is IRawPacketHandler raw && raw.HandleRawPacket(message)) return;
+
 			switch (message)
 			{
 				case McpeClientToServerHandshake msg:
@@ -312,6 +316,10 @@ namespace MiNET.Net
 
 				case McpeDebugInfo msg:
 					handler.HandleMcpeDebugInfo(msg);
+					break;
+
+				case McpeSubChunkRequestPacket msg:
+					handler.HandleMcpeSubChunkRequestPacket(msg);
 					break;
 
 				default:

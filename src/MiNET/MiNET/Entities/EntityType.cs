@@ -201,7 +201,8 @@ namespace MiNET.Entities
 	{
 		public static readonly Dictionary<EntityType, EntityIdentity> LegacyEntityTypeIdConverter = new Dictionary<EntityType, EntityIdentity>
 		{
-			{ EntityType.Npc, new EntityIdentity("minecraft:npc", HasSpawnEgg: true, Summonable: true) },
+			// No spawn egg exists for the npc; it is command/editor-only, and vanilla reports it so.
+			{ EntityType.Npc, new EntityIdentity("minecraft:npc", HasSpawnEgg: false, Summonable: true) },
 			{ EntityType.Player, new EntityIdentity("minecraft:player", HasSpawnEgg: false, Summonable: false, Bid: "minecraft:", Rid: 257) },
 			{ EntityType.WitherSkeleton, new EntityIdentity("minecraft:wither_skeleton", HasSpawnEgg: true, Summonable: true) },
 			{ EntityType.Husk, new EntityIdentity("minecraft:husk", HasSpawnEgg: true, Summonable: true) },

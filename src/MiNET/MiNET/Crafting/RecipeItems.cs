@@ -47,6 +47,9 @@ namespace MiNET.Crafting
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(RecipeItems));
 
+		/// <summary>"Any variant" aux value on an ingredient, 0x7fff.</summary>
+		private const short WildcardMetadata = 32767;
+
 		/// <summary>A plain item ingredient (wire "int_id_meta" variant), resolved by registry name.</summary>
 		public static Item Ingredient(string name, short meta = 0, int count = 1)
 		{
@@ -85,14 +88,18 @@ namespace MiNET.Crafting
 			};
 		}
 
-		/// <summary>A "complex_alias" ingredient variant, referencing an alias name the client resolves itself.</summary>
+		/// <summary>
+		///     A "complex_alias" ingredient, e.g. "minecraft:log" standing for any log. Vanilla does
+		///     not use a complex-alias descriptor for these: it writes an ordinary item descriptor
+		///     naming the alias, with wildcard metadata and a block runtime id of -1 (any state).
+		/// </summary>
 		public static Item Alias(string alias, int count = 1)
 		{
-			return new ItemAir
-			{
-				Count = (byte) count,
-				IngredientDescriptor = new RecipeIngredientDescriptor {Type = 5, Text = alias}
-			};
+			Item item = ItemFactory.GetItemByName(alias, WildcardMetadata, count);
+			item.NetworkMetadata = WildcardMetadata;
+			item.RuntimeId = -1;
+			item.IngredientDescriptor = new RecipeIngredientDescriptor {Type = 1, Name = alias, Metadata = WildcardMetadata};
+			return item;
 		}
 
 		/// <summary>An empty slot: no ingredient at all.</summary>
@@ -116,6 +123,12 @@ namespace MiNET.Crafting
 			item.NetworkId = networkId;
 			item.NetworkMetadata = meta;
 			item.Count = (byte) count;
+
+			// A plain result names no block state, so it carries no block runtime id. ItemBlock's
+			// constructor sets one for any item that happens to have a block form, which is not
+			// what this factory means; results that do want a state go through BlockResult.
+			item.RuntimeId = 0;
+
 			if (nbtB64 != null) item.ExtraData = (NbtCompound) JoinSequenceData.NbtFromBase64(nbtB64).NbtFile.RootTag;
 
 			return item;

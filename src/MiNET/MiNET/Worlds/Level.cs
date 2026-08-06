@@ -144,8 +144,9 @@ namespace MiNET.Worlds
 		public float LightningLevel { get; set; }
 		public bool IsMultiplayer { get; set; } = true;
 		public bool BroadcastToLan { get; set; } = true;
-		public int XboxLiveBroadcastMode { get; set; } = 6;
-		public int PlatformBroadcastMode { get; set; } = 6;
+		// Enum-typed, not int: the client rejects a broadcast setting outside GamePublishSetting.
+		public LevelSettings.Xboxlivebroadcastsetting XboxLiveBroadcastMode { get; set; } = LevelSettings.Xboxlivebroadcastsetting.Nomultiplay;
+		public LevelSettings.Platformbroadcastsetting PlatformBroadcastMode { get; set; } = LevelSettings.Platformbroadcastsetting.Nomultiplay;
 		public bool UseMsaGamertagsOnly { get; set; } = true;
 		public bool IsTexturepacksRequired { get; set; }
 		public bool BonusChest { get; set; }
@@ -869,7 +870,7 @@ namespace MiNET.Worlds
 						move.position = new Vector3(knownPosition.X, knownPosition.Y + 1.62f, knownPosition.Z);
 						move.rotation = new Vector2(knownPosition.Pitch, knownPosition.Yaw);
 						move.headYaw = knownPosition.HeadYaw;
-						move.mode = (byte) (player.Vehicle == 0 ? 0 : 3);
+						move.mode = player.Vehicle == 0 ? McpeMovePlayer.Mode.Normal : McpeMovePlayer.Mode.Onlyheadrot;
 						move.onGround = !player.IsGliding && player.IsOnGround;
 						move.ridingRuntimeEntityId = player.Vehicle;
 						movePackets.Add(move);
@@ -1066,9 +1067,11 @@ namespace MiNET.Worlds
 					McpeWrapper chunk = null;
 					if (chunkColumn != null)
 					{
-						// Both forms are cached on the column and shared by everyone, because the
-						// blob hashes come from content and not from who is asking.
-						chunk = useBlobCache ? chunkColumn.GetBlobBatch() : chunkColumn.GetBatch();
+						// Since 2168 the client only accepts the sub-chunk request flow: a skeleton
+						// LevelChunk here, blocks via McpeSubChunkRequest afterwards. Cache-enabled
+						// clients get the biome payload blob-addressed. The inline forms are kept
+						// for the importer and tooling paths. Cached on the column, shared by all.
+						chunk = useBlobCache ? chunkColumn.GetSkeletonBlobBatch() : chunkColumn.GetSkeletonBatch();
 						chunksUsed.Add(pair.Key, chunk);
 					}
 

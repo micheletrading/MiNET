@@ -53,7 +53,8 @@ namespace MiNET
 			if (level == null)
 			{
 				GameMode gameMode = Config.GetProperty("GameMode", GameMode.Survival);
-				Difficulty difficulty = Config.GetProperty("Difficulty", Difficulty.Normal);
+				// Peaceful is the vanilla default, and what the other level-creation path below uses.
+				Difficulty difficulty = Config.GetProperty("Difficulty", Difficulty.Peaceful);
 				int viewDistance = Config.GetProperty("ViewDistance", 11);
 
 				IWorldProvider worldProvider = null;

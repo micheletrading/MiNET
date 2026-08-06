@@ -70,6 +70,8 @@ namespace MiNET.Worlds
 		public bool DisableCache { get; set; }
 		private McpeWrapper _cachedBatch;
 		private McpeWrapper _cachedBlobBatch;
+		private McpeWrapper _cachedSkeletonBatch;
+		private McpeWrapper _cachedSkeletonBlobBatch;
 		private object _cacheSync = new object();
 
 		public ChunkColumn(bool clearBuffers = true)
@@ -480,6 +482,22 @@ namespace MiNET.Worlds
 
 					_cachedBlobBatch = null;
 				}
+
+				if (_cachedSkeletonBatch != null)
+				{
+					_cachedSkeletonBatch.MarkPermanent(false);
+					_cachedSkeletonBatch.PutPool();
+
+					_cachedSkeletonBatch = null;
+				}
+
+				if (_cachedSkeletonBlobBatch != null)
+				{
+					_cachedSkeletonBlobBatch.MarkPermanent(false);
+					_cachedSkeletonBlobBatch.PutPool();
+
+					_cachedSkeletonBlobBatch = null;
+				}
 			}
 		}
 
@@ -510,6 +528,163 @@ namespace MiNET.Worlds
 				IsDirty = false;
 
 				return _cachedBatch;
+			}
+		}
+
+		/// <summary>
+		///     The sub-chunk request form (the only one vanilla 1.26.40 sends): a skeleton LevelChunk
+		///     with zero inline sections, just the per-section biome storages and the border-blocks
+		///     byte, plus the request limit that tells the client how many sections (counted from the
+		///     dimension bottom) are worth asking for. Blocks travel via McpeSubChunkRequest /
+		///     McpeSubChunk afterwards. Mirrors the BDS 1.26.40 wire capture (count=0, limit=topEmpty,
+		///     biome payload with trailing border byte).
+		/// </summary>
+		public McpeWrapper GetSkeletonBatch()
+		{
+			lock (_cacheSync)
+			{
+				if (!DisableCache && !IsDirty && _cachedSkeletonBatch != null) return _cachedSkeletonBatch;
+
+				int topEmpty = GetTopEmpty();
+
+				using var stream = new MemoryStream();
+				WriteSkeletonBiomes(stream);
+				stream.WriteByte(0); // Border blocks - nope (EDU)
+
+				var packet = McpeLevelChunk.CreateObject();
+				packet.chunkPosition = new ChunkPos {x = X, z = Z};
+				packet.subChunkCount = 0;
+				packet.clientRequestSubchunkLimit = topEmpty;
+				packet.cacheEnabled = false;
+				packet.cacheMetadata = new List<ulong>();
+				packet.chunkData = stream.ToArray();
+				byte[] bytes = packet.Encode();
+				packet.PutPool();
+
+				McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(bytes, 0, bytes.Length), CompressionLevel.Fastest, true);
+				batch.MarkPermanent();
+
+				_cachedSkeletonBatch = batch;
+				IsDirty = false;
+
+				return batch;
+			}
+		}
+
+		/// <summary>Is this an addressable sub-chunk index in the dimension?</summary>
+		public static bool IsSectionInBounds(int sectionY)
+		{
+			int storageIndex = sectionY - (WorldMinY / 16);
+			return storageIndex >= 0 && storageIndex < WorldHeight / 16;
+		}
+
+		/// <summary>
+		///     The block half of the sub-chunk request flow, answering one requested section: a
+		///     version-9 store carrying the absolute section index, plus the per-column heightmap
+		///     expressed relative to that section. Sections wholly above or below the surface say
+		///     so through the heightmap type and carry no heights. An all-air section carries no
+		///     store at all. Blob mode moves the store into the content-addressed store the way
+		///     vanilla serves a cache-enabled client; the heightmap stays inline either way.
+		/// </summary>
+		public SubChunkPacketData GetSubChunkData(SubChunkPosOffset offset, int sectionY, bool useBlobCache)
+		{
+			var entry = new SubChunkPacketData
+			{
+				subchunkPosOffset = offset,
+				heightMapData = new SubChunkHeightmapData
+				{
+					heightMapType = SubChunkHeightmapData.Heightmaptype.Nodata,
+					renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Nodata
+				}
+			};
+
+			if (!IsSectionInBounds(sectionY))
+			{
+				entry.subchunkRequestResult = SubChunkPacketData.Subchunkrequestresult.Indexoutofbounds;
+				return entry;
+			}
+
+			int sectionBaseY = sectionY * 16;
+			var heights = new byte[256];
+			bool allBelow = true, allAbove = true;
+			for (int i = 0; i < 256; i++)
+			{
+				int rel = height[i] - sectionBaseY;
+				if (rel >= 0) allBelow = false;
+				if (rel < 16) allAbove = false;
+				heights[i] = (byte) (sbyte) Math.Clamp(rel, -128, 127);
+			}
+
+			if (allBelow)
+			{
+				entry.heightMapData.heightMapType = SubChunkHeightmapData.Heightmaptype.Alltoolow;
+				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Alltoolow;
+			}
+			else if (allAbove)
+			{
+				entry.heightMapData.heightMapType = SubChunkHeightmapData.Heightmaptype.Alltoohigh;
+				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Alltoohigh;
+			}
+			else
+			{
+				entry.heightMapData.heightMapType = SubChunkHeightmapData.Heightmaptype.Hasdata;
+				entry.heightMapData.heights = heights;
+				entry.heightMapData.renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Allcopied;
+			}
+
+			SubChunk subChunk = this[sectionY - (WorldMinY / 16), generateIfMissing: false];
+			if (subChunk == null || subChunk.IsAllAir())
+			{
+				entry.subchunkRequestResult = SubChunkPacketData.Subchunkrequestresult.Successallair;
+				return entry;
+			}
+
+			using (var stream = new MemoryStream())
+			{
+				subChunk.WriteVersion9(stream, (sbyte) sectionY);
+				if (useBlobCache) entry.blobId = BlobStore.Add(stream.ToArray());
+				else entry.serializedSubChunk = stream.ToArray();
+			}
+
+			entry.subchunkRequestResult = SubChunkPacketData.Subchunkrequestresult.Success;
+			return entry;
+		}
+
+		/// <summary>
+		///     The skeleton for a cache-enabled client, matching vanilla 1.26.40: the biome payload
+		///     moves into a content-addressed blob (one cacheMetadata hash), leaving only the
+		///     border-blocks byte inline. The client reports hit or miss via ClientCacheBlobStatus
+		///     and misses come back through ClientCacheMissResponse.
+		/// </summary>
+		public McpeWrapper GetSkeletonBlobBatch()
+		{
+			lock (_cacheSync)
+			{
+				if (!DisableCache && !IsDirty && _cachedSkeletonBlobBatch != null) return _cachedSkeletonBlobBatch;
+
+				int topEmpty = GetTopEmpty();
+
+				using var biomeStream = new MemoryStream();
+				WriteSkeletonBiomes(biomeStream);
+				ulong biomeBlob = BlobStore.Add(biomeStream.ToArray());
+
+				var packet = McpeLevelChunk.CreateObject();
+				packet.chunkPosition = new ChunkPos {x = X, z = Z};
+				packet.subChunkCount = 0;
+				packet.clientRequestSubchunkLimit = topEmpty;
+				packet.cacheEnabled = true;
+				packet.cacheMetadata = new List<ulong> {biomeBlob};
+				packet.chunkData = new byte[] {0}; // Border blocks - nope (EDU)
+				byte[] bytes = packet.Encode();
+				packet.PutPool();
+
+				McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(bytes, 0, bytes.Length), CompressionLevel.Fastest, true);
+				batch.MarkPermanent();
+
+				_cachedSkeletonBlobBatch = batch;
+				IsDirty = false;
+
+				return batch;
 			}
 		}
 
@@ -619,6 +794,42 @@ namespace MiNET.Worlds
 			}
 		}
 
+		/// <summary>
+		///     The skeleton form of the biome payload, byte-matching what BDS 1.26.40 sends: one
+		///     storage for the bottom section (bits-0 single-value when the chunk has one biome),
+		///     then a 0xFF copy-previous marker per remaining section. Falls back to full storages
+		///     for multi-biome chunks.
+		/// </summary>
+		private void WriteSkeletonBiomes(MemoryStream stream)
+		{
+			byte first = biomeId[0];
+			bool uniform = true;
+			for (int i = 1; i < 256; i++)
+			{
+				if (biomeId[i] != first && biomeId[i] != 255)
+				{
+					uniform = false;
+					break;
+				}
+			}
+
+			int sectionCount = WorldHeight / 16;
+			if (uniform)
+			{
+				stream.WriteByte(0x01); // bits-0 storage: header only, one palette value
+				MiNET.Utils.VarInt.WriteSInt32(stream, first == 255 ? 0 : first);
+				for (int i = 1; i < sectionCount; i++)
+				{
+					stream.WriteByte(0xFF); // copy the previous section's storage
+				}
+			}
+			else
+			{
+				byte[] biomePalette = GetBiomePalette(biomeId);
+				stream.Write(biomePalette, 0, biomePalette.Length);
+			}
+		}
+
 		private byte[] GetBiomePalette(byte[] biomes)
 		{
 			for (int b = 0; b < biomes.Length; b++)
@@ -647,7 +858,7 @@ namespace MiNET.Worlds
 			
 			for (int i = 0; i < 24; i++)
 			{
-				SubChunk.WriteStore(stream, newBiomes, null, false, uniqueBiomes);
+				SubChunk.WriteStore(stream, newBiomes, null, false, uniqueBiomes, isBlockPalette: false);
 			}
 
 			return stream.ToArray();

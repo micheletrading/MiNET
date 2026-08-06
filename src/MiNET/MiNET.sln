@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiNET.BlockGen", "MiNET.Blo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiNET.ProtocolGen", "MiNET.ProtocolGen\MiNET.ProtocolGen.csproj", "{248BCBCE-8D3F-46CF-A507-6EBB443F61B0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiNET.Tunnel", "MiNET.Tunnel\MiNET.Tunnel.csproj", "{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -173,6 +175,18 @@ Global
 		{248BCBCE-8D3F-46CF-A507-6EBB443F61B0}.Release|x64.Build.0 = Release|Any CPU
 		{248BCBCE-8D3F-46CF-A507-6EBB443F61B0}.Release|x86.ActiveCfg = Release|Any CPU
 		{248BCBCE-8D3F-46CF-A507-6EBB443F61B0}.Release|x86.Build.0 = Release|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Debug|x64.Build.0 = Debug|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Debug|x86.Build.0 = Debug|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Release|x64.ActiveCfg = Release|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Release|x64.Build.0 = Release|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Release|x86.ActiveCfg = Release|Any CPU
+		{53FF6CFB-9FFB-456F-89E0-A63AE0AA4985}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

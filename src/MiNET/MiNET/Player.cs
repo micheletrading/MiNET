@@ -169,7 +169,7 @@ namespace MiNET
 			NoAi = false;
 		}
 
-		public void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
+		public virtual void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
 		{
 			// Beware that message might be null here.
 
@@ -499,6 +499,16 @@ namespace MiNET
 			packet.mapinfo = mapInfo;
 			SendPacket(packet);
 		}
+
+		/// <summary>Chunk radius vanilla publishes during the join burst, before negotiation.</summary>
+		public const int JoinBurstChunkRadius = 4;
+
+		/// <summary>
+		///     Columns inside <see cref="JoinBurstChunkRadius" />: the published 64-block area the
+		///     client needs before it can spawn. The spawn tail waits for this many chunks, not for
+		///     the whole (possibly 32-radius) view.
+		/// </summary>
+		private const int PublishedAreaChunkCount = (JoinBurstChunkRadius * 2 + 1) * (JoinBurstChunkRadius * 2 + 1);
 
 		public int ChunkRadius { get; private set; } = -1;
 
@@ -951,89 +961,79 @@ namespace MiNET
 				GameMode = Config.GetProperty("Player.GameMode", Level.GameMode);
 
 				//
-				// Start game - spawn sequence starts here
-				//
+				// The client requires this burst as an exact set in an exact order: a hole or a
+				// reorder is rejected with no diagnostic. The frame numbers map to the vanilla
+				// join it mirrors. Content is built from live state and the committed data files
+				// (see JoinSequenceData); no captured bytes are replayed.
+				SendSleepStatus(); // frame 6, LevelEventGeneric
 
-				// Vanilla 1st player list here
+				SendPlayerListSelf(); // frame 7, vanilla 1st player list, before StartGame
 
-				//Level.AddPlayer(this, false);
+				SendWorldClockState(); // frame 8
 
-				// Join sequence mirrors vanilla BDS 1.26.34 (wire capture in temp_auto/trace-bds):
-				// same packet set, same order. Every packet is built by MiNET from real level/player
-				// state or from its own committed data files (Data/*.json, see JoinSequenceData);
-				// nothing replays captured bytes.
-				SendSleepStatus();
+				SendJigsawStructureData(); // frame 9
 
-				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
+				SendVoxelShapes(); // frame 10
 
-				SendWorldClockState();
-				// TODO: jigsaw structures. Vanilla's payload is one structure, minecraft:trail_ruins,
-				// and nothing we generate uses the jigsaw system.
-				//SendJigsawStructureData();
-				// TODO: voxel shapes. Only matters for custom block geometry, and vanilla sends
-				// nothing but the two built-in shapes with a zero custom count.
-				//SendVoxelShapes();
+				SendStartGame(); // frame 11
 
-				SendStartGame();
+				SendSyncEntityProperty(); // frames 12-24, one per entity type
 
-				// TODO: entity properties. Vanilla declares actor-property schemas for thirteen mobs
-				// (happy ghast, sulfur cube, wolf, cat and the rest); we set none of those properties.
-				//SendSyncEntityProperty();
+				SendItemRegistry(); // frame 25
 
-				SendItemRegistry();
+				SendPlayerSpawnPosition(); // frame 26, undefined-position sentinel: no personal (bed) spawn at join
 
-				SendPlayerSpawnPosition(); // undefined-position sentinel: no personal (bed) spawn at join
+				SendWorldClockRegistry(); // frame 27
 
-				SendWorldClockRegistry();
+				SendSetDificulty(); // frame 28
 
-				SendSetDificulty();
+				SendSetCommandsEnabled(); // frame 29
 
-				SendSetCommandsEnabled();
+				SendAdventureSettings(); // frames 30-31, adventure settings + first abilities
 
-				SendAdventureSettings();
+				SendGameRules(); // frame 32
 
-				SendGameRules();
+				Level.AddPlayer(this, false); // frame 33, vanilla 2nd player list
 
-				// Vanilla 2nd player list
+				SendUpdateAbilitiesPacket(); // frame 34, abilities again after the 2nd player list
 
-				Level.AddPlayer(this, false);
+				SendBiomeDefinitionList(); // frame 35
 
-				SendUpdateAbilitiesPacket(); // vanilla sends abilities again after the 2nd player list
+				SendAvailableEntityIdentifiers(); // frame 36
 
-				SendBiomeDefinitionList();
+				SendPlayerFog(); // frame 37
+				SendCameraPresets(); // frame 38
+				SendCameraAimAssistPresets(); // frame 39
+				SendCameraSpline(); // frame 40
 
-				SendAvailableEntityIdentifiers();
+				if (ChunkRadius == -1) ChunkRadius = JoinBurstChunkRadius;
 
-				SendPlayerFog();
-				SendCameraPresets();
-				SendCameraAimAssistPresets();
-				SendCameraSpline();
+				SendUpdateAttributes(); // frame 41
 
-				if (ChunkRadius == -1) ChunkRadius = 5;
+				SendCreativeInventory(); // frame 42
 
-				SendUpdateAttributes();
+				SendTrimData(); // frame 43
 
-				SendCreativeInventory();
+				SendPlayerInventory(); // frames 44-47, four InventoryContent
 
-				SendTrimData();
+				SendPlayerHotbar(); // frame 48
 
-				SendPlayerInventory();
+				SendCraftingRecipes(); // frame 49
 
-				SendPlayerHotbar();
+				SendAvailableCommands(); // frame 50 - the server's REAL command registry, never the captured vanilla list
 
-				SendCraftingRecipes();
-
-				SendAvailableCommands(); // The server's REAL command registry - never the captured vanilla list. Don't send before StartGame!
-
-				// Vanilla sends two searching-state respawns before chunk streaming.
+				// Frames 51-53: vanilla sends THREE searching-state respawns before chunk streaming.
+				SendRespawn();
 				SendRespawn();
 				SendRespawn();
 
-				SendNetworkChunkPublisherUpdate();
+				// frame 54; skeleton chunks stream from frame 55. Fixed 4 chunks (64 blocks) like
+				// vanilla, regardless of any radius the client has already asked for.
+				SendNetworkChunkPublisherUpdate(JoinBurstChunkRadius);
 
 				BroadcastSetEntityData();
 
-				SendCurrentStructureFeature();
+				SendCurrentStructureFeature(); // vanilla sends this just after the first chunks (frame 58)
 			}
 			catch (Exception e)
 			{
@@ -1444,7 +1444,7 @@ namespace MiNET
 			packet.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
 			packet.rotation = new Vector2(position.Pitch, position.Yaw);
 			packet.headYaw = position.HeadYaw;
-			packet.mode = (byte) (teleport ? 1 : 0);
+			packet.mode = teleport ? McpeMovePlayer.Mode.Respawn : McpeMovePlayer.Mode.Normal;
 
 			SendPacket(packet);
 		}
@@ -2159,14 +2159,21 @@ namespace MiNET
 		{
 			GameMode = gameMode;
 
-			SendSetPlayerGameType();
+			SendUpdatePlayerGameType();
 		}
 
 
-		public void SendSetPlayerGameType()
+		/// <summary>
+		///     SetPlayerGameType (0x3e) is the CLIENT's request; the server answers with
+		///     UpdatePlayerGameType (0x97), which also carries who changed and when. Sending 0x3e
+		///     back at the client is not legal in that direction.
+		/// </summary>
+		public void SendUpdatePlayerGameType()
 		{
-			McpeSetPlayerGameType gametype = McpeSetPlayerGameType.CreateObject();
-			gametype.gamemode = (int) GameMode;
+			McpeUpdatePlayerGameType gametype = McpeUpdatePlayerGameType.CreateObject();
+			gametype.playerGameType = (int) GameMode;
+			gametype.targetPlayerUniqueId = EntityId;
+			gametype.tick = 0;
 			SendPacket(gametype);
 		}
 
@@ -2843,45 +2850,46 @@ namespace MiNET
 		/// <inheritdoc />
 		public void HandleMcpeSubChunkRequestPacket(McpeSubChunkRequestPacket message)
 		{
-			/*McpeSubChunkPacket response = McpeSubChunkPacket.CreateObject();
-			if (message.dimension != (int) Level.Dimension)
+			// The block half of the chunk flow: the skeleton LevelChunk carried only biomes, and
+			// the client asks here for the sections it wants, as offsets from an origin in absolute
+			// sub-chunk coordinates. One entry is answered per offset; the column serializes it.
+			var response = McpeSubChunkPacket.CreateObject();
+			response.cacheEnabled = UseBlobCache;
+			response.dimensionType = message.dimension;
+			response.centerPos = new SubChunkPos {subchunkPositionX = message.originX, subchunkPositionY = message.originY, subchunkPositionZ = message.originZ};
+			response.subchunkData = new List<SubChunkPacketData>();
+
+			foreach (SubChunkPosOffset offset in message.offsets)
 			{
-				response.requestResult = (int) SubChunkRequestResult.WrongDimension;
+				response.subchunkData.Add(BuildSubChunkEntry(message, offset));
 			}
-			else
+
+			SendPacket(response);
+		}
+
+		private SubChunkPacketData BuildSubChunkEntry(McpeSubChunkRequestPacket message, SubChunkPosOffset offset)
+		{
+			SubChunkPacketData Rejected(SubChunkPacketData.Subchunkrequestresult result) => new SubChunkPacketData
 			{
-				var chunk = Level.GetChunk(message.subchunkCoordinates);
-
-				if (chunk == null)
+				subchunkPosOffset = offset,
+				subchunkRequestResult = result,
+				heightMapData = new SubChunkHeightmapData
 				{
-					response.requestResult = (int) SubChunkRequestResult.NoSuchChunk;
+					heightMapType = SubChunkHeightmapData.Heightmaptype.Nodata,
+					renderHeightMapType = SubChunkHeightmapData.Renderheightmaptype.Nodata
 				}
-				else
-				{
-					try
-					{
-						var subChunk = chunk.GetSubChunk(message.subchunkCoordinates.Y);
+			};
 
-						using (MemoryStream ms = new MemoryStream())
-						{
-							subChunk.Write(ms);
-							response.data = ms.ToArray();
-						}
-						//subChunk.Write();
+			if (message.dimension != (int) Level.Dimension) return Rejected(SubChunkPacketData.Subchunkrequestresult.Wrongdimension);
 
-						response.dimension = message.dimension;
-						response.heightmapData = new HeightMapData(chunk.height);
-						
-						response.requestResult = (int) SubChunkRequestResult.Success;
-					}
-					catch (IndexOutOfRangeException)
-					{
-						response.requestResult = (int) SubChunkRequestResult.YIndexOutOfBounds;
-					}
-				}
-			}
-			
-			SendPacket(response);*/
+			int sectionY = message.originY + offset.subchunkOffsetY;
+			if (!ChunkColumn.IsSectionInBounds(sectionY)) return Rejected(SubChunkPacketData.Subchunkrequestresult.Indexoutofbounds);
+
+			var coordinates = new ChunkCoordinates(message.originX + offset.subchunkOffsetX, message.originZ + offset.subchunkOffsetZ);
+			ChunkColumn chunkColumn = Level.GetChunk(coordinates, cacheOnly: true);
+			if (chunkColumn == null) return Rejected(SubChunkPacketData.Subchunkrequestresult.Levelchunkdoesntexist);
+
+			return chunkColumn.GetSubChunkData(offset, sectionY, UseBlobCache);
 		}
 
 		public virtual void HandleMcpeMobArmorEquipment(McpeMobArmorEquipment message)
@@ -3596,16 +3604,16 @@ namespace MiNET
 				{
 					dimension = (int) (Level?.Dimension ?? 0),
 					userDefinedBiomeName = Level.SpawnBiomeName,
-					spawnBiomeType = Level.SpawnBiomeType
+					spawnBiomeType = (SpawnSettings.Spawnbiometype) Level.SpawnBiomeType
 				},
 				seed = (ulong) Level.Seed,
-				generatorType = Level.GeneratorType,
-				gameType = (int) GameMode,
-				gameDifficulty = (int) Level.Difficulty,
+				generatorType = (LevelSettings.Generatortype) Level.GeneratorType,
+				gameType = (LevelSettings.Gametype) GameMode,
+				gameDifficulty = (LevelSettings.Gamedifficulty) Level.Difficulty,
 				defaultSpawnBlockPosition = new BlockCoordinates((int) SpawnPosition.X, (int) (SpawnPosition.Y + Height), (int) SpawnPosition.Z),
 				achievementsDisabled = Level.AchievementsDisabled,
 				dayCycleStopTime = (int) Level.WorldTime,
-				educationEditionOffer = PlayerInfo.Edition == 1 ? 1u : 0u,
+				educationEditionOffer = PlayerInfo.Edition == 1 ? LevelSettings.Educationeditionoffer.Restofworld : LevelSettings.Educationeditionoffer.None,
 				educationProductId = "",
 				rainLevel = Level.RainLevel,
 				lightningLevel = Level.LightningLevel,
@@ -3617,7 +3625,7 @@ namespace MiNET
 				experiments = new Experiments(),
 				hasBonusChestEnabled = Level.BonusChest,
 				startWithMapEnabled = Level.MapEnabled,
-				playerPermissions = (sbyte) PermissionLevel,
+				playerPermissions = (LevelSettings.Playerpermissions) PermissionLevel,
 				// "*" is what vanilla sends here, not the version string and not empty.
 				baseGameVersion = "*",
 
@@ -3631,14 +3639,14 @@ namespace MiNET
 				limitedWorldWidth = Level.LimitedWorldWidth,
 				limitedWorldDepth = Level.LimitedWorldLength,
 				xboxLiveBroadcastSetting = Level.XboxLiveBroadcastMode,
-				platformBroadcastSetting = Level.PlatformBroadcastMode
+				platformBroadcastSetting = Level.PlatformBroadcastMode,
 			};
 
 			var startGame = McpeStartGame.CreateObject();
 			startGame.settings = levelSettings;
 			startGame.entityIdSelf = EntityId;
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
-			startGame.gameType = 5; // fallback: use the level's game mode, like vanilla
+			startGame.gameType = McpeStartGame.Gametype.Default; // fallback: use the level's game mode, like vanilla
 			// Eye height, like every other position we send. SpawnPosition is feet, and the client
 			// subtracts the offset to place them, so sending it raw spawns the player 1.62 low,
 			// which is inside the ground when the spawn is snapped to the surface.
@@ -3758,9 +3766,20 @@ namespace MiNET
 
 		public void SendNetworkChunkPublisherUpdate()
 		{
+			SendNetworkChunkPublisherUpdate(ChunkRadius);
+		}
+
+		/// <summary>
+		///     Radius is in BLOCKS. Vanilla publishes a fixed <see cref="JoinBurstChunkRadius" /> for
+		///     the whole join burst and switches to the negotiated radius only afterwards. The burst
+		///     value must not depend on the negotiated one, because RequestChunkRadius can arrive
+		///     before the burst reaches this point.
+		/// </summary>
+		public void SendNetworkChunkPublisherUpdate(int chunkRadius)
+		{
 			var pk = McpeNetworkChunkPublisherUpdate.CreateObject();
 			pk.coordinates = KnownPosition.GetCoordinates3D();
-			pk.radius = (uint) (MaxViewDistance * 16);
+			pk.radius = (uint) (chunkRadius * 16);
 			SendPacket(pk);
 		}
 
@@ -3776,6 +3795,7 @@ namespace MiNET
 				if (Level == null) return;
 
 				SendNetworkChunkPublisherUpdate();
+
 				int packetCount = 0;
 				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, useBlobCache: UseBlobCache))
 				{
@@ -3833,12 +3853,12 @@ namespace MiNET
 
 					packetCount++;
 				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
-
-					if (!IsSpawned && packetCount == 56)
-					{
-						InitializePlayer();
-					}
 				}
+
+				// Spawn once the published area is delivered, BEFORE any sub-chunk exchange: a
+				// client does not request sub-chunks until it has been told to spawn, so gating
+				// the spawn on sub-chunk responses deadlocks the join.
+				if (!IsSpawned && packetCount >= PublishedAreaChunkCount) InitializePlayer();
 
 				Log.Debug($"Sent {packetCount} chunks for {chunkPosition} with view distance {MaxViewDistance}");
 			}
@@ -3859,7 +3879,13 @@ namespace MiNET
 			var attributes = new PlayerAttributes();
 			void Add(string name, float min, float max, float value, float def)
 			{
-				attributes[name] = new PlayerAttribute {Name = name, MinValue = min, MaxValue = max, Value = value, Default = def};
+				// DefaultMin/DefaultMax are the attribute's own range, not zero: left at zero the
+				// client is told every attribute has a default range of [0,0].
+				attributes[name] = new PlayerAttribute
+				{
+					Name = name, MinValue = min, MaxValue = max, Value = value, Default = def,
+					DefaultMinValue = min, DefaultMaxValue = max
+				};
 			}
 
 			Add("minecraft:player.hunger", 0, 20, HungerManager.Hunger, 20);
@@ -3934,7 +3960,7 @@ namespace MiNET
 			packet.position = new Vector3(KnownPosition.X, KnownPosition.Y + 1.62f, KnownPosition.Z);
 			packet.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
 			packet.headYaw = KnownPosition.HeadYaw;
-			packet.mode = (byte) (teleport ? 1 : 0);
+			packet.mode = teleport ? McpeMovePlayer.Mode.Respawn : McpeMovePlayer.Mode.Normal;
 
 			SendPacket(packet);
 		}

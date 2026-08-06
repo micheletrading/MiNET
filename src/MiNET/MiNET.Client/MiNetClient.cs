@@ -115,6 +115,12 @@ namespace MiNET.Client
 
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
 
+		/// <summary>
+		///     Overrides the ICustomMessageHandler wired onto the session. MiNET.Tunnel uses this to
+		///     intercept raw frames before client-side dispatch; null keeps the default handler.
+		/// </summary>
+		public Func<RakSession, IMcpeClientMessageHandler, BedrockClientMessageHandler> ClientMessageHandlerFactory { get; set; }
+
 		public McpeClientMessageDispatcher MessageDispatcher
 		{
 			get => throw new NotSupportedException("Use Connection.CustomMessageHandlerFactory instead");
@@ -160,7 +166,8 @@ namespace MiNET.Client
 			var motdProvider = new MotdProvider();
 
 			Connection = new RakConnection(ClientEndpoint, greyListManager, motdProvider, _threadPool);
-			var handlerFactory = new BedrockClientMessageHandler(Session, MessageHandler ?? new DefaultMessageHandler(this));
+			var handlerFactory = ClientMessageHandlerFactory?.Invoke(Session, MessageHandler ?? new DefaultMessageHandler(this))
+				?? new BedrockClientMessageHandler(Session, MessageHandler ?? new DefaultMessageHandler(this));
 			handlerFactory.ConnectionAction = () => SendRequestNetworkSettings();
 			Connection.CustomMessageHandlerFactory = session => handlerFactory;
 

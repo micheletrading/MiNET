@@ -43,7 +43,10 @@ namespace MiNET.Net
 		// Wire-content tracing: when MINET_PACKET_DUMP is set to a directory, every received
 		// packet's raw payload is written there as <seq>-<name>.bin. Used to capture what BDS
 		// sends our client vs what MiNET sends the same client, and diff the two byte-for-byte.
-		private static readonly string PacketDumpDir = Environment.GetEnvironmentVariable("MINET_PACKET_DUMP");
+		// Empty counts as unset: an exported-but-blank variable would otherwise reach
+		// Directory.CreateDirectory and throw on every packet.
+		private static readonly string PacketDumpDir =
+			Environment.GetEnvironmentVariable("MINET_PACKET_DUMP") is {Length: > 0} dir ? dir : null;
 		private static int _packetDumpSeq;
 
 		private protected readonly RakSession _session;

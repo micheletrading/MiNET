@@ -795,7 +795,12 @@ namespace MiNET.Net.RakNet
 		{
 			try
 			{
-				await _listener.SendAsync(data, length, targetEndPoint);
+				// Stop() disposes and clears the socket while sends can still be in flight, so it
+				// can be null here as well as disposed (handled below).
+				UdpClient listener = _listener;
+				if (listener == null) return;
+
+				await listener.SendAsync(data, length, targetEndPoint);
 				//_listener.Send(data, length, targetEndPoint);
 
 				Interlocked.Increment(ref ConnectionInfo.NumberOfPacketsOutPerSecond);
