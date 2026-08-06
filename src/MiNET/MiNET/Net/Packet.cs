@@ -1223,7 +1223,8 @@ namespace MiNET.Net
 		public StackRequestSlotInfo ReadStackRequestSlotInfo()
 		{
 			var containerId    = (byte) ReadByte();
-			// FullContainerName (protocol 1001): optional dynamic container id (bool + lu32).
+			// FullContainerName: optional dynamic container id (bool + lu32); unchanged at 2168
+			// (gophertunnel encodes the same optional shape).
 			if (ReadBool()) ReadUint();
 			var slot           = (byte) ReadByte();
 			var stackNetworkId = ReadSignedVarInt();
@@ -1239,7 +1240,7 @@ namespace MiNET.Net
 		public void Write(StackRequestSlotInfo slotInfo)
 		{
 			Write(slotInfo.ContainerId);
-			Write(false); // FullContainerName (protocol 1001): optional dynamic container id, none
+			Write(false); // FullContainerName: optional dynamic container id, none; unchanged at 2168
 			Write(slotInfo.Slot);
 			WriteSignedVarInt(slotInfo.StackNetworkId);
 		}
@@ -1259,6 +1260,8 @@ namespace MiNET.Net
 					{
 						case TakeAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.Take);
 							Write((byte) McpeItemStackRequest.ActionType.Take);
 							Write(ta.Count);
 							Write(ta.Source);
@@ -1268,6 +1271,8 @@ namespace MiNET.Net
 						
 						case PlaceAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.Place);
 							Write((byte) McpeItemStackRequest.ActionType.Place);
 							Write(ta.Count);
 							Write(ta.Source);
@@ -1277,6 +1282,8 @@ namespace MiNET.Net
 						
 						case SwapAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.Swap);
 							Write((byte) McpeItemStackRequest.ActionType.Swap);
 							Write(ta.Source);
 							Write(ta.Destination);
@@ -1285,6 +1292,8 @@ namespace MiNET.Net
 						
 						case DropAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.Drop);
 							Write((byte) McpeItemStackRequest.ActionType.Drop);
 							Write(ta.Count);
 							Write(ta.Source);
@@ -1294,6 +1303,8 @@ namespace MiNET.Net
 						
 						case DestroyAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.Destroy);
 							Write((byte) McpeItemStackRequest.ActionType.Destroy);
 							Write(ta.Count);
 							Write(ta.Source);
@@ -1302,6 +1313,8 @@ namespace MiNET.Net
 						
 						case ConsumeAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.Consume);
 							Write((byte) McpeItemStackRequest.ActionType.Consume);
 							Write(ta.Count);
 							Write(ta.Source);
@@ -1310,37 +1323,27 @@ namespace MiNET.Net
 						
 						case CreateAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.Create);
 							Write((byte) McpeItemStackRequest.ActionType.Create);
 							Write(ta.ResultSlot);
 							break;
 						}
 
-						case PlaceIntoBundleAction ta:
-						{
-							Write((byte) McpeItemStackRequest.ActionType.PlaceIntoBundle);
-							Write(ta.Count);
-							Write(ta.Source);
-							Write(ta.Destination);
-							break;
-						}
 
-						case TakeFromBundleAction ta:
-						{
-							Write((byte) McpeItemStackRequest.ActionType.TakeFromBundle);
-							Write(ta.Count);
-							Write(ta.Source);
-							Write(ta.Destination);
-							break;
-						}
 						
 						case LabTableCombineAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.LabTableCombine);
 							Write((byte) McpeItemStackRequest.ActionType.LabTableCombine);
 							break;
 						}
 						
 						case BeaconPaymentAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.BeaconPayment);
 							Write((byte) McpeItemStackRequest.ActionType.BeaconPayment);
 							WriteSignedVarInt(ta.PrimaryEffect);
 							WriteSignedVarInt(ta.SecondaryEffect);
@@ -1349,6 +1352,8 @@ namespace MiNET.Net
 						
 						case MineBlockAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.MineBlock);
 							Write((byte) McpeItemStackRequest.ActionType.MineBlock);
 							WriteSignedVarInt(ta.HotbarSlot);
 							WriteSignedVarInt(ta.PredictedDurability);
@@ -1358,6 +1363,8 @@ namespace MiNET.Net
 
 						case CraftAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftRecipe);
 							Write((byte) McpeItemStackRequest.ActionType.CraftRecipe);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
 							Write(ta.TimesCrafted); // repetitions (protocol 1001)
@@ -1366,6 +1373,8 @@ namespace MiNET.Net
 
 						case CraftAutoAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftRecipeAuto);
 							Write((byte) McpeItemStackRequest.ActionType.CraftRecipeAuto);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
 							Write(ta.NumberOfRequestedCrafts); // repetitions, sent twice by vanilla
@@ -1380,6 +1389,8 @@ namespace MiNET.Net
 						
 						case CraftCreativeAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftCreative);
 							Write((byte) McpeItemStackRequest.ActionType.CraftCreative);
 							WriteUnsignedVarInt(ta.CreativeItemNetworkId);
 							Write((byte) 1); // repetitions (protocol 1001), mirrors ReadItemStackRequest's trailing ReadByte()
@@ -1388,6 +1399,8 @@ namespace MiNET.Net
 
 						case CraftRecipeOptionalAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftRecipeOptional);
 							Write((byte) McpeItemStackRequest.ActionType.CraftRecipeOptional);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
 							Write(ta.FilteredStringIndex);
@@ -1396,6 +1409,8 @@ namespace MiNET.Net
 
 						case GrindstoneStackRequestAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftGrindstone);
 							Write((byte) McpeItemStackRequest.ActionType.CraftGrindstone);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
 							Write(ta.TimesCrafted); // repetitions (protocol 1001)
@@ -1405,6 +1420,8 @@ namespace MiNET.Net
 
 						case LoomStackRequestAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftLoom);
 							Write((byte) McpeItemStackRequest.ActionType.CraftLoom);
 							Write(ta.PatternId);
 							Write(ta.TimesCrafted); // repetitions (protocol 1001)
@@ -1413,12 +1430,16 @@ namespace MiNET.Net
 
 						case CraftNotImplementedDeprecatedAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftNotImplementedDeprecated);
 							Write((byte) McpeItemStackRequest.ActionType.CraftNotImplementedDeprecated);
 							break;
 						}
 						
 						case CraftResultDeprecatedAction ta:
 						{
+							// Varint type tag + the same value as a const byte, since 2168.
+							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftResultsDeprecated);
 							Write((byte) McpeItemStackRequest.ActionType.CraftResultsDeprecated);
 							// The result items are the legacy zigzag stacks without stack ids
 							// (PMMP putItemStackWithoutStackId), matching ReadItems() on decode.
@@ -1482,7 +1503,11 @@ namespace MiNET.Net
 				Log.Debug($"Count: {count}");
 				for (int j = 0; j < count; j++)
 				{
-					var actionType = (McpeItemStackRequest.ActionType) ReadByte();
+					// Since 2168 each action carries a varint type tag plus the same value as a
+					// const byte; the tag is the type, the byte is discarded (vanilla validates
+					// them against each other).
+					var actionType = (McpeItemStackRequest.ActionType) ReadUnsignedVarInt();
+					ReadByte(); // const type duplicate
 					Log.Debug($"Action type: {actionType}");
 					switch (actionType)
 					{
@@ -1545,25 +1570,7 @@ namespace MiNET.Net
 							break;
 						}
 
-						case McpeItemStackRequest.ActionType.PlaceIntoBundle:
-						{
-							var action = new PlaceIntoBundleAction();
-							action.Count = ReadByte();
-							action.Source = ReadStackRequestSlotInfo();
-							action.Destination = ReadStackRequestSlotInfo();
-							actions.Add(action);
-							break;
-						}
 
-						case McpeItemStackRequest.ActionType.TakeFromBundle:
-						{
-							var action = new TakeFromBundleAction();
-							action.Count = ReadByte();
-							action.Source = ReadStackRequestSlotInfo();
-							action.Destination = ReadStackRequestSlotInfo();
-							actions.Add(action);
-							break;
-						}
 						case McpeItemStackRequest.ActionType.MineBlock:
 						{
 							// hotbar slot, predicted durability, stack net id (all zigzag).
@@ -1694,7 +1701,7 @@ namespace MiNET.Net
 				foreach (StackResponseContainerInfo containerInfo in stackResponse.ResponseContainerInfos)
 				{
 					Write(containerInfo.ContainerId);
-					Write(false); // FullContainerName optional dynamic container id, none
+					Write(false); // FullContainerName: optional dynamic container id, none; unchanged at 2168
 					WriteUnsignedVarInt((uint) containerInfo.Slots.Count);
 					foreach (StackResponseSlotInfo slot in containerInfo.Slots)
 					{
@@ -1737,7 +1744,7 @@ namespace MiNET.Net
 				{
 					var containerInfo = new StackResponseContainerInfo();
 					containerInfo.ContainerId = ReadByte();
-					if (ReadBool()) ReadUint(); // FullContainerName optional dynamic container id
+					if (ReadBool()) ReadUint(); // FullContainerName: optional dynamic container id; unchanged at 2168
 
 					var slotCount = ReadUnsignedVarInt();
 					containerInfo.Slots = new List<StackResponseSlotInfo>();
@@ -1936,7 +1943,7 @@ namespace MiNET.Net
 			Write(hasStackId); // has_stack_id
 			if (hasStackId)
 			{
-				WriteVarInt(0); // empty
+				// The leading "empty" varint is gone since 2168; just the zigzag net id.
 				WriteSignedVarInt(stack.UniqueId); // id
 			}
 
@@ -2021,7 +2028,7 @@ namespace MiNET.Net
 			int uniqueId = 0;
 			if (hasStackId)
 			{
-				ReadVarInt(); // empty
+				// The leading "empty" varint is gone since 2168; just the zigzag net id.
 				uniqueId = ReadSignedVarInt(); // id
 			}
 
@@ -2122,9 +2129,10 @@ namespace MiNET.Net
 		// PMMP CommonTypes::getItemStackWrapper and live BDS 1.26.34.
 		public Item ReadItemInstance()
 		{
-			int networkId = ReadSignedVarInt(); // network_id
-			if (networkId == 0) return new ItemAir();
-
+			// NetworkItemStackDescriptor since 2168: li16 network id, no air short-circuit
+			// (empty stacks carry all fields zeroed), and the block runtime id is a plain varint
+			// rather than zigzag.
+			short networkId = ReadShort(); // network_id
 			ushort count = ReadUshort(); // count
 			var metadata = ReadVarInt(); // metadata
 
@@ -2135,8 +2143,10 @@ namespace MiNET.Net
 				uniqueId = ReadSignedVarInt(); // stack_id
 			}
 
-			int blockRuntimeId = ReadSignedVarInt(); // block_runtime_id
+			int blockRuntimeId = ReadVarInt(); // block_runtime_id
 			NbtCompound extraData = ReadItemExtraData(IsShieldNetworkId(networkId));
+
+			if (networkId == 0) return new ItemAir();
 
 			Item stack = ItemFactory.GetItemByNetworkId(networkId, (short) metadata, count);
 			if (hasNetId) stack.UniqueId = uniqueId;
@@ -2150,15 +2160,23 @@ namespace MiNET.Net
 
 		public void WriteItemInstance(Item stack)
 		{
+			// NetworkItemStackDescriptor since 2168: li16 network id, no air short-circuit
+			// (empty stacks carry all fields zeroed), and the block runtime id is a plain varint
+			// rather than zigzag.
 			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
 			short networkId = stack == null || stack.IsAir ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
 			if (networkId == 0)
 			{
-				WriteSignedVarInt(0); // network_id => air, no further fields
+				Write((short) 0); // network_id
+				Write((ushort) 0); // count
+				WriteVarInt(0); // metadata
+				Write(false); // has_net_id
+				WriteVarInt(0); // block_runtime_id
+				WriteLength(0); // empty extra data blob
 				return;
 			}
 
-			WriteSignedVarInt(networkId); // network_id
+			Write(networkId); // network_id
 			Write((ushort) stack.Count); // count
 			WriteVarInt(stack.Metadata); // metadata
 
@@ -2169,7 +2187,7 @@ namespace MiNET.Net
 				WriteSignedVarInt(stack.UniqueId); // stack_id
 			}
 
-			WriteSignedVarInt(stack.RuntimeId); // block_runtime_id
+			WriteVarInt(stack.RuntimeId); // block_runtime_id
 
 			byte[] extraData = WriteItemExtraData(stack.ExtraData, IsShieldNetworkId(networkId));
 			WriteLength(extraData.Length);
@@ -2849,10 +2867,10 @@ namespace MiNET.Net
 			Write(skin.Height);
 			WriteByteArray(skin.Data);
 
-			if (skin.Animations?.Count > 0)
+			// List counts are varints since 2168 (Cereal reflected vectors); they were le32.
+			WriteUnsignedVarInt((uint) (skin.Animations?.Count ?? 0));
+			if (skin.Animations != null)
 			{
-				// List counts are varints since 2168 (Cereal reflected vectors); they were le32.
-			WriteUnsignedVarInt((uint) skin.Animations.Count);
 				foreach (Animation animation in skin.Animations)
 				{
 					Write(animation.ImageWidth);
@@ -2862,10 +2880,6 @@ namespace MiNET.Net
 					Write(animation.FrameCount);
 					Write(animation.Expression);
 				}
-			}
-			else
-			{
-				Write(0);
 			}
 
 			Write(skin.Cape.ImageWidth);
@@ -2920,7 +2934,7 @@ namespace MiNET.Net
 		{
 			if (string.IsNullOrEmpty(color)) return 0;
 			string hex = color.TrimStart('#');
-			return int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out int argb) ? argb : 0;
+			return uint.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out uint argb) ? (int) argb : 0;
 		}
 
 		public Skin ReadSkin()

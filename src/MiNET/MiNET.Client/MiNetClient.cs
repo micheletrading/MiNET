@@ -715,7 +715,7 @@ namespace MiNET.Client
 			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
 			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);
 			movePlayerPacket.headYaw = CurrentLocation.HeadYaw;
-			movePlayerPacket.mode = 1;
+			movePlayerPacket.mode = McpeMovePlayer.Mode.Respawn;
 			movePlayerPacket.onGround = false;
 
 			SendPacket(movePlayerPacket);
@@ -733,7 +733,7 @@ namespace MiNET.Client
 			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
 			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);
 			movePlayerPacket.headYaw = CurrentLocation.HeadYaw;
-			movePlayerPacket.mode = 1;
+			movePlayerPacket.mode = McpeMovePlayer.Mode.Respawn;
 			movePlayerPacket.onGround = false;
 
 			if (Connection.ConnectionInfo.IsEmulator)

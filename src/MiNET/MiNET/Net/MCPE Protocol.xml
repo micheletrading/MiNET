@@ -1073,19 +1073,17 @@
 			<enum id="Destroy" value="4" />
 			<enum id="Consume" value="5" />
 			<enum id="Create" value="6" />
-			<enum id="Place into bundle" value="7" />
-			<enum id="Take from bundle" value="8" />
-			<enum id="Lab table combine" value="9" />
-			<enum id="Beacon payment" value="10" />
-			<enum id="Mine Block" value="11"/>
-			<enum id="Craft recipe" value="12" />
-			<enum id="Craft recipe Auto" value="13" />
-			<enum id="Craft creative" value="14" />
-			<enum id="Craft recipe optional" value="15" />
-			<enum id="Craft Grindstone" value="16"/>
-			<enum id="Craft loom" value="17"/>
-			<enum id="Craft not implemented deprecated" value="18"/>
-			<enum id="Craft results deprecated" value="19" />
+			<enum id="Lab table combine" value="7" />
+			<enum id="Beacon payment" value="8" />
+			<enum id="Mine Block" value="9"/>
+			<enum id="Craft recipe" value="10" />
+			<enum id="Craft recipe Auto" value="11" />
+			<enum id="Craft creative" value="12" />
+			<enum id="Craft recipe optional" value="13" />
+			<enum id="Craft Grindstone" value="14"/>
+			<enum id="Craft loom" value="15"/>
+			<enum id="Craft not implemented deprecated" value="16"/>
+			<enum id="Craft results deprecated" value="17" />
 		</enums>
 		<field name="Requests" type="ItemStackRequests" />
 	</pdu>

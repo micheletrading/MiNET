@@ -62,6 +62,14 @@ namespace MiNET.Net
 				ReadByte(); // percent of total
 			}
 
+			// Entity System category-to-index mappings, added at 2168.
+			uint systemCategories = ReadUnsignedVarInt();
+			for (int i = 0; i < systemCategories; i++)
+			{
+				ReadString(); // category name
+				ReadUlong(); // system index
+			}
+
 			uint whiskerScopes = ReadUnsignedVarInt();
 			for (int i = 0; i < whiskerScopes; i++)
 			{
@@ -78,6 +86,7 @@ namespace MiNET.Net
 			WriteUnsignedVarInt(0); // memory category values
 			WriteUnsignedVarInt(0); // entity diagnostics
 			WriteUnsignedVarInt(0); // system diagnostics
+			WriteUnsignedVarInt(0); // system categories (2168)
 			WriteUnsignedVarInt(0); // whisker scopes
 		}
 	}

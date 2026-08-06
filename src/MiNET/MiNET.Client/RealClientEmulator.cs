@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
 using log4net;
@@ -108,6 +109,11 @@ namespace MiNET.Client
 				input.AnalogMoveVector = moveVector;
 				input.CameraOrientation = new Vector3(pitch, yaw, 0);
 				input.RawMoveVector = moveVector;
+				// Since 2168 block breaking rides inside auth input (a standalone PlayerAction
+				// StartBreak gets the session kicked for exploiting by BDS's anticheat).
+				if (i == 21) input.BlockActions = new List<McpePlayerAuthInput.PlayerBlockAction> {new McpePlayerAuthInput.PlayerBlockAction {ActionType = 0, X = spawnBlock.X, Y = spawnBlock.Y, Z = spawnBlock.Z, Face = (int) BlockFace.Up}};
+				if (i == 30) input.BlockActions = new List<McpePlayerAuthInput.PlayerBlockAction> {new McpePlayerAuthInput.PlayerBlockAction {ActionType = 1, X = spawnBlock.X, Y = spawnBlock.Y, Z = spawnBlock.Z, Face = (int) BlockFace.Up}};
+
 				client.SendPacket(input);
 
 				lastPosition = position;
@@ -115,9 +121,7 @@ namespace MiNET.Client
 
 				if (i % 100 == 0) SendDiagnostics(client);
 				if (i == 20) SendAnimate(client, "mine");
-				if (i == 21) SendPlayerAction(client, PlayerAction.StartBreak, spawnBlock, BlockFace.Up);
-				if (i == 30) SendPlayerAction(client, PlayerAction.AbortBreak, spawnBlock, BlockFace.Up);
-				if (i == 31) SendAnimate(client, null);
+					if (i == 31) SendAnimate(client, null);
 				if (i == 40) SendInteractMouseOver(client);
 				if (i == 45) SendInteractOpenInventory(client);
 				if (i == 50) SendMobEquipment(client);

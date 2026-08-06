@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Numerics;
 using MiNET.Utils;
 
@@ -115,30 +115,19 @@ public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
 		MoveVector = ReadVector2();
 		HeadYaw = ReadFloat();
 
-		// input_data: 65-flag BitSet encoded varint-style, 7 bits per byte plus a continuation
-		// bit, bounded by ceil(65/7) = 10 bytes. NOT a plain varlong (minecraft-data: varint128;
-		// PMMP: BitSet::read). Reading it as varlong throws once flags >= bit 63 appear.
-		ulong low = 0;
-		ulong high = 0;
-		int shift = 0;
-		for (int i = 0; i < NumberOfInputFlags; i += 7)
+		// input_data: since 2168 a list of pressed-flag ordinals (zigzag varints) behind an
+		// always-true marker bool, replacing the 65-flag varint BitSet. Ordinal 64 is
+		// sneak_current_raw, which never fit the 64-bit enum.
+		ReadBool(); // marker, vanilla writes true
+		uint flagCount = ReadUnsignedVarInt();
+		InputFlags = 0;
+		SneakCurrentRaw = false;
+		for (int i = 0; i < flagCount; i++)
 		{
-			byte b = ReadByte();
-			ulong bits = (ulong) (b & 0x7f);
-			if (shift < 64)
-			{
-				low |= bits << shift;
-				if (shift > 57) high |= bits >> (64 - shift);
-			}
-			else
-			{
-				high |= bits << (shift - 64);
-			}
-			shift += 7;
-			if ((b & 0x80) == 0) break;
+			int ordinal = ReadSignedVarInt();
+			if (ordinal == 64) SneakCurrentRaw = true;
+			else if (ordinal >= 0 && ordinal < 64) InputFlags |= (AuthInputFlags) (long) (1UL << ordinal);
 		}
-		InputFlags = (AuthInputFlags) (long) low;
-		SneakCurrentRaw = (high & 1) != 0;
 
 		InputMode = (PlayerInputMode) ReadUnsignedVarInt();
 		PlayMode = (PlayerPlayMode) ReadUnsignedVarInt();
@@ -149,22 +138,26 @@ public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
 		Tick = ReadUnsignedVarLong();
 		Delta = ReadVector3();
 
-		// Conditional bodies. Order per PMMP decodePayload: item interaction, item stack
-		// request, block actions, predicted vehicle. (minecraft-data lists vehicle before
-		// block actions; PMMP is followed.)
-		if ((InputFlags & AuthInputFlags.PerformItemInteraction) != 0)
+		// Conditional bodies. Since 2168 each travels as a double-bool optional (an always-true
+		// outer marker, then the actual presence bool), in this order: item interaction, item
+		// stack request, block actions, vehicle rotation, predicted vehicle. Vehicle rotation
+		// and the predicted vehicle id are separate optionals now.
+		ReadBool(); // marker
+		if (ReadBool())
 		{
 			ReadItemInteractionData();
 		}
 
-		if ((InputFlags & AuthInputFlags.PerformItemStackRequest) != 0)
+		ReadBool(); // marker
+		if (ReadBool())
 		{
 			ItemStackRequest = ReadItemStackRequest();
 		}
 
-		if ((InputFlags & AuthInputFlags.PerformBlockActions) != 0)
+		ReadBool(); // marker
+		if (ReadBool())
 		{
-			int count = ReadSignedVarInt();
+			int count = (int) ReadUnsignedVarInt(); // unsigned since 2168, was zigzag
 			BlockActions = new List<PlayerBlockAction>(count);
 			for (int i = 0; i < count; i++)
 			{
@@ -188,9 +181,15 @@ public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
 			}
 		}
 
-		if ((InputFlags & AuthInputFlags.ClientPredictedVehicle) != 0)
+		ReadBool(); // marker
+		if (ReadBool())
 		{
 			ReadVector2(); // vehicle rotation
+		}
+
+		ReadBool(); // marker
+		if (ReadBool())
+		{
 			ReadSignedVarLong(); // predicted vehicle actor unique id
 		}
 
@@ -263,21 +262,29 @@ public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
 		Write(MoveVector);
 		Write(HeadYaw);
 
-		// Encode supports the scalar fields only; the conditional bodies (item interaction,
-		// stack request, block actions, vehicle) are not written, so their flags are stripped
-		// to keep the packet self-consistent. MiNET only encodes this packet from the test
-		// client, which sends plain movement.
-		ulong low = (ulong) (long) (InputFlags & ~(AuthInputFlags.PerformItemInteraction | AuthInputFlags.PerformItemStackRequest | AuthInputFlags.PerformBlockActions | AuthInputFlags.ClientPredictedVehicle));
-		ulong high = SneakCurrentRaw ? 1UL : 0UL;
-		for (int i = 0; i < NumberOfInputFlags; i += 7)
+		// Encode supports the scalar fields plus the block-actions body (the emulator breaks
+		// blocks the way a real 2168 client does, inside auth input); the other conditional
+		// bodies (item interaction, stack request, vehicle) are not written, so their flags are
+		// stripped to keep the packet self-consistent.
+		// Since 2168 the flags travel as a list of pressed ordinals (zigzag varints) behind an
+		// always-true marker bool, and each conditional body is a double-bool optional.
+		bool hasBlockActions = BlockActions is {Count: > 0};
+		var flags = InputFlags & ~(AuthInputFlags.PerformItemInteraction | AuthInputFlags.PerformItemStackRequest | AuthInputFlags.ClientPredictedVehicle);
+		if (hasBlockActions) flags |= AuthInputFlags.PerformBlockActions;
+		else flags &= ~AuthInputFlags.PerformBlockActions;
+
+		Write(true); // marker
+		ulong low = (ulong) (long) flags;
+		var ordinals = new List<int>();
+		for (int i = 0; i < 64; i++)
 		{
-			int shift = i;
-			byte bits = shift < 64
-				? (byte) ((low >> shift | (shift > 57 ? high << (64 - shift) : 0)) & 0x7f)
-				: (byte) ((high >> (shift - 64)) & 0x7f);
-			bool more = i + 7 < NumberOfInputFlags && (shift + 7 < 64 ? (low >> (shift + 7)) != 0 || high != 0 : (high >> (shift + 7 - 64)) != 0);
-			Write((byte) (bits | (more ? 0x80 : 0)));
-			if (!more) break;
+			if ((low >> i & 1UL) != 0) ordinals.Add(i);
+		}
+		if (SneakCurrentRaw) ordinals.Add(64);
+		WriteUnsignedVarInt((uint) ordinals.Count);
+		foreach (int ordinal in ordinals)
+		{
+			WriteSignedVarInt(ordinal);
 		}
 
 		WriteUnsignedVarInt((uint) InputMode);
@@ -286,6 +293,41 @@ public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
 		Write(InteractRotation);
 		WriteUnsignedVarLong(Tick);
 		Write(Delta);
+
+		Write(true); // marker: item interaction
+		Write(false);
+		Write(true); // marker: item stack request
+		Write(false);
+
+		Write(true); // marker: block actions
+		Write(hasBlockActions);
+		if (hasBlockActions)
+		{
+			WriteUnsignedVarInt((uint) BlockActions.Count);
+			foreach (PlayerBlockAction action in BlockActions)
+			{
+				WriteSignedVarInt(action.ActionType);
+				switch (action.ActionType)
+				{
+					case 0: // start_break
+					case 1: // abort_break
+					case 18: // crack_break
+					case 26: // predict_break
+					case 27: // continue_break
+						WriteSignedVarInt(action.X);
+						WriteSignedVarInt(action.Y);
+						WriteSignedVarInt(action.Z);
+						WriteSignedVarInt(action.Face);
+						break;
+				}
+			}
+		}
+
+		Write(true); // marker: vehicle rotation
+		Write(false);
+		Write(true); // marker: predicted vehicle
+		Write(false);
+
 		Write(AnalogMoveVector);
 		Write(CameraOrientation);
 		Write(RawMoveVector);

@@ -345,7 +345,7 @@ namespace MiNET.Client
 
 			Client.LevelInfo.LevelName = "Default";
 			Client.LevelInfo.Version = 19133;
-			Client.LevelInfo.GameType = message.settings.gameType;
+			Client.LevelInfo.GameType = (int) message.settings.gameType;
 
 			{
 				var packet = McpeRequestChunkRadius.CreateObject();
