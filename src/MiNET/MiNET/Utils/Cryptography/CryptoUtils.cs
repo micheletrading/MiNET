@@ -265,6 +265,15 @@ namespace MiNET.Utils.Cryptography
 
 		private static ClientData LoadPersonaClientData()
 		{
+			// MINET_SKIN_JSON replaces the bot's appearance with a ClientData document captured from
+			// a real client, so a skin that a real client is known to reject can be put on the wire
+			// against both a reference server and ours and the two encodings compared.
+			string overridePath = Environment.GetEnvironmentVariable("MINET_SKIN_JSON");
+			if (!string.IsNullOrEmpty(overridePath))
+			{
+				return JsonConvert.DeserializeObject<ClientData>(File.ReadAllText(overridePath));
+			}
+
 			foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
 			{
 				using Stream stream = assembly.GetManifestResourceStream(BotSkinResource);

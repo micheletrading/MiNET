@@ -2876,9 +2876,11 @@ namespace MiNET.Net
 					Write(animation.ImageWidth);
 					Write(animation.ImageHeight);
 					WriteByteArray(animation.Image);
-					Write(animation.Type);
+					// AnimatedImageData carries both enums with x-serialization-options
+					// ["Compression", "Enum-as-Value"], so they are varints, not le32.
+					WriteUnsignedVarInt((uint) animation.Type);
 					Write(animation.FrameCount);
-					Write(animation.Expression);
+					WriteUnsignedVarInt((uint) animation.Expression);
 				}
 			}
 
@@ -2903,19 +2905,23 @@ namespace MiNET.Net
 			foreach (PersonaPiece piece in skin.PersonaPieces)
 			{
 				Write(piece.PieceId);
-				Write(piece.PieceType);
-				Write(piece.PackId);
+				// SerializedPersonaPieceHandle: PieceType is the enum's raw uint32 (Enum-as-Value
+				// with no Compression), and PackId is an mce::UUID, sixteen bytes. Both used to go
+				// out as the strings the login JWT names them with.
+				Write((int) PersonaPieceTypes.Parse(piece.PieceType));
+				WriteUuidBytes(piece.PackId);
 				Write(piece.IsDefaultPiece);
 				Write(piece.ProductId);
 			}
 			WriteUnsignedVarInt((uint) skin.SkinPieces.Count);
 			foreach (SkinPiece skinPiece in skin.SkinPieces)
 			{
-				Write(skinPiece.PieceType);
-				WriteUnsignedVarInt((uint) skinPiece.Colors.Count);
-				foreach (string color in skinPiece.Colors)
+				// PieceTintColors is an object, not an array: the type name is bare ("eyes", not
+				// "persona_eyes") and the colours are a fixed four raw values with no count.
+				Write(PersonaPieceTypes.ToTintName(PersonaPieceTypes.Parse(skinPiece.PieceType)));
+				for (int i = 0; i < TintColorsPerPiece; i++)
 				{
-					Write(color);
+					Write(ParseSkinColor(i < skinPiece.Colors.Count ? skinPiece.Colors[i] : null));
 				}
 			}
 			
@@ -2930,11 +2936,29 @@ namespace MiNET.Net
 			Write(skin.ProfileHash ?? "");
 		}
 
+		/// <summary>
+		///     A tint entry always carries four colours. PieceTintColors is an object in the schema,
+		///     not an array, so there is no count on the wire and the slots a skin does not use are
+		///     written as zero.
+		/// </summary>
+		private const int TintColorsPerPiece = 4;
+
 		private static int ParseSkinColor(string color)
 		{
 			if (string.IsNullOrEmpty(color)) return 0;
 			string hex = color.TrimStart('#');
 			return uint.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out uint argb) ? (int) argb : 0;
+		}
+
+		/// <summary>An mce::UUID: sixteen raw bytes, not the string form the login JWT uses.</summary>
+		private void WriteUuidBytes(string uuid)
+		{
+			Write(Guid.TryParse(uuid, out Guid guid) ? guid.ToByteArray() : new byte[16]);
+		}
+
+		private string ReadUuidBytes()
+		{
+			return new Guid(ReadBytes(16)).ToString();
 		}
 
 		public Skin ReadSkin()
@@ -2958,9 +2982,9 @@ namespace MiNET.Net
 						ImageWidth = ReadInt(),
 						ImageHeight = ReadInt(),
 						Image = ReadByteArray(false),
-						Type = ReadInt(),
+						Type = (int) ReadUnsignedVarInt(),
 						FrameCount = ReadFloat(),
-						Expression = ReadInt() 
+						Expression = (int) ReadUnsignedVarInt()
 					}
 				);
 			}
@@ -2983,8 +3007,8 @@ namespace MiNET.Net
 			{
 				var p = new PersonaPiece();
 				p.PieceId = ReadString();
-				p.PieceType = ReadString();
-				p.PackId = ReadString();
+				p.PieceType = PersonaPieceTypes.ToClientDataName((PersonaPieceType) ReadInt());
+				p.PackId = ReadUuidBytes();
 				p.IsDefaultPiece = ReadBool();
 				p.ProductId = ReadString();
 				skin.PersonaPieces.Add(p);
@@ -2994,11 +3018,10 @@ namespace MiNET.Net
 			for (int i = 0; i < skinPieceCount; i++)
 			{
 				var piece = new SkinPiece();
-				piece.PieceType = ReadString();
-				int colorAmount = (int) ReadUnsignedVarInt();
-				for (int i2 = 0; i2 < colorAmount; i2++)
+				piece.PieceType = PersonaPieceTypes.ToClientDataName(PersonaPieceTypes.Parse(ReadString()));
+				for (int i2 = 0; i2 < TintColorsPerPiece; i2++)
 				{
-					piece.Colors.Add(ReadString());
+					piece.Colors.Add("#" + ((uint) ReadInt()).ToString("x6"));
 				}
 				skin.SkinPieces.Add(piece);
 			}

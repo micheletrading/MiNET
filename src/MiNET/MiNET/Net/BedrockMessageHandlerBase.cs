@@ -225,23 +225,21 @@ namespace MiNET.Net
 							long pos = s.Position;
 							ReadOnlyMemory<byte> internalBuffer = s.GetBuffer().AsMemory((int) s.Position, (int) len);
 							int id = VarInt.ReadInt32(s);
+							// Dumped BEFORE decoding, so a frame that throws is still on disk. Those are
+							// the ones worth having: a packet we cannot parse is the one that changed.
+							if (PacketDumpDir != null)
+							{
+								int seq = Interlocked.Increment(ref _packetDumpSeq);
+								Directory.CreateDirectory(PacketDumpDir);
+								File.WriteAllBytes(Path.Combine(PacketDumpDir, $"{seq:D4}-id{id}.bin"), internalBuffer.ToArray());
+							}
+
 							try
 							{
-								//if (Log.IsDebugEnabled)
-								//	Log.Debug($"0x{internalBuffer[0]:x2}\n{Packet.HexDump(internalBuffer)}");
-
 								// Packet ids are varints and can exceed 255 in modern protocols; the factory
 								// and UnknownPacket now carry the full id instead of truncating to a byte.
 								Packet parsed = PacketFactory.Create(id, internalBuffer, "mcpe");
 								if (parsed == null && Log.IsDebugEnabled) Log.Debug($"Unknown packet with id {id}");
-
-								if (PacketDumpDir != null)
-								{
-									int seq = Interlocked.Increment(ref _packetDumpSeq);
-									string name = parsed?.GetType().Name ?? $"Unknown_{id}";
-									Directory.CreateDirectory(PacketDumpDir);
-									File.WriteAllBytes(Path.Combine(PacketDumpDir, $"{seq:D4}-{name}.bin"), internalBuffer.ToArray());
-								}
 
 								messages.Add(parsed ?? new UnknownPacket(id, internalBuffer));
 							}
