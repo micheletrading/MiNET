@@ -75,7 +75,13 @@ Most work in this repo is keeping up with Mojang protocol changes. The network c
 
 A protocol update is reverse engineering against a real vanilla BDS. Work it in this order; the early steps are not preamble, they are what makes the later evidence trustworthy.
 
-**1. Get the reference server right.** Download the BDS build matching the target protocol and run it with the configuration we are comparing against. Note its `server.properties`: `view-distance` and `tick-distance` both show up on the wire (tick-distance is the join-burst publisher radius), and `online-mode=false` is what lets our client and the tunnel log into it.
+**1. Get the reference server right.** Download the BDS build matching the target protocol and run it with the configuration we are comparing against. In `server.properties`:
+
+- `block-network-ids-are-hashes=false`, ALWAYS, when testing. Both schemes are legal (the server declares which one it uses in StartGame and the client honours it), but with hashes off both sides speak palette indices, which is what the CloudburstMC data we generate from gives us. Leave it on and every block id in a capture is a hash, comparable to nothing we hold.
+- `online-mode=false` is what lets our client and the tunnel log in.
+- `view-distance` and `tick-distance` both show up on the wire; tick-distance is the join-burst publisher radius.
+
+Captures are only comparable to each other when the reference server's configuration matches, so record it alongside the capture.
 
 **2. Get the client right.** Confirm the real Bedrock client is the target version. Its error screen reports the version and `RakNet:<protocol>`, which is the fastest way to be sure.
 
