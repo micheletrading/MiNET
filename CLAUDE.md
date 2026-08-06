@@ -26,6 +26,18 @@ dotnet run --project src/MiNET/MiNET.Console
 
 CI (`.github/workflows/dotnetcore.yml`) builds and packs only the core `MiNET` project and pushes it to NuGet on every push to master.
 
+### Restarting the server (the ONLY procedure)
+
+After every code change, this exact loop, nothing else:
+
+1. Kill the old process: `powershell -Command "Get-Process MiNET.Console -ErrorAction SilentlyContinue | Stop-Process -Force"`. A running server locks MiNET.dll and the build silently fails or runs stale code.
+2. Start with `dotnet run --project src/MiNET/MiNET.Console > temp_auto/minet-server.log 2>&1 &` from the repo root. `dotnet run` builds the project and its references itself; do NOT run a separate `dotnet build` first, and NEVER start the exe from `bin/` directly (that is how stale-binary runs happen).
+3. Wait for readiness by polling the log for `Server open for business`, with a background until-loop, never fixed `sleep N` guesses. Startup takes ~20-40s (build + 2x ~1000-chunk pre-cache).
+
+Logs, two different files:
+- `temp_auto/minet-server.log` - stdout capture (console appender, TRACE and up).
+- `src/MiNET/MiNET.Console/bin/Debug/net10.0/minetlog.log` - the rolling file appender; the only place VERBOSE lines (datagram/ACK traces) appear. Config in `src/MiNET/MiNET.Console/log4net.xml`; the active server config is `server.nicke.conf` next to the exe (this machine), not `server.conf`.
+
 ## Projects
 
 - `MiNET` - the core server library and the NuGet package. Everything below refers to this project.

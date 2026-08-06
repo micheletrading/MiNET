@@ -550,6 +550,8 @@ namespace MiNET.Net.RakNet
 			{
 				Interlocked.Increment(ref connectionInfo.NumberOfAckReceive);
 
+				if (Log.IsVerboseEnabled()) Log.Verbose($"> ACK datagram #{range.start}{(range.end != range.start ? $"-{range.end}" : "")} from {session.Username}");
+
 				for (int i = range.start; i <= range.end; i++)
 				{
 					if (queue.TryRemove(i, out Datagram datagram))
@@ -744,6 +746,8 @@ namespace MiNET.Net.RakNet
 			datagram.Header.DatagramSequenceNumber = Interlocked.Increment(ref session.DatagramSequenceNumber);
 			datagram.TransmissionCount++;
 			datagram.RetransmitImmediate = false;
+
+			if (Log.IsVerboseEnabled()) Log.Verbose($"<    Send datagram #{datagram.Header.DatagramSequenceNumber.IntValue()} first=0x{datagram.FirstMessageId:x2} parts={datagram.MessageParts.Count} to {session.Username}");
 
 			byte[] buffer = ArrayPool<byte>.Shared.Rent(1600);
 			int length = (int) datagram.GetEncoded(ref buffer);
