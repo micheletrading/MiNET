@@ -95,11 +95,17 @@ namespace MiNET.Crafting
 		/// </summary>
 		public static Item Alias(string alias, int count = 1)
 		{
-			Item item = ItemFactory.GetItemByName(alias, WildcardMetadata, count);
-			item.NetworkMetadata = WildcardMetadata;
-			item.RuntimeId = -1;
-			item.IngredientDescriptor = new RecipeIngredientDescriptor {Type = 1, Name = alias, Metadata = WildcardMetadata};
-			return item;
+			// Built directly rather than through ItemFactory: an alias names a pre-flattening
+			// aggregate (minecraft:log, minecraft:wood and friends) that the palette no longer
+			// holds, so resolving it would warn about a missing block state on every recipe that
+			// uses one, for a block nothing here wants. Only the name reaches the wire.
+			return new Item(alias, WildcardMetadata, count)
+			{
+				NetworkId = ItemFactory.GetNetworkIdByName(alias),
+				NetworkMetadata = WildcardMetadata,
+				RuntimeId = -1,
+				IngredientDescriptor = new RecipeIngredientDescriptor {Type = 1, Name = alias, Metadata = WildcardMetadata}
+			};
 		}
 
 		/// <summary>An empty slot: no ingredient at all.</summary>
