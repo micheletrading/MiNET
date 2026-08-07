@@ -86,8 +86,6 @@ namespace MiNET
 		///     radius 32 join: 3209 chunks took 3.4s, of which 2.4s was these sleeps. Set the delay
 		///     to 0 to stream flat out.
 		/// </summary>
-		public int ChunkSendBatchSize { get; set; } = 16;
-		public int ChunkSendDelayMs { get; set; } = 12;
 
 		public GameMode GameMode { get; set; }
 		public bool UseCreativeInventory { get; set; } = true;
@@ -495,9 +493,7 @@ namespace MiNET
 
 		public virtual void SendMapInfo(MapInfo mapInfo)
 		{
-			McpeClientboundMapItemData packet = McpeClientboundMapItemData.CreateObject();
-			packet.mapinfo = mapInfo;
-			SendPacket(packet);
+			SendPacket(McpeClientboundMapItemData.FromMapInfo(mapInfo));
 		}
 
 		/// <summary>Chunk radius vanilla publishes during the join burst, before negotiation.</summary>
@@ -2182,11 +2178,9 @@ namespace MiNET
 		[Wired]
 		public void StrikeLightning()
 		{
-			Lightning lightning = new Lightning(Level) {KnownPosition = KnownPosition};
-
-			if (lightning.Level == null) return;
-
-			lightning.SpawnEntity();
+			// Through the level, so this gets the same centring correction as every other caller
+			// instead of spawning the bolt itself and landing half a block off.
+			Level?.StrikeLightning(KnownPosition.ToVector3());
 		}
 
 		private object _disconnectSync = new object();
@@ -3804,7 +3798,6 @@ namespace MiNET
 					if (chunk != null) SendPacket(chunk);
 
 					packetCount++;
-				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
 				}
 			}
 			finally
@@ -3854,7 +3847,6 @@ namespace MiNET
 					if (chunk != null) SendPacket(chunk);
 
 					packetCount++;
-				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
 				}
 
 				// Spawn once the published area is delivered, BEFORE any sub-chunk exchange: a

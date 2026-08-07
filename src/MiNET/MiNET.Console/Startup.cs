@@ -29,6 +29,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using log4net;
 using log4net.Config;
@@ -76,11 +77,37 @@ namespace MiNET.Console
 			service.StartServer();
 
 			System.Console.WriteLine("MiNET running. Press <enter> to stop service.");
-			if (System.Console.ReadLine() == null)
+
+			// A non-interactive host has no stdin to wait on, and used to sleep forever: the only
+			// way out was a kill, which skips StopServer and with it the level save, losing
+			// everything built since the last save interval. Ctrl+C, a close request and a
+			// shutdown all land here instead and stop the server properly.
+			using var stopping = new ManualResetEventSlim(false);
+
+			void RequestStop(PosixSignalContext context)
 			{
-				// Non-interactive host (redirected stdin); stay alive until killed.
-				Thread.Sleep(Timeout.Infinite);
+				context.Cancel = true;
+				stopping.Set();
 			}
+
+			// A headless run has no console to signal and no stdin to type into, so it also watches
+			// for a file. Dropping temp_auto/stop-server next to the working directory stops the
+			// server the same way pressing enter would, which is the only way the level actually
+			// gets saved: a killed process never reaches StopServer.
+			string stopFile = Path.Combine(Directory.GetCurrentDirectory(), "temp_auto", "stop-server");
+			if (File.Exists(stopFile)) File.Delete(stopFile);
+
+			using (PosixSignalRegistration.Create(PosixSignal.SIGINT, RequestStop))
+			using (PosixSignalRegistration.Create(PosixSignal.SIGTERM, RequestStop))
+			{
+				if (System.Console.ReadLine() == null)
+				{
+					while (!stopping.IsSet && !File.Exists(stopFile)) stopping.Wait(500);
+					if (File.Exists(stopFile)) File.Delete(stopFile);
+				}
+			}
+
+			Log.Info("Shutting down, saving the level...");
 			service.StopServer();
 		}
 	}

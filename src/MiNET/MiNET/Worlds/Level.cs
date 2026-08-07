@@ -299,7 +299,12 @@ namespace MiNET.Worlds
 			Log.Info("Closed level: " + LevelId);
 		}
 
-		internal static McpeWrapper CreateMcpeBatch(byte[] bytes)
+		/// <summary>
+		///     Packs one already-encoded packet into its own wrapper. PrepareSend merges everything
+		///     queued between flushes into a single wrapper, so this is how a packet is kept as its
+		///     own payload. Public because plugins need it for the same reason the server does.
+		/// </summary>
+		public static McpeWrapper CreateMcpeBatch(byte[] bytes)
 		{
 			return BatchUtils.CreateBatchPacket(new Memory<byte>(bytes, 0, (int) bytes.Length), CompressionLevel.Optimal, true);
 		}
@@ -1609,9 +1614,17 @@ namespace MiNET.Worlds
 			cacheProvider?.ClearCachedChunks();
 		}
 
+		/// <summary>
+		///     Spawns a lightning bolt centred on <paramref name="position" />. The client anchors the
+		///     bolt's visual at a corner of its footprint rather than at the entity position, so a
+		///     bolt sent at a target's exact coordinates lands about half a block off it. The
+		///     correction is empirical: it was found by striking a known target with each of the four
+		///     half-block offsets and seeing which one landed on it.
+		/// </summary>
 		public void StrikeLightning(Vector3 position)
 		{
-			new Lightning(this) {KnownPosition = new PlayerLocation(position)}.SpawnEntity();
+			Vector3 centred = position - new Vector3(0.5f, 0, 0.5f);
+			new Lightning(this) {KnownPosition = new PlayerLocation(centred)}.SpawnEntity();
 		}
 
 		public void MakeSound(Sound sound)
