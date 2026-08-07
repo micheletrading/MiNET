@@ -189,7 +189,12 @@ namespace MiNET.Worlds
 			Clock.Time = WorldProvider.GetDayTime();
 			LevelName = WorldProvider.GetName();
 
-			if (WorldProvider.IsCaching)
+			// Pre-warming is worth it on a real server, where the cost is paid once and every player
+			// arriving at spawn benefits. In development it is the whole startup time: at the default
+			// view distance this walks a disc of a thousand blocks across, per level, before the
+			// socket is even bound. Switching it off leaves caching itself alone, so chunks are
+			// simply cached as they are first read.
+			if (WorldProvider.IsCaching && Config.GetProperty("PreWarmChunks", true))
 			{
 				Stopwatch chunkLoading = Stopwatch.StartNew();
 
