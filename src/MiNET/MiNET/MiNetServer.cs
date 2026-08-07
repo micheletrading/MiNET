@@ -71,6 +71,21 @@ namespace MiNET
 
 		public ConnectionInfo ConnectionInfo { get; set; }
 
+		/// <summary>
+		///     Whether new connections are answered. Clearing it leaves established sessions running
+		///     and the socket open, but a client that tries to join gets no reply at all, so it
+		///     concludes the server is down. Closing this before moving players off is what stops a
+		///     reconnect racing the shutdown.
+		/// </summary>
+		public bool AcceptConnections
+		{
+			get => _listener?.AcceptConnections ?? false;
+			set
+			{
+				if (_listener != null) _listener.AcceptConnections = value;
+			}
+		}
+
 		public ServerRole ServerRole { get; set; }
 
 		internal static DedicatedThreadPool FastThreadPool { get; set; }

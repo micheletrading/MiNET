@@ -60,6 +60,14 @@ namespace MiNET.Net.RakNet
 		// Tell RakNet to automatically connect to any found server.
 		public bool AutoConnect { get; set; } = true;
 
+		/// <summary>
+		///     Clear this to stop answering connection requests without tearing the socket down. A
+		///     shutdown needs it: transferring or disconnecting players frees the server only if they
+		///     cannot immediately come back, and a Bedrock client reconnects within milliseconds, so
+		///     otherwise the rejoin races the save and lands mid-shutdown.
+		/// </summary>
+		public bool AcceptConnections { get; set; } = true;
+
 		internal RakOfflineHandler(RakConnection connection, IPacketSender sender, GreyListManager greyListManager, MotdProvider motdProvider, ConnectionInfo connectionInfo)
 		{
 			_sender = sender;
@@ -243,6 +251,15 @@ namespace MiNET.Net.RakNet
 
 		private void HandleRakNetMessage(IPEndPoint senderEndpoint, OpenConnectionRequest1 message)
 		{
+			// Silence rather than a refusal: the client then behaves as if the server is not there,
+			// which is what we want it to conclude while the server is going down. Logged because
+			// how long a client keeps retrying decides whether it can be held across a restart.
+			if (!AcceptConnections)
+			{
+				Log.Info($"Refused connection from {senderEndpoint} while not accepting connections");
+				return;
+			}
+
 			ConcurrentDictionary<IPEndPoint, RakSession> sessions = _connectionInfo.RakSessions;
 			ConcurrentDictionary<IPEndPoint, DateTime> connectionAttempts = _connectionAttempts;
 

@@ -55,6 +55,13 @@ namespace MiNET.Net.RakNet
 
 		public bool FoundServer => _rakOfflineHandler.HaveServer;
 
+		/// <summary>Stops new connections being answered, leaving established sessions alone.</summary>
+		public bool AcceptConnections
+		{
+			get => _rakOfflineHandler.AcceptConnections;
+			set => _rakOfflineHandler.AcceptConnections = value;
+		}
+
 		public bool AutoConnect
 		{
 			get => _rakOfflineHandler.AutoConnect;
