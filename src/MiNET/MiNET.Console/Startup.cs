@@ -41,8 +41,14 @@ namespace MiNET.Console
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Startup));
 
-		static void Main(string[] args)
+		static int Main(string[] args)
 		{
+			// Client mode: talk to a server that already runs, rather than being one.
+			if (args.Length > 0 && args[0] == "remote")
+			{
+				return RemoteConsoleClient.Run(args).GetAwaiter().GetResult();
+			}
+
 			if (args.Length > 0 && args[0] == "listener")
 			{
 				// This is a brutal hack to block BDS to use the ports we are using. So we start this, and basically block BDS
@@ -53,7 +59,7 @@ namespace MiNET.Console
 				System.Console.WriteLine("LISTENING!");
 				reset.WaitOne();
 				System.Console.WriteLine("EXIT!");
-				return;
+				return 0;
 			}
 
 			var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
@@ -76,12 +82,10 @@ namespace MiNET.Console
 
 			service.StartServer();
 
-			System.Console.WriteLine("MiNET running. Press <enter> to stop service.");
-
 			// A non-interactive host has no stdin to wait on, and used to sleep forever: the only
 			// way out was a kill, which skips StopServer and with it the level save, losing
-			// everything built since the last save interval. Ctrl+C, a close request and a
-			// shutdown all land here instead and stop the server properly.
+			// everything built since the last save interval. Ctrl+C, a close request, the remote
+			// console and a shutdown all land here instead and stop the server properly.
 			using var stopping = new ManualResetEventSlim(false);
 
 			void RequestStop(PosixSignalContext context)
@@ -89,6 +93,10 @@ namespace MiNET.Console
 				context.Cancel = true;
 				stopping.Set();
 			}
+
+			using RemoteConsole remoteConsole = RemoteConsole.StartIfEnabled(service, () => stopping.Set());
+
+			System.Console.WriteLine("MiNET running. Press <enter> to stop service.");
 
 			// A headless run has no console to signal and no stdin to type into, so it also watches
 			// for a file. Dropping temp_auto/stop-server next to the working directory stops the
@@ -109,6 +117,8 @@ namespace MiNET.Console
 
 			Log.Info("Shutting down, saving the level...");
 			service.StopServer();
+
+			return 0;
 		}
 	}
 }
