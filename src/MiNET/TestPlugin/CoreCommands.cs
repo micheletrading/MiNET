@@ -295,6 +295,29 @@ namespace TestPlugin
 			hologram.SpawnEntity();
 		}
 
+		[Command(Name = "players", Aliases = new[] {"list"}, Description = "Lists who is connected, across every level")]
+		public string ListPlayers(Player player)
+		{
+			// Enumerated off the plugin context rather than the calling player, so this answers the
+			// same way whether a player typed it or it arrived from the remote console, where the
+			// caller has no session and belongs to no level.
+			var lines = new List<string>();
+
+			foreach (Level level in Context.LevelManager.Levels.ToArray())
+			{
+				foreach (Player online in level.GetAllPlayers())
+				{
+					PlayerLocation at = online.KnownPosition;
+					lines.Add($"{online.Username} [{level.LevelId}] {at.X:F0},{at.Y:F0},{at.Z:F0} {online.GameMode}"
+							+ $"{(online.IsSpawned ? "" : " (connecting)")}");
+				}
+			}
+
+			if (lines.Count == 0) return "No players online";
+
+			return $"{lines.Count} online:\n" + string.Join("\n", lines);
+		}
+
 		[Command]
 		public string Info(Player player)
 		{
@@ -1517,7 +1540,7 @@ namespace TestPlugin
 
 		[Command(Name = "r")]
 		//[Authorize(Permission = UserPermission.Op)]
-		public void DisplayRestartNotice(Player currentPlayer)
+		public void DisplayRestartNotice(Player currentPlayer, string address = "yodamine.com", int port = 19132, bool reloadWorld = false)
 		{
 			var players = currentPlayer.Level.GetSpawnedPlayers();
 			foreach (var player in players)
@@ -1542,8 +1565,9 @@ namespace TestPlugin
 			foreach (var player in players)
 			{
 				McpeTransfer transfer = McpeTransfer.CreateObject();
-				transfer.serverAddress = "127.0.0.1";
-				transfer.port = 19132;
+				transfer.serverAddress = address;
+				transfer.port = (ushort) port;
+				transfer.reloadWorld = reloadWorld;
 				player.SendPacket(transfer);
 			}
 		}
