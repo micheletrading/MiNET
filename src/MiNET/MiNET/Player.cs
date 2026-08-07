@@ -956,7 +956,6 @@ namespace MiNET
 
 				GameMode = Config.GetProperty("Player.GameMode", Level.GameMode);
 
-				//
 				// The client requires this burst as an exact set in an exact order: a hole or a
 				// reorder is rejected with no diagnostic. The frame numbers map to the vanilla
 				// join it mirrors. Content is built from live state and the committed data files
@@ -2200,6 +2199,7 @@ namespace MiNET
 						if (sendDisconnect)
 						{
 							var disconnect = McpeDisconnect.CreateObject();
+							disconnect.reason = (int) McpeDisconnect.FailReason.LegacyDisconnect;
 							disconnect.message = reason;
 							NetworkHandler.SendPacket(disconnect);
 						}

@@ -652,16 +652,21 @@ namespace MiNET.Net.RakNet
 				return;
 			}
 
+			Log.Warn($"Session Close() called from:\n{Environment.StackTrace}");
+
+			// Drain while the session can still send. SendQueueAsync discards everything queued once
+			// State is Unconnected, and returns immediately once CustomMessageHandler is null, so a
+			// flush placed after the teardown below is a no-op: the McpeDisconnect carrying the kick
+			// reason was pooled rather than sent, every time, and the client only ever saw the raw
+			// RakNet teardown and showed its own generic error.
+			SendQueueAsync(500).Wait();
+
 			State = ConnectionState.Unconnected;
 			Evicted = true;
 			CustomMessageHandler = null;
 
-			Log.Warn($"Session Close() called from:\n{Environment.StackTrace}");
-
 			// Send with high priority, bypass queue
 			SendDirectPacket(DisconnectionNotification.CreateObject());
-
-			SendQueueAsync(500).Wait();
 
 			_cancellationToken.Cancel();
 			_packetQueuedWaitEvent.Set();
