@@ -1019,8 +1019,8 @@ namespace MiNET
 
 				// Frames 51-53: vanilla sends THREE searching-state respawns before chunk streaming.
 				SendRespawn();
-				SendRespawn();
-				SendRespawn();
+				// SendRespawn();
+				// SendRespawn();
 
 				// frame 54; skeleton chunks stream from frame 55. Fixed 4 chunks (64 blocks) like
 				// vanilla, regardless of any radius the client has already asked for.
