@@ -49,7 +49,20 @@ namespace MiNET.Utils.Skins
 		public float Inflate { get; set; }
 		public bool Mirror { get; set; }
 
+		/// <summary>
+		///     Degrees, x then y then z. Null when the cube is unrotated, so it stays off the wire.
+		///     With <see cref="Pivot" /> unset the cube turns about its own centre, which is what the
+		///     geometry 1.12.0 schema specifies and what tumbling debris wants.
+		/// </summary>
+		public float[] Rotation { get; set; }
+
+		/// <summary>Point the cube rotates around, in model space. Its own centre when null.</summary>
+		public float[] Pivot { get; set; }
+
 		[JsonIgnore] public Vector3 Velocity { get; set; } = Vector3.Zero;
+
+		/// <summary>Degrees per frame, applied to <see cref="Rotation" />. Server-side only.</summary>
+		[JsonIgnore] public Vector3 AngularVelocity { get; set; } = Vector3.Zero;
 
 		[JsonIgnore] public Face Face { get; set; } = Face.None;
 
@@ -60,6 +73,8 @@ namespace MiNET.Utils.Skins
 			cube.Origin = (float[]) Origin?.Clone();
 			cube.Size = (float[]) Size?.Clone();
 			cube.Uv = (float[]) Uv?.Clone();
+			cube.Rotation = (float[]) Rotation?.Clone();
+			cube.Pivot = (float[]) Pivot?.Clone();
 
 			return cube;
 		}

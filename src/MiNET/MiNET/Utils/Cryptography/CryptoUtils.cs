@@ -250,10 +250,12 @@ namespace MiNET.Utils.Cryptography
 		///     The bot's Character Creator skin, captured from a real 1.26 client. grey_skin.json is
 		///     that same capture with every opaque pixel of the body atlas set to 0x5A, the 'Z' of the
 		///     original ZZZ skin, so TheGrey is grey again while still wearing a skin the game accepts.
-		///     Embedded in MiNET.Client, which is the only assembly that logs in as a client, so it is
-		///     looked up by name rather than referenced: this method lives in the server assembly.
+		///     Embedded here in the core assembly, next to the code that loads it. It used to live in
+		///     MiNET.Client, so this method only worked in a process that had loaded the client: the
+		///     server itself could not build the bot's appearance, which is exactly what a server-side
+		///     stand-in player needs.
 		/// </summary>
-		private const string BotSkinResource = "MiNET.Client.Data.grey_skin.json";
+		private const string BotSkinResource = "MiNET.Data.grey_skin.json";
 
 		/// <summary>
 		///     The vanilla player model, base64 as it goes on the wire. This travels with the skin:
@@ -291,6 +293,14 @@ namespace MiNET.Utils.Cryptography
 		///     <see cref="ClientData.ToSkin" /> to make one for McpePlayerSkin; the id has to move with
 		///     the pixels or the client keeps showing the skin it already has under that id.
 		/// </summary>
+		/// <summary>
+		///     The humanoid geometry a skin needs to have anything to draw: geometry.cape,
+		///     geometry.humanoid.custom and geometry.humanoid.customSlim. Any skin the server builds
+		///     itself (NPCs, stand-in players) has to ship this, because naming
+		///     geometry.humanoid.custom without defining it leaves the client with nothing to render.
+		/// </summary>
+		public static string DefaultPlayerGeometry => Encoding.UTF8.GetString(Convert.FromBase64String(PlayerGeometry));
+
 		public static ClientData BuildBotClientData(string username)
 		{
 			ClientData clientData = LoadPersonaClientData();

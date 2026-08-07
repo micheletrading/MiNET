@@ -38,6 +38,7 @@
     <None Remove="Blocks\legacy_id_map.json" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Data\grey_skin.json" />
     <EmbeddedResource Include="Blocks\Data\block_id_map.json" />
     <EmbeddedResource Include="Blocks\Data\item_id_map.json" />
     <EmbeddedResource Include="Blocks\Data\legacy_id_map.json">
