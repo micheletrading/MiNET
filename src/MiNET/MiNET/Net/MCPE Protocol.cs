@@ -3758,54 +3758,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeClientboundMapItemData : Packet<McpeClientboundMapItemData>
-	{
-
-		public MapInfo mapinfo; // = null;
-
-		public McpeClientboundMapItemData()
-		{
-			Id = 0x43;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(mapinfo);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			mapinfo = ReadMapInfo();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			mapinfo=default(MapInfo);
-		}
-
-	}
-
 	public partial class McpeMapInfoRequest : Packet<McpeMapInfoRequest>
 	{
 
@@ -5846,59 +5798,6 @@ namespace MiNET.Net
 			dataLayerId=default(uint);
 			unknown0=default(long);
 			unknown1=default(long);
-		}
-
-	}
-
-	public partial class McpeSetScoreboardIdentity : Packet<McpeSetScoreboardIdentity>
-	{
-		public enum Operations
-		{
-			RegisterIdentity = 0,
-			ClearIdentity = 1,
-		}
-
-		public ScoreboardIdentityEntries entries; // = null;
-
-		public McpeSetScoreboardIdentity()
-		{
-			Id = 0x70;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(entries);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			entries = ReadScoreboardIdentityEntries();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			entries=default(ScoreboardIdentityEntries);
 		}
 
 	}

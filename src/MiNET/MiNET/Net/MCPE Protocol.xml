@@ -562,9 +562,6 @@
 		<field name="Count" type="SignedVarInt" />
 	</pdu>
 
-	<pdu id="0x43" online="false" client="false" server="true" name="MCPE_CLIENTBOUND_MAP_ITEM_DATA ">
-		<field name="MapInfo" type="MapInfo" />
-	</pdu>
 
 	<pdu id="0x44" online="false" client="true" server="true" name="MCPE_MAP_INFO_REQUEST">
 		<field name="Map ID" type="SignedVarLong" />
@@ -815,13 +812,6 @@
 	</pdu>
 
 
-	<pdu id="0x70" online="false" client="false" server="true" name="MCPE_SET_SCOREBOARD_IDENTITY">
-		<enums id="Operations">
-			<enum id="Register Identity" value="0" />
-			<enum id="Clear Identity" value="1" />
-		</enums>
-		<field name="Entries" type="ScoreboardIdentityEntries" />
-	</pdu>
 
 	<pdu id="0x71" online="false" client="true" server="false" name="MCPE_SET_LOCAL_PLAYER_AS_INITIALIZED">
 		<field name="Runtime Entity ID" type="UnsignedVarLong" />

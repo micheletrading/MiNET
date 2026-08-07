@@ -919,6 +919,147 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeClientboundMapItemData : Packet<McpeClientboundMapItemData>
+	{
+
+		public long mapId; // = null;
+		public byte dimension; // = null;
+		public bool isLocked; // = null;
+		public BlockCoordinates mapOrigin; // = null;
+		public List<long> creationMapIds; // = null;
+		public sbyte? scale; // = null;
+		public List<MapItemTrackedActorUniqueId> trackedActorIds; // = null;
+		public List<MapDecoration> decorations; // = null;
+		public int? width; // = null;
+		public int? height; // = null;
+		public int? startX; // = null;
+		public int? startY; // = null;
+		public List<uint> pixels; // = null;
+
+		public McpeClientboundMapItemData()
+		{
+			Id = 0x43;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarLong(mapId);
+			Write(dimension);
+			Write(isLocked);
+			Write(mapOrigin);
+			Write(creationMapIds != null);
+			if (creationMapIds != null)
+			{
+				WriteUnsignedVarInt((uint) creationMapIds.Count);
+				foreach (long item in creationMapIds) WriteSignedVarLong(item);
+			}
+			Write(scale != null);
+			if (scale != null) Write((byte) scale.Value);
+			Write(trackedActorIds != null);
+			if (trackedActorIds != null)
+			{
+				WriteUnsignedVarInt((uint) trackedActorIds.Count);
+				foreach (MapItemTrackedActorUniqueId item in trackedActorIds) Write(item);
+			}
+			Write(decorations != null);
+			if (decorations != null)
+			{
+				WriteUnsignedVarInt((uint) decorations.Count);
+				foreach (MapDecoration item in decorations) Write(item);
+			}
+			Write(width != null);
+			if (width != null) WriteSignedVarInt(width.Value);
+			Write(height != null);
+			if (height != null) WriteSignedVarInt(height.Value);
+			Write(startX != null);
+			if (startX != null) WriteSignedVarInt(startX.Value);
+			Write(startY != null);
+			if (startY != null) WriteSignedVarInt(startY.Value);
+			Write(pixels != null);
+			if (pixels != null)
+			{
+				WriteUnsignedVarInt((uint) pixels.Count);
+				foreach (uint item in pixels) Write((int) item);
+			}
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			mapId = ReadSignedVarLong();
+			dimension = ReadByte();
+			isLocked = ReadBool();
+			mapOrigin = ReadBlockCoordinates();
+			if (ReadBool())
+			{
+				uint creationMapIdsCount = ReadUnsignedVarInt();
+				creationMapIds = new List<long>((int) creationMapIdsCount);
+				for (int i = 0; i < creationMapIdsCount; i++) creationMapIds.Add(ReadSignedVarLong());
+			}
+			if (ReadBool()) scale = (sbyte) ReadByte();
+			if (ReadBool())
+			{
+				uint trackedActorIdsCount = ReadUnsignedVarInt();
+				trackedActorIds = new List<MapItemTrackedActorUniqueId>((int) trackedActorIdsCount);
+				for (int i = 0; i < trackedActorIdsCount; i++) trackedActorIds.Add(ReadMapItemTrackedActorUniqueId());
+			}
+			if (ReadBool())
+			{
+				uint decorationsCount = ReadUnsignedVarInt();
+				decorations = new List<MapDecoration>((int) decorationsCount);
+				for (int i = 0; i < decorationsCount; i++) decorations.Add(ReadMapDecoration());
+			}
+			if (ReadBool()) width = ReadSignedVarInt();
+			if (ReadBool()) height = ReadSignedVarInt();
+			if (ReadBool()) startX = ReadSignedVarInt();
+			if (ReadBool()) startY = ReadSignedVarInt();
+			if (ReadBool())
+			{
+				uint pixelsCount = ReadUnsignedVarInt();
+				pixels = new List<uint>((int) pixelsCount);
+				for (int i = 0; i < pixelsCount; i++) pixels.Add((uint) ReadInt());
+			}
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			mapId=default(long);
+			dimension=default(byte);
+			isLocked=default(bool);
+			mapOrigin=default(BlockCoordinates);
+			creationMapIds=default(List<long>);
+			scale=default(sbyte?);
+			trackedActorIds=default(List<MapItemTrackedActorUniqueId>);
+			decorations=default(List<MapDecoration>);
+			width=default(int?);
+			height=default(int?);
+			startX=default(int?);
+			startY=default(int?);
+			pixels=default(List<uint>);
+		}
+
+	}
+
 	public partial class McpeTransfer : Packet<McpeTransfer>
 	{
 
@@ -1303,6 +1444,66 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			moveData=default(MoveActorDeltaData);
+		}
+
+	}
+
+	public partial class McpeSetScoreboardIdentity : Packet<McpeSetScoreboardIdentity>
+	{
+		public enum ScoreboardIdentityPacketType
+		{
+			Update = 0,
+			Remove = 1,
+		}
+
+		public McpeSetScoreboardIdentity.ScoreboardIdentityPacketType scoreboardIdentityPacketType; // = null;
+		public List<ScoreboardIdentityPacketInfo> scoreboardIdentityInfo; // = null;
+
+		public McpeSetScoreboardIdentity()
+		{
+			Id = 0x70;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write((byte) scoreboardIdentityPacketType);
+			WriteUnsignedVarInt((uint) (scoreboardIdentityInfo?.Count ?? 0));
+			if (scoreboardIdentityInfo != null) foreach (ScoreboardIdentityPacketInfo item in scoreboardIdentityInfo) Write(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			scoreboardIdentityPacketType = (McpeSetScoreboardIdentity.ScoreboardIdentityPacketType) ReadByte();
+			uint scoreboardIdentityInfoCount = ReadUnsignedVarInt();
+			scoreboardIdentityInfo = new List<ScoreboardIdentityPacketInfo>((int) scoreboardIdentityInfoCount);
+			for (int i = 0; i < scoreboardIdentityInfoCount; i++) scoreboardIdentityInfo.Add(ReadScoreboardIdentityPacketInfo());
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			scoreboardIdentityPacketType=default(McpeSetScoreboardIdentity.ScoreboardIdentityPacketType);
+			scoreboardIdentityInfo=default(List<ScoreboardIdentityPacketInfo>);
 		}
 
 	}
@@ -2112,6 +2313,60 @@ namespace MiNET.Net
 		public bool allowAnonymousBlockDropsInEditorWorlds;
 	}
 
+	public class MapDecoration
+	{
+		public enum Type
+		{
+			Markerwhite = 0,
+			Markergreen = 1,
+			Markerred = 2,
+			Markerblue = 3,
+			Xwhite = 4,
+			Trianglered = 5,
+			Squarewhite = 6,
+			Markersign = 7,
+			Markerpink = 8,
+			Markerorange = 9,
+			Markeryellow = 10,
+			Markerteal = 11,
+			Trianglegreen = 12,
+			Smallsquarewhite = 13,
+			Mansion = 14,
+			Monument = 15,
+			Nodraw = 16,
+			Villagedesert = 17,
+			Villageplains = 18,
+			Villagesavanna = 19,
+			Villagesnowy = 20,
+			Villagetaiga = 21,
+			Jungletemple = 22,
+			Witchhut = 23,
+			Trialchambers = 24,
+			Count = 25,
+		}
+
+		public MapDecoration.Type imageType;
+		public byte rotation;
+		public byte x;
+		public byte y;
+		public string label;
+		public int color;
+	}
+
+	public class MapItemTrackedActorUniqueId
+	{
+		public enum MapItemTrackedActorType
+		{
+			Entity = 0,
+			Blockentity = 1,
+			Other = 2,
+		}
+
+		public MapItemTrackedActorUniqueId.MapItemTrackedActorType type;
+		public long? entityId;
+		public BlockCoordinates blockPosition;
+	}
+
 	public class MemoryCategoryCounter
 	{
 		public enum MemoryCategory
@@ -2316,6 +2571,12 @@ namespace MiNET.Net
 
 	public class ResourcePackClientResponseResourcePackStackFinished : ResourcePackClientResponse
 	{
+	}
+
+	public class ScoreboardIdentityPacketInfo
+	{
+		public long scoreboardId;
+		public long? playerUniqueId;
 	}
 
 	public class SerializedAbilitiesData
@@ -2892,6 +3153,46 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(MapDecoration data)
+		{
+			Write((byte) (sbyte) data.imageType);
+			Write(data.rotation);
+			Write(data.x);
+			Write(data.y);
+			Write(data.label);
+			Write(data.color);
+		}
+
+		public MapDecoration ReadMapDecoration()
+		{
+			var data = new MapDecoration();
+			data.imageType = (MapDecoration.Type) (sbyte) ReadByte();
+			data.rotation = ReadByte();
+			data.x = ReadByte();
+			data.y = ReadByte();
+			data.label = ReadString();
+			data.color = ReadInt();
+			return data;
+		}
+
+		public void Write(MapItemTrackedActorUniqueId data)
+		{
+			Write((int) data.type);
+			Write(data.entityId != null);
+			if (data.entityId != null) WriteSignedVarLong(data.entityId.Value);
+			Write(data.blockPosition != null);
+			if (data.blockPosition != null) Write(data.blockPosition);
+		}
+
+		public MapItemTrackedActorUniqueId ReadMapItemTrackedActorUniqueId()
+		{
+			var data = new MapItemTrackedActorUniqueId();
+			data.type = (MapItemTrackedActorUniqueId.MapItemTrackedActorType) ReadInt();
+			if (ReadBool()) data.entityId = ReadSignedVarLong();
+			if (ReadBool()) data.blockPosition = ReadBlockCoordinates();
+			return data;
+		}
+
 		public void Write(MemoryCategoryCounter data)
 		{
 			Write((byte) data.category);
@@ -3127,6 +3428,21 @@ namespace MiNET.Net
 		{
 			var data = new ResourcePackClientResponseResourcePackStackFinished();
 			ReadString();
+			return data;
+		}
+
+		public void Write(ScoreboardIdentityPacketInfo data)
+		{
+			WriteSignedVarLong(data.scoreboardId);
+			Write(data.playerUniqueId != null);
+			if (data.playerUniqueId != null) WriteSignedVarLong(data.playerUniqueId.Value);
+		}
+
+		public ScoreboardIdentityPacketInfo ReadScoreboardIdentityPacketInfo()
+		{
+			var data = new ScoreboardIdentityPacketInfo();
+			data.scoreboardId = ReadSignedVarLong();
+			if (ReadBool()) data.playerUniqueId = ReadSignedVarLong();
 			return data;
 		}
 

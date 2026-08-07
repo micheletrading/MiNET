@@ -1542,7 +1542,7 @@ namespace TestPlugin
 			foreach (var player in players)
 			{
 				McpeTransfer transfer = McpeTransfer.CreateObject();
-				transfer.serverAddress = "yodamine.com";
+				transfer.serverAddress = "127.0.0.1";
 				transfer.port = 19132;
 				player.SendPacket(transfer);
 			}
@@ -1729,8 +1729,16 @@ namespace TestPlugin
 			objective.sortOrder = 0;
 			player.SendPacket(objective);
 
-			//McpeSetScoreboardIdentityPacket ident = McpeSetScoreboardIdentityPacket.CreateObject();
-			//ident.entries = new ScoreboardIdentityEntries() {new ScoreboardRegisterIdentityEntry(){}};
+			// Fake-player entries need no identity mapping. A real one ties a scoreboard id to a
+			// player, and since 2168 the player id is a per-entry optional rather than a field the
+			// packet type implies:
+			//
+			//   McpeSetScoreboardIdentity ident = McpeSetScoreboardIdentity.CreateObject();
+			//   ident.scoreboardIdentityPacketType = McpeSetScoreboardIdentity.ScoreboardIdentityPacketType.Update;
+			//   ident.scoreboardIdentityInfo = new List<ScoreboardIdentityPacketInfo>
+			//   {
+			//       new ScoreboardIdentityPacketInfo {scoreboardId = 3, playerUniqueId = player.EntityId}
+			//   };
 
 			McpeSetScore score = McpeSetScore.CreateObject();
 			score.scoreInfo = new List<ScoreInfoElement>

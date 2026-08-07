@@ -107,11 +107,8 @@ namespace MiNET.Entities.World
 			if (data != null)
 			{
 				MapInfo.Data = data;
-				var mapInfo = (MapInfo) MapInfo.Clone();
 
-				var msg = McpeClientboundMapItemData.CreateObject();
-				msg.mapinfo = mapInfo;
-				Level.RelayBroadcast(msg);
+				Level.RelayBroadcast(McpeClientboundMapItemData.FromMapInfo(MapInfo));
 
 				return;
 			}
@@ -141,11 +138,8 @@ namespace MiNET.Entities.World
 				if (data != null)
 				{
 					MapInfo.Data = data;
-					var mapInfo = (MapInfo) MapInfo.Clone();
 
-					McpeClientboundMapItemData msg = McpeClientboundMapItemData.CreateObject();
-					msg.mapinfo = mapInfo;
-					player.SendPacket(msg);
+					player.SendPacket(McpeClientboundMapItemData.FromMapInfo(MapInfo));
 
 					return;
 				}

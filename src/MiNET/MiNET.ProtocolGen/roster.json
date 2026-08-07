@@ -1,4 +1,4 @@
-{
+﻿{
 	"_comment": "The Cereal packet roster: packets whose bodies are generated from the Mojang schemas (MiNET.BlockGen/ProtocolDocs/json) instead of MCPE Protocol.xml. A packet is added here in the release where Mojang migrates it to Cereal (see the changelog in the ProtocolDocs submodule), and its pdu is removed from the XML at the same time. The schemas carry field names, order (x-ordinal-index), types and optionality; this file carries the wire facts they do not: our packet id and direction flags.",
 	"packets": [
 		{
@@ -40,6 +40,22 @@
 			"client": false,
 			"server": true,
 			"schema": "CreativeContentPacket"
+		},
+		{
+			"name": "MCPE_CLIENTBOUND_MAP_ITEM_DATA",
+			"id": "0x43",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "ClientboundMapItemDataPacket"
+		},
+		{
+			"name": "MCPE_SET_SCOREBOARD_IDENTITY",
+			"id": "0x70",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "SetScoreboardIdentityPacket"
 		},
 		{
 			"name": "MCPE_SERVER_TO_CLIENT_HANDSHAKE",

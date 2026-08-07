@@ -321,8 +321,7 @@ namespace TestPlugin.Code4Fun
 				Data = bitmapToBytes,
 			};
 
-			var packet = McpeClientboundMapItemData.CreateObject();
-			packet.mapinfo = mapInfo;
+			var packet = McpeClientboundMapItemData.FromMapInfo(mapInfo);
 			var batch = CreateMcpeBatch(packet.Encode());
 
 			return batch;
