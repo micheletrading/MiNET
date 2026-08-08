@@ -41,7 +41,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public partial class GrassBlock : Block
 	{
-		public GrassBlock() : base(2)
+		public GrassBlock()
 		{
 		}
 

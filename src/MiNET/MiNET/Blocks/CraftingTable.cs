@@ -34,7 +34,7 @@ namespace MiNET.Blocks
 {
 	public partial class CraftingTable : Block
 	{
-		public CraftingTable() : base(58)
+		public CraftingTable()
 		{
 			FuelEfficiency = 15;
 			//IsFlammable = true; // Only from lava.

@@ -47,7 +47,7 @@ namespace MiNET.Blocks
 		/// <summary>How far a leaf may be from a log before it decays.</summary>
 		private const int MaxLogDistance = 4;
 
-		protected LeavesBase(int id) : base(id)
+		protected LeavesBase()
 		{
 		}
 

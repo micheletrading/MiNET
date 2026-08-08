@@ -34,7 +34,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public abstract partial class StoneBrickBase : Block
 	{
-		protected StoneBrickBase(int id) : base(id)
+		protected StoneBrickBase()
 		{
 		}
 

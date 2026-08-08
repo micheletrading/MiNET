@@ -38,7 +38,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public abstract partial class FlowerBase : Block
 	{
-		protected FlowerBase(int id) : base(id)
+		protected FlowerBase()
 		{
 		}
 

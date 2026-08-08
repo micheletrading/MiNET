@@ -23,12 +23,29 @@
 
 #endregion
 
+using System.Numerics;
+using MiNET.Items;
+using MiNET.Utils.Vectors;
+using MiNET.Worlds;
+
 namespace MiNET.Blocks
 {
-	public partial class WoodenDoor : DoorBase
+	/// <summary>
+	///     Behaviour shared by every glazed terracotta: it takes the facing of whoever placed it.
+	///     minecraft:facing_direction is generated onto this base; it used to be hand-declared here
+	///     and shadowed by all 16 members, so the facing never reached the wire.
+	/// </summary>
+	public abstract partial class GlazedTerracottaBase : Block
 	{
-		public WoodenDoor() : base(64)
+		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
+			FacingDirection = ItemBlock.GetFacingDirectionFromEntity(player);
+
+			return false;
 		}
 	}
 }
+	/// <summary>
+	///     Glazed terracotta takes the facing of whoever placed it, so its pattern lines up across a
+	///     row. minecraft:facing_direction is generated onto this base.
+	/// </summary>

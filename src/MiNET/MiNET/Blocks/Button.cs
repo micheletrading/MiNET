@@ -30,14 +30,12 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class Button : Block
+	public abstract partial class Button : Block
 	{
 		public int TickRate { get; set; }
 
-		[StateBit] public virtual bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public virtual int FacingDirection { get; set; } = 0;
 
-		protected Button(int id) : base(id)
+		protected Button()
 		{
 		}
 

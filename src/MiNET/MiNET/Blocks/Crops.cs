@@ -33,15 +33,14 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class Crops : Block
+	public abstract partial class Crops : Block
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Crops));
 
-		[StateRange(0, 7)] public virtual int Growth { get; set; } = 0;
 
 		protected byte MaxGrowth { get; set; } = 7;
 
-		protected Crops(byte id) : base(id)
+		protected Crops()
 		{
 		}
 

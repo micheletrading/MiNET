@@ -29,7 +29,7 @@ namespace MiNET.Blocks
 {
 	public partial class Mycelium : Block
 	{
-		public Mycelium() : base(110)
+		public Mycelium()
 		{
 		}
 

@@ -39,7 +39,7 @@ namespace MiNET.Blocks
 		//[StateBit] public bool CoveredBit { get; set; } = false;
 		//[StateRange(0, 7)] public int Height { get; set; } = 0;
 
-		public SnowLayer() : base(78)
+		public SnowLayer()
 		{
 			IsReplaceable = true;
 		}

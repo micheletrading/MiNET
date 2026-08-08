@@ -39,7 +39,7 @@ namespace MiNET.Blocks
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Chalkboard));
 
-		public Chalkboard() : base(230)
+		public Chalkboard()
 		{
 		}
 

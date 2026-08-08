@@ -24,8 +24,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -79,10 +77,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -245,9 +239,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -691,7 +682,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -745,8 +735,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -800,7 +788,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -849,9 +836,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -910,7 +894,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1409,7 +1392,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1463,8 +1445,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2037,10 +2017,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2203,9 +2179,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2431,7 +2404,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2485,8 +2457,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2744,7 +2714,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2798,8 +2767,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2902,9 +2869,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3419,7 +3383,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3613,8 +3576,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3668,10 +3629,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3834,9 +3791,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4280,7 +4234,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4334,8 +4287,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4389,7 +4340,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4438,9 +4388,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4499,7 +4446,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4820,7 +4766,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5151,7 +5096,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5205,8 +5149,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5360,7 +5302,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5633,7 +5574,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -6474,7 +6414,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -6528,8 +6467,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -6900,7 +6837,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -7964,7 +7900,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8513,10 +8448,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8679,9 +8610,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9125,7 +9053,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9179,8 +9106,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9283,9 +9208,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9448,7 +9370,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10306,7 +10227,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10360,8 +10280,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10607,7 +10525,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10661,8 +10578,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -11136,7 +11051,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -11190,8 +11104,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -11437,7 +11349,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -12255,7 +12166,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -12311,10 +12221,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -12623,9 +12529,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13204,10 +13107,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13370,9 +13269,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13831,7 +13727,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13885,8 +13780,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13940,7 +13833,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14043,9 +13935,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14104,7 +13993,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14229,7 +14117,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14283,8 +14170,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14430,7 +14315,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14576,7 +14460,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14847,7 +14730,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15180,8 +15062,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15235,10 +15115,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15401,9 +15277,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15847,7 +15720,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15901,8 +15773,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15956,9 +15826,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16164,7 +16031,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16218,8 +16084,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16273,7 +16137,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16322,7 +16185,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -17535,7 +17397,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -17589,8 +17450,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18140,7 +17999,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18194,8 +18052,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18814,7 +18670,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18868,8 +18723,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -24174,8 +24027,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -24546,7 +24397,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -24700,7 +24550,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -24979,7 +24828,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25035,10 +24883,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25251,9 +25095,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25350,7 +25191,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25404,8 +25244,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25617,9 +25455,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -26108,7 +25943,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -26157,7 +25991,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -26354,7 +26187,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -26971,7 +26803,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -27025,8 +26856,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -27511,7 +27340,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -27967,7 +27795,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -30657,10 +30484,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -30769,9 +30592,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -30924,8 +30744,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -30979,10 +30797,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31145,9 +30959,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31591,7 +31402,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31645,8 +31455,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31700,7 +31508,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31749,9 +31556,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31810,7 +31614,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -32291,7 +32094,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -33356,7 +33158,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -34409,7 +34210,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -34648,7 +34448,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -34742,7 +34541,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35290,7 +35088,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35622,10 +35419,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35788,9 +35581,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -36279,7 +36069,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -36333,8 +36122,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -36437,9 +36224,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37009,7 +36793,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37063,8 +36846,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37272,7 +37053,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37326,8 +37106,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37649,7 +37427,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37703,8 +37480,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38168,7 +37943,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38222,8 +37996,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38708,7 +38480,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38762,8 +38533,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39276,7 +39045,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39330,8 +39098,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39852,7 +39618,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40432,7 +40197,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40488,10 +40252,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40704,9 +40464,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40803,7 +40560,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40857,8 +40613,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41338,10 +41092,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41504,9 +41254,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41950,7 +41697,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -42004,8 +41750,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -42108,9 +41852,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -42750,7 +42491,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43533,7 +43273,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43587,8 +43326,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43789,7 +43526,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43843,8 +43579,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44194,7 +43928,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44248,8 +43981,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44495,7 +44226,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44549,8 +44279,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44796,7 +44524,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44850,8 +44577,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45097,7 +44822,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45151,8 +44875,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45298,7 +45020,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45352,8 +45073,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45499,7 +45218,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45553,8 +45271,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45800,7 +45516,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45854,8 +45569,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -46837,7 +46550,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47204,7 +46916,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47296,8 +47007,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47405,7 +47114,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47459,8 +47167,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47943,7 +47649,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48346,7 +48051,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48400,8 +48104,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48695,7 +48397,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48749,8 +48450,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49184,7 +48883,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49412,7 +49110,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49466,8 +49163,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49793,7 +49488,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49847,8 +49541,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -50344,7 +50036,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("unknown","west","east","north","south","top")] public string TorchFacingDirection { get; set; } = "unknown";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -50723,7 +50414,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -50777,8 +50467,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -51246,7 +50934,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -51300,8 +50987,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52010,7 +51695,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52507,7 +52191,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52561,8 +52244,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52708,7 +52389,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52762,8 +52442,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52909,7 +52587,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52963,8 +52640,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53110,7 +52785,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53681,8 +53355,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53736,10 +53408,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53902,9 +53570,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54348,7 +54013,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54402,8 +54066,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54457,7 +54119,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54506,9 +54167,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54567,7 +54225,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54720,7 +54377,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54959,7 +54615,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55013,8 +54668,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55206,8 +54859,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55310,8 +54961,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57043,7 +56692,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57097,8 +56745,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57344,7 +56990,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57461,8 +57106,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -58178,9 +57821,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -58239,7 +57879,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -58743,7 +58382,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -58797,8 +58435,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59044,7 +58680,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59098,8 +58733,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59553,7 +59186,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("unknown","west","east","north","south","top")] public string TorchFacingDirection { get; set; } = "unknown";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59971,7 +59603,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60075,10 +59706,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60241,9 +59868,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60702,7 +60326,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60756,8 +60379,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60811,7 +60432,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60914,9 +60534,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60975,7 +60592,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61062,7 +60678,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61372,7 +60987,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61428,10 +61042,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61644,9 +61254,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61743,7 +61350,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61797,8 +61403,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62129,7 +61733,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62185,10 +61788,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62401,9 +62000,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62500,7 +62096,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62554,8 +62149,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62996,7 +62589,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63052,10 +62644,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63268,9 +62856,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63367,7 +62952,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63421,8 +63005,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63808,7 +63390,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63864,10 +63445,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64080,9 +63657,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64179,7 +63753,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64233,8 +63806,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64620,7 +64191,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64676,10 +64246,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64892,9 +64458,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64991,7 +64554,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -65045,8 +64607,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -65334,7 +64894,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -65600,7 +65159,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -66027,8 +65585,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -66082,10 +65638,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -66422,7 +65974,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -66736,6 +66287,57 @@ namespace MiNET.Blocks
 		} // method
 	} // class
 
+	public abstract partial class BlastFurnaceBase
+	{
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+	} // class
+
+	public abstract partial class Button
+	{
+		[StateBit] public bool ButtonPressedBit { get; set; } = false;
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
+	} // class
+
+	public abstract partial class ChestBase
+	{
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+	} // class
+
+	public abstract partial class Crops
+	{
+		[StateRange(0, 7)] public int Growth { get; set; } = 0;
+	} // class
+
+	public abstract partial class DoorBase
+	{
+		[StateBit] public bool DoorHingeBit { get; set; } = false;
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool OpenBit { get; set; } = false;
+		[StateBit] public bool UpperBlockBit { get; set; } = false;
+	} // class
+
+	public abstract partial class FenceGateBase
+	{
+		[StateBit] public bool InWallBit { get; set; } = false;
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool OpenBit { get; set; } = false;
+	} // class
+
+	public abstract partial class Flowing
+	{
+		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
+	} // class
+
+	public abstract partial class FurnaceBase
+	{
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+	} // class
+
+	public abstract partial class GlazedTerracottaBase
+	{
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
+	} // class
+
 	public abstract partial class LeavesBase
 	{
 		[StateBit] public bool PersistentBit { get; set; } = false;
@@ -66745,5 +66347,43 @@ namespace MiNET.Blocks
 	public abstract partial class LogBase
 	{
 		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
+	} // class
+
+	public abstract partial class RedstoneTorchBase
+	{
+		[StateEnum("unknown","west","east","north","south","top")] public string TorchFacingDirection { get; set; } = "unknown";
+	} // class
+
+	public abstract partial class SlabBase
+	{
+		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
+	} // class
+
+	public abstract partial class StairsBase
+	{
+		[StateBit] public bool UpsideDownBit { get; set; } = false;
+		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
+	} // class
+
+	public abstract partial class StandingSignBase
+	{
+		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
+	} // class
+
+	public abstract partial class Stationary
+	{
+		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
+	} // class
+
+	public abstract partial class TrapdoorBase
+	{
+		[StateRange(0, 3)] public int Direction { get; set; } = 0;
+		[StateBit] public bool OpenBit { get; set; } = false;
+		[StateBit] public bool UpsideDownBit { get; set; } = false;
+	} // class
+
+	public abstract partial class WallSignBase
+	{
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 	} // class
 }

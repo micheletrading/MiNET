@@ -30,11 +30,7 @@ namespace MiNET.Blocks
 {
 	public partial class RedstoneOre : Block
 	{
-		public RedstoneOre() : this(73)
-		{
-		}
-
-		public RedstoneOre(byte id) : base(id)
+		public RedstoneOre()
 		{
 		}
 
@@ -52,4 +48,6 @@ namespace MiNET.Blocks
 			return random.Next(1, 6);
 		}
 	}
+
+	public partial class LitRedstoneOre : RedstoneOre { }
 }

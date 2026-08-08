@@ -81,6 +81,22 @@ namespace MiNET.Items
 			};
 		}
 
+		/// <summary>
+		///     The same facing as <see cref="GetFacingDirectionFromEntity" />, as the string the
+		///     minecraft:cardinal_direction state takes. Chests, furnaces and the rest moved to that
+		///     state at flattening; the facing they compute has not changed, only how it is written.
+		/// </summary>
+		public static string GetCardinalDirectionFromEntity(Entity entity)
+		{
+			return entity.GetDirectionEmum() switch
+			{
+				Entity.Direction.West => "west",
+				Entity.Direction.North => "north",
+				Entity.Direction.East => "east",
+				_ => "south"
+			};
+		}
+
 		public static BlockAxis GetPillarAxisFromFace(BlockFace face)
 		{
 			return face switch
@@ -131,7 +147,7 @@ namespace MiNET.Items
 				player.Inventory.SetInventorySlot(player.Inventory.InHandSlot, itemInHand);
 			}
 
-			world.BroadcastSound(newBlock.Coordinates, LevelSoundEventType.Place, newBlock.Id);
+			world.BroadcastSound(newBlock.Coordinates, LevelSoundEventType.Place, newBlock.GetRuntimeId());
 		}
 
 		public override string ToString()

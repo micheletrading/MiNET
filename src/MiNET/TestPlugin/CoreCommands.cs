@@ -675,7 +675,7 @@ namespace TestPlugin
 			Stopwatch sw = new Stopwatch();
 			sw.Start();
 			Level level = player.Level;
-			int blockId = new Portal().Id;
+			string blockName = new Portal().Name;
 			BlockCoordinates start = (BlockCoordinates) player.KnownPosition;
 			for (int x = start.X - width; x < start.X + width; x++)
 			{
@@ -683,7 +683,7 @@ namespace TestPlugin
 				{
 					for (int y = height - 1; y >= 0; y--)
 					{
-						var b = level.IsBlock(new BlockCoordinates(x, y, z), blockId);
+						var b = level.IsBlock(new BlockCoordinates(x, y, z), blockName);
 						if (b) Log.Warn("Found portal block");
 					}
 				}

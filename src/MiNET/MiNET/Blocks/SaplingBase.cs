@@ -40,7 +40,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public abstract partial class SaplingBase : Block
 	{
-		protected SaplingBase(int id) : base(id)
+		protected SaplingBase()
 		{
 			FuelEfficiency = 5;
 		}

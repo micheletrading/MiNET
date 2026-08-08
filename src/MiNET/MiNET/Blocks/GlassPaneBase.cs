@@ -33,7 +33,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public abstract partial class GlassPaneBase : Block
 	{
-		protected GlassPaneBase(int id) : base(id)
+		protected GlassPaneBase()
 		{
 		}
 

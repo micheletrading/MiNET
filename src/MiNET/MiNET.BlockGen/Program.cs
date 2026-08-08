@@ -89,7 +89,21 @@ public static class Program
 		int classes = WriteBlockDataClasses(Path.Combine(blocksDir, "BlockData.generated.cs"), byName, handWritten, familyBases);
 		Console.WriteLine($"BlockData.generated.cs: {classes} classes");
 
-		int partials = WritePartialBlocks(Path.Combine(blocksDir, "PartialBlocks.cs"), byName, handImplemented, baseIndex, familyBases);
+		// Where each block's states are declared. The creative families are one answer; a base the
+		// code declares for itself is the other, and both hoist the same way. Assigning a base to a
+		// GENERATED class stays creative-group-only above: this only decides who owns the states.
+		var blockClassNames = new HashSet<string>(byName.Select(g => CodeName(g.Key.Replace("minecraft:", ""))));
+		Dictionary<string, string> declaredBases = ReadDeclaredBases(blocksDir, handWritten, blockClassNames);
+		var stateOwners = new Dictionary<string, string>(familyBases, StringComparer.OrdinalIgnoreCase);
+		foreach (IGrouping<string, BlockState> group in byName)
+		{
+			if (stateOwners.ContainsKey(group.Key)) continue;
+			if (declaredBases.TryGetValue(CodeName(group.Key.Replace("minecraft:", "")), out string owner)) stateOwners[group.Key] = owner;
+		}
+
+		Console.WriteLine($"state owners: {stateOwners.Values.Distinct().Count()} bases covering {stateOwners.Count} blocks");
+
+		int partials = WritePartialBlocks(Path.Combine(blocksDir, "PartialBlocks.cs"), byName, handImplemented, baseIndex, stateOwners);
 		Console.WriteLine($"PartialBlocks.cs: {partials} partials");
 
 		int entries = WriteBlockPalette(Path.Combine(blocksDir, "BlockPaletteData.generated.cs"), palette);
@@ -692,13 +706,21 @@ public static class Program
 			string baseName = CodeName(group.Substring("itemGroup.name.".Length)) + "Base";
 			if (!handWritten.Contains(baseName)) continue;
 
-			// Only a base the generated class can actually call. Several of the older ones want more
-			// than an id (SlabBase needs its double-slab name, others take a byte), and what to pass
-			// is not derivable from the palette. Those stay opt-in through a hand-written class.
+			// Only a base the generated class can actually call, which now means one that takes
+			// nothing: either no declared constructor at all, or an explicitly parameterless one.
+			// Several of the older bases still want an argument (SlabBase needs its double-slab
+			// name, others take a byte) that is not derivable from the palette, and those stay
+			// opt-in through a hand-written class until they are converted.
 			if (!usable.TryGetValue(baseName, out bool ok))
 			{
 				string file = Path.Combine(blocksDir, baseName + ".cs");
-				ok = File.Exists(file) && Regex.IsMatch(File.ReadAllText(file), @"\b" + baseName + @"\s*\(\s*int\s+\w+\s*\)");
+				if (File.Exists(file))
+				{
+					string text = File.ReadAllText(file);
+					ok = Regex.IsMatch(text, @"\b" + baseName + @"\s*\(\s*\)")
+						|| !Regex.IsMatch(text, @"\b" + baseName + @"\s*\([^)]");
+				}
+
 				usable[baseName] = ok;
 			}
 
@@ -744,6 +766,42 @@ public static class Program
 	}
 
 	/// <summary>
+	///     Which base each hand-written block class declares, read from the source. The creative
+	///     groups name the families Mojang publishes, but the code has bases they do not: liquids,
+	///     furnaces, redstone torches. Their members say so themselves, in the file, and that is the
+	///     only place it is written down.
+	///     <para>
+	///         Only a base that is not itself a block counts, so a concrete class that happens to be
+	///         someone's base (RedstoneOre under LitRedstoneOre) keeps its own states rather than
+	///         having them hoisted out from under it.
+	///     </para>
+	/// </summary>
+	/// <summary>Line comments only, enough to keep a commented-out class from being read as one.</summary>
+	private static string StripLineComments(string text)
+	{
+		return Regex.Replace(text, @"//.*?$", "", RegexOptions.Multiline);
+	}
+
+	private static Dictionary<string, string> ReadDeclaredBases(string blocksDir, HashSet<string> handWritten, HashSet<string> blockClassNames)
+	{
+		var declared = new Dictionary<string, string>();
+		foreach (string path in Directory.GetFiles(blocksDir, "*.cs"))
+		{
+			if (Path.GetFileName(path) is "PartialBlocks.cs" or "BlockData.generated.cs" or "BlockPaletteData.generated.cs") continue;
+
+			string text = StripLineComments(File.ReadAllText(path));
+			foreach (Match m in Regex.Matches(text, @"public\s+(?:(?:abstract|sealed|static|partial)\s+)*class\s+(\w+)\s*:\s*(\w+)"))
+			{
+				string baseName = m.Groups[2].Value;
+				if (baseName == "Block" || !handWritten.Contains(baseName) || blockClassNames.Contains(baseName)) continue;
+				declared[m.Groups[1].Value] = baseName;
+			}
+		}
+
+		return declared;
+	}
+
+	/// <summary>
 	///     Classes that write their own GetState by hand. A generated partial would duplicate it,
 	///     so those blocks are the one case where the states are not generated. Detected from the
 	///     file text, since the compiled type cannot tell a hand-written override from a
@@ -780,7 +838,6 @@ public static class Program
 			string className = CodeName(group.Key.Replace("minecraft:", ""));
 			if (handWritten.Contains(className)) continue;
 
-			BlockState first = group.First();
 			count++;
 			sb.AppendLine();
 
@@ -789,7 +846,7 @@ public static class Program
 
 			sb.AppendLine($"\tpublic partial class {className} : {familyBase} // {group.Key}");
 			sb.AppendLine("\t{");
-			sb.AppendLine($"\t\tpublic {className}() : base({first.Id})");
+			sb.AppendLine($"\t\tpublic {className}()");
 			sb.AppendLine("\t\t{");
 			sb.AppendLine("\t\t\tIsGenerated = true;");
 			sb.AppendLine("\t\t}");
@@ -901,8 +958,9 @@ public static class Program
 		{
 			string className = CodeName(group.Key.Replace("minecraft:", ""));
 			if (handImplemented.Contains(className)) continue;
-			BlockState first = group.First();
 			count++;
+
+			BlockState first = group.First();
 
 			// Every distinct value a state takes across this block's permutations, so a bit stays
 			// a bool and a range keeps its real bounds.

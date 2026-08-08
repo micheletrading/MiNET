@@ -8,50 +8,61 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
 
 using System.Numerics;
-using System.Runtime.CompilerServices;
+using log4net;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class SlabBase : Block
+	/// <summary>
+	///     A single slab stands in half a block, and a second one of the same kind placed into it
+	///     becomes the double slab, which is a separate block. Which half it occupies is
+	///     minecraft:vertical_half, generated onto this base since every member of the family carries
+	///     it and nothing else.
+	/// </summary>
+	public abstract partial class SlabBase : Block
 	{
-		private readonly string _doubleSlabName;
+		private static readonly ILog Log = LogManager.GetLogger(typeof(SlabBase));
 
-		[StateBit] public virtual bool TopSlotBit { get; set; } = false;
+		/// <summary>Whether this slab sits in the upper half of its block.</summary>
+		public bool IsTopSlab => VerticalHalf == "top";
 
-		/// <summary>Stacking two of these makes the double slab, which is a block in its own right.</summary>
-		protected SlabBase(int id, string doubleSlabName) : base(id)
-		{
-			_doubleSlabName = doubleSlabName;
-		}
+		/// <summary>
+		///     The double slab this pairs with, by name: X_slab gives X_double_slab, and copper
+		///     infixes instead, cut_copper_slab giving double_cut_copper_slab. Override for a name
+		///     that follows neither.
+		/// </summary>
+		public virtual string DoubleSlabName =>
+			Name.Contains("cut_copper")
+				? Name.Replace("cut_copper", "double_cut_copper")
+				: Name.Replace("_slab", "_double_slab");
 
 		public override BoundingBox GetBoundingBox()
 		{
-			var bottom = (Vector3)Coordinates;
+			var bottom = (Vector3) Coordinates;
 
-			if (TopSlotBit)
+			if (IsTopSlab)
 				bottom.Y += 0.5f;
-			
+
 			var top = bottom + new Vector3(1f, 0.5f, 1f);
-			
+
 			return new BoundingBox(bottom, top);
 		}
 
@@ -83,7 +94,7 @@ namespace MiNET.Blocks
 			{
 				if (face != BlockFace.Up && faceCoords.Y > 0.5 || (face == BlockFace.Down && faceCoords.Y == 0.0))
 				{
-					TopSlotBit = true;
+					VerticalHalf = "top";
 				}
 
 				return false;
@@ -105,22 +116,17 @@ namespace MiNET.Blocks
 
 		protected void SetDoubleSlab(Level world, BlockCoordinates coordinates)
 		{
-			Block slab = BlockFactory.GetBlockByName(_doubleSlabName);
+			Block slab = BlockFactory.GetBlockByName(DoubleSlabName);
+			if (slab == null)
+			{
+				// An unpaired name leaves the single slab standing rather than throwing on placement.
+				Log.Warn($"No double slab {DoubleSlabName} for {Name}");
+				return;
+			}
+
 			slab.Coordinates = coordinates;
 			slab.SetState(GetState().States);
 			world.SetBlock(slab);
 		}
 	}
-
-	public partial class CrimsonSlab : SlabBase { public CrimsonSlab() : base(519, "minecraft:crimson_double_slab") { IsGenerated = false; } }
-	public partial class WarpedSlab : SlabBase { public WarpedSlab() : base(520, "minecraft:warped_double_slab") { IsGenerated = false; } }
-	public partial class BlackstoneSlab : SlabBase { public BlackstoneSlab() : base(537, "minecraft:blackstone_double_slab") { IsGenerated = false; } }
-	public partial class PolishedBlackstoneBrickSlab : SlabBase { public PolishedBlackstoneBrickSlab() : base(539, "minecraft:polished_blackstone_brick_double_slab") { IsGenerated = false; } }
-	public partial class PolishedBlackstoneSlab : SlabBase { public PolishedBlackstoneSlab() : base(548, "minecraft:polished_blackstone_double_slab") { IsGenerated = false; } }
-	public partial class CrimsonDoubleSlab : Block { public CrimsonDoubleSlab() : base(521) { IsGenerated = false; } }
-	public partial class WarpedDoubleSlab : Block { public WarpedDoubleSlab() : base(522) { IsGenerated = false; } }
-	public partial class BlackstoneDoubleSlab : Block { public BlackstoneDoubleSlab() : base(538) { IsGenerated = false; } }
-	public partial class PolishedBlackstoneBrickDoubleSlab : Block { public PolishedBlackstoneBrickDoubleSlab() : base(540) { IsGenerated = false; } }
-	public partial class PolishedBlackstoneDoubleSlab : Block { public PolishedBlackstoneDoubleSlab() : base(549) { IsGenerated = false; } }
-
 }

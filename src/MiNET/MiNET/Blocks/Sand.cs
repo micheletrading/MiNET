@@ -39,7 +39,7 @@ namespace MiNET.Blocks
 
 		private int _tickRate = 1;
 
-		public Sand() : base(12)
+		public Sand()
 		{
 		}
 

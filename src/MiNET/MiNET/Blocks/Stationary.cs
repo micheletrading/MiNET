@@ -30,15 +30,14 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public class Stationary : Block
+	public abstract partial class Stationary : Block
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Stationary));
 
-		[StateRange(0, 15)] public virtual int LiquidDepth { get; set; } = 0;
 
 		private readonly string _flowingName;
 
-		internal Stationary(byte id, string flowingName) : base(id)
+		internal Stationary(string flowingName)
 		{
 			_flowingName = flowingName;
 			IsBuildable = false;
@@ -55,7 +54,7 @@ namespace MiNET.Blocks
 		{
 			CheckForHarden(level, Coordinates);
 
-			if (level.GetBlock(Coordinates).Id == Id) // Isn't this always true?
+			if (level.GetBlock(Coordinates).GetType() == GetType()) // Isn't this always true?
 			{
 				SetToFlowing(level);
 			}

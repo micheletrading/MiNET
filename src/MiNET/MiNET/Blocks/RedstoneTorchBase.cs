@@ -31,12 +31,10 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class RedstoneTorchBase : Block
+	public abstract partial class RedstoneTorchBase : Block
 	{
-		[StateEnum("east", "north", "south", "top", "unknown", "west")]
-		public virtual string TorchFacingDirection { get; set; }
 
-		public RedstoneTorchBase(byte id) : base(id)
+		public RedstoneTorchBase()
 		{
 		}
 
@@ -90,4 +88,8 @@ namespace MiNET.Blocks
 			return new[] {ItemFactory.GetItemByName("minecraft:redstone_torch")};
 		}
 	}
+
+	public partial class RedstoneTorch : RedstoneTorchBase { }
+
+	public partial class UnlitRedstoneTorch : RedstoneTorchBase { }
 }

@@ -27,7 +27,7 @@ namespace MiNET.Blocks
 {
 	public partial class Lava : Stationary
 	{
-		public Lava() : base(11, "minecraft:flowing_lava")
+		public Lava() : base("minecraft:flowing_lava")
 		{
 		}
 	}

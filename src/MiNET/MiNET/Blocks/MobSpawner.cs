@@ -36,7 +36,7 @@ namespace MiNET.Blocks
 {
 	public partial class MobSpawner : Block
 	{
-		public MobSpawner() : base(52)
+		public MobSpawner()
 		{
 		}
 

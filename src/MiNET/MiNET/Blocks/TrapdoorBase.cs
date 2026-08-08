@@ -25,22 +25,22 @@
 
 using System.Numerics;
 using MiNET.Entities;
-using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public partial class TrapdoorBase : Block
+	/// <summary>
+	///     Behaviour shared by every trapdoor. Its facing, whether it is open and whether it sits at
+	///     the top of the block are minecraft:direction, minecraft:open_bit and
+	///     minecraft:upside_down_bit, generated onto this base.
+	///     <para>
+	///         All three used to be hand-declared here and shadowed by all 21 members, so a trapdoor
+	///         placed at any angle arrived facing west, shut, and in the lower half.
+	///     </para>
+	/// </summary>
+	public abstract partial class TrapdoorBase : Block
 	{
-		[StateRange(0, 3)] public virtual int Direction { get; set; } = 0;
-		[StateBit] public virtual bool OpenBit { get; set; } = false;
-		[StateBit] public virtual bool UpsideDownBit { get; set; } = false;
-
-		protected TrapdoorBase(int id) : base(id)
-		{
-		}
-
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates targetCoordinates, BlockFace face, Vector3 faceCoords)
 		{
 			Direction = Entity.DirectionByRotationFlat(player.KnownPosition.Yaw) switch
@@ -65,44 +65,9 @@ namespace MiNET.Blocks
 			return true;
 		}
 	}
-
-	public partial class Trapdoor : TrapdoorBase
-	{
-		public Trapdoor() : base(96) { }
-	}
-
-	public partial class AcaciaTrapdoor : TrapdoorBase
-	{
-		public AcaciaTrapdoor() : base(400) { }
-	}
-
-	public partial class BirchTrapdoor : TrapdoorBase
-	{
-		public BirchTrapdoor() : base(401) { }
-	}
-
-	public partial class DarkOakTrapdoor : TrapdoorBase
-	{
-		public DarkOakTrapdoor() : base(402) { }
-	}
-
-	public partial class JungleTrapdoor : TrapdoorBase
-	{
-		public JungleTrapdoor() : base(403) { }
-	}
-
-	public partial class SpruceTrapdoor : TrapdoorBase
-	{
-		public SpruceTrapdoor() : base(404) { }
-	}
-
-	public partial class CrimsonTrapdoor : TrapdoorBase
-	{
-		public CrimsonTrapdoor() : base(501) { }
-	}
-
-	public partial class WarpedTrapdoor : TrapdoorBase
-	{
-		public WarpedTrapdoor() : base(502) { }
-	}
 }
+	/// <summary>
+	///     A trapdoor faces the way it was placed, sits in the upper or lower half of its block, and
+	///     swings on interact. All three are states generated onto this base: minecraft:direction,
+	///     minecraft:upside_down_bit and minecraft:open_bit.
+	/// </summary>

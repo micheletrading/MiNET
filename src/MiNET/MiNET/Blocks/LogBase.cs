@@ -42,7 +42,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public abstract partial class LogBase : Block
 	{
-		protected LogBase(int id) : base(id)
+		protected LogBase()
 		{
 			FuelEfficiency = 15;
 		}

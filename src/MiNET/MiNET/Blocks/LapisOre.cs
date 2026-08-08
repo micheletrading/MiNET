@@ -30,7 +30,7 @@ namespace MiNET.Blocks
 {
 	public partial class LapisOre : Block
 	{
-		public LapisOre() : base(21)
+		public LapisOre()
 		{
 		}
 

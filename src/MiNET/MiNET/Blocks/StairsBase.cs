@@ -24,26 +24,42 @@
 #endregion
 
 using System.Numerics;
-using MiNET.Items;
-using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class GlazedTerracotta : Block
+	/// <summary>
+	///     Behaviour shared by every stairs block. Which way it faces and whether it is upside down
+	///     are minecraft:weirdo_direction and minecraft:upside_down_bit, generated onto this base
+	///     because all 64 members of the family carry them and nothing else.
+	///     <para>
+	///         They used to be declared here by hand as virtual properties. The generator does not
+	///         emit override on a state, so each member redeclared them and shadowed these: PlaceBlock
+	///         wrote the base's copy and GetState read the member's, and no stair ever faced anywhere
+	///         but north side up.
+	///     </para>
+	/// </summary>
+	public abstract partial class StairsBase : Block
 	{
-		[StateRange(0, 5)] public virtual int FacingDirection { get; set; } = 0;
-
-		public GlazedTerracotta(byte id) : base(id)
+		protected StairsBase()
 		{
+			FuelEfficiency = 15;
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
-			FacingDirection = ItemBlock.GetFacingDirectionFromEntity(player);
+			UpsideDownBit = (faceCoords.Y > 0.5 && face != BlockFace.Up) || face == BlockFace.Down;
 
-			return false;
+			WeirdoDirection = player.GetProperDirection();
+
+			world.SetBlock(this);
+			return true;
 		}
 	}
 }
+	/// <summary>
+	///     Stairs face the way they were placed and sit either side up. Both are states,
+	///     minecraft:weirdo_direction and minecraft:upside_down_bit, generated onto this base since
+	///     every member of the family carries them and nothing else.
+	/// </summary>

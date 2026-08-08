@@ -30,7 +30,7 @@ namespace MiNET.Blocks
 {
 	public partial class MelonBlock : Block
 	{
-		public MelonBlock() : base(103)
+		public MelonBlock()
 		{
 			Hardness = 1;
 		}
