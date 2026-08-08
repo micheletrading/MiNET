@@ -2,6 +2,14 @@
 	"_comment": "The Cereal packet roster: packets whose bodies are generated from the Mojang schemas (MiNET.BlockGen/ProtocolDocs/json) instead of MCPE Protocol.xml. A packet is added here in the release where Mojang migrates it to Cereal (see the changelog in the ProtocolDocs submodule), and its pdu is removed from the XML at the same time. The schemas carry field names, order (x-ordinal-index), types and optionality; this file carries the wire facts they do not: our packet id and direction flags.",
 	"packets": [
 		{
+			"name": "MCPE_ADD_ENTITY",
+			"id": "0x0d",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "AddActorPacket"
+		},
+		{
 			"name": "MCPE_ADD_ITEM_ENTITY",
 			"id": "0x0f",
 			"online": false,
@@ -18,28 +26,12 @@
 			"schema": "AddPlayerPacket"
 		},
 		{
-			"name": "MCPE_STRUCTURE_BLOCK_UPDATE",
-			"id": "0x5a",
-			"online": false,
-			"client": false,
-			"server": true,
-			"schema": "StructureBlockUpdatePacket"
-		},
-		{
-			"name": "MCPE_PLAYER_SKIN",
-			"id": "0x5d",
+			"name": "MCPE_ANVIL_DAMAGE",
+			"id": "0x8d",
 			"online": false,
 			"client": true,
-			"server": true,
-			"schema": "PlayerSkinPacket"
-		},
-		{
-			"name": "MCPE_CREATIVE_CONTENT",
-			"id": "0x91",
-			"online": false,
-			"client": false,
-			"server": true,
-			"schema": "CreativeContentPacket"
+			"server": false,
+			"schema": "AnvilDamagePacket"
 		},
 		{
 			"name": "MCPE_CLIENTBOUND_MAP_ITEM_DATA",
@@ -50,28 +42,44 @@
 			"schema": "ClientboundMapItemDataPacket"
 		},
 		{
-			"name": "MCPE_SET_SCOREBOARD_IDENTITY",
-			"id": "0x70",
+			"name": "MCPE_CLIENTBOUND_UPDATE_SOUND_DATA",
+			"id": "0x15c",
 			"online": false,
 			"client": false,
 			"server": true,
-			"schema": "SetScoreboardIdentityPacket"
+			"schema": "ClientboundUpdateSoundDataPacket"
 		},
 		{
-			"name": "MCPE_SERVER_TO_CLIENT_HANDSHAKE",
-			"id": "0x03",
+			"name": "MCPE_CREATIVE_CONTENT",
+			"id": "0x91",
 			"online": false,
 			"client": false,
 			"server": true,
-			"schema": "ServerToClientHandshakePacket"
+			"schema": "CreativeContentPacket"
 		},
 		{
-			"name": "MCPE_TRANSFER",
-			"id": "0x55",
+			"name": "MCPE_LEVEL_CHUNK",
+			"id": "0x3a",
 			"online": false,
 			"client": false,
 			"server": true,
-			"schema": "TransferPacket"
+			"schema": "LevelChunkPacket"
+		},
+		{
+			"name": "MCPE_MOVE_ENTITY_DELTA",
+			"id": "0x6f",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "MoveActorDeltaPacket"
+		},
+		{
+			"name": "MCPE_MOVE_PLAYER",
+			"id": "0x13",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "MovePlayerPacket"
 		},
 		{
 			"name": "MCPE_PHOTO_TRANSFER",
@@ -82,28 +90,20 @@
 			"schema": "PhotoTransferPacket"
 		},
 		{
-			"name": "MCPE_SET_SCORE",
-			"id": "0x6c",
+			"name": "MCPE_PLAYER_LOCATION",
+			"id": "0x146",
 			"online": false,
 			"client": false,
 			"server": true,
-			"schema": "SetScorePacket"
+			"schema": "PlayerLocationPacket"
 		},
 		{
-			"name": "MCPE_REQUEST_ABILITY",
-			"id": "0xb8",
+			"name": "MCPE_PLAYER_SKIN",
+			"id": "0x5d",
 			"online": false,
 			"client": true,
-			"server": false,
-			"schema": "RequestAbilityPacket"
-		},
-		{
-			"name": "MCPE_SERVER_BOUND_DIAGNOSTICS",
-			"id": "0x13b",
-			"online": false,
-			"client": true,
-			"server": false,
-			"schema": "ServerBoundDiagnosticsPacket"
+			"server": true,
+			"schema": "PlayerSkinPacket"
 		},
 		{
 			"name": "MCPE_PLAYER_UPDATE_ENTITY_OVERRIDES",
@@ -114,20 +114,12 @@
 			"schema": "PlayerUpdateEntityOverridesPacket"
 		},
 		{
-			"name": "MCPE_PLAYER_LOCATION",
-			"id": "0x146",
+			"name": "MCPE_REQUEST_ABILITY",
+			"id": "0xb8",
 			"online": false,
-			"client": false,
-			"server": true,
-			"schema": "PlayerLocationPacket"
-		},
-		{
-			"name": "MCPE_START_GAME",
-			"id": "0x0b",
-			"online": false,
-			"client": false,
-			"server": true,
-			"schema": "StartGamePacket"
+			"client": true,
+			"server": false,
+			"schema": "RequestAbilityPacket"
 		},
 		{
 			"name": "MCPE_RESOURCE_PACKS_INFO",
@@ -146,12 +138,20 @@
 			"schema": "ResourcePackClientResponsePacket"
 		},
 		{
-			"name": "MCPE_ADD_ENTITY",
-			"id": "0x0d",
+			"name": "MCPE_SERVER_BOUND_DIAGNOSTICS",
+			"id": "0x13b",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "ServerBoundDiagnosticsPacket"
+		},
+		{
+			"name": "MCPE_SERVER_TO_CLIENT_HANDSHAKE",
+			"id": "0x03",
 			"online": false,
 			"client": false,
 			"server": true,
-			"schema": "AddActorPacket"
+			"schema": "ServerToClientHandshakePacket"
 		},
 		{
 			"name": "MCPE_SET_ENTITY_DATA",
@@ -162,28 +162,36 @@
 			"schema": "SetActorDataPacket"
 		},
 		{
-			"name": "MCPE_LEVEL_CHUNK",
-			"id": "0x3a",
+			"name": "MCPE_SET_SCORE",
+			"id": "0x6c",
 			"online": false,
 			"client": false,
 			"server": true,
-			"schema": "LevelChunkPacket"
+			"schema": "SetScorePacket"
 		},
 		{
-			"name": "MCPE_MOVE_PLAYER",
-			"id": "0x13",
-			"online": false,
-			"client": true,
-			"server": true,
-			"schema": "MovePlayerPacket"
-		},
-		{
-			"name": "MCPE_MOVE_ENTITY_DELTA",
-			"id": "0x6f",
+			"name": "MCPE_SET_SCOREBOARD_IDENTITY",
+			"id": "0x70",
 			"online": false,
 			"client": false,
 			"server": true,
-			"schema": "MoveActorDeltaPacket"
+			"schema": "SetScoreboardIdentityPacket"
+		},
+		{
+			"name": "MCPE_START_GAME",
+			"id": "0x0b",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "StartGamePacket"
+		},
+		{
+			"name": "MCPE_STRUCTURE_BLOCK_UPDATE",
+			"id": "0x5a",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "StructureBlockUpdatePacket"
 		},
 		{
 			"name": "MCPE_SUB_CHUNK_PACKET",
@@ -194,12 +202,12 @@
 			"schema": "SubChunkPacket"
 		},
 		{
-			"name": "MCPE_ANVIL_DAMAGE",
-			"id": "0x8d",
+			"name": "MCPE_TRANSFER",
+			"id": "0x55",
 			"online": false,
-			"client": true,
-			"server": false,
-			"schema": "AnvilDamagePacket"
+			"client": false,
+			"server": true,
+			"schema": "TransferPacket"
 		}
 	]
 }

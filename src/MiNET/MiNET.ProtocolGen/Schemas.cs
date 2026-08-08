@@ -225,6 +225,13 @@ public class CerealField
 	public CerealField Element;
 	/// <summary>For variants: the abstract base plus the options in tag order.</summary>
 	public CerealVariant Variant;
+
+	/// <summary>
+	///     How many wire slots a variant field occupies. Mojang declares one oneOf property per
+	///     option and binds them all to a single field, so the payload appears N times and each read
+	///     overwrites the last. One field, N slots, the last one present wins.
+	/// </summary>
+	public int VariantSlots = 1;
 	/// <summary>For const-discriminator fields inside variant payloads: the literal written on the wire.</summary>
 	public string ConstValue;
 
@@ -291,13 +298,55 @@ public class CerealPacket
 		var packet = new CerealPacket {Entry = entry};
 		overrides.Packets.TryGetValue(entry.Schema, out PacketOverride packetOverride);
 
-		foreach (CerealField field in ResolveFields(entry.Schema, payload, schemas, overrides, structs, packetOverride))
+		foreach (CerealField field in CollapseVariantSlots(entry.Schema, ResolveFields(entry.Schema, payload, schemas, overrides, structs, packetOverride)))
 		{
 			AttachEnum(field, entry.TypeName, packet.Enums);
 			packet.Fields.Add(field);
 		}
 
 		return packet;
+	}
+
+	/// <summary>
+	///     Folds a run of adjacent variant fields that share one option set into a single field with
+	///     that many wire slots. The schema names each slot after one of its own options, which would
+	///     otherwise emit the option classes once per slot and give the base a name it collides with,
+	///     so the surviving field and its base are named after the packet instead.
+	/// </summary>
+	private static IEnumerable<CerealField> CollapseVariantSlots(string owner, IEnumerable<CerealField> fields)
+	{
+		List<CerealField> all = fields.ToList();
+
+		for (int i = 0; i < all.Count; i++)
+		{
+			CerealField field = all[i];
+			if (field.Kind != FieldKind.Variant)
+			{
+				yield return field;
+				continue;
+			}
+
+			string Signature(CerealField f) => f.Kind != FieldKind.Variant ? null : string.Join(",", f.Variant.Options.Select(o => o.Name));
+
+			string signature = Signature(field);
+			int slots = 1;
+			while (i + slots < all.Count && Signature(all[i + slots]) == signature) slots++;
+
+			if (slots > 1)
+			{
+				string name = SanitizeTypeName(owner.Replace("Packet", "").Replace("Payload", ""));
+				field.Variant.BaseName = name + "Param";
+				field.FieldName = char.ToLowerInvariant(field.Variant.BaseName[0]) + field.Variant.BaseName.Substring(1);
+
+				// The option classes are shared across the slots and recorded their base as each
+				// slot resolved, so the last slot's name is on them. Point them at the real base.
+				foreach (CerealStruct option in field.Variant.Options) option.BaseName = field.Variant.BaseName;
+				field.VariantSlots = slots;
+				i += slots - 1;
+			}
+
+			yield return field;
+		}
 	}
 
 	private static IEnumerable<CerealField> ResolveFields(string owner, JObject objectSchema, SchemaRepo schemas, Overrides overrides, Dictionary<string, CerealStruct> structs, PacketOverride packetOverride)
@@ -341,9 +390,6 @@ public class CerealPacket
 			{
 				field.Enum.Values = enumValues.Select(v => CodeNames.CodeName(v, true)).ToList();
 			}
-
-			if (field.Optional && field.Kind == FieldKind.Variant)
-				throw new NotImplementedException($"{owner}.{prop.Name}: optional variant fields are not implemented yet");
 
 			yield return field;
 		}

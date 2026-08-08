@@ -1499,11 +1499,6 @@
 		<!-- all fields handled in partial: optional presenceConfig -->
 	</pdu>
 
-	<pdu id="0x15c" online="false" client="false" server="true" name="MCPE_CLIENTBOUND_UPDATE_SOUND_DATA">
-		<field name="Server Sound Handle" type="ulong" />
-		<field name="Sound Event" type="string" />
-	</pdu>
-
 	<pdu id="0x15d" online="false" client="false" server="true" name="MCPE_SEND_PARTY_DESTINATION_COOKIE">
 		<field name="Cookie" type="string" />
 		<field name="Intent" type="string" />

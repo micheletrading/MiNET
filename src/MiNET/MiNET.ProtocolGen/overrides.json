@@ -58,8 +58,8 @@
 		},
 		"NetworkItemInstanceDescriptor": {
 			"csType": "Item",
-			"write": "WriteItemLegacy({0});",
-			"read": "{0} = ReadItemLegacy();",
+			"write": "WriteItemInstance({0});",
+			"read": "{0} = ReadItemInstance();",
 			"reason": "The schema declares no properties. This is the id/count/aux/nbt form without the stack-id section, which is what creative entries and recipe results carry; the hand-written pair is verified against live BDS CraftingData and CreativeContent."
 		},
 		"NetworkItemStackDescriptor": {

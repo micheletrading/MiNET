@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -412,21 +412,36 @@ public static class CerealEmitter
 	{
 		if (field.Kind == FieldKind.Variant)
 		{
-			yield return $"switch ({field.FieldName})";
-			yield return "{";
+			// Only the last slot survives the client's read, so the earlier ones are written absent.
+			if (field.VariantSlots > 1)
+			{
+				yield return $"for (int slot = 0; slot < {field.VariantSlots - 1}; slot++) Write(false);";
+			}
+
+			string pad = field.Optional ? "\t" : "";
+			if (field.Optional)
+			{
+				yield return $"Write({field.FieldName} != null);";
+				yield return $"if ({field.FieldName} != null)";
+				yield return "{";
+			}
+
+			yield return $"{pad}switch ({field.FieldName})";
+			yield return pad + "{";
 			for (int i = 0; i < field.Variant.Options.Count; i++)
 			{
-				yield return $"\tcase {field.Variant.Options[i].Name} v{i}:";
-				yield return $"\t\tWriteUnsignedVarInt({i});";
-				yield return $"\t\tWrite(v{i});";
-				yield return "\t\tbreak;";
+				yield return $"{pad}\tcase {field.Variant.Options[i].Name} v{i}:";
+				yield return $"{pad}\t\tWriteUnsignedVarInt({i});";
+				yield return $"{pad}\t\tWrite(v{i});";
+				yield return $"{pad}\t\tbreak;";
 			}
-			yield return "\tdefault:";
-			yield return $"\t\tthrow new Exception($\"{field.FieldName} variant not set or unknown: {{{field.FieldName}}}\");";
-			yield return "}";
+			yield return $"{pad}\tdefault:";
+			yield return $"{pad}\t\tthrow new Exception($\"{field.FieldName} variant not set or unknown: {{{field.FieldName}}}\");";
+			yield return pad + "}";
+
+			if (field.Optional) yield return "}";
 			yield break;
 		}
-
 		foreach (string line in WriteLines(field, "")) yield return line;
 	}
 
@@ -434,17 +449,39 @@ public static class CerealEmitter
 	{
 		if (field.Kind == FieldKind.Variant)
 		{
-			yield return $"{field.FieldName} = ReadUnsignedVarInt() switch";
-			yield return "{";
+			string pad = "";
+			if (field.Optional)
+			{
+				// Every slot carries the same field, so the last one present is the value.
+				if (field.VariantSlots > 1)
+				{
+					yield return $"{field.FieldName} = null;";
+					yield return $"for (int slot = 0; slot < {field.VariantSlots}; slot++)";
+					yield return "{";
+					yield return "\tif (!ReadBool()) continue;";
+				}
+				else
+				{
+					yield return $"if (!ReadBool()) {field.FieldName} = null;";
+					yield return "else";
+					yield return "{";
+				}
+
+				pad = "\t";
+			}
+
+			yield return $"{pad}{field.FieldName} = ReadUnsignedVarInt() switch";
+			yield return pad + "{";
 			for (int i = 0; i < field.Variant.Options.Count; i++)
 			{
-				yield return $"\t{i} => Read{field.Variant.Options[i].Name}(),";
+				yield return $"{pad}\t{i} => Read{field.Variant.Options[i].Name}(),";
 			}
-			yield return $"\tuint other => throw new Exception($\"Unknown {field.FieldName} variant tag {{other}}\"),";
-			yield return "};";
+			yield return $"{pad}\tuint other => throw new Exception($\"Unknown {field.FieldName} variant tag {{other}}\"),";
+			yield return pad + "};";
+
+			if (field.Optional) yield return "}";
 			yield break;
 		}
-
 		foreach (string line in ReadLines(field, "")) yield return line;
 	}
 

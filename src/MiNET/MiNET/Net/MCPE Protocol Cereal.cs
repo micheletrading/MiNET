@@ -457,7 +457,7 @@ namespace MiNET.Net
 			Write(velocity);
 			Write(rotation);
 			Write(yHeadRotation);
-			WriteItemStackWrapper(item);
+			WriteItemInstance(item);
 			WriteSignedVarInt((int) gamemode);
 			Write(metadata);
 			Write(synchedProperties ?? new PropertySyncData());
@@ -487,7 +487,7 @@ namespace MiNET.Net
 			velocity = ReadVector3();
 			rotation = ReadVector2();
 			yHeadRotation = ReadFloat();
-			item = ReadItemStackWrapper();
+			item = ReadItemInstance();
 			gamemode = (McpeAddPlayer.GameType) ReadSignedVarInt();
 			metadata = ReadMetadataDictionary();
 			synchedProperties = ReadPropertySyncData();
@@ -648,7 +648,7 @@ namespace MiNET.Net
 
 			WriteSignedVarLong(entityIdSelf);
 			WriteUnsignedVarLong(runtimeEntityId);
-			WriteItemStackWrapper(item);
+			WriteItemInstance(item);
 			Write(position);
 			Write(velocity);
 			Write(metadata);
@@ -668,7 +668,7 @@ namespace MiNET.Net
 
 			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
-			item = ReadItemStackWrapper();
+			item = ReadItemInstance();
 			position = ReadVector3();
 			velocity = ReadVector3();
 			metadata = ReadMetadataDictionary();
@@ -2010,6 +2010,114 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeClientboundUpdateSoundData : Packet<McpeClientboundUpdateSoundData>
+	{
+
+		public ulong serverSoundHandle; // = null;
+		public ClientboundUpdateSoundDataParam clientboundUpdateSoundDataParam; // = null;
+
+		public McpeClientboundUpdateSoundData()
+		{
+			Id = 0x15c;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(serverSoundHandle);
+			for (int slot = 0; slot < 6; slot++) Write(false);
+			Write(clientboundUpdateSoundDataParam != null);
+			if (clientboundUpdateSoundDataParam != null)
+			{
+				switch (clientboundUpdateSoundDataParam)
+				{
+					case Stop v0:
+						WriteUnsignedVarInt(0);
+						Write(v0);
+						break;
+					case SetVolume v1:
+						WriteUnsignedVarInt(1);
+						Write(v1);
+						break;
+					case SetPitch v2:
+						WriteUnsignedVarInt(2);
+						Write(v2);
+						break;
+					case Fade v3:
+						WriteUnsignedVarInt(3);
+						Write(v3);
+						break;
+					case SeekTo v4:
+						WriteUnsignedVarInt(4);
+						Write(v4);
+						break;
+					case Pause v5:
+						WriteUnsignedVarInt(5);
+						Write(v5);
+						break;
+					case Resume v6:
+						WriteUnsignedVarInt(6);
+						Write(v6);
+						break;
+					default:
+						throw new Exception($"clientboundUpdateSoundDataParam variant not set or unknown: {clientboundUpdateSoundDataParam}");
+				}
+			}
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			serverSoundHandle = ReadUlong();
+			clientboundUpdateSoundDataParam = null;
+			for (int slot = 0; slot < 7; slot++)
+			{
+				if (!ReadBool()) continue;
+				clientboundUpdateSoundDataParam = ReadUnsignedVarInt() switch
+				{
+					0 => ReadStop(),
+					1 => ReadSetVolume(),
+					2 => ReadSetPitch(),
+					3 => ReadFade(),
+					4 => ReadSeekTo(),
+					5 => ReadPause(),
+					6 => ReadResume(),
+					uint other => throw new Exception($"Unknown clientboundUpdateSoundDataParam variant tag {other}"),
+				};
+			}
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			serverSoundHandle=default(ulong);
+			clientboundUpdateSoundDataParam=default(ClientboundUpdateSoundDataParam);
+		}
+
+	}
+
+	public abstract class ClientboundUpdateSoundDataParam
+	{
+	}
+
 	public abstract class Location
 	{
 	}
@@ -2137,6 +2245,12 @@ namespace MiNET.Net
 		public string entity;
 		public ulong timeInNs;
 		public byte percentOfTotal;
+	}
+
+	public class Fade : ClientboundUpdateSoundDataParam
+	{
+		public float duration;
+		public float targetVolume;
 	}
 
 	public class FloatOverride : Update
@@ -2528,6 +2642,10 @@ namespace MiNET.Net
 		public string cdnUrl;
 	}
 
+	public class Pause : ClientboundUpdateSoundDataParam
+	{
+	}
+
 	public class PropertySyncData
 	{
 		public List<PropertySyncDataPropertySyncIntEntry> intEntriesList;
@@ -2573,10 +2691,19 @@ namespace MiNET.Net
 	{
 	}
 
+	public class Resume : ClientboundUpdateSoundDataParam
+	{
+	}
+
 	public class ScoreboardIdentityPacketInfo
 	{
 		public long scoreboardId;
 		public long? playerUniqueId;
+	}
+
+	public class SeekTo : ClientboundUpdateSoundDataParam
+	{
+		public float seconds;
 	}
 
 	public class SerializedAbilitiesData
@@ -2626,6 +2753,16 @@ namespace MiNET.Net
 		public string ownerId;
 	}
 
+	public class SetPitch : ClientboundUpdateSoundDataParam
+	{
+		public float pitch;
+	}
+
+	public class SetVolume : ClientboundUpdateSoundDataParam
+	{
+		public float volume;
+	}
+
 	public class SpawnSettings
 	{
 		public enum SpawnBiomeType
@@ -2637,6 +2774,10 @@ namespace MiNET.Net
 		public SpawnSettings.SpawnBiomeType spawnBiomeType;
 		public string userDefinedBiomeName;
 		public int dimension;
+	}
+
+	public class Stop : ClientboundUpdateSoundDataParam
+	{
 	}
 
 	public class StructureEditorData
@@ -2971,6 +3112,20 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(Fade data)
+		{
+			Write(data.duration);
+			Write(data.targetVolume);
+		}
+
+		public Fade ReadFade()
+		{
+			var data = new Fade();
+			data.duration = ReadFloat();
+			data.targetVolume = ReadFloat();
+			return data;
+		}
+
 		public void Write(FloatOverride data)
 		{
 			Write("setfloatoverride");
@@ -3301,6 +3456,16 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(Pause data)
+		{
+		}
+
+		public Pause ReadPause()
+		{
+			var data = new Pause();
+			return data;
+		}
+
 		public void Write(PropertySyncData data)
 		{
 			WriteUnsignedVarInt((uint) (data.intEntriesList?.Count ?? 0));
@@ -3431,6 +3596,16 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(Resume data)
+		{
+		}
+
+		public Resume ReadResume()
+		{
+			var data = new Resume();
+			return data;
+		}
+
 		public void Write(ScoreboardIdentityPacketInfo data)
 		{
 			WriteSignedVarLong(data.scoreboardId);
@@ -3443,6 +3618,18 @@ namespace MiNET.Net
 			var data = new ScoreboardIdentityPacketInfo();
 			data.scoreboardId = ReadSignedVarLong();
 			if (ReadBool()) data.playerUniqueId = ReadSignedVarLong();
+			return data;
+		}
+
+		public void Write(SeekTo data)
+		{
+			Write(data.seconds);
+		}
+
+		public SeekTo ReadSeekTo()
+		{
+			var data = new SeekTo();
+			data.seconds = ReadFloat();
 			return data;
 		}
 
@@ -3518,6 +3705,30 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(SetPitch data)
+		{
+			Write(data.pitch);
+		}
+
+		public SetPitch ReadSetPitch()
+		{
+			var data = new SetPitch();
+			data.pitch = ReadFloat();
+			return data;
+		}
+
+		public void Write(SetVolume data)
+		{
+			Write(data.volume);
+		}
+
+		public SetVolume ReadSetVolume()
+		{
+			var data = new SetVolume();
+			data.volume = ReadFloat();
+			return data;
+		}
+
 		public void Write(SpawnSettings data)
 		{
 			Write((short) data.spawnBiomeType);
@@ -3531,6 +3742,16 @@ namespace MiNET.Net
 			data.spawnBiomeType = (SpawnSettings.SpawnBiomeType) ReadShort();
 			data.userDefinedBiomeName = ReadString();
 			data.dimension = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(Stop data)
+		{
+		}
+
+		public Stop ReadStop()
+		{
+			var data = new Stop();
 			return data;
 		}
 

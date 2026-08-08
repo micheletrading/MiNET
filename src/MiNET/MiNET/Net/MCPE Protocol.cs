@@ -11829,58 +11829,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpeClientboundUpdateSoundData : Packet<McpeClientboundUpdateSoundData>
-	{
-
-		public ulong serverSoundHandle; // = null;
-		public string soundEvent; // = null;
-
-		public McpeClientboundUpdateSoundData()
-		{
-			Id = 0x15c;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(serverSoundHandle);
-			Write(soundEvent);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			serverSoundHandle = ReadUlong();
-			soundEvent = ReadString();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			serverSoundHandle=default(ulong);
-			soundEvent=default(string);
-		}
-
-	}
-
 	public partial class McpeSendPartyDestinationCookie : Packet<McpeSendPartyDestinationCookie>
 	{
 
