@@ -1753,6 +1753,10 @@ namespace TestPlugin
 			objective.sortOrder = 0;
 			player.SendPacket(objective);
 
+			// A second between the two, so a client that rejects one of them disconnects inside a
+			// named gap instead of somewhere in a single batch.
+			System.Threading.Thread.Sleep(1000);
+
 			// Fake-player entries need no identity mapping. A real one ties a scoreboard id to a
 			// player, and since 2168 the player id is a per-entry optional rather than a field the
 			// packet type implies:
@@ -1765,7 +1769,7 @@ namespace TestPlugin
 			//   };
 
 			McpeSetScore score = McpeSetScore.CreateObject();
-			score.scoreInfo = new List<ScoreInfoElement>
+			score.scoreInfo = new List<ScoreInfoElementBase>
 			{
 				new ChangeFakePlayerScore
 				{
@@ -1786,6 +1790,31 @@ namespace TestPlugin
 			player.SendPacket(score);
 
 			return "Added scoreboard";
+		}
+
+		/// <summary>
+		///     Takes down what ShowScoreboard put up. Drops the two lines by scoreboard id first,
+		///     which is the one SetScore variant nothing has ever sent, then removes the objective.
+		///     A second between them so a client that rejects one says which.
+		/// </summary>
+		[Command]
+		public string HideScoreboard(Player player)
+		{
+			McpeSetScore score = McpeSetScore.CreateObject();
+			score.scoreInfo = new List<ScoreInfoElementBase>
+			{
+				new RemoveScore {scoreboardId = 3, objectiveName = "ObjectiveName"},
+				new RemoveScore {scoreboardId = 4, objectiveName = "ObjectiveName"}
+			};
+			player.SendPacket(score);
+
+			System.Threading.Thread.Sleep(1000);
+
+			McpeRemoveObjective remove = McpeRemoveObjective.CreateObject();
+			remove.objectiveName = "ObjectiveName";
+			player.SendPacket(remove);
+
+			return "Removed scoreboard";
 		}
 
 

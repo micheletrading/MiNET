@@ -58,12 +58,52 @@
 			"schema": "CreativeContentPacket"
 		},
 		{
+			"name": "MCPE_INVENTORY_CONTENT",
+			"id": "0x31",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "InventoryContentPacket"
+		},
+		{
+			"name": "MCPE_INVENTORY_SLOT",
+			"id": "0x32",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "InventorySlotPacket"
+		},
+		{
+			"name": "MCPE_ITEM_STACK_RESPONSE",
+			"id": "0x94",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "ItemStackResponsePacket"
+		},
+		{
 			"name": "MCPE_LEVEL_CHUNK",
 			"id": "0x3a",
 			"online": false,
 			"client": false,
 			"server": true,
 			"schema": "LevelChunkPacket"
+		},
+		{
+			"name": "MCPE_MOB_ARMOR_EQUIPMENT",
+			"id": "0x20",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "MobArmorEquipmentPacket"
+		},
+		{
+			"name": "MCPE_MOB_EQUIPMENT",
+			"id": "0x1f",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "MobEquipmentPacket"
 		},
 		{
 			"name": "MCPE_MOVE_ENTITY_DELTA",
@@ -128,6 +168,14 @@
 			"client": true,
 			"server": false,
 			"schema": "RequestAbilityPacket"
+		},
+		{
+			"name": "MCPE_REMOVE_OBJECTIVE",
+			"id": "0x6a",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "RemoveObjectivePacket"
 		},
 		{
 			"name": "MCPE_RESOURCE_PACKS_INFO",

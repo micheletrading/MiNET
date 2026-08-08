@@ -234,15 +234,15 @@ namespace MiNET.Client
 
 		public override void HandleMcpeItemStackResponse(McpeItemStackResponse message)
 		{
-			foreach (ItemStackResponse response in message.responses)
+			foreach (ItemStackResponseInfo response in message.responses)
 			{
-				Log.Warn($"SPLIT RESPONSE: request {response.RequestId} -> {response.Result}");
-				if (response.ResponseContainerInfos == null) continue;
+				Log.Warn($"SPLIT RESPONSE: request {response.clientRequestId} -> {response.result}");
+				if (response.containers == null) continue;
 
-				foreach (StackResponseContainerInfo container in response.ResponseContainerInfos)
-				foreach (StackResponseSlotInfo slot in container.Slots)
+				foreach (ItemStackResponseContainerInfo container in response.containers)
+				foreach (ItemStackResponseSlotInfo slot in container.slots)
 				{
-					Log.Warn($"SPLIT RESPONSE:   container {container.ContainerId} slot {slot.Slot} count {slot.Count} stackNetId {slot.StackNetworkId}");
+					Log.Warn($"SPLIT RESPONSE:   container {container.fullContainerName.containerName} slot {slot.requestedSlot} count {slot.amount} stackNetId {slot.itemStackNetId}");
 				}
 			}
 		}

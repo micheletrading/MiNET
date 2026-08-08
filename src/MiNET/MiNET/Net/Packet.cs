@@ -1600,103 +1600,6 @@ namespace MiNET.Net
 			}
 		}
 
-		public void Write(ItemStackResponses responses)
-		{
-			WriteUnsignedVarInt((uint) responses.Count);
-			foreach (ItemStackResponse stackResponse in responses)
-			{
-				Write((byte) stackResponse.Result);
-				WriteSignedVarInt(stackResponse.RequestId);
-
-				// Two bools gate the container list: one always true, then one for whether it follows.
-				Write(true);
-				if (stackResponse.Result != StackResponseStatus.Ok || stackResponse.ResponseContainerInfos == null || stackResponse.ResponseContainerInfos.Count == 0)
-				{
-					Write(false);
-					continue;
-				}
-
-				Write(true);
-				WriteUnsignedVarInt((uint) stackResponse.ResponseContainerInfos.Count);
-				foreach (StackResponseContainerInfo containerInfo in stackResponse.ResponseContainerInfos)
-				{
-					Write(containerInfo.ContainerId);
-					Write(false); // FullContainerName: optional dynamic container id, none; unchanged at 2168
-					WriteUnsignedVarInt((uint) containerInfo.Slots.Count);
-					foreach (StackResponseSlotInfo slot in containerInfo.Slots)
-					{
-						Write(slot.Slot);
-						Write(slot.HotbarSlot);
-						Write(slot.Count);
-
-						// Two bools gate the stack network id: one always true, then one for whether
-						// the id follows.
-						Write(true);
-						bool hasStackNetworkId = slot.StackNetworkId > 0;
-						Write(hasStackNetworkId);
-						if (hasStackNetworkId) WriteSignedVarInt(slot.StackNetworkId);
-
-						Write(slot.CustomName);
-						Write(slot.FilteredCustomName); // protocol 1001
-						WriteSignedVarInt(slot.DurabilityCorrection);
-					}
-				}
-			}
-		}
-
-
-		public ItemStackResponses ReadItemStackResponses()
-		{
-			var responses = new ItemStackResponses();
-			var count     = ReadUnsignedVarInt();
-
-			for (var i = 0; i < count; i++)
-			{
-				var response = new ItemStackResponse();
-				response.Result = (StackResponseStatus) ReadByte();
-				response.RequestId = ReadSignedVarInt();
-
-				// Two bools gate the container list. A response without one still carries a status.
-				if (!ReadBool() || !ReadBool())
-				{
-					responses.Add(response);
-					continue;
-				}
-
-				response.ResponseContainerInfos = new List<StackResponseContainerInfo>();
-				var subCount = ReadUnsignedVarInt();
-				for (int sub = 0; sub < subCount; sub++)
-				{
-					var containerInfo = new StackResponseContainerInfo();
-					containerInfo.ContainerId = ReadByte();
-					if (ReadBool()) ReadUint(); // FullContainerName: optional dynamic container id; unchanged at 2168
-
-					var slotCount = ReadUnsignedVarInt();
-					containerInfo.Slots = new List<StackResponseSlotInfo>();
-					
-					for (int si = 0; si < slotCount; si++)
-					{
-						var slot = new StackResponseSlotInfo();
-						slot.Slot = ReadByte();
-						slot.HotbarSlot = ReadByte();
-						slot.Count = ReadByte();
-						// Optional behind two bools, the same shape the writer above emits.
-						slot.StackNetworkId = ReadBool() && ReadBool() ? ReadSignedVarInt() : 0;
-						slot.CustomName = ReadString();
-						slot.FilteredCustomName = ReadString(); // protocol 1001
-						slot.DurabilityCorrection = ReadSignedVarInt();
-						
-						containerInfo.Slots.Add(slot);
-					}
-					
-					response.ResponseContainerInfos.Add(containerInfo);
-				}
-				
-				responses.Add(response);
-			}
-			
-			return responses;
-		}
 
 		// Item registry entry, protocol 1001+ (packet id 162, "item_registry"):
 		//   name: string, runtime_id: li16, component_based: bool, version: zigzag32, nbt: nbt
@@ -1828,49 +1731,10 @@ namespace MiNET.Net
 		// live BDS 1.26.34 inventory_content/mob_equipment bytes. The zigzag short-circuit "Item" shape
 		// (add_player held item, ReadNetworkItemStackDescriptor) and the catalog shape (creative content,
 		// ReadNetworkItemInstanceDescriptor) are separate readers - do not conflate them.
+		/// <summary>The write half of <see cref="ReadItem" />, delegating for the same reason.</summary>
 		public void Write(Item stack, bool writeUniqueId = true)
 		{
-			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
-			short networkId = stack == null || stack.IsAir ? (short) 0 : ItemFactory.GetNetworkIdByName(stack.Name);
-			if (networkId == 0)
-			{
-				Write((short) 0); // network_id
-				Write((ushort) 0); // count
-				WriteVarInt(0); // metadata
-				Write(false); // has_stack_id
-				WriteVarInt(0); // block_runtime_id
-				WriteLength(0); // extra_data: nothing to say, wire omits the blob entirely
-				return;
-			}
-
-			Write(networkId); // network_id
-			Write((ushort) stack.Count); // count
-			WriteVarInt(stack.Metadata); // metadata
-
-			bool hasStackId = writeUniqueId && stack.UniqueId != 0;
-			Write(hasStackId); // has_stack_id
-			if (hasStackId)
-			{
-				// The leading "empty" varint is gone since 2168; just the zigzag net id.
-				WriteSignedVarInt(stack.UniqueId); // id
-			}
-
-			WriteVarInt(stack.RuntimeId); // block_runtime_id
-
-			// The extra_data blob (nbt marker + canPlaceOn/canDestroy counts) is only present on
-			// the wire when there's actually something to say; an item with no NBT that isn't a
-			// shield (blocking_tick trailer) writes a zero-length blob, not the empty skeleton.
-			bool isShield = IsShieldNetworkId(networkId);
-			if (stack.ExtraData == null && !isShield)
-			{
-				WriteLength(0); // extra_data
-			}
-			else
-			{
-				byte[] extraData = WriteItemExtraData(stack.ExtraData, isShield);
-				WriteLength(extraData.Length);
-				Write(extraData);
-			}
+			WriteNetworkItemStackDescriptor(stack, writeUniqueId);
 		}
 
 		private static byte[] WriteItemExtraData(NbtCompound extraData, bool includeBlockingTick)
@@ -1926,39 +1790,14 @@ namespace MiNET.Net
 			return ms.ToArray();
 		}
 
+		/// <summary>
+		///     The same NetworkItemStackDescriptor as <see cref="ReadNetworkItemStackDescriptor" />,
+		///     kept as the name the XML pdus and the hand-written partials call. Delegates so there is
+		///     one implementation of the shape; fold the call sites over and delete this.
+		/// </summary>
 		public Item ReadItem(bool readUniqueId = true)
 		{
-			short networkId = ReadShort(); // network_id
-			ushort count = ReadUshort(); // count
-			var metadata = ReadVarInt(); // metadata
-
-			bool hasStackId = ReadBool(); // has_stack_id
-			int uniqueId = 0;
-			if (hasStackId)
-			{
-				// The leading "empty" varint is gone since 2168; just the zigzag net id.
-				uniqueId = ReadSignedVarInt(); // id
-			}
-
-			int blockRuntimeId = ReadVarInt(); // block_runtime_id
-
-			NbtCompound extraData = ReadItemExtraData(IsShieldNetworkId(networkId));
-
-			if (networkId == 0)
-			{
-				return new ItemAir();
-			}
-
-			Item stack = ItemFactory.GetItemByNetworkId(networkId, (short) metadata, count);
-
-			if (readUniqueId && hasStackId) stack.UniqueId = uniqueId;
-
-			stack.RuntimeId = blockRuntimeId;
-			stack.NetworkId = networkId;
-			stack.NetworkMetadata = metadata;
-			stack.ExtraData = extraData;
-
-			return stack;
+			return ReadNetworkItemStackDescriptor(readUniqueId);
 		}
 
 		/// <summary>
@@ -2075,7 +1914,7 @@ namespace MiNET.Net
 		// zigzag block_runtime_id) but with a has_net_id bool and optional stack id between metadata and
 		// block_runtime_id. Distinct from the li16 inventory descriptor (ReadItem). Confirmed against
 		// PMMP CommonTypes::getItemStackWrapper and live BDS 1.26.34.
-		public Item ReadNetworkItemStackDescriptor()
+		public Item ReadNetworkItemStackDescriptor(bool readNetId = true)
 		{
 			// NetworkItemStackDescriptor since 2168: li16 network id, no air short-circuit
 			// (empty stacks carry all fields zeroed), and the block runtime id is a plain varint
@@ -2099,7 +1938,7 @@ namespace MiNET.Net
 			Item stack = ItemFactory.GetItemByNetworkId(networkId, (short) metadata, count);
 			// Always assign, never only when present: Item.UniqueId defaults to Environment.TickCount,
 			// so a stack that arrived without a net id would otherwise go back out carrying one.
-			stack.UniqueId = uniqueId;
+			stack.UniqueId = readNetId ? uniqueId : 0;
 			stack.RuntimeId = blockRuntimeId;
 			stack.NetworkId = networkId;
 			stack.NetworkMetadata = metadata;
@@ -2108,7 +1947,7 @@ namespace MiNET.Net
 			return stack;
 		}
 
-		public void WriteNetworkItemStackDescriptor(Item stack)
+		public void WriteNetworkItemStackDescriptor(Item stack, bool writeNetId = true)
 		{
 			// NetworkItemStackDescriptor since 2168: li16 network id, no air short-circuit
 			// (empty stacks carry all fields zeroed), and the block runtime id is a plain varint
@@ -2130,7 +1969,7 @@ namespace MiNET.Net
 			Write((ushort) stack.Count); // count
 			WriteVarInt(stack.Metadata); // metadata
 
-			bool hasNetId = stack.UniqueId != 0;
+			bool hasNetId = writeNetId && stack.UniqueId != 0;
 			Write(hasNetId); // has_net_id
 			if (hasNetId)
 			{

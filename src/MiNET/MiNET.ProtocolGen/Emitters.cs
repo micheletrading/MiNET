@@ -280,7 +280,7 @@ public static class CerealEmitter
 			sb.AppendLine();
 			foreach (CerealField field in packet.Fields)
 			{
-				foreach (string line in EncodeLines(field)) sb.AppendLine($"\t\t\t{line}");
+				foreach (string line in FieldWriteLines(field, "")) sb.AppendLine($"\t\t\t{line}");
 			}
 			sb.AppendLine();
 			sb.AppendLine("\t\t\tAfterEncode();");
@@ -297,7 +297,7 @@ public static class CerealEmitter
 			sb.AppendLine();
 			foreach (CerealField field in packet.Fields)
 			{
-				foreach (string line in DecodeLines(field)) sb.AppendLine($"\t\t\t{line}");
+				foreach (string line in FieldReadLines(field, "")) sb.AppendLine($"\t\t\t{line}");
 			}
 			sb.AppendLine();
 			sb.AppendLine("\t\t\tAfterDecode();");
@@ -365,7 +365,7 @@ public static class CerealEmitter
 				sb.AppendLine("\t\t{");
 				foreach (CerealField field in s.Fields)
 				{
-					foreach (string line in StructWriteLines(field)) sb.AppendLine($"\t\t\t{line}");
+					foreach (string line in FieldWriteLines(field, "data.")) sb.AppendLine($"\t\t\t{line}");
 				}
 				sb.AppendLine("\t\t}");
 				sb.AppendLine();
@@ -374,7 +374,7 @@ public static class CerealEmitter
 				sb.AppendLine($"\t\t\tvar data = new {s.Name}();");
 				foreach (CerealField field in s.Fields)
 				{
-					foreach (string line in StructReadLines(field)) sb.AppendLine($"\t\t\t{line}");
+					foreach (string line in FieldReadLines(field, "data.")) sb.AppendLine($"\t\t\t{line}");
 				}
 				sb.AppendLine("\t\t\treturn data;");
 				sb.AppendLine("\t\t}");
@@ -388,28 +388,42 @@ public static class CerealEmitter
 		GeneratedFile.Write(path, sb);
 	}
 
-	private static IEnumerable<string> StructWriteLines(CerealField field)
+	/// <summary>
+	///     One field's encode, for a packet body (no prefix) or a struct codec ("data."). A
+	///     discriminator const belongs to neither: it is a value the wire carries but the class does
+	///     not hold, so it is written from the schema rather than from a member.
+	/// </summary>
+	private static IEnumerable<string> FieldWriteLines(CerealField field, string prefix)
 	{
 		if (field.ConstValue != null)
 		{
 			yield return string.Format(field.Type.Write, "");
 			yield break;
 		}
-		foreach (string line in WriteLines(field, "data.")) yield return line;
+		foreach (string line in WriteLines(field, prefix)) yield return line;
 	}
 
-	private static IEnumerable<string> StructReadLines(CerealField field)
+	private static IEnumerable<string> FieldReadLines(CerealField field, string prefix)
 	{
 		if (field.ConstValue != null)
 		{
 			yield return field.Type.Read;
 			yield break;
 		}
-		foreach (string line in ReadLines(field, "data.")) yield return line;
+		foreach (string line in ReadLines(field, prefix)) yield return line;
 	}
 
-	private static IEnumerable<string> EncodeLines(CerealField field)
+	private static IEnumerable<string> WriteLines(CerealField field, string prefix)
 	{
+		string name = prefix + field.FieldName;
+
+		// An invariant-gated optional carries its gate byte first, always true when we are the one
+		// deciding to send the field; the field's own presence byte follows in each branch below.
+		if (field.Optional)
+		{
+			for (int gate = 1; gate < field.PresenceBytes; gate++) yield return "Write(true);";
+		}
+
 		if (field.Kind == FieldKind.Variant)
 		{
 			// Only the last slot survives the client's read, so the earlier ones are written absent.
@@ -418,76 +432,30 @@ public static class CerealEmitter
 				yield return $"for (int slot = 0; slot < {field.VariantSlots - 1}; slot++) Write(false);";
 			}
 
-			string pad = field.Optional ? "\t" : "";
+			string variantPad = field.Optional ? "\t" : "";
 			if (field.Optional)
 			{
-				yield return $"Write({field.FieldName} != null);";
-				yield return $"if ({field.FieldName} != null)";
+				yield return $"Write({name} != null);";
+				yield return $"if ({name} != null)";
 				yield return "{";
 			}
 
-			yield return $"{pad}switch ({field.FieldName})";
-			yield return pad + "{";
+			yield return $"{variantPad}switch ({name})";
+			yield return variantPad + "{";
 			for (int i = 0; i < field.Variant.Options.Count; i++)
 			{
-				yield return $"{pad}\tcase {field.Variant.Options[i].Name} v{i}:";
-				yield return $"{pad}\t\tWriteUnsignedVarInt({i});";
-				yield return $"{pad}\t\tWrite(v{i});";
-				yield return $"{pad}\t\tbreak;";
+				yield return $"{variantPad}\tcase {field.Variant.Options[i].Name} v{i}:";
+				yield return $"{variantPad}\t\tWriteUnsignedVarInt({i});";
+				yield return $"{variantPad}\t\tWrite(v{i});";
+				yield return $"{variantPad}\t\tbreak;";
 			}
-			yield return $"{pad}\tdefault:";
-			yield return $"{pad}\t\tthrow new Exception($\"{field.FieldName} variant not set or unknown: {{{field.FieldName}}}\");";
-			yield return pad + "}";
+			yield return $"{variantPad}\tdefault:";
+			yield return $"{variantPad}\t\tthrow new Exception($\"{field.FieldName} variant not set or unknown: {{{name}}}\");";
+			yield return variantPad + "}";
 
 			if (field.Optional) yield return "}";
 			yield break;
 		}
-		foreach (string line in WriteLines(field, "")) yield return line;
-	}
-
-	private static IEnumerable<string> DecodeLines(CerealField field)
-	{
-		if (field.Kind == FieldKind.Variant)
-		{
-			string pad = "";
-			if (field.Optional)
-			{
-				// Every slot carries the same field, so the last one present is the value.
-				if (field.VariantSlots > 1)
-				{
-					yield return $"{field.FieldName} = null;";
-					yield return $"for (int slot = 0; slot < {field.VariantSlots}; slot++)";
-					yield return "{";
-					yield return "\tif (!ReadBool()) continue;";
-				}
-				else
-				{
-					yield return $"if (!ReadBool()) {field.FieldName} = null;";
-					yield return "else";
-					yield return "{";
-				}
-
-				pad = "\t";
-			}
-
-			yield return $"{pad}{field.FieldName} = ReadUnsignedVarInt() switch";
-			yield return pad + "{";
-			for (int i = 0; i < field.Variant.Options.Count; i++)
-			{
-				yield return $"{pad}\t{i} => Read{field.Variant.Options[i].Name}(),";
-			}
-			yield return $"{pad}\tuint other => throw new Exception($\"Unknown {field.FieldName} variant tag {{other}}\"),";
-			yield return pad + "};";
-
-			if (field.Optional) yield return "}";
-			yield break;
-		}
-		foreach (string line in ReadLines(field, "")) yield return line;
-	}
-
-	private static IEnumerable<string> WriteLines(CerealField field, string prefix)
-	{
-		string name = prefix + field.FieldName;
 
 		if (field.Kind == FieldKind.Struct)
 		{
@@ -573,12 +541,51 @@ public static class CerealEmitter
 	private static IEnumerable<string> ReadLines(CerealField field, string prefix)
 	{
 		string name = prefix + field.FieldName;
+		// Absent when ANY gate byte is false, and the later ones are then not on the wire at all,
+		// so this has to short-circuit rather than read a fixed number of bytes.
+		string present = string.Join(" && ", Enumerable.Repeat("ReadBool()", field.PresenceBytes));
+
+		if (field.Kind == FieldKind.Variant)
+		{
+			string variantPad = "";
+			if (field.Optional)
+			{
+				// Every slot carries the same field, so the last one present is the value.
+				if (field.VariantSlots > 1)
+				{
+					yield return $"{name} = null;";
+					yield return $"for (int slot = 0; slot < {field.VariantSlots}; slot++)";
+					yield return "{";
+					yield return "\tif (!ReadBool()) continue;";
+				}
+				else
+				{
+					yield return $"if (!({present})) {name} = null;";
+					yield return "else";
+					yield return "{";
+				}
+
+				variantPad = "\t";
+			}
+
+			yield return $"{variantPad}{name} = ReadUnsignedVarInt() switch";
+			yield return variantPad + "{";
+			for (int i = 0; i < field.Variant.Options.Count; i++)
+			{
+				yield return $"{variantPad}\t{i} => Read{field.Variant.Options[i].Name}(),";
+			}
+			yield return $"{variantPad}\tuint other => throw new Exception($\"Unknown {field.FieldName} variant tag {{other}}\"),";
+			yield return variantPad + "};";
+
+			if (field.Optional) yield return "}";
+			yield break;
+		}
 
 		if (field.Kind == FieldKind.Struct)
 		{
 			if (field.Optional)
 			{
-				yield return $"if (ReadBool()) {name} = Read{field.Struct.Name}();";
+				yield return $"if ({present}) {name} = Read{field.Struct.Name}();";
 			}
 			else
 			{
@@ -591,7 +598,7 @@ public static class CerealEmitter
 		{
 			if (field.Optional)
 			{
-				yield return $"if (ReadBool())";
+				yield return $"if ({present})";
 				yield return "{";
 				yield return $"\tuint {field.FieldName}Count = ReadUnsignedVarInt();";
 				yield return $"\t{name} = new List<{field.Element.CsType}>((int) {field.FieldName}Count);";
@@ -609,7 +616,7 @@ public static class CerealEmitter
 
 		if (field.Optional)
 		{
-			yield return $"if (ReadBool()) {name} = {ReadExpression(field)};";
+			yield return $"if ({present}) {name} = {ReadExpression(field)};";
 			yield break;
 		}
 

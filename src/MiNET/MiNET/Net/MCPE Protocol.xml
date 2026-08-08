@@ -330,23 +330,6 @@
 		<field name="Transaction" type="Transaction" />
 	</pdu>
 
-	<pdu id="0x1f" online="false" client="true" server="true" name="MCPE_MOB_EQUIPMENT">
-		<field name="Runtime Entity ID" type="UnsignedVarLong" />
-		<field name="Item" type="Item" />
-		<field name="Slot" type="byte" />
-		<field name="Selected Slot" type="byte" />
-		<field name="Windows Id" type="byte" />
-	</pdu>
-
-	<pdu id="0x20" online="false" client="true" server="true" name="MCPE_MOB_ARMOR_EQUIPMENT">
-		<field name="Runtime Entity ID" type="UnsignedVarLong" />
-		<field name="Helmet" type="Item" />
-		<field name="Chestplate" type="Item" />
-		<field name="Leggings" type="Item" />
-		<field name="Boots" type="Item" />
-		<field name="Body" type="Item" />
-	</pdu>
-
 	<pdu id="0x21" online="false" client="true" server="true" name="MCPE_INTERACT">
 		<enums id="Actions">
 			<enum id="Right click" value="1" />
@@ -455,17 +438,6 @@
 		<field name="Selected Slot" type="UnsignedVarInt" />
 		<field name="Window ID" type="byte" />
 		<field name="Select Slot " type="bool" />
-	</pdu>
-
-	<pdu id="0x31" online="false" client="true" server="true" name="MCPE_INVENTORY_CONTENT">
-		<field name="Inventory Id" type="UnsignedVarInt" />
-		<field name="Input" type="ItemStacks" />
-	</pdu>
-
-	<pdu id="0x32" online="false" client="true" server="true" name="MCPE_INVENTORY_SLOT">
-		<field name="Inventory Id" type="UnsignedVarInt" />
-		<field name="Slot" type="UnsignedVarInt" />
-		<!-- optional container, optional storage item, and the item itself in partial -->
 	</pdu>
 
 	<pdu id="0x33" online="false" client="false" server="true" name="MCPE_CONTAINER_SET_DATA">
@@ -776,10 +748,6 @@
 		<field name="Gamemode" type="SignedVarInt" />
 	</pdu>
 
-	<pdu id="0x6a" online="false" client="false" server="true" name="MCPE_REMOVE_OBJECTIVE">
-		<field name="Objective Name" type="string" />
-	</pdu>
-
 	<pdu id="0x6b" online="false" client="false" server="true" name="MCPE_SET_DISPLAY_OBJECTIVE">
 		<field name="Display Slot" type="string" />
 		<field name="Objective Name" type="string" />
@@ -992,10 +960,6 @@
 			<enum id="Craft results deprecated" value="17" />
 		</enums>
 		<field name="Requests" type="ItemStackRequests" />
-	</pdu>
-
-	<pdu id="0x94" online="false" client="false" server="true" name="MCPE_ITEM_STACK_RESPONSE">
-		<field name="Responses" type="ItemStackResponses" />
 	</pdu>
 
 	<!-- Whole payload is a length-prefixed array of (slot, damage) pairs, which the generator has

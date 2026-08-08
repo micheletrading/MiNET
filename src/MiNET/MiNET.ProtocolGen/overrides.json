@@ -84,6 +84,12 @@
 			"write": "Write({0});",
 			"read": "{0} = ReadGameRules();"
 		},
+		"RecipeIngredient": {
+			"csType": "Item",
+			"write": "WriteRecipeIngredient({0});",
+			"read": "{0} = ReadRecipeIngredient();",
+			"reason": "The schema's four-option oneOf does not describe the wire, on four counts, all of them matching CloudburstMC's readIngredient/writeItemDescriptor at v2168. (1) The numeric tag is 0 for an empty slot and 1 for ANY real one, with a serialize-name string carrying the kind, where the schema numbers the kinds 0-3; measured, not inferred, by scanning three live BDS CraftingData frames, where item_tag appears 245 times and name 15504 times and every one of the 15749 is preceded by 0x01. This is the one divergence a round-trip cannot catch, because both codecs re-derive the kind from the string and only test the tag against 0. (2) The empty form writes aux 32767 and no name string, where the schema gives a const 'empty' string and no aux; the string never appears in a capture. (3) item_tag carries a trailing aux 32767 the schema does not mention. (4) The count is a signed varint where the schema declares a uint16 StackSize. The names differ too, wire 'item_tag' and 'name' against the schema's 'itemtag' and 'itemname', neither of which occurs in a capture. Divergences 2 to 4 each change the byte count, so the captures decoding with zero leftovers settles them. Still unmeasured: molang does not occur in any capture we hold, so its tag is inferred from the same pattern."
+		},
 		"SynchedActorDataList": {
 			"csType": "MetadataDictionary",
 			"write": "Write({0});",
@@ -437,7 +443,27 @@
 				"Entries": {
 					"optional": false,
 					"name": "records",
-					"reason": "Ahead of our target: the schema is 2169 and marks Entries optional, which puts a presence byte before the entry count. Protocol 2168 has no such byte, confirmed by CloudburstMC PlayerListSerializer_v2168, which writes the count and then the entries. Drop this override when the target moves to 2169 or later and the byte is verified against BDS."
+					"reason": "Schema bug, not version skew: the payload declares no required list at all, so Entries reads as optional and the generator puts a presence byte before the entry count. There is no such byte on the wire. Confirmed against BDS 1.26.40.8's own generated schemas (protocol 2168, same as 2169) and CloudburstMC PlayerListSerializer_v2168, which writes the count and then the entries."
+				}
+			}
+		},
+		"HiddenLocation": {
+			"fields": {
+				"Packet Type": {
+					"enum": [
+						"PlayerLocationCoordinates",
+						"PlayerLocationHide"
+					],
+					"reason": "Each location variant declares its discriminator as a single-value enum, so both forms number from 0 and the hide form writes 0 where the wire wants 1. The values belong to the shared PlayerLocationPacketType schema, PLAYER_LOCATION_COORDINATES=0 and PLAYER_LOCATION_HIDE=1. Only the hide form needs restating; the coordinates form's own numbering already gives 0."
+				}
+			}
+		},
+		"SetScorePacket": {
+			"fields": {
+				"Score Info": {
+					"optional": false,
+					"name": "scoreInfo",
+					"reason": "Same schema bug as PlayerListPacket.Entries: the payload declares no required list, so the vector reads as optional and the generator puts a presence byte in front of the count. There is no such byte on the wire; CloudburstMC's SetScoreSerializer_v2168 writes helper.writeArray, count then entries. Measured: with the byte, a 1.26.40 client renders the sidebar from SetDisplayObjective and then drops the connection 54ms after SetScore arrives, because it reads the presence byte as the entry count."
 				}
 			}
 		},
@@ -449,6 +475,172 @@
 						"Remove"
 					],
 					"reason": "Each entry variant declares its discriminator as a single-value enum, so both Add and Remove number from 0 and every entry writes byte 0. The values belong to the shared PlayerListPacketType enum, Add=0 and Remove=1, which is what CloudburstMC writes (entry.getAction().ordinal()). Only the remove form needs restating; the add form's own numbering already gives 0."
+				}
+			}
+		},
+		"MobEquipmentPacket": {
+			"fields": {
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Container ID": {
+					"name": "windowsId"
+				}
+			}
+		},
+		"MobArmorEquipmentPacket": {
+			"fields": {
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Head": {
+					"name": "helmet"
+				},
+				"Torso": {
+					"name": "chestplate"
+				},
+				"Legs": {
+					"name": "leggings"
+				},
+				"Feet": {
+					"name": "boots"
+				}
+			}
+		},
+		"ItemStackResponseInfo": {
+			"fields": {
+				"Containers": {
+					"presenceBytes": 2,
+					"reason": "The 2168 changelog says 'Containers is present iff Result == Success', and that invariant is a byte of its own in front of the optional's presence byte. CloudburstMC's ItemStackResponseSerializer_v2168 writes true then the presence and reads 'readBoolean() && readBoolean()'; our hand-written ReadItemStackResponses did the same against live BDS. The schema says only that the field is optional, so the count of gate bytes cannot come from it."
+				}
+			}
+		},
+		"ItemStackResponseSlotInfo": {
+			"fields": {
+				"Item Stack Net Id": {
+					"presenceBytes": 2,
+					"reason": "Same invariant gating as ItemStackResponseInfo.Containers, for the changelog's 'a slot's Item Stack Net Id is present iff Amount > 0'. CloudburstMC's writeItemEntry writes a bare true then writeOptional(id > 0)."
+				}
+			}
+		},
+		"FullContainerName": {
+			"fields": {
+				"Container Name": {
+					"enum": [
+						"AnvilInputContainer",
+						"AnvilMaterialContainer",
+						"AnvilResultPreviewContainer",
+						"SmithingTableInputContainer",
+						"SmithingTableMaterialContainer",
+						"SmithingTableResultPreviewContainer",
+						"ArmorContainer",
+						"LevelEntityContainer",
+						"BeaconPaymentContainer",
+						"BrewingStandInputContainer",
+						"BrewingStandResultContainer",
+						"BrewingStandFuelContainer",
+						"CombinedHotbarAndInventoryContainer",
+						"CraftingInputContainer",
+						"CraftingOutputPreviewContainer",
+						"RecipeConstructionContainer",
+						"RecipeNatureContainer",
+						"RecipeItemsContainer",
+						"RecipeSearchContainer",
+						"RecipeSearchBarContainer",
+						"RecipeEquipmentContainer",
+						"RecipeBookContainer",
+						"EnchantingInputContainer",
+						"EnchantingMaterialContainer",
+						"FurnaceFuelContainer",
+						"FurnaceIngredientContainer",
+						"FurnaceResultContainer",
+						"HorseEquipContainer",
+						"HotbarContainer",
+						"InventoryContainer",
+						"ShulkerBoxContainer",
+						"TradeIngredient1Container",
+						"TradeIngredient2Container",
+						"TradeResultPreviewContainer",
+						"OffhandContainer",
+						"CompoundCreatorInput",
+						"CompoundCreatorOutputPreview",
+						"ElementConstructorOutputPreview",
+						"MaterialReducerInput",
+						"MaterialReducerOutput",
+						"LabTableInput",
+						"LoomInputContainer",
+						"LoomDyeContainer",
+						"LoomMaterialContainer",
+						"LoomResultPreviewContainer",
+						"BlastFurnaceIngredientContainer",
+						"SmokerIngredientContainer",
+						"Trade2Ingredient1Container",
+						"Trade2Ingredient2Container",
+						"Trade2ResultPreviewContainer",
+						"GrindstoneInputContainer",
+						"GrindstoneAdditionalContainer",
+						"GrindstoneResultPreviewContainer",
+						"StonecutterInputContainer",
+						"StonecutterResultPreviewContainer",
+						"CartographyInputContainer",
+						"CartographyAdditionalContainer",
+						"CartographyResultPreviewContainer",
+						"BarrelContainer",
+						"CursorContainer",
+						"CreatedOutputContainer",
+						"SmithingTableTemplateContainer",
+						"CrafterLevelEntityContainer",
+						"DynamicContainer",
+						"RecipeFoodContainer",
+						"RecipeBlocksContainer",
+						"RecipeFurnaceItemsContainer"
+					],
+					"reason": "ContainerEnumName.json lists the 67 names grouped by purpose, not in wire order, so declaration index is not the value. Mojang's own 924 changelog gives the numbers explicitly: 'Added RecipeFoodContainer (64)', 'RecipeBlocksContainer (65)', 'RecipeFurnaceItemsContainer (66)', where the schema puts them at 18, 19 and 20 and shifts every later name by three. CloudburstMC's CONTAINER_SLOT_TYPES table and PMMP's ContainerUIIds agree with the changelog against the schema. This list is that numbering, in Mojang's spelling; it is the same set as the schema's, reordered."
+				},
+				"Dynamic ID": {
+					"optional": true,
+					"reason": "Schema bug: FullContainerName.json lists Dynamic ID as required, which would make the struct five bytes. It is two on the wire, a container-name byte then a presence byte. Verified against BDS 1.26.40: an InventoryContent for the offhand is 21 bytes, 3 header + 8 item + 2 FullContainerName + 8 storage item, and the armour one is 53, 3 + 5*8 + 2 + 8. CloudburstMC has read it as an optional intLE since v729."
+				}
+			}
+		},
+		"InventoryContentPacket": {
+			"fields": {
+				"Container Id": {
+					"name": "inventoryId"
+				},
+				"Slots": {
+					"name": "input",
+					"type": {
+						"csType": "ItemStacks",
+						"write": "Write({0});",
+						"read": "{0} = ReadItemStacks();"
+					},
+					"reason": "Same wire as the generated array (unsigned varint count then one NetworkItemStackDescriptor each), carried in the house ItemStacks collection the whole inventory layer already builds."
+				},
+				"Full Container Name": {
+					"name": "containerName"
+				},
+				"Storage Item": {
+					"name": "storageItem"
+				}
+			}
+		},
+		"InventorySlotPacket": {
+			"fields": {
+				"Container Id": {
+					"name": "inventoryId",
+					"type": {
+						"csType": "uint",
+						"write": "WriteUnsignedVarInt({0});",
+						"read": "{0} = ReadUnsignedVarInt();"
+					},
+					"reason": "The generator leaves uint8 raw because one byte is one byte, which is right for MobEquipment's Container ID (CloudburstMC writes that one with writeByte). This field is declared the same way and is NOT the same on the wire: CloudburstMC's InventorySlotSerializer_v975 writes it with VarInts.writeUnsignedInt, as InventoryContent's own uint32 Container Id and our previous XML pdu both did. Identical bytes below 128, which is every container id we send, so the divergence is on the read path for 128-255."
+				},
+				"Full Container Name": {
+					"name": "containerName"
+				},
+				"Storage Item": {
+					"name": "storageItem"
 				}
 			}
 		}

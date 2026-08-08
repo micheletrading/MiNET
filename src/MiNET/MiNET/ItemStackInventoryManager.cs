@@ -46,9 +46,9 @@ namespace MiNET
 			_player = player;
 		}
 
-		public virtual List<StackResponseContainerInfo> HandleItemStackActions(int requestId, ItemStackActionList actions)
+		public virtual List<ItemStackResponseContainerInfo> HandleItemStackActions(int requestId, ItemStackActionList actions)
 		{
-			var stackResponses = new List<StackResponseContainerInfo>();
+			var stackResponses = new List<ItemStackResponseContainerInfo>();
 			_activeRecipe = null;
 			foreach (ItemStackAction stackAction in actions)
 			{
@@ -122,15 +122,15 @@ namespace MiNET
 				}
 			}
 
-			foreach (IGrouping<byte, StackResponseContainerInfo> stackResponseGroup in stackResponses.GroupBy(r => r.ContainerId))
+			foreach (IGrouping<FullContainerName.ContainerEnumName, ItemStackResponseContainerInfo> stackResponseGroup in stackResponses.GroupBy(r => r.fullContainerName.containerName))
 			{
 				if (stackResponseGroup.Count() > 1)
 				{
-					byte containerId = stackResponseGroup.Key;
-					StackResponseSlotInfo slotToKeep = null;
-					foreach (IGrouping<byte, StackResponseSlotInfo> slotGroup in stackResponseGroup.SelectMany(d => d.Slots).GroupBy(s => s.Slot))
+					FullContainerName.ContainerEnumName containerName = stackResponseGroup.Key;
+					ItemStackResponseSlotInfo slotToKeep = null;
+					foreach (IGrouping<byte, ItemStackResponseSlotInfo> slotGroup in stackResponseGroup.SelectMany(d => d.slots).GroupBy(s => s.requestedSlot))
 					{
-						byte slot = slotGroup.Key;
+						byte requestedSlot = slotGroup.Key;
 						if (slotGroup.Count() > 1)
 						{
 							slotToKeep = slotGroup.ToList().Last();
@@ -138,9 +138,9 @@ namespace MiNET
 					}
 					if (slotToKeep != null)
 					{
-						foreach (StackResponseContainerInfo containerInfo in stackResponseGroup)
+						foreach (ItemStackResponseContainerInfo containerInfo in stackResponseGroup)
 						{
-							if (!containerInfo.Slots.Contains(slotToKeep))
+							if (!containerInfo.slots.Contains(slotToKeep))
 							{
 								stackResponses.Remove(containerInfo);
 							}
@@ -152,7 +152,7 @@ namespace MiNET
 			return stackResponses;
 		}
 
-		protected virtual void ProcessConsumeAction(ConsumeAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessConsumeAction(ConsumeAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
 			byte count = action.Count;
 			StackRequestSlotInfo source = action.Source;
@@ -165,23 +165,23 @@ namespace MiNET
 				SetContainerItem(source.ContainerId, source.Slot, sourceItem);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.Slot,
+						slot = source.Slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessDropAction(DropAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessDropAction(DropAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
 			byte count = action.Count;
 			Item dropItem;
@@ -206,23 +206,23 @@ namespace MiNET
 
 			_player.DropItem(dropItem);
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.Slot,
+						slot = source.Slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessDestroyAction(DestroyAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessDestroyAction(DestroyAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
 			byte count = action.Count;
 			StackRequestSlotInfo source = action.Source;
@@ -235,23 +235,23 @@ namespace MiNET
 				SetContainerItem(source.ContainerId, source.Slot, sourceItem);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.Slot,
+						slot = source.Slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessSwapAction(SwapAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessSwapAction(SwapAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
 			StackRequestSlotInfo source = action.Source;
 			StackRequestSlotInfo destination = action.Destination;
@@ -268,37 +268,37 @@ namespace MiNET
 				else Enchantment.SendEmptyEnchantments(_player);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = destItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = destItem.UniqueId
+						amount = destItem.Count,
+						requestedSlot = source.Slot,
+						slot = source.Slot,
+						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
 					}
 				}
 			});
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = destination.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) destination.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = destination.Slot,
-						HotbarSlot = destination.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = destination.Slot,
+						slot = destination.Slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessPlaceAction(PlaceAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessPlaceAction(PlaceAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
 			byte count = action.Count;
 			Item sourceItem;
@@ -340,37 +340,37 @@ namespace MiNET
 				else Enchantment.SendEmptyEnchantments(_player);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.Slot,
+						slot = source.Slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = destination.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) destination.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = destItem.Count,
-						Slot = destination.Slot,
-						HotbarSlot = destination.Slot,
-						StackNetworkId = destItem.UniqueId
+						amount = destItem.Count,
+						requestedSlot = destination.Slot,
+						slot = destination.Slot,
+						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessTakeAction(TakeAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessTakeAction(TakeAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
 			byte count = action.Count;
 			Item sourceItem;
@@ -404,31 +404,31 @@ namespace MiNET
 				else Enchantment.SendEmptyEnchantments(_player);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.Slot,
+						slot = source.Slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = destination.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) destination.ContainerId},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = destItem.Count,
-						Slot = destination.Slot,
-						HotbarSlot = destination.Slot,
-						StackNetworkId = destItem.UniqueId
+						amount = destItem.Count,
+						requestedSlot = destination.Slot,
+						slot = destination.Slot,
+						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
 					}
 				}
 			});

@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -60,24 +60,24 @@ namespace MiNET.Net
 			};
 		}
 
-		public static List<PlayerList> Added(params Player[] players)
+		public static List<PlayerListBase> Added(params Player[] players)
 		{
-			return players.Select(player => (PlayerList) AddEntry(player)).ToList();
+			return players.Select(player => (PlayerListBase) AddEntry(player)).ToList();
 		}
 
-		public static List<PlayerList> Added(IEnumerable<Player> players)
+		public static List<PlayerListBase> Added(IEnumerable<Player> players)
 		{
-			return players.Select(player => (PlayerList) AddEntry(player)).ToList();
+			return players.Select(player => (PlayerListBase) AddEntry(player)).ToList();
 		}
 
-		public static List<PlayerList> Removed(params Player[] players)
+		public static List<PlayerListBase> Removed(params Player[] players)
 		{
-			return players.Select(player => (PlayerList) RemoveEntry(player)).ToList();
+			return players.Select(player => (PlayerListBase) RemoveEntry(player)).ToList();
 		}
 
-		public static List<PlayerList> Removed(IEnumerable<Player> players)
+		public static List<PlayerListBase> Removed(IEnumerable<Player> players)
 		{
-			return players.Select(player => (PlayerList) RemoveEntry(player)).ToList();
+			return players.Select(player => (PlayerListBase) RemoveEntry(player)).ToList();
 		}
 	}
 }

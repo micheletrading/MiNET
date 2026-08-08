@@ -23,76 +23,8 @@
 
 #endregion
 
-using MiNET.Items;
-
 namespace MiNET.Net
 {
-	// Container addressing since 712/729: a slot-type byte plus an optional dynamic
-	// container id, and a storage item for dynamic containers (bundles).
-
-	public partial class McpeInventoryContent : Packet<McpeInventoryContent>
-	{
-		public byte containerId;
-		public bool hasDynamicContainerId;
-		public uint dynamicContainerId;
-		public Item storageItem;
-
-		partial void AfterEncode()
-		{
-			Write(containerId);
-			Write(hasDynamicContainerId);
-			if (hasDynamicContainerId) Write(dynamicContainerId);
-			Write(storageItem ?? new ItemAir());
-		}
-
-		partial void AfterDecode()
-		{
-			containerId = ReadByte();
-			hasDynamicContainerId = ReadBool();
-			if (hasDynamicContainerId) dynamicContainerId = ReadUint();
-			storageItem = ReadItem();
-		}
-	}
-
-	public partial class McpeInventorySlot : Packet<McpeInventorySlot>
-	{
-		public bool hasContainer;
-		public byte containerId;
-		public bool hasDynamicContainerId;
-		public uint dynamicContainerId;
-		public bool hasStorageItem;
-		public Item storageItem;
-		public Item item;
-
-		partial void AfterEncode()
-		{
-			Write(hasContainer);
-			if (hasContainer)
-			{
-				Write(containerId);
-				Write(hasDynamicContainerId);
-				if (hasDynamicContainerId) Write(dynamicContainerId);
-			}
-			Write(hasStorageItem);
-			if (hasStorageItem) Write(storageItem ?? new ItemAir());
-			Write(item ?? new ItemAir());
-		}
-
-		partial void AfterDecode()
-		{
-			hasContainer = ReadBool();
-			if (hasContainer)
-			{
-				containerId = ReadByte();
-				hasDynamicContainerId = ReadBool();
-				if (hasDynamicContainerId) dynamicContainerId = ReadUint();
-			}
-			hasStorageItem = ReadBool();
-			if (hasStorageItem) storageItem = ReadItem();
-			item = ReadItem();
-		}
-	}
-
 	public partial class McpeGameRulesChanged : Packet<McpeGameRulesChanged>
 	{
 		public GameRules rules;

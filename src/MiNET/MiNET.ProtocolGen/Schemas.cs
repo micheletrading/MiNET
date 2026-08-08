@@ -122,6 +122,7 @@ public class Overrides
 					if (o["name"] != null) p.FieldNames[f.Name] = (string) o["name"];
 					if (o["enum"] != null) p.FieldEnums[f.Name] = ((JArray) o["enum"]).Select(v => (string) v).ToList();
 					if (o["optional"] != null) p.FieldOptional[f.Name] = (bool) o["optional"];
+					if (o["presenceBytes"] != null) p.FieldPresenceBytes[f.Name] = (int) o["presenceBytes"];
 					if (o["type"] != null)
 					{
 						var t = (JObject) o["type"];
@@ -157,6 +158,14 @@ public class PacketOverride
 	///     of the struct; the schema has been wrong about it, so the changelog wins.
 	/// </summary>
 	public Dictionary<string, bool> FieldOptional = new();
+
+	/// <summary>
+	///     Wire field name -> how many presence bytes gate an optional field, default one. Mojang
+	///     encodes a cross-field invariant ("Containers is present iff Result == Success") as a byte
+	///     of its own in front of the optional's own presence byte, so the field is absent when
+	///     either is false. The schema says only "optional", so the count comes from here.
+	/// </summary>
+	public Dictionary<string, int> FieldPresenceBytes = new();
 }
 
 public class TypeMapping
@@ -232,6 +241,10 @@ public class CerealField
 	///     overwrites the last. One field, N slots, the last one present wins.
 	/// </summary>
 	public int VariantSlots = 1;
+
+	/// <summary>How many presence bytes gate this field when it is optional. See PacketOverride.FieldPresenceBytes.</summary>
+	public int PresenceBytes = 1;
+
 	/// <summary>For const-discriminator fields inside variant payloads: the literal written on the wire.</summary>
 	public string ConstValue;
 
@@ -335,7 +348,7 @@ public class CerealPacket
 			if (slots > 1)
 			{
 				string name = SanitizeTypeName(owner.Replace("Packet", "").Replace("Payload", ""));
-				field.Variant.BaseName = name + "Param";
+				field.Variant.BaseName = name + "ParamBase";
 				field.FieldName = char.ToLowerInvariant(field.Variant.BaseName[0]) + field.Variant.BaseName.Substring(1);
 
 				// The option classes are shared across the slots and recorded their base as each
@@ -366,12 +379,16 @@ public class CerealPacket
 				optional = forcedOptional;
 			}
 
+			int presenceBytes = 1;
+			packetOverride?.FieldPresenceBytes.TryGetValue(prop.Name, out presenceBytes);
+
 			var field = new CerealField
 			{
 				WireName = prop.Name,
 				FieldName = memberName,
 				Ordinal = (int) ((JObject) prop.Value)["x-ordinal-index"],
 				Optional = optional,
+				PresenceBytes = presenceBytes < 1 ? 1 : presenceBytes,
 			};
 
 			TypeMapping forced = null;
@@ -399,8 +416,13 @@ public class CerealPacket
 	{
 		if (prop["const"] != null)
 		{
-			// Variant discriminator: a constant written on the wire, not a class member. The const
-			// value is a string name (matches Cloudburst's writeString of the variant name).
+			// Variant discriminator: a constant written on the wire, not a class member. The schema
+			// types it uint8, which is wrong: the value is the name, spelled out as a string, and it
+			// follows the variant's own varint tag. CloudburstMC's SetScoreSerializer_v2168 writes
+			// both, VarInts.writeUnsignedInt(type.ordinal()) then writeString("changefakeplayer"),
+			// and recipe ingredients are the same shape against live BDS bytes. Emitting the byte
+			// the schema's type implies makes a 2168 client drop the connection 55ms after the
+			// packet lands (measured on SetScore, 2026-08-09).
 			field.ConstValue = (string) prop["const"];
 			field.Kind = FieldKind.Plain;
 			field.Type = new TypeMapping {CsType = "string", Write = $"Write(\"{(string) prop["const"]}\");", Read = "ReadString();"};
@@ -487,7 +509,11 @@ public class CerealPacket
 			// all), the field's own wire name is the choice, so use that.
 			var variant = new CerealVariant
 			{
-				BaseName = SanitizeTypeName((prefix.Length > 0 ? prefix : field.WireName).Replace("-", " "))
+				// The Base suffix is not decoration. Mojang also names options after their owner
+				// ("ItemStackRequestTakeAction"), so the shared prefix is then the owning type's own
+				// name, and the base would be emitted twice: once as the abstract base, once as the
+				// struct that holds the list. Same convention as the block family bases.
+				BaseName = SanitizeTypeName((prefix.Length > 0 ? prefix : field.WireName).Replace("-", " ")) + "Base"
 			};
 			for (int i = 0; i < refs.Count; i++)
 			{
@@ -556,7 +582,6 @@ public class CerealPacket
 
 		foreach (CerealField field in ResolveFields(name, schema, schemas, overrides, structs, structOverride))
 		{
-			if (field.Kind == FieldKind.Variant) throw new NotImplementedException($"{name}.{field.WireName}: variants inside structs are not implemented yet");
 			AttachEnum(field, result.Name, result.Enums);
 			result.Fields.Add(field);
 		}

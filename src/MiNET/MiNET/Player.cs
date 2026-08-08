@@ -2667,56 +2667,56 @@ namespace MiNET
 		private void HandleSingleItemStackRequest(ItemStackActionList request)
 		{
 			var response = McpeItemStackResponse.CreateObject();
-			response.responses = new ItemStackResponses();
+			response.responses = new List<ItemStackResponseInfo>();
 
-			var stackResponse = new ItemStackResponse
+			var stackResponse = new ItemStackResponseInfo
 			{
-				Result = StackResponseStatus.Ok,
-				RequestId = request.RequestId,
-				ResponseContainerInfos = new List<StackResponseContainerInfo>()
+				result = ItemStackResponseInfo.Result.Success,
+				clientRequestId = request.RequestId,
+				containers = new List<ItemStackResponseContainerInfo>()
 			};
 			response.responses.Add(stackResponse);
 
 			try
 			{
-				stackResponse.ResponseContainerInfos.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+				stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
 			}
 			catch (Exception e)
 			{
 				Log.Warn($"Failed to process inventory actions", e);
-				stackResponse.Result = StackResponseStatus.Error;
-				stackResponse.ResponseContainerInfos.Clear();
+				stackResponse.result = ItemStackResponseInfo.Result.Error;
+				stackResponse.containers.Clear();
 			}
 
 			SendPacket(response);
-			if (stackResponse.Result != StackResponseStatus.Ok) ResyncInventoryAfterFailedStackRequest();
+			if (stackResponse.result != ItemStackResponseInfo.Result.Success) ResyncInventoryAfterFailedStackRequest();
 		}
 
 		public virtual void HandleMcpeItemStackRequest(McpeItemStackRequest message)
 		{
 			var response = McpeItemStackResponse.CreateObject();
-			response.responses = new ItemStackResponses();
+			response.responses = new List<ItemStackResponseInfo>();
 			bool anyFailed = false;
 			foreach (ItemStackActionList request in message.requests)
 			{
-				var stackResponse = new ItemStackResponse()
+				var stackResponse = new ItemStackResponseInfo
 				{
-					Result = StackResponseStatus.Ok,
-					RequestId = request.RequestId,
-					ResponseContainerInfos = new List<StackResponseContainerInfo>()
+					result = ItemStackResponseInfo.Result.Success,
+					clientRequestId = request.RequestId,
+					containers = new List<ItemStackResponseContainerInfo>()
 				};
 
 				response.responses.Add(stackResponse);
 
 				try
 				{
-					stackResponse.ResponseContainerInfos.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+					stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
 				}
 				catch (Exception e)
 				{
 					Log.Warn($"Failed to process inventory actions", e);
-					stackResponse.Result = StackResponseStatus.Error;
-					stackResponse.ResponseContainerInfos.Clear();
+					stackResponse.result = ItemStackResponseInfo.Result.Error;
+					stackResponse.containers.Clear();
 					anyFailed = true;
 				}
 			}

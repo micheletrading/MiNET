@@ -163,7 +163,7 @@ namespace MiNET.Net
 	public partial class McpeResourcePackClientResponse : Packet<McpeResourcePackClientResponse>
 	{
 
-		public ResourcePackClientResponse response; // = null;
+		public ResourcePackClientResponseBase response; // = null;
 
 		public McpeResourcePackClientResponse()
 		{
@@ -230,7 +230,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			response=default(ResourcePackClientResponse);
+			response=default(ResourcePackClientResponseBase);
 		}
 
 	}
@@ -783,6 +783,138 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeMobEquipment : Packet<McpeMobEquipment>
+	{
+
+		public long runtimeEntityId; // = null;
+		public Item item; // = null;
+		public byte slot; // = null;
+		public byte selectedSlot; // = null;
+		public byte windowsId; // = null;
+
+		public McpeMobEquipment()
+		{
+			Id = 0x1f;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarLong(runtimeEntityId);
+			WriteNetworkItemStackDescriptor(item);
+			Write(slot);
+			Write(selectedSlot);
+			Write(windowsId);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			runtimeEntityId = ReadUnsignedVarLong();
+			item = ReadNetworkItemStackDescriptor();
+			slot = ReadByte();
+			selectedSlot = ReadByte();
+			windowsId = ReadByte();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			runtimeEntityId=default(long);
+			item=default(Item);
+			slot=default(byte);
+			selectedSlot=default(byte);
+			windowsId=default(byte);
+		}
+
+	}
+
+	public partial class McpeMobArmorEquipment : Packet<McpeMobArmorEquipment>
+	{
+
+		public long runtimeEntityId; // = null;
+		public Item helmet; // = null;
+		public Item chestplate; // = null;
+		public Item leggings; // = null;
+		public Item boots; // = null;
+		public Item body; // = null;
+
+		public McpeMobArmorEquipment()
+		{
+			Id = 0x20;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarLong(runtimeEntityId);
+			WriteNetworkItemStackDescriptor(helmet);
+			WriteNetworkItemStackDescriptor(chestplate);
+			WriteNetworkItemStackDescriptor(leggings);
+			WriteNetworkItemStackDescriptor(boots);
+			WriteNetworkItemStackDescriptor(body);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			runtimeEntityId = ReadUnsignedVarLong();
+			helmet = ReadNetworkItemStackDescriptor();
+			chestplate = ReadNetworkItemStackDescriptor();
+			leggings = ReadNetworkItemStackDescriptor();
+			boots = ReadNetworkItemStackDescriptor();
+			body = ReadNetworkItemStackDescriptor();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			runtimeEntityId=default(long);
+			helmet=default(Item);
+			chestplate=default(Item);
+			leggings=default(Item);
+			boots=default(Item);
+			body=default(Item);
+		}
+
+	}
+
 	public partial class McpeSetEntityData : Packet<McpeSetEntityData>
 	{
 
@@ -839,6 +971,132 @@ namespace MiNET.Net
 			metadata=default(MetadataDictionary);
 			synchedProperties=default(PropertySyncData);
 			tick=default(long);
+		}
+
+	}
+
+	public partial class McpeInventoryContent : Packet<McpeInventoryContent>
+	{
+
+		public uint inventoryId; // = null;
+		public ItemStacks input; // = null;
+		public FullContainerName containerName; // = null;
+		public Item storageItem; // = null;
+
+		public McpeInventoryContent()
+		{
+			Id = 0x31;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarInt(inventoryId);
+			Write(input);
+			Write(containerName ?? new FullContainerName());
+			WriteNetworkItemStackDescriptor(storageItem);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			inventoryId = ReadUnsignedVarInt();
+			input = ReadItemStacks();
+			containerName = ReadFullContainerName();
+			storageItem = ReadNetworkItemStackDescriptor();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			inventoryId=default(uint);
+			input=default(ItemStacks);
+			containerName=default(FullContainerName);
+			storageItem=default(Item);
+		}
+
+	}
+
+	public partial class McpeInventorySlot : Packet<McpeInventorySlot>
+	{
+
+		public uint inventoryId; // = null;
+		public uint slot; // = null;
+		public FullContainerName containerName; // = null;
+		public Item storageItem; // = null;
+		public Item item; // = null;
+
+		public McpeInventorySlot()
+		{
+			Id = 0x32;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarInt(inventoryId);
+			WriteUnsignedVarInt(slot);
+			Write(containerName != null);
+			if (containerName != null) Write(containerName);
+			Write(storageItem != null);
+			if (storageItem != null) WriteNetworkItemStackDescriptor(storageItem);
+			WriteNetworkItemStackDescriptor(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			inventoryId = ReadUnsignedVarInt();
+			slot = ReadUnsignedVarInt();
+			if (ReadBool()) containerName = ReadFullContainerName();
+			if (ReadBool()) storageItem = ReadNetworkItemStackDescriptor();
+			item = ReadNetworkItemStackDescriptor();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			inventoryId=default(uint);
+			slot=default(uint);
+			containerName=default(FullContainerName);
+			storageItem=default(Item);
+			item=default(Item);
 		}
 
 	}
@@ -922,7 +1180,7 @@ namespace MiNET.Net
 	public partial class McpePlayerList : Packet<McpePlayerList>
 	{
 
-		public List<PlayerList> records; // = null;
+		public List<PlayerListBase> records; // = null;
 
 		public McpePlayerList()
 		{
@@ -939,7 +1197,7 @@ namespace MiNET.Net
 			if (records != null)
 			{
 				WriteUnsignedVarInt((uint) records.Count);
-				foreach (PlayerList item in records)
+				foreach (PlayerListBase item in records)
 				{
 					switch (item)
 					{
@@ -971,7 +1229,7 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			uint recordsCount = ReadUnsignedVarInt();
-			records = new List<PlayerList>((int) recordsCount);
+			records = new List<PlayerListBase>((int) recordsCount);
 			for (int i = 0; i < recordsCount; i++) records.Add(ReadUnsignedVarInt() switch { 0 => ReadPlayerListRemoveEntry(), 1 => ReadPlayerListAddEntry(), uint other => throw new Exception($"Unknown item variant tag {other}") });
 
 			AfterDecode();
@@ -984,7 +1242,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			records=default(List<PlayerList>);
+			records=default(List<PlayerListBase>);
 		}
 
 	}
@@ -1389,10 +1647,58 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeRemoveObjective : Packet<McpeRemoveObjective>
+	{
+
+		public string objectiveName; // = null;
+
+		public McpeRemoveObjective()
+		{
+			Id = 0x6a;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			Write(objectiveName);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			objectiveName = ReadString();
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			objectiveName=default(string);
+		}
+
+	}
+
 	public partial class McpeSetScore : Packet<McpeSetScore>
 	{
 
-		public List<ScoreInfoElement> scoreInfo; // = null;
+		public List<ScoreInfoElementBase> scoreInfo; // = null;
 
 		public McpeSetScore()
 		{
@@ -1406,11 +1712,10 @@ namespace MiNET.Net
 
 			BeforeEncode();
 
-			Write(scoreInfo != null);
 			if (scoreInfo != null)
 			{
 				WriteUnsignedVarInt((uint) scoreInfo.Count);
-				foreach (ScoreInfoElement item in scoreInfo)
+				foreach (ScoreInfoElementBase item in scoreInfo)
 				{
 					switch (item)
 					{
@@ -1435,6 +1740,7 @@ namespace MiNET.Net
 					}
 				}
 			}
+			else WriteUnsignedVarInt(0);
 
 			AfterEncode();
 		}
@@ -1448,12 +1754,9 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			if (ReadBool())
-			{
-				uint scoreInfoCount = ReadUnsignedVarInt();
-				scoreInfo = new List<ScoreInfoElement>((int) scoreInfoCount);
-				for (int i = 0; i < scoreInfoCount; i++) scoreInfo.Add(ReadUnsignedVarInt() switch { 0 => ReadRemoveScore(), 1 => ReadChangePlayerScore(), 2 => ReadChangeEntityScore(), 3 => ReadChangeFakePlayerScore(), uint other => throw new Exception($"Unknown item variant tag {other}") });
-			}
+			uint scoreInfoCount = ReadUnsignedVarInt();
+			scoreInfo = new List<ScoreInfoElementBase>((int) scoreInfoCount);
+			for (int i = 0; i < scoreInfoCount; i++) scoreInfo.Add(ReadUnsignedVarInt() switch { 0 => ReadRemoveScore(), 1 => ReadChangePlayerScore(), 2 => ReadChangeEntityScore(), 3 => ReadChangeFakePlayerScore(), uint other => throw new Exception($"Unknown item variant tag {other}") });
 
 			AfterDecode();
 		}
@@ -1465,7 +1768,7 @@ namespace MiNET.Net
 		{
 			base.ResetPacket();
 
-			scoreInfo=default(List<ScoreInfoElement>);
+			scoreInfo=default(List<ScoreInfoElementBase>);
 		}
 
 	}
@@ -1680,6 +1983,57 @@ namespace MiNET.Net
 
 			groups=default(List<CreativeGroupInfoPayload>);
 			entries=default(List<CreativeItemEntryPayload>);
+		}
+
+	}
+
+	public partial class McpeItemStackResponse : Packet<McpeItemStackResponse>
+	{
+
+		public List<ItemStackResponseInfo> responses; // = null;
+
+		public McpeItemStackResponse()
+		{
+			Id = 0x94;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarInt((uint) (responses?.Count ?? 0));
+			if (responses != null) foreach (ItemStackResponseInfo item in responses) Write(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			uint responsesCount = ReadUnsignedVarInt();
+			responses = new List<ItemStackResponseInfo>((int) responsesCount);
+			for (int i = 0; i < responsesCount; i++) responses.Add(ReadItemStackResponseInfo());
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			responses=default(List<ItemStackResponseInfo>);
 		}
 
 	}
@@ -1933,7 +2287,7 @@ namespace MiNET.Net
 
 		public long targetId; // = null;
 		public uint propertyIndex; // = null;
-		public Update update; // = null;
+		public UpdateBase update; // = null;
 
 		public McpePlayerUpdateEntityOverrides()
 		{
@@ -2006,7 +2360,7 @@ namespace MiNET.Net
 
 			targetId=default(long);
 			propertyIndex=default(uint);
-			update=default(Update);
+			update=default(UpdateBase);
 		}
 
 	}
@@ -2015,7 +2369,7 @@ namespace MiNET.Net
 	{
 
 		public long targetActorId; // = null;
-		public Location location; // = null;
+		public LocationBase location; // = null;
 
 		public McpePlayerLocation()
 		{
@@ -2075,7 +2429,7 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			targetActorId=default(long);
-			location=default(Location);
+			location=default(LocationBase);
 		}
 
 	}
@@ -2084,7 +2438,7 @@ namespace MiNET.Net
 	{
 
 		public ulong serverSoundHandle; // = null;
-		public ClientboundUpdateSoundDataParam clientboundUpdateSoundDataParam; // = null;
+		public ClientboundUpdateSoundDataParamBase clientboundUpdateSoundDataParamBase; // = null;
 
 		public McpeClientboundUpdateSoundData()
 		{
@@ -2100,10 +2454,10 @@ namespace MiNET.Net
 
 			Write(serverSoundHandle);
 			for (int slot = 0; slot < 6; slot++) Write(false);
-			Write(clientboundUpdateSoundDataParam != null);
-			if (clientboundUpdateSoundDataParam != null)
+			Write(clientboundUpdateSoundDataParamBase != null);
+			if (clientboundUpdateSoundDataParamBase != null)
 			{
-				switch (clientboundUpdateSoundDataParam)
+				switch (clientboundUpdateSoundDataParamBase)
 				{
 					case Stop v0:
 						WriteUnsignedVarInt(0);
@@ -2134,7 +2488,7 @@ namespace MiNET.Net
 						Write(v6);
 						break;
 					default:
-						throw new Exception($"clientboundUpdateSoundDataParam variant not set or unknown: {clientboundUpdateSoundDataParam}");
+						throw new Exception($"clientboundUpdateSoundDataParamBase variant not set or unknown: {clientboundUpdateSoundDataParamBase}");
 				}
 			}
 
@@ -2151,11 +2505,11 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			serverSoundHandle = ReadUlong();
-			clientboundUpdateSoundDataParam = null;
+			clientboundUpdateSoundDataParamBase = null;
 			for (int slot = 0; slot < 7; slot++)
 			{
 				if (!ReadBool()) continue;
-				clientboundUpdateSoundDataParam = ReadUnsignedVarInt() switch
+				clientboundUpdateSoundDataParamBase = ReadUnsignedVarInt() switch
 				{
 					0 => ReadStop(),
 					1 => ReadSetVolume(),
@@ -2164,7 +2518,7 @@ namespace MiNET.Net
 					4 => ReadSeekTo(),
 					5 => ReadPause(),
 					6 => ReadResume(),
-					uint other => throw new Exception($"Unknown clientboundUpdateSoundDataParam variant tag {other}"),
+					uint other => throw new Exception($"Unknown clientboundUpdateSoundDataParamBase variant tag {other}"),
 				};
 			}
 
@@ -2179,32 +2533,32 @@ namespace MiNET.Net
 			base.ResetPacket();
 
 			serverSoundHandle=default(ulong);
-			clientboundUpdateSoundDataParam=default(ClientboundUpdateSoundDataParam);
+			clientboundUpdateSoundDataParamBase=default(ClientboundUpdateSoundDataParamBase);
 		}
 
 	}
 
-	public abstract class ClientboundUpdateSoundDataParam
+	public abstract class ClientboundUpdateSoundDataParamBase
 	{
 	}
 
-	public abstract class Location
+	public abstract class LocationBase
 	{
 	}
 
-	public abstract class PlayerList
+	public abstract class PlayerListBase
 	{
 	}
 
-	public abstract class ResourcePackClientResponse
+	public abstract class ResourcePackClientResponseBase
 	{
 	}
 
-	public abstract class ScoreInfoElement
+	public abstract class ScoreInfoElementBase
 	{
 	}
 
-	public abstract class Update
+	public abstract class UpdateBase
 	{
 	}
 
@@ -2231,7 +2585,7 @@ namespace MiNET.Net
 		public string redacted;
 	}
 
-	public class ChangeEntityScore : ScoreInfoElement
+	public class ChangeEntityScore : ScoreInfoElementBase
 	{
 		public long scoreboardId;
 		public string objectiveName;
@@ -2239,7 +2593,7 @@ namespace MiNET.Net
 		public long actorId;
 	}
 
-	public class ChangeFakePlayerScore : ScoreInfoElement
+	public class ChangeFakePlayerScore : ScoreInfoElementBase
 	{
 		public long scoreboardId;
 		public string objectiveName;
@@ -2247,7 +2601,7 @@ namespace MiNET.Net
 		public string fakePlayerName;
 	}
 
-	public class ChangePlayerScore : ScoreInfoElement
+	public class ChangePlayerScore : ScoreInfoElementBase
 	{
 		public long scoreboardId;
 		public string objectiveName;
@@ -2261,7 +2615,7 @@ namespace MiNET.Net
 		public int z;
 	}
 
-	public class ClearOverride : Update
+	public class ClearOverride : UpdateBase
 	{
 	}
 
@@ -2271,7 +2625,7 @@ namespace MiNET.Net
 		public string storename;
 	}
 
-	public class CoordinatesLocation : Location
+	public class CoordinatesLocation : LocationBase
 	{
 		public enum PacketType
 		{
@@ -2321,15 +2675,92 @@ namespace MiNET.Net
 		public byte percentOfTotal;
 	}
 
-	public class Fade : ClientboundUpdateSoundDataParam
+	public class Fade : ClientboundUpdateSoundDataParamBase
 	{
 		public float duration;
 		public float targetVolume;
 	}
 
-	public class FloatOverride : Update
+	public class FloatOverride : UpdateBase
 	{
 		public float value;
+	}
+
+	public class FullContainerName
+	{
+		public enum ContainerEnumName
+		{
+			Anvilinputcontainer = 0,
+			Anvilmaterialcontainer = 1,
+			Anvilresultpreviewcontainer = 2,
+			Smithingtableinputcontainer = 3,
+			Smithingtablematerialcontainer = 4,
+			Smithingtableresultpreviewcontainer = 5,
+			Armorcontainer = 6,
+			Levelentitycontainer = 7,
+			Beaconpaymentcontainer = 8,
+			Brewingstandinputcontainer = 9,
+			Brewingstandresultcontainer = 10,
+			Brewingstandfuelcontainer = 11,
+			Combinedhotbarandinventorycontainer = 12,
+			Craftinginputcontainer = 13,
+			Craftingoutputpreviewcontainer = 14,
+			Recipeconstructioncontainer = 15,
+			Recipenaturecontainer = 16,
+			Recipeitemscontainer = 17,
+			Recipesearchcontainer = 18,
+			Recipesearchbarcontainer = 19,
+			Recipeequipmentcontainer = 20,
+			Recipebookcontainer = 21,
+			Enchantinginputcontainer = 22,
+			Enchantingmaterialcontainer = 23,
+			Furnacefuelcontainer = 24,
+			Furnaceingredientcontainer = 25,
+			Furnaceresultcontainer = 26,
+			Horseequipcontainer = 27,
+			Hotbarcontainer = 28,
+			Inventorycontainer = 29,
+			Shulkerboxcontainer = 30,
+			Tradeingredient1container = 31,
+			Tradeingredient2container = 32,
+			Traderesultpreviewcontainer = 33,
+			Offhandcontainer = 34,
+			Compoundcreatorinput = 35,
+			Compoundcreatoroutputpreview = 36,
+			Elementconstructoroutputpreview = 37,
+			Materialreducerinput = 38,
+			Materialreduceroutput = 39,
+			Labtableinput = 40,
+			Loominputcontainer = 41,
+			Loomdyecontainer = 42,
+			Loommaterialcontainer = 43,
+			Loomresultpreviewcontainer = 44,
+			Blastfurnaceingredientcontainer = 45,
+			Smokeringredientcontainer = 46,
+			Trade2ingredient1container = 47,
+			Trade2ingredient2container = 48,
+			Trade2resultpreviewcontainer = 49,
+			Grindstoneinputcontainer = 50,
+			Grindstoneadditionalcontainer = 51,
+			Grindstoneresultpreviewcontainer = 52,
+			Stonecutterinputcontainer = 53,
+			Stonecutterresultpreviewcontainer = 54,
+			Cartographyinputcontainer = 55,
+			Cartographyadditionalcontainer = 56,
+			Cartographyresultpreviewcontainer = 57,
+			Barrelcontainer = 58,
+			Cursorcontainer = 59,
+			Createdoutputcontainer = 60,
+			Smithingtabletemplatecontainer = 61,
+			Crafterlevelentitycontainer = 62,
+			Dynamiccontainer = 63,
+			Recipefoodcontainer = 64,
+			Recipeblockscontainer = 65,
+			Recipefurnaceitemscontainer = 66,
+		}
+
+		public FullContainerName.ContainerEnumName containerName;
+		public uint? dynamicId;
 	}
 
 	public class GatheringsConfig
@@ -2344,19 +2775,115 @@ namespace MiNET.Net
 		public string serverid;
 	}
 
-	public class HiddenLocation : Location
+	public class HiddenLocation : LocationBase
 	{
 		public enum PacketType
 		{
-			PlayerLocationHide = 0,
+			Playerlocationcoordinates = 0,
+			Playerlocationhide = 1,
 		}
 
 		public HiddenLocation.PacketType packetType;
 	}
 
-	public class IntOverride : Update
+	public class IntOverride : UpdateBase
 	{
 		public int value;
+	}
+
+	public class ItemStackResponseContainerInfo
+	{
+		public FullContainerName fullContainerName;
+		public List<ItemStackResponseSlotInfo> slots;
+	}
+
+	public class ItemStackResponseInfo
+	{
+		public enum Result
+		{
+			Success = 0,
+			Error = 1,
+			Invalidrequestactiontype = 2,
+			Actionrequestnotallowed = 3,
+			Screenhandlerendrequestfailed = 4,
+			Itemrequestactionhandlercommitfailed = 5,
+			Invalidrequestcraftactiontype = 6,
+			Invalidcraftrequest = 7,
+			Invalidcraftrequestscreen = 8,
+			Invalidcraftresult = 9,
+			Invalidcraftresultindex = 10,
+			Invalidcraftresultitem = 11,
+			Invaliditemnetid = 12,
+			Missingcreatedoutputcontainer = 13,
+			Failedtosetcreateditemoutputslot = 14,
+			Requestalreadyinprogress = 15,
+			Failedtoinitsparsecontainer = 16,
+			Resulttransferfailed = 17,
+			Expecteditemslotnotfullyconsumed = 18,
+			Expectedanywhereitemnotfullyconsumed = 19,
+			Itemalreadyconsumedfromslot = 20,
+			Consumedtoomuchfromslot = 21,
+			Mismatchslotexpectedconsumeditem = 22,
+			Mismatchslotexpectedconsumeditemnetidvariant = 23,
+			Failedtomatchexpectedslotconsumeditem = 24,
+			Failedtomatchexpectedallowedanywhereconsumeditem = 25,
+			Consumeditemoutofallowedslotrange = 26,
+			Consumeditemnotallowed = 27,
+			Playernotincreativemode = 28,
+			Invalidexperimentalreciperequest = 29,
+			Failedtocraftcreative = 30,
+			Failedtogetlevelrecipe = 31,
+			Failedtofindrecipebynetid = 32,
+			Mismatchedcraftingsize = 33,
+			Missinginputsparsecontainer = 34,
+			Mismatchedrecipeforinputgriditems = 35,
+			Emptycraftresults = 36,
+			Failedtoenchant = 37,
+			Missinginputitem = 38,
+			Insufficientplayerleveltoenchant = 39,
+			Missingmaterialitem = 40,
+			Missingactor = 41,
+			Unknownprimaryeffect = 42,
+			Primaryeffectoutofrange = 43,
+			Primaryeffectunavailable = 44,
+			Secondaryeffectoutofrange = 45,
+			Secondaryeffectunavailable = 46,
+			Dstcontainerequaltocreatedoutputcontainer = 47,
+			Dstcontainerandslotequaltosrccontainerandslot = 48,
+			Failedtovalidatesrcslot = 49,
+			Failedtovalidatedstslot = 50,
+			Invalidadjustedamount = 51,
+			Invaliditemsettype = 52,
+			Invalidtransferamount = 53,
+			Cannotswapitem = 54,
+			Cannotplaceitem = 55,
+			Unhandleditemsettype = 56,
+			Invalidremovedamount = 57,
+			Invalidregion = 58,
+			Cannotdropitem = 59,
+			Cannotdestroyitem = 60,
+			Invalidsourcecontainer = 61,
+			Itemnotconsumed = 62,
+			Invalidnumcrafts = 63,
+			Invalidcraftresultstacksize = 64,
+			Cannotremoveitem = 65,
+			Cannotconsumeitem = 66,
+			Screenstackerror = 67,
+		}
+
+		public ItemStackResponseInfo.Result result;
+		public int clientRequestId;
+		public List<ItemStackResponseContainerInfo> containers;
+	}
+
+	public class ItemStackResponseSlotInfo
+	{
+		public byte requestedSlot;
+		public byte slot;
+		public byte amount;
+		public int? itemStackNetId;
+		public BedrockSafetyRedactableString customName;
+		public int durabilityCorrection;
 	}
 
 	public class LevelSettings
@@ -2716,11 +3243,11 @@ namespace MiNET.Net
 		public string cdnUrl;
 	}
 
-	public class Pause : ClientboundUpdateSoundDataParam
+	public class Pause : ClientboundUpdateSoundDataParamBase
 	{
 	}
 
-	public class PlayerListAddEntry : PlayerList
+	public class PlayerListAddEntry : PlayerListBase
 	{
 		public enum Action
 		{
@@ -2756,7 +3283,7 @@ namespace MiNET.Net
 		public int playerColor;
 	}
 
-	public class PlayerListRemoveEntry : PlayerList
+	public class PlayerListRemoveEntry : PlayerListBase
 	{
 		public enum Action
 		{
@@ -2786,34 +3313,34 @@ namespace MiNET.Net
 		public int data;
 	}
 
-	public class RemoveOverride : Update
+	public class RemoveOverride : UpdateBase
 	{
 	}
 
-	public class RemoveScore : ScoreInfoElement
+	public class RemoveScore : ScoreInfoElementBase
 	{
 		public long scoreboardId;
 		public string objectiveName;
 	}
 
-	public class ResourcePackClientResponseCancel : ResourcePackClientResponse
+	public class ResourcePackClientResponseCancel : ResourcePackClientResponseBase
 	{
 	}
 
-	public class ResourcePackClientResponseDownloading : ResourcePackClientResponse
+	public class ResourcePackClientResponseDownloading : ResourcePackClientResponseBase
 	{
 		public List<string> downloadingPacks;
 	}
 
-	public class ResourcePackClientResponseDownloadingFinished : ResourcePackClientResponse
+	public class ResourcePackClientResponseDownloadingFinished : ResourcePackClientResponseBase
 	{
 	}
 
-	public class ResourcePackClientResponseResourcePackStackFinished : ResourcePackClientResponse
+	public class ResourcePackClientResponseResourcePackStackFinished : ResourcePackClientResponseBase
 	{
 	}
 
-	public class Resume : ClientboundUpdateSoundDataParam
+	public class Resume : ClientboundUpdateSoundDataParamBase
 	{
 	}
 
@@ -2823,7 +3350,7 @@ namespace MiNET.Net
 		public long? playerUniqueId;
 	}
 
-	public class SeekTo : ClientboundUpdateSoundDataParam
+	public class SeekTo : ClientboundUpdateSoundDataParamBase
 	{
 		public float seconds;
 	}
@@ -2875,12 +3402,12 @@ namespace MiNET.Net
 		public string ownerId;
 	}
 
-	public class SetPitch : ClientboundUpdateSoundDataParam
+	public class SetPitch : ClientboundUpdateSoundDataParamBase
 	{
 		public float pitch;
 	}
 
-	public class SetVolume : ClientboundUpdateSoundDataParam
+	public class SetVolume : ClientboundUpdateSoundDataParamBase
 	{
 		public float volume;
 	}
@@ -2898,7 +3425,7 @@ namespace MiNET.Net
 		public int dimension;
 	}
 
-	public class Stop : ClientboundUpdateSoundDataParam
+	public class Stop : ClientboundUpdateSoundDataParamBase
 	{
 	}
 
@@ -3262,6 +3789,21 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(FullContainerName data)
+		{
+			Write((byte) data.containerName);
+			Write(data.dynamicId != null);
+			if (data.dynamicId != null) Write((int) data.dynamicId.Value);
+		}
+
+		public FullContainerName ReadFullContainerName()
+		{
+			var data = new FullContainerName();
+			data.containerName = (FullContainerName.ContainerEnumName) ReadByte();
+			if (ReadBool()) data.dynamicId = (uint) ReadInt();
+			return data;
+		}
+
 		public void Write(GatheringsConfig data)
 		{
 			Write(data.experienceid);
@@ -3316,6 +3858,74 @@ namespace MiNET.Net
 			var data = new IntOverride();
 			ReadString();
 			data.value = ReadInt();
+			return data;
+		}
+
+		public void Write(ItemStackResponseContainerInfo data)
+		{
+			Write(data.fullContainerName ?? new FullContainerName());
+			WriteUnsignedVarInt((uint) (data.slots?.Count ?? 0));
+			if (data.slots != null) foreach (ItemStackResponseSlotInfo item in data.slots) Write(item);
+		}
+
+		public ItemStackResponseContainerInfo ReadItemStackResponseContainerInfo()
+		{
+			var data = new ItemStackResponseContainerInfo();
+			data.fullContainerName = ReadFullContainerName();
+			uint slotsCount = ReadUnsignedVarInt();
+			data.slots = new List<ItemStackResponseSlotInfo>((int) slotsCount);
+			for (int i = 0; i < slotsCount; i++) data.slots.Add(ReadItemStackResponseSlotInfo());
+			return data;
+		}
+
+		public void Write(ItemStackResponseInfo data)
+		{
+			Write((byte) data.result);
+			WriteSignedVarInt(data.clientRequestId);
+			Write(true);
+			Write(data.containers != null);
+			if (data.containers != null)
+			{
+				WriteUnsignedVarInt((uint) data.containers.Count);
+				foreach (ItemStackResponseContainerInfo item in data.containers) Write(item);
+			}
+		}
+
+		public ItemStackResponseInfo ReadItemStackResponseInfo()
+		{
+			var data = new ItemStackResponseInfo();
+			data.result = (ItemStackResponseInfo.Result) ReadByte();
+			data.clientRequestId = ReadSignedVarInt();
+			if (ReadBool() && ReadBool())
+			{
+				uint containersCount = ReadUnsignedVarInt();
+				data.containers = new List<ItemStackResponseContainerInfo>((int) containersCount);
+				for (int i = 0; i < containersCount; i++) data.containers.Add(ReadItemStackResponseContainerInfo());
+			}
+			return data;
+		}
+
+		public void Write(ItemStackResponseSlotInfo data)
+		{
+			Write(data.requestedSlot);
+			Write(data.slot);
+			Write(data.amount);
+			Write(true);
+			Write(data.itemStackNetId != null);
+			if (data.itemStackNetId != null) WriteSignedVarInt(data.itemStackNetId.Value);
+			Write(data.customName ?? new BedrockSafetyRedactableString());
+			WriteSignedVarInt(data.durabilityCorrection);
+		}
+
+		public ItemStackResponseSlotInfo ReadItemStackResponseSlotInfo()
+		{
+			var data = new ItemStackResponseSlotInfo();
+			data.requestedSlot = ReadByte();
+			data.slot = ReadByte();
+			data.amount = ReadByte();
+			if (ReadBool() && ReadBool()) data.itemStackNetId = ReadSignedVarInt();
+			data.customName = ReadBedrockSafetyRedactableString();
+			data.durabilityCorrection = ReadSignedVarInt();
 			return data;
 		}
 

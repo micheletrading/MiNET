@@ -175,41 +175,6 @@ namespace MiNET.Utils
 		public byte TimesCrafted { get; set; }
 	}
 
-	public class ItemStackResponses : List<ItemStackResponse>
-	{
-	}
-
-	public class ItemStackResponse
-	{
-		public int RequestId { get; set; }
-		public StackResponseStatus Result { get; set; } = StackResponseStatus.Ok;
-		public List<StackResponseContainerInfo> ResponseContainerInfos { get; set; } = new List<StackResponseContainerInfo>();
-	}
-
-	public enum StackResponseStatus
-	{
-		Ok = 0x00,
-		Error = 0x01
-	}
-
-	public class StackResponseContainerInfo
-	{
-		public byte ContainerId { get; set; }
-		public List<StackResponseSlotInfo> Slots { get; set; } = new List<StackResponseSlotInfo>();
-	}
-
-	public class StackResponseSlotInfo
-	{
-		public byte Slot           { get; set; }
-		public byte HotbarSlot     { get; set; }
-		public byte Count          { get; set; }
-		public int  StackNetworkId { get; set; }
-		public string  CustomName     { get; set; }
-		// Protocol 1001: a filtered (profanity-checked) variant follows the custom name.
-		public string  FilteredCustomName { get; set; }
-		public int DurabilityCorrection { get; set; }
-	}
-
 
 	/// <summary>
 	/// Old transactions
