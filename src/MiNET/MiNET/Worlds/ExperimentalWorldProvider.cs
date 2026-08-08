@@ -123,7 +123,7 @@ namespace MiNET.Worlds
 				treeBasePositions[t, 1] = z;
 			}
 
-			int grassId = new Grass().GetRuntimeId();
+			int grassId = new GrassBlock().GetRuntimeId();
 			int dirtId = new Dirt().GetRuntimeId();
 
 			for (int x = 0; x < 16; x++)
@@ -190,7 +190,7 @@ namespace MiNET.Worlds
 						if (y <= dirtHeight && y >= stoneHeight)
 						{
 							chunk.SetBlock(x, y, z, new Dirt()); //Dirt
-							chunk.SetBlock(x, y + 1, z, new Grass()); //Grass Block
+							chunk.SetBlock(x, y + 1, z, new GrassBlock()); //Grass Block
 							if (y > waterLevel)
 							{
 								//Grass
