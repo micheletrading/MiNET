@@ -116,7 +116,7 @@ namespace MiNET.Crafting
 
 		/// <summary>
 		///     A recipe result item. The typed item comes from the registry name so server logic gets a real
-		///     Item; NetworkId/NetworkMetadata pin the exact wire identity of that name (see WriteItemLegacy).
+		///     Item; NetworkId/NetworkMetadata pin the exact wire identity of that name (see WriteItemInstance).
 		/// </summary>
 		public static Item Result(string name, short meta = 0, int count = 1, string nbtB64 = null)
 		{

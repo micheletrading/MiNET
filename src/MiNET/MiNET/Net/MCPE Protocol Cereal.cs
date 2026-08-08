@@ -457,7 +457,7 @@ namespace MiNET.Net
 			Write(velocity);
 			Write(rotation);
 			Write(yHeadRotation);
-			WriteItemInstance(item);
+			WriteItemStackWrapper(item);
 			WriteSignedVarInt((int) gamemode);
 			Write(metadata);
 			Write(synchedProperties ?? new PropertySyncData());
@@ -487,7 +487,7 @@ namespace MiNET.Net
 			velocity = ReadVector3();
 			rotation = ReadVector2();
 			yHeadRotation = ReadFloat();
-			item = ReadItemInstance();
+			item = ReadItemStackWrapper();
 			gamemode = (McpeAddPlayer.GameType) ReadSignedVarInt();
 			metadata = ReadMetadataDictionary();
 			synchedProperties = ReadPropertySyncData();
@@ -648,7 +648,7 @@ namespace MiNET.Net
 
 			WriteSignedVarLong(entityIdSelf);
 			WriteUnsignedVarLong(runtimeEntityId);
-			WriteItemInstance(item);
+			WriteItemStackWrapper(item);
 			Write(position);
 			Write(velocity);
 			Write(metadata);
@@ -668,7 +668,7 @@ namespace MiNET.Net
 
 			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
-			item = ReadItemInstance();
+			item = ReadItemStackWrapper();
 			position = ReadVector3();
 			velocity = ReadVector3();
 			metadata = ReadMetadataDictionary();
@@ -2911,7 +2911,7 @@ namespace MiNET.Net
 		{
 			Write((byte) data.creativeCategory);
 			Write(data.name);
-			WriteItemLegacy(data.groupIconItem);
+			WriteItemInstance(data.groupIconItem);
 		}
 
 		public CreativeGroupInfoPayload ReadCreativeGroupInfoPayload()
@@ -2919,14 +2919,14 @@ namespace MiNET.Net
 			var data = new CreativeGroupInfoPayload();
 			data.creativeCategory = (CreativeGroupInfoPayload.CreativeCategory) ReadByte();
 			data.name = ReadString();
-			data.groupIconItem = ReadItemLegacy();
+			data.groupIconItem = ReadItemInstance();
 			return data;
 		}
 
 		public void Write(CreativeItemEntryPayload data)
 		{
 			WriteUnsignedVarInt(data.creativeNetId);
-			WriteItemLegacy(data.itemInstance);
+			WriteItemInstance(data.itemInstance);
 			WriteUnsignedVarInt(data.groupIndex);
 		}
 
@@ -2934,7 +2934,7 @@ namespace MiNET.Net
 		{
 			var data = new CreativeItemEntryPayload();
 			data.creativeNetId = ReadUnsignedVarInt();
-			data.itemInstance = ReadItemLegacy();
+			data.itemInstance = ReadItemInstance();
 			data.groupIndex = ReadUnsignedVarInt();
 			return data;
 		}

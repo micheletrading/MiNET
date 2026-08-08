@@ -70,8 +70,8 @@ namespace MiNET.Items
 		public bool IsAir => string.IsNullOrEmpty(Name) || Name.Equals("minecraft:air", StringComparison.OrdinalIgnoreCase);
 
 		/// <summary>
-		///     The raw "metadata" varint as read off the wire alongside <see cref="NetworkId" /> (ReadItemLegacy/
-		///     ReadItem/ReadItemInstance). -1 means unknown (item was constructed server-side, not decoded), so
+		///     The raw "metadata" varint as read off the wire alongside <see cref="NetworkId" /> (ReadItemStackWrapper/
+		///     ReadItem/ReadItemStackWrapper). -1 means unknown (item was constructed server-side, not decoded), so
 		///     the writer must not assume it's 0 and instead re-derive it via <see cref="MiNET.Net.Items.ItemTranslator" />.
 		///     Only set together with NetworkId, and only from a decode path, so the two stay in sync as the
 		///     "we know the exact wire encoding" marker.

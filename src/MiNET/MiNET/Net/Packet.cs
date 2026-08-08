@@ -1227,7 +1227,7 @@ namespace MiNET.Net
 			// (gophertunnel encodes the same optional shape).
 			if (ReadBool()) ReadUint();
 			var slot           = (byte) ReadByte();
-			var stackNetworkId = ReadSignedVarInt();
+			var stackNetworkId = ReadInt(); // li32
 
 			return new StackRequestSlotInfo()
 			{
@@ -1242,7 +1242,7 @@ namespace MiNET.Net
 			Write(slotInfo.ContainerId);
 			Write(false); // FullContainerName: optional dynamic container id, none; unchanged at 2168
 			Write(slotInfo.Slot);
-			WriteSignedVarInt(slotInfo.StackNetworkId);
+			Write(slotInfo.StackNetworkId); // li32, matching the read
 		}
 
 		public void Write(ItemStackRequests requests)
@@ -1357,7 +1357,7 @@ namespace MiNET.Net
 							Write((byte) McpeItemStackRequest.ActionType.MineBlock);
 							WriteSignedVarInt(ta.HotbarSlot);
 							WriteSignedVarInt(ta.PredictedDurability);
-							WriteSignedVarInt(ta.StackNetworkId);
+							Write(ta.StackNetworkId); // li32, not a varint
 							break;
 						}
 
@@ -1377,12 +1377,11 @@ namespace MiNET.Net
 							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftRecipeAuto);
 							Write((byte) McpeItemStackRequest.ActionType.CraftRecipeAuto);
 							WriteUnsignedVarInt(ta.RecipeNetworkId);
-							Write(ta.NumberOfRequestedCrafts); // repetitions, sent twice by vanilla
-							Write(ta.TimesCrafted);
-							Write((byte) ta.Ingredients.Count);
+							Write(ta.NumberOfRequestedCrafts); // one byte serves both
+							WriteUnsignedVarInt((uint) ta.Ingredients.Count);
 							foreach (Item ingredient in ta.Ingredients)
 							{
-								WriteRecipeIngredient(ingredient);
+								WriteItemStackRequestIngredient(ingredient);
 							}
 							break;
 						}
@@ -1412,7 +1411,7 @@ namespace MiNET.Net
 							// Varint type tag + the same value as a const byte, since 2168.
 							WriteUnsignedVarInt((uint) McpeItemStackRequest.ActionType.CraftGrindstone);
 							Write((byte) McpeItemStackRequest.ActionType.CraftGrindstone);
-							WriteUnsignedVarInt(ta.RecipeNetworkId);
+							Write((int) ta.RecipeNetworkId); // li32, not a varint
 							Write(ta.TimesCrafted); // repetitions (protocol 1001)
 							WriteSignedVarInt(ta.RepairCost);
 							break;
@@ -1446,7 +1445,7 @@ namespace MiNET.Net
 							WriteUnsignedVarInt((uint) ta.ResultItems.Count);
 							foreach (Item resultItem in ta.ResultItems)
 							{
-								WriteItemLegacy(resultItem);
+								WriteItemInstance(resultItem);
 							}
 							Write(ta.TimesCrafted);
 							break;
@@ -1577,7 +1576,7 @@ namespace MiNET.Net
 							var action = new MineBlockAction();
 							action.HotbarSlot = ReadSignedVarInt();
 							action.PredictedDurability = ReadSignedVarInt();
-							action.StackNetworkId = ReadSignedVarInt();
+							action.StackNetworkId = ReadInt(); // li32, not a varint
 							actions.Add(action);
 							break;
 						}
@@ -1607,12 +1606,12 @@ namespace MiNET.Net
 						{
 							var action = new CraftAutoAction();
 							action.RecipeNetworkId = ReadUnsignedVarInt();
-							action.NumberOfRequestedCrafts = ReadByte(); // repetitions (protocol 1001)
-							action.TimesCrafted = ReadByte(); // repetitions, sent twice by vanilla
-							byte ingredientCount = ReadByte();
+							action.NumberOfRequestedCrafts = ReadByte();
+							action.TimesCrafted = action.NumberOfRequestedCrafts; // one byte serves both
+							uint ingredientCount = ReadUnsignedVarInt();
 							for (int ii = 0; ii < ingredientCount; ii++)
 							{
-								action.Ingredients.Add(ReadRecipeIngredient());
+								action.Ingredients.Add(ReadItemStackRequestIngredient());
 							}
 							actions.Add(action);
 							break;
@@ -1638,7 +1637,7 @@ namespace MiNET.Net
 							// recipe network id, repetitions, repair cost. The recipe id was missing
 							// entirely, desyncing everything after the action.
 							var action = new GrindstoneStackRequestAction();
-							action.RecipeNetworkId = ReadUnsignedVarInt();
+							action.RecipeNetworkId = (uint) ReadInt(); // li32, not a varint
 							action.TimesCrafted = ReadByte();
 							action.RepairCost = ReadSignedVarInt();
 
@@ -1661,8 +1660,16 @@ namespace MiNET.Net
 						}
 						case McpeItemStackRequest.ActionType.CraftResultsDeprecated:
 						{
+							// Craft results are ItemStackRequestNetworkItemInstanceDescriptor, not the
+							// NetworkItemInstanceDescriptor shape the rest of the catalog uses.
 							var action = new CraftResultDeprecatedAction();
-							action.ResultItems = ReadItems();
+							action.ResultItems = new ItemStacks();
+							uint resultCount = ReadUnsignedVarInt();
+							for (int ri = 0; ri < resultCount; ri++)
+							{
+								action.ResultItems.Add(ReadItemStackRequestDescriptor());
+							}
+
 							action.TimesCrafted = ReadByte();
 							actions.Add(action);
 							break;
@@ -1695,8 +1702,16 @@ namespace MiNET.Net
 			{
 				Write((byte) stackResponse.Result);
 				WriteSignedVarInt(stackResponse.RequestId);
-				if (stackResponse.Result != StackResponseStatus.Ok) 
+
+				// Two bools gate the container list: one always true, then one for whether it follows.
+				Write(true);
+				if (stackResponse.Result != StackResponseStatus.Ok || stackResponse.ResponseContainerInfos == null || stackResponse.ResponseContainerInfos.Count == 0)
+				{
+					Write(false);
 					continue;
+				}
+
+				Write(true);
 				WriteUnsignedVarInt((uint) stackResponse.ResponseContainerInfos.Count);
 				foreach (StackResponseContainerInfo containerInfo in stackResponse.ResponseContainerInfos)
 				{
@@ -1708,7 +1723,14 @@ namespace MiNET.Net
 						Write(slot.Slot);
 						Write(slot.HotbarSlot);
 						Write(slot.Count);
-						WriteSignedVarInt(slot.StackNetworkId);
+
+						// Two bools gate the stack network id: one always true, then one for whether
+						// the id follows.
+						Write(true);
+						bool hasStackNetworkId = slot.StackNetworkId > 0;
+						Write(hasStackNetworkId);
+						if (hasStackNetworkId) WriteSignedVarInt(slot.StackNetworkId);
+
 						Write(slot.CustomName);
 						Write(slot.FilteredCustomName); // protocol 1001
 						WriteSignedVarInt(slot.DurabilityCorrection);
@@ -1729,11 +1751,9 @@ namespace MiNET.Net
 				response.Result = (StackResponseStatus) ReadByte();
 				response.RequestId = ReadSignedVarInt();
 
-				if (response.Result != StackResponseStatus.Ok)
+				// Two bools gate the container list. A response without one still carries a status.
+				if (!ReadBool() || !ReadBool())
 				{
-					// Non-Ok responses carry no container data on the wire, but the response
-					// itself (and its status code) is still real and worth keeping - previously
-					// it was dropped entirely here, silently emptying the list.
 					responses.Add(response);
 					continue;
 				}
@@ -1755,7 +1775,8 @@ namespace MiNET.Net
 						slot.Slot = ReadByte();
 						slot.HotbarSlot = ReadByte();
 						slot.Count = ReadByte();
-						slot.StackNetworkId = ReadSignedVarInt();
+						// Optional behind two bools, the same shape the writer above emits.
+						slot.StackNetworkId = ReadBool() && ReadBool() ? ReadSignedVarInt() : 0;
 						slot.CustomName = ReadString();
 						slot.FilteredCustomName = ReadString(); // protocol 1001
 						slot.DurabilityCorrection = ReadSignedVarInt();
@@ -1880,24 +1901,6 @@ namespace MiNET.Net
 		}
 
 
-		private ItemStacks ReadItems()
-		{
-			// Used by the deprecated crafting-results stack request action; its items are the
-			// legacy zigzag stacks without stack ids (PMMP getItemStackWithoutStackId), not the
-			// li16 inventory descriptors. Reading them as li16 corrupts every field after the
-			// action in the request.
-			var items = new ItemStacks();
-
-			var count = ReadUnsignedVarInt();
-
-			for (int i = 0; i < count; i++)
-			{
-				items.Add(ReadItemLegacy());
-			}
-
-			return items;
-		}
-
 		// The shield's network id, the one item the stack format treats specially: its extra-data
 		// blob carries a "blocking_tick" trailer nothing else has. Resolved by name from the item
 		// registry, so it follows the registry rather than being a number to keep up to date.
@@ -1918,8 +1921,8 @@ namespace MiNET.Net
 		//                                        [blocking_tick: li64, shield only] }
 		// network_id==0 (air) does NOT short-circuit; air is a full ~8-byte encoding. Confirmed against
 		// live BDS 1.26.34 inventory_content/mob_equipment bytes. The zigzag short-circuit "Item" shape
-		// (add_player held item, ReadItemInstance) and the "ItemLegacy" catalog shape (creative content,
-		// ReadItemLegacy) are separate readers - do not conflate them.
+		// (add_player held item, ReadItemStackWrapper) and the catalog shape (creative content,
+		// ReadItemInstance) are separate readers - do not conflate them.
 		public void Write(Item stack, bool writeUniqueId = true)
 		{
 			// Air is a registry item (-158) but an empty slot is network id 0, which no item uses.
@@ -2053,10 +2056,50 @@ namespace MiNET.Net
 			return stack;
 		}
 
-		// Item stack descriptor, "ItemLegacy" shape (still used by McpeCreativeContent's groups and
-		// entries): network_id is a zigzag varint that short-circuits the rest of the fields when 0,
-		// there's no item-stack (unique) id, and block_runtime_id is zigzag rather than plain varint.
-		public Item ReadItemLegacy()
+		/// <summary>
+		///     ItemStackRequestNetworkItemInstanceDescriptor: the item shape a client's stack request
+		///     carries. The item is named rather than numbered and the trailer is length-prefixed, so
+		///     neither ReadItem nor ReadItemInstance decodes it.
+		/// </summary>
+		public Item ReadItemStackRequestDescriptor()
+		{
+			// A Cereal enum is its value as a varint and then a byte. Nothing here needs the byte.
+			uint descriptorType = ReadUnsignedVarInt();
+			ReadByte();
+
+			string name = null;
+			int auxValue = 0;
+			if (descriptorType != 0) // 0 is the invalid descriptor, which carries no item
+			{
+				name = ReadString();
+				auxValue = ReadSignedVarInt();
+			}
+
+			short count = ReadShort();
+			int blockRuntimeId = (int) ReadUnsignedVarInt();
+
+			// NBT, can-place and can-destroy carry nothing a craft result needs, so the trailer is
+			// consumed by its declared length rather than parsed. The length must be exact: the next
+			// action starts immediately after it.
+			uint userDataLength = ReadUnsignedVarInt();
+			if (userDataLength > 0) ReadBytes((int) userDataLength);
+
+			if (name == null) return new ItemAir();
+
+			Item stack = ItemFactory.GetItemByName(name, (short) auxValue, (byte) count);
+			if (stack == null) return new ItemAir();
+
+			stack.RuntimeId = blockRuntimeId;
+			stack.NetworkMetadata = auxValue;
+
+			return stack;
+		}
+
+		// Mojang's NetworkItemInstanceDescriptor, what creative content and crafting outputs carry.
+		// Nothing legacy about it whatever minecraft-data calls it: network_id is a zigzag varint that
+		// short-circuits the rest of the fields when 0, there is no item-stack (unique) id, and
+		// block_runtime_id is zigzag rather than plain varint.
+		public Item ReadItemInstance()
 		{
 			int networkId = ReadSignedVarInt(); // network_id
 			if (networkId == 0)
@@ -2091,7 +2134,7 @@ namespace MiNET.Net
 			return stack;
 		}
 
-		public void WriteItemLegacy(Item stack)
+		public void WriteItemInstance(Item stack)
 		{
 			// Name to network id is a single unambiguous lookup, so a decoded item and a server-built
 			// one encode the same way. Metadata still comes off the decode when there was one: it is
@@ -2123,11 +2166,11 @@ namespace MiNET.Net
 		}
 
 		// Item stack with wrapper stack-id ("Item" / getItemStackWrapper), protocol 1001+, used by the
-		// add_player held item. Like ItemLegacy (zigzag network_id that short-circuits to air on 0,
+		// add_player held item. Like ReadItemInstance (zigzag network_id short-circuiting to air on 0,
 		// zigzag block_runtime_id) but with a has_net_id bool and optional stack id between metadata and
 		// block_runtime_id. Distinct from the li16 inventory descriptor (ReadItem). Confirmed against
 		// PMMP CommonTypes::getItemStackWrapper and live BDS 1.26.34.
-		public Item ReadItemInstance()
+		public Item ReadItemStackWrapper()
 		{
 			// NetworkItemStackDescriptor since 2168: li16 network id, no air short-circuit
 			// (empty stacks carry all fields zeroed), and the block runtime id is a plain varint
@@ -2160,7 +2203,7 @@ namespace MiNET.Net
 			return stack;
 		}
 
-		public void WriteItemInstance(Item stack)
+		public void WriteItemStackWrapper(Item stack)
 		{
 			// NetworkItemStackDescriptor since 2168: li16 network id, no air short-circuit
 			// (empty stacks carry all fields zeroed), and the block runtime id is a plain varint
@@ -3060,8 +3103,8 @@ namespace MiNET.Net
 
 		// Recipe wire shape, protocol 1001 (unlocking requirements added at 685, recipe network ids
 		// and smithing recipes added later; the type discriminator codes above are unchanged from
-		// protocol 503). Item stacks inside recipes use the "ItemLegacy" shape (see WriteItemLegacy/
-		// ReadItemLegacy), not the newer ItemNew shape used by inventory content packets.
+		// protocol 503). Item stacks inside recipes are NetworkItemInstanceDescriptor (see
+		// WriteItemInstance/ReadItemInstance), not the li16 descriptor inventory packets use.
 		public void Write(Recipes recipes)
 		{
 			// Since 2168 recipes travel as separate vectors per type (Cereal), in a fixed order,
@@ -3137,7 +3180,7 @@ namespace MiNET.Net
 				WriteRecipeIngredient(rec.Template);
 				WriteRecipeIngredient(rec.Base);
 				WriteRecipeIngredient(rec.Addition);
-				WriteItemLegacy(rec.Result);
+				WriteItemInstance(rec.Result);
 				Write(rec.Tag);
 				WriteVarInt(rec.NetworkId); // network id
 			}
@@ -3172,7 +3215,7 @@ namespace MiNET.Net
 			WriteVarInt(rec.Result.Count);
 			foreach (Item item in rec.Result)
 			{
-				WriteItemLegacy(item);
+				WriteItemInstance(item);
 			}
 			Write(rec.Id);
 			Write(rec.Block);
@@ -3196,7 +3239,7 @@ namespace MiNET.Net
 			WriteVarInt(rec.Result.Count);
 			foreach (Item item in rec.Result)
 			{
-				WriteItemLegacy(item);
+				WriteItemInstance(item);
 			}
 			Write(rec.Id);
 			Write(rec.Block);
@@ -3307,7 +3350,7 @@ namespace MiNET.Net
 				recipe.Template = ReadRecipeIngredient();
 				recipe.Base = ReadRecipeIngredient();
 				recipe.Addition = ReadRecipeIngredient();
-				recipe.Result = ReadItemLegacy();
+				recipe.Result = ReadItemInstance();
 				recipe.Tag = ReadString();
 				recipe.NetworkId = ReadVarInt(); // network id
 				recipes.Add(recipe);
@@ -3343,7 +3386,7 @@ namespace MiNET.Net
 			var resultCount = ReadUnsignedVarInt();
 			for (int j = 0; j < resultCount; j++)
 			{
-				recipe.Result.Add(ReadItemLegacy());
+				recipe.Result.Add(ReadItemInstance());
 			}
 			recipe.Id = ReadUUID();
 			recipe.Block = ReadString();
@@ -3378,7 +3421,7 @@ namespace MiNET.Net
 			var resultCount = ReadUnsignedVarInt();
 			for (int j = 0; j < resultCount; j++)
 			{
-				recipe.Result.Add(ReadItemLegacy());
+				recipe.Result.Add(ReadItemInstance());
 			}
 			recipe.Id = ReadUUID();
 			recipe.Block = ReadString();
@@ -3450,6 +3493,77 @@ namespace MiNET.Net
 			Write(stack.Name);
 			WriteSignedVarInt(stack.Metadata);
 			WriteSignedVarInt(stack.Count == 0 ? 1 : stack.Count);
+		}
+
+		/// <summary>
+		///     The ingredient shape an item stack request carries. The type varint keys the payload
+		///     directly and the count is li16, where <see cref="ReadRecipeIngredient" /> keys off a
+		///     "name"/"molang"/"item_tag" string and counts with a varint.
+		/// </summary>
+		/// <summary>The write half of <see cref="ReadItemStackRequestIngredient" />.</summary>
+		public void WriteItemStackRequestIngredient(Item item)
+		{
+			RecipeIngredientDescriptor descriptor = item?.IngredientDescriptor;
+			uint type = descriptor?.Type ?? 0u;
+
+			WriteUnsignedVarInt(type);
+			Write((byte) type);
+
+			switch (type)
+			{
+				case 1:
+					Write(descriptor.Name);
+					WriteSignedVarInt(descriptor.Metadata);
+					break;
+				case 2:
+					Write(descriptor.Text);
+					Write((short) descriptor.MolangVersion);
+					break;
+				case 3:
+					Write(descriptor.Text);
+					break;
+			}
+
+			Write((ushort) (item?.Count ?? 0));
+		}
+
+		public Item ReadItemStackRequestIngredient()
+		{
+			uint type = ReadUnsignedVarInt();
+			ReadByte(); // the enum again, as a byte
+
+			Item item;
+			switch (type)
+			{
+				case 1: // default: a named item and its aux value
+				{
+					string name = ReadString();
+					int metadata = ReadSignedVarInt();
+					item = ItemFactory.GetItemByName(name, (short) metadata) ?? new ItemAir();
+					item.IngredientDescriptor = new RecipeIngredientDescriptor {Type = 1, Name = name, Metadata = (short) metadata};
+					break;
+				}
+				case 2: // molang
+				{
+					string expression = ReadString();
+					short version = ReadShort();
+					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = 2, Text = expression, MolangVersion = (byte) version}};
+					break;
+				}
+				case 3: // item tag. No aux here, unlike the CraftingData shape.
+				{
+					string tag = ReadString();
+					item = new ItemAir {IngredientDescriptor = new RecipeIngredientDescriptor {Type = 3, Text = tag}};
+					break;
+				}
+				default: // invalid, an empty slot
+					item = new ItemAir();
+					break;
+			}
+
+			item.Count = (byte) ReadUshort();
+
+			return item;
 		}
 
 		public Item ReadRecipeIngredient()
@@ -3777,6 +3891,7 @@ namespace MiNET.Net
 			data.MinHeight = ReadSignedVarInt();
 			data.Generator = ReadSignedVarInt();
 			data.DimensionType = ReadSignedVarInt();
+			data.PackId = ReadUUID();
 
 			return data;
 		}
@@ -3787,6 +3902,7 @@ namespace MiNET.Net
 			WriteSignedVarInt(data.MinHeight);
 			WriteSignedVarInt(data.Generator);
 			WriteSignedVarInt(data.DimensionType);
+			Write(data.PackId ?? new UUID(new byte[16])); // nil uuid for a dimension no pack owns
 		}
 		
 		public void Write(DimensionDefinitions definitions)
