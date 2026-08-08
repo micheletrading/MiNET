@@ -277,7 +277,7 @@ namespace MiNET.Plugins
 
 				if (string.IsNullOrEmpty(commandAttribute.Name))
 				{
-					commandAttribute.Name = method.Name;
+					commandAttribute.Name = method.Name.ToLowerInvariant();
 				}
 
 				commandAttribute.Description = GetDescription(method, commandAttribute);
@@ -321,7 +321,7 @@ namespace MiNET.Plugins
 
 				if (string.IsNullOrEmpty(commandAttribute.Name))
 				{
-					commandAttribute.Name = method.Name;
+					commandAttribute.Name = method.Name.ToLowerInvariant();
 				}
 
 				string description = GetDescription(method, commandAttribute);
@@ -744,7 +744,11 @@ namespace MiNET.Plugins
 			}
 			else
 			{
-				command = Commands.Values.FirstOrDefault(cmd => cmd.Versions.Any(version => version.Aliases != null && version.Aliases.Any(s => s == commandName)));
+				command = Commands.FirstOrDefault(kvp => kvp.Key.Equals(commandName, StringComparison.OrdinalIgnoreCase)).Value;
+				if (command == null)
+				{
+					command = Commands.Values.FirstOrDefault(cmd => cmd.Versions.Any(version => version.Aliases != null && version.Aliases.Any(s => s.Equals(commandName, StringComparison.OrdinalIgnoreCase))));
+				}
 			}
 			return command;
 		}
@@ -762,7 +766,11 @@ namespace MiNET.Plugins
 				}
 				else
 				{
-					command = Commands.Values.FirstOrDefault(cmd => cmd.Versions.Any(version => version.Aliases != null && version.Aliases.Any(s => s == commandName)));
+					command = Commands.FirstOrDefault(kvp => kvp.Key.Equals(commandName, StringComparison.OrdinalIgnoreCase)).Value;
+					if (command == null)
+					{
+						command = Commands.Values.FirstOrDefault(cmd => cmd.Versions.Any(version => version.Aliases != null && version.Aliases.Any(s => s.Equals(commandName, StringComparison.OrdinalIgnoreCase))));
+					}
 				}
 
 				if (command == null)
