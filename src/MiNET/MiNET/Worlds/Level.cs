@@ -385,7 +385,7 @@ namespace MiNET.Worlds
 				// That order is not cosmetic. A roster that overtakes StartGame is dropped, and the
 				// joining player then sees the others in the world with no rows in the player list.
 				var playerListMessage = McpePlayerList.CreateObject();
-				playerListMessage.records = new PlayerAddRecords(roster);
+				playerListMessage.records = McpePlayerList.Added(roster);
 				newPlayer.SendPacket(CreateMcpeBatch(playerListMessage.Encode()));
 				playerListMessage.PutPool();
 
@@ -393,7 +393,7 @@ namespace MiNET.Worlds
 				// learns their skin, so it cannot be skipped: AddPlayer below only references the
 				// identity, it does not carry an appearance.
 				var playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerAddRecords {newPlayer};
+				playerList.records = McpePlayerList.Added(newPlayer);
 				RelayBroadcast(newPlayer, roster.ToArray(), CreateMcpeBatch(playerList.Encode()));
 				playerList.PutPool();
 
@@ -443,13 +443,13 @@ namespace MiNET.Worlds
 				player.DespawnFromPlayers(spawnedPlayers);
 
 				McpePlayerList playerListMessage = McpePlayerList.CreateObject();
-				playerListMessage.records = new PlayerRemoveRecords(spawnedPlayers);
+				playerListMessage.records = McpePlayerList.Removed(spawnedPlayers);
 				player.SendPacket(CreateMcpeBatch(playerListMessage.Encode()));
 				playerListMessage.records = null;
 				playerListMessage.PutPool();
 
 				McpePlayerList playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerRemoveRecords {player};
+				playerList.records = McpePlayerList.Removed(player);
 				RelayBroadcast(player, CreateMcpeBatch(playerList.Encode()));
 				playerList.records = null;
 				playerList.PutPool();

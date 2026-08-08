@@ -3550,54 +3550,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpePlayerList : Packet<McpePlayerList>
-	{
-
-		public PlayerRecords records; // = null;
-
-		public McpePlayerList()
-		{
-			Id = 0x3f;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-			Write(records);
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-			records = ReadPlayerRecords();
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-			records=default(PlayerRecords);
-		}
-
-	}
-
 	public partial class McpeSimpleEvent : Packet<McpeSimpleEvent>
 	{
 

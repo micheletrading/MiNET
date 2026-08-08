@@ -232,11 +232,59 @@ namespace MiNET.Client
 			CallPacketHandlers(message);
 		}
 
+		public override void HandleMcpeItemStackResponse(McpeItemStackResponse message)
+		{
+			foreach (ItemStackResponse response in message.responses)
+			{
+				Log.Warn($"SPLIT RESPONSE: request {response.RequestId} -> {response.Result}");
+				if (response.ResponseContainerInfos == null) continue;
+
+				foreach (StackResponseContainerInfo container in response.ResponseContainerInfos)
+				foreach (StackResponseSlotInfo slot in container.Slots)
+				{
+					Log.Warn($"SPLIT RESPONSE:   container {container.ContainerId} slot {slot.Slot} count {slot.Count} stackNetId {slot.StackNetworkId}");
+				}
+			}
+		}
+
+		private bool _splitSent;
+
 		public override void HandleMcpeInventoryContent(McpeInventoryContent message)
 		{
 			CallPacketHandlers(message);
 
 			Log.Debug($"Set container content on Window ID: 0x{message.inventoryId:x2}, Count: {message.input.Count}");
+
+			// SPLIT TEST: on the first stack of more than one, ask the server to move half of it into
+			// an empty slot, then read the ids the response comes back with.
+			if (Environment.GetEnvironmentVariable("MINET_SPLIT_TEST") == "1" && !_splitSent && message.inventoryId == 0)
+			{
+				for (int slot = 0; slot < message.input.Count; slot++)
+				{
+					Item item = message.input[slot];
+					if (item == null || item.Count < 2) continue;
+
+					_splitSent = true;
+					Log.Warn($"SPLIT: source slot {slot} holds {item.Name} x{item.Count}, stack net id {item.UniqueId}");
+
+					int half = item.Count / 2;
+					int target = slot + 1;
+
+					var packet = McpeItemStackRequest.CreateObject();
+					packet.requests = new ItemStackRequests();
+					var actions = new ItemStackActionList {RequestId = -1};
+					actions.Add(new TakeAction
+					{
+						Count = (byte) half,
+						Source = new StackRequestSlotInfo {ContainerId = 28, Slot = (byte) slot, StackNetworkId = item.UniqueId},
+						Destination = new StackRequestSlotInfo {ContainerId = 28, Slot = (byte) target, StackNetworkId = 0}
+					});
+					packet.requests.Add(actions);
+					Log.Warn($"SPLIT: taking {half} from slot {slot} into slot {target}");
+					Client.SendPacket(packet);
+					break;
+				}
+			}
 
 			if (Client.IsEmulator) return;
 

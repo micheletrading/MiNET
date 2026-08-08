@@ -457,7 +457,7 @@ namespace MiNET.Net
 			Write(velocity);
 			Write(rotation);
 			Write(yHeadRotation);
-			WriteItemInstance(item);
+			WriteNetworkItemStackDescriptor(item);
 			WriteSignedVarInt((int) gamemode);
 			Write(metadata);
 			Write(synchedProperties ?? new PropertySyncData());
@@ -487,7 +487,7 @@ namespace MiNET.Net
 			velocity = ReadVector3();
 			rotation = ReadVector2();
 			yHeadRotation = ReadFloat();
-			item = ReadItemInstance();
+			item = ReadNetworkItemStackDescriptor();
 			gamemode = (McpeAddPlayer.GameType) ReadSignedVarInt();
 			metadata = ReadMetadataDictionary();
 			synchedProperties = ReadPropertySyncData();
@@ -648,7 +648,7 @@ namespace MiNET.Net
 
 			WriteSignedVarLong(entityIdSelf);
 			WriteUnsignedVarLong(runtimeEntityId);
-			WriteItemInstance(item);
+			WriteNetworkItemStackDescriptor(item);
 			Write(position);
 			Write(velocity);
 			Write(metadata);
@@ -668,7 +668,7 @@ namespace MiNET.Net
 
 			entityIdSelf = ReadSignedVarLong();
 			runtimeEntityId = ReadUnsignedVarLong();
-			item = ReadItemInstance();
+			item = ReadNetworkItemStackDescriptor();
 			position = ReadVector3();
 			velocity = ReadVector3();
 			metadata = ReadMetadataDictionary();
@@ -915,6 +915,76 @@ namespace MiNET.Net
 			cacheEnabled=default(bool);
 			cacheMetadata=default(List<ulong>);
 			chunkData=default(byte[]);
+		}
+
+	}
+
+	public partial class McpePlayerList : Packet<McpePlayerList>
+	{
+
+		public List<PlayerList> records; // = null;
+
+		public McpePlayerList()
+		{
+			Id = 0x3f;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			if (records != null)
+			{
+				WriteUnsignedVarInt((uint) records.Count);
+				foreach (PlayerList item in records)
+				{
+					switch (item)
+					{
+						case PlayerListRemoveEntry v0:
+							WriteUnsignedVarInt(0);
+							Write(v0);
+							break;
+						case PlayerListAddEntry v1:
+							WriteUnsignedVarInt(1);
+							Write(v1);
+							break;
+						default:
+							throw new Exception($"records element variant not set or unknown: {item}");
+					}
+				}
+			}
+			else WriteUnsignedVarInt(0);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			uint recordsCount = ReadUnsignedVarInt();
+			records = new List<PlayerList>((int) recordsCount);
+			for (int i = 0; i < recordsCount; i++) records.Add(ReadUnsignedVarInt() switch { 0 => ReadPlayerListRemoveEntry(), 1 => ReadPlayerListAddEntry(), uint other => throw new Exception($"Unknown item variant tag {other}") });
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			records=default(List<PlayerList>);
 		}
 
 	}
@@ -2122,6 +2192,10 @@ namespace MiNET.Net
 	{
 	}
 
+	public abstract class PlayerList
+	{
+	}
+
 	public abstract class ResourcePackClientResponse
 	{
 	}
@@ -2646,6 +2720,54 @@ namespace MiNET.Net
 	{
 	}
 
+	public class PlayerListAddEntry : PlayerList
+	{
+		public enum Action
+		{
+			Add = 0,
+		}
+
+		public enum BuildPlatform
+		{
+			Google = 0,
+			Ios = 1,
+			Osx = 2,
+			Amazon = 3,
+			Win32 = 4,
+			Dedicated = 5,
+			Sony = 6,
+			Nx = 7,
+			Xbox = 8,
+			Linux = 9,
+			Unknown = 10,
+		}
+
+		public PlayerListAddEntry.Action action;
+		public UUID uuid;
+		public long actorUniqueId;
+		public string playerName;
+		public string xblXuid;
+		public string platformOnlineId;
+		public PlayerListAddEntry.BuildPlatform buildPlatform;
+		public Skin serializedSkin;
+		public bool isTeacher;
+		public bool isHost;
+		public bool isSubclient;
+		public int playerColor;
+	}
+
+	public class PlayerListRemoveEntry : PlayerList
+	{
+		public enum Action
+		{
+			Add = 0,
+			Remove = 1,
+		}
+
+		public PlayerListRemoveEntry.Action action;
+		public UUID uuid;
+	}
+
 	public class PropertySyncData
 	{
 		public List<PropertySyncDataPropertySyncIntEntry> intEntriesList;
@@ -3052,7 +3174,7 @@ namespace MiNET.Net
 		{
 			Write((byte) data.creativeCategory);
 			Write(data.name);
-			WriteItemInstance(data.groupIconItem);
+			WriteNetworkItemInstanceDescriptor(data.groupIconItem);
 		}
 
 		public CreativeGroupInfoPayload ReadCreativeGroupInfoPayload()
@@ -3060,14 +3182,14 @@ namespace MiNET.Net
 			var data = new CreativeGroupInfoPayload();
 			data.creativeCategory = (CreativeGroupInfoPayload.CreativeCategory) ReadByte();
 			data.name = ReadString();
-			data.groupIconItem = ReadItemInstance();
+			data.groupIconItem = ReadNetworkItemInstanceDescriptor();
 			return data;
 		}
 
 		public void Write(CreativeItemEntryPayload data)
 		{
 			WriteUnsignedVarInt(data.creativeNetId);
-			WriteItemInstance(data.itemInstance);
+			WriteNetworkItemInstanceDescriptor(data.itemInstance);
 			WriteUnsignedVarInt(data.groupIndex);
 		}
 
@@ -3075,7 +3197,7 @@ namespace MiNET.Net
 		{
 			var data = new CreativeItemEntryPayload();
 			data.creativeNetId = ReadUnsignedVarInt();
-			data.itemInstance = ReadItemInstance();
+			data.itemInstance = ReadNetworkItemInstanceDescriptor();
 			data.groupIndex = ReadUnsignedVarInt();
 			return data;
 		}
@@ -3463,6 +3585,54 @@ namespace MiNET.Net
 		public Pause ReadPause()
 		{
 			var data = new Pause();
+			return data;
+		}
+
+		public void Write(PlayerListAddEntry data)
+		{
+			Write((byte) data.action);
+			Write(data.uuid);
+			WriteSignedVarLong(data.actorUniqueId);
+			Write(data.playerName);
+			Write(data.xblXuid);
+			Write(data.platformOnlineId);
+			Write((int) data.buildPlatform);
+			Write(data.serializedSkin);
+			Write(data.isTeacher);
+			Write(data.isHost);
+			Write(data.isSubclient);
+			Write(data.playerColor);
+		}
+
+		public PlayerListAddEntry ReadPlayerListAddEntry()
+		{
+			var data = new PlayerListAddEntry();
+			data.action = (PlayerListAddEntry.Action) ReadByte();
+			data.uuid = ReadUUID();
+			data.actorUniqueId = ReadSignedVarLong();
+			data.playerName = ReadString();
+			data.xblXuid = ReadString();
+			data.platformOnlineId = ReadString();
+			data.buildPlatform = (PlayerListAddEntry.BuildPlatform) ReadInt();
+			data.serializedSkin = ReadSkin();
+			data.isTeacher = ReadBool();
+			data.isHost = ReadBool();
+			data.isSubclient = ReadBool();
+			data.playerColor = ReadInt();
+			return data;
+		}
+
+		public void Write(PlayerListRemoveEntry data)
+		{
+			Write((byte) data.action);
+			Write(data.uuid);
+		}
+
+		public PlayerListRemoveEntry ReadPlayerListRemoveEntry()
+		{
+			var data = new PlayerListRemoveEntry();
+			data.action = (PlayerListRemoveEntry.Action) ReadByte();
+			data.uuid = ReadUUID();
 			return data;
 		}
 

@@ -1056,7 +1056,7 @@ namespace MiNET
 		public virtual void SendPlayerListSelf()
 		{
 			var playerList = McpePlayerList.CreateObject();
-			playerList.records = new PlayerAddRecords {this};
+			playerList.records = McpePlayerList.Added(this);
 			SendPacket(playerList);
 		}
 
@@ -4129,14 +4129,14 @@ namespace MiNET
 
 			{
 				var playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerRemoveRecords {this};
+				playerList.records = McpePlayerList.Removed(this);
 				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.Encode())); // Replace with records, to remove need for player and encode
 				playerList.records = null;
 				playerList.PutPool();
 			}
 			{
 				var playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerAddRecords {this};
+				playerList.records = McpePlayerList.Added(this);
 				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.Encode())); // Replace with records, to remove need for player and encode
 				playerList.records = null;
 				playerList.PutPool();

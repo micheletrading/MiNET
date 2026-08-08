@@ -1,4 +1,4 @@
-{
+﻿{
 	"_comment": "Patch layer applied on top of the Mojang schemas before emission. 'types' maps schema type refs to existing MiNET types (with the read/write calls the house code uses for them); every entry with a wire divergence from the schema carries a reason, which makes this file our running list of schema bugs. 'packets' holds per-packet field renames and escape hatches (not used yet).",
 	"types": {
 		"BlockPos": {
@@ -58,15 +58,15 @@
 		},
 		"NetworkItemInstanceDescriptor": {
 			"csType": "Item",
-			"write": "WriteItemInstance({0});",
-			"read": "{0} = ReadItemInstance();",
+			"write": "WriteNetworkItemInstanceDescriptor({0});",
+			"read": "{0} = ReadNetworkItemInstanceDescriptor();",
 			"reason": "The schema declares no properties. This is the id/count/aux/nbt form without the stack-id section, which is what creative entries and recipe results carry; the hand-written pair is verified against live BDS CraftingData and CreativeContent."
 		},
 		"NetworkItemStackDescriptor": {
 			"csType": "Item",
-			"write": "WriteItemInstance({0});",
-			"read": "{0} = ReadItemInstance();",
-			"reason": "The schema declares the type with no properties, so it cannot be generated. Item stacks stay on the hand-written codec: at 2168 this variant is li16 network id, no air short-circuit, block runtime id as a plain varint (see ReadItemInstance/WriteItemInstance), verified against live BDS bytes."
+			"write": "WriteNetworkItemStackDescriptor({0});",
+			"read": "{0} = ReadNetworkItemStackDescriptor();",
+			"reason": "The schema declares the type with no properties, so it cannot be generated. Item stacks stay on the hand-written codec: at 2168 this variant is li16 network id, no air short-circuit, block runtime id as a plain varint (see ReadNetworkItemInstanceDescriptor/WriteNetworkItemInstanceDescriptor), verified against live BDS bytes."
 		},
 		"SerializedAbilitiesDataSerializedLayer": {
 			"csType": "AbilityLayer",
@@ -94,39 +94,67 @@
 	"packets": {
 		"SetActorDataPacket": {
 			"fields": {
-				"Target Runtime ID": {"name": "runtimeEntityId"},
-				"Actor Data": {"name": "metadata"}
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Actor Data": {
+					"name": "metadata"
+				}
 			}
 		},
 		"AddActorPacket": {
 			"fields": {
-				"Target Actor ID": {"name": "entityIdSelf"},
-				"Target Runtime ID": {"name": "runtimeEntityId"},
-				"Actor Type": {"name": "entityType"},
-				"Actor Data": {"name": "metadata"},
-				"Actor Links": {"name": "links"},
+				"Target Actor ID": {
+					"name": "entityIdSelf"
+				},
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Actor Type": {
+					"name": "entityType"
+				},
+				"Actor Data": {
+					"name": "metadata"
+				},
+				"Actor Links": {
+					"name": "links"
+				},
 				"Attributes List": {
 					"name": "attributes",
-					"type": {"csType": "EntityAttributes", "write": "Write({0});", "read": "{0} = ReadEntityAttributes();"},
+					"type": {
+						"csType": "EntityAttributes",
+						"write": "Write({0});",
+						"read": "{0} = ReadEntityAttributes();"
+					},
 					"reason": "The whole entity layer builds EntityAttributes; the house codec carries the same wire as the SyncedAttribute array."
 				}
 			}
 		},
 		"MoveActorDeltaData": {
 			"fields": {
-				"Actor Runtime ID": {"name": "runtimeEntityId"}
+				"Actor Runtime ID": {
+					"name": "runtimeEntityId"
+				}
 			}
 		},
 		"SubChunkHeightmapData": {
 			"fields": {
 				"Subchunk Height Map": {
 					"name": "heights",
-					"type": {"csType": "byte[]", "write": "Write({0});", "read": "{0} = ReadBytes(256);"},
+					"type": {
+						"csType": "byte[]",
+						"write": "Write({0});",
+						"read": "{0} = ReadBytes(256);"
+					},
 					"reason": "A fixed 16x16 int8 grid with no counts on the wire (minItems==maxItems); carried as the raw 256-byte blob like the old hand codec."
 				},
 				"Subchunk Render Height Map": {
 					"name": "renderHeights",
-					"type": {"csType": "byte[]", "write": "Write({0});", "read": "{0} = ReadBytes(256);"},
+					"type": {
+						"csType": "byte[]",
+						"write": "Write({0});",
+						"read": "{0} = ReadBytes(256);"
+					},
 					"reason": "Same fixed 16x16 int8 grid as the height map."
 				}
 			}
@@ -134,133 +162,294 @@
 		"SubChunkPacketData": {
 			"fields": {
 				"SubChunk Request Result": {
-					"enum": ["Undefined", "Success", "LevelChunkDoesntExist", "WrongDimension", "PlayerDoesntExist", "IndexOutOfBounds", "SuccessAllAir"],
+					"enum": [
+						"Undefined",
+						"Success",
+						"LevelChunkDoesntExist",
+						"WrongDimension",
+						"PlayerDoesntExist",
+						"IndexOutOfBounds",
+						"SuccessAllAir"
+					],
 					"reason": "The field's inline enum omits the leading Undefined value; the standalone SubChunkPacketPayload::SubChunkRequestResult schema, Cloudburst's enum and live BDS bytes (Success=1, SuccessAllAir=6) all include it."
 				},
 				"Serialized Sub Chunk": {
-					"type": {"csType": "byte[]", "write": "WriteByteArray({0});", "read": "{0} = ReadByteArray();"},
+					"type": {
+						"csType": "byte[]",
+						"write": "WriteByteArray({0});",
+						"read": "{0} = ReadByteArray();"
+					},
 					"reason": "The schema calls the serialized subchunk a string; it is raw bytes with a varint length, the house byte-array codec."
 				}
 			}
 		},
 		"LevelChunkPacket": {
 			"fields": {
-				"Dimension Id": {"name": "dimension"},
-				"Sub-chunks Count": {"name": "subChunkCount"},
-				"Cache Metadata": {"name": "cacheMetadata"},
+				"Dimension Id": {
+					"name": "dimension"
+				},
+				"Sub-chunks Count": {
+					"name": "subChunkCount"
+				},
+				"Cache Metadata": {
+					"name": "cacheMetadata"
+				},
 				"Serialized Chunk Data": {
 					"name": "chunkData",
-					"type": {"csType": "byte[]", "write": "WriteByteArray({0});", "read": "{0} = ReadByteArray();"},
+					"type": {
+						"csType": "byte[]",
+						"write": "WriteByteArray({0});",
+						"read": "{0} = ReadByteArray();"
+					},
 					"reason": "The schema calls the chunk payload a string; it is the raw serialized chunk bytes with a varint length, which is exactly the house byte-array codec."
 				}
 			}
 		},
 		"StartGamePacket": {
 			"fields": {
-				"Player Property Data": {"type": {"csType": "Nbt", "write": "Write({0});", "read": "{0} = ReadNbt();"}},
-				"Entity ID": {"name": "entityIdSelf"},
-				"Runtime ID": {"name": "runtimeEntityId"},
-				"BlockNetworkIds Are Hashes": {"name": "blockNetworkIdsAreHashes"},
-				"NetworkPermissions": {"name": "serverAuthSoundEnabled"},
+				"Player Property Data": {
+					"type": {
+						"csType": "Nbt",
+						"write": "Write({0});",
+						"read": "{0} = ReadNbt();"
+					}
+				},
+				"Entity ID": {
+					"name": "entityIdSelf"
+				},
+				"Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"BlockNetworkIds Are Hashes": {
+					"name": "blockNetworkIdsAreHashes"
+				},
+				"NetworkPermissions": {
+					"name": "serverAuthSoundEnabled"
+				},
 				"Game Type": {
-					"enum": ["Survival", "Creative", "Adventure", "SurvivalSpectator", "CreativeSpectator", "Default", "Spectator"],
+					"enum": [
+						"Survival",
+						"Creative",
+						"Adventure",
+						"SurvivalSpectator",
+						"CreativeSpectator",
+						"Default",
+						"Spectator"
+					],
 					"reason": "GameType.json lists Undefined first, but engine GameType::Undefined is -1 and never on the wire; wire values start at Survival=0 and include the deprecated 3/4 spectator pair the schema omits (BDS-verified at 1001, mirrored by MiNET.Worlds.GameMode). WorldDefault's value is undocumented and dropped."
 				}
 			}
 		},
 		"LevelSettings": {
 			"fields": {
-				"Rule Data": {"name": "gamerules"},
+				"Rule Data": {
+					"name": "gamerules"
+				},
 				"Game Type": {
-					"enum": ["Survival", "Creative", "Adventure", "SurvivalSpectator", "CreativeSpectator", "Default", "Spectator"],
+					"enum": [
+						"Survival",
+						"Creative",
+						"Adventure",
+						"SurvivalSpectator",
+						"CreativeSpectator",
+						"Default",
+						"Spectator"
+					],
 					"reason": "Same GameType schema bug as StartGamePacket's Game Type: Undefined is -1 in the engine, wire starts at Survival=0."
 				}
 			}
 		},
 		"ServerBlockProperty": {
 			"fields": {
-				"Block Definition": {"type": {"csType": "Nbt", "write": "Write({0});", "read": "{0} = ReadNbt();"}}
+				"Block Definition": {
+					"type": {
+						"csType": "Nbt",
+						"write": "Write({0});",
+						"read": "{0} = ReadNbt();"
+					}
+				}
 			}
 		},
 		"ResourcePacksInfoPacket": {
 			"fields": {
-				"Resource Pack Required": {"name": "mustAccept"}
+				"Resource Pack Required": {
+					"name": "mustAccept"
+				}
 			}
 		},
 		"AddItemActorPacket": {
 			"fields": {
-				"Target Actor ID": {"name": "entityIdSelf"},
-				"Target Runtime ID": {"name": "runtimeEntityId"},
-				"Entity Data": {"name": "metadata"}
+				"Target Actor ID": {
+					"name": "entityIdSelf"
+				},
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Entity Data": {
+					"name": "metadata"
+				}
 			}
 		},
 		"AddPlayerPacket": {
 			"fields": {
-				"Player Name": {"name": "username"},
-				"Target Runtime ID": {"name": "runtimeEntityId"},
-				"Carried Item": {"name": "item"},
+				"Player Name": {
+					"name": "username"
+				},
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Carried Item": {
+					"name": "item"
+				},
 				"Player Game Type": {
 					"name": "gamemode",
-					"enum": ["Survival", "Creative", "Adventure", "SurvivalSpectator", "CreativeSpectator", "Default", "Spectator"],
+					"enum": [
+						"Survival",
+						"Creative",
+						"Adventure",
+						"SurvivalSpectator",
+						"CreativeSpectator",
+						"Default",
+						"Spectator"
+					],
 					"reason": "Same GameType schema bug as StartGamePacket's Game Type: Undefined is -1 in the engine, wire starts at Survival=0."
 				},
-				"Entity Data": {"name": "metadata"},
-				"Actor Links": {"name": "links"}
+				"Entity Data": {
+					"name": "metadata"
+				},
+				"Actor Links": {
+					"name": "links"
+				}
 			}
 		},
 		"TransferPacket": {
 			"fields": {
-				"Server Port": {"name": "port"}
+				"Server Port": {
+					"name": "port"
+				}
 			}
 		},
 		"ServerBoundDiagnosticsPacket": {
 			"fields": {
-				"AvgFps": {"name": "averageFramesPerSecond"},
-				"AvgServerSimTickTimeMS": {"name": "averageServerSimTickTime"},
-				"AvgClientSimTickTimeMS": {"name": "averageClientSimTickTime"},
-				"AvgBeginFrameTimeMS": {"name": "averageBeginFrameTime"},
-				"AvgInputTimeMS": {"name": "averageInputTime"},
-				"AvgRenderTimeMS": {"name": "averageRenderTime"},
-				"AvgEndFrameTimeMS": {"name": "averageEndFrameTime"},
-				"AvgRemainderTimePercent": {"name": "averageRemainderTimePercent"},
-				"AvgUnaccountedTimePercent": {"name": "averageUnaccountedTimePercent"}
+				"AvgFps": {
+					"name": "averageFramesPerSecond"
+				},
+				"AvgServerSimTickTimeMS": {
+					"name": "averageServerSimTickTime"
+				},
+				"AvgClientSimTickTimeMS": {
+					"name": "averageClientSimTickTime"
+				},
+				"AvgBeginFrameTimeMS": {
+					"name": "averageBeginFrameTime"
+				},
+				"AvgInputTimeMS": {
+					"name": "averageInputTime"
+				},
+				"AvgRenderTimeMS": {
+					"name": "averageRenderTime"
+				},
+				"AvgEndFrameTimeMS": {
+					"name": "averageEndFrameTime"
+				},
+				"AvgRemainderTimePercent": {
+					"name": "averageRemainderTimePercent"
+				},
+				"AvgUnaccountedTimePercent": {
+					"name": "averageUnaccountedTimePercent"
+				}
 			}
 		},
 		"ServerToClientHandshakePacket": {
 			"fields": {
-				"Handshake WebToken": {"name": "token"}
+				"Handshake WebToken": {
+					"name": "token"
+				}
 			}
 		},
 		"PlayerSkinPacket": {
 			"fields": {
-				"Serialized Skin": {"name": "skin"},
-				"Localized New Skin Name": {"name": "skinName"},
-				"Localized Old Skin Name": {"name": "oldSkinName"}
+				"Serialized Skin": {
+					"name": "skin"
+				},
+				"Localized New Skin Name": {
+					"name": "skinName"
+				},
+				"Localized Old Skin Name": {
+					"name": "oldSkinName"
+				}
 			}
 		},
 		"MovePlayerPacket": {
 			"fields": {
-				"Player Runtime ID": {"name": "runtimeEntityId"},
-				"Riding Runtime ID": {"name": "ridingRuntimeEntityId"},
-				"Position Mode": {"name": "mode"},
-				"Y-Head Rotation": {"name": "headYaw"}
+				"Player Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Riding Runtime ID": {
+					"name": "ridingRuntimeEntityId"
+				},
+				"Position Mode": {
+					"name": "mode"
+				},
+				"Y-Head Rotation": {
+					"name": "headYaw"
+				}
 			}
 		},
 		"CreativeGroupInfoPayload": {
 			"fields": {
 				"Creative Category": {
-					"enum": ["All", "Construction", "Nature", "Equipment", "Items", "ItemCommandOnly", "Undefined"],
+					"enum": [
+						"All",
+						"Construction",
+						"Nature",
+						"Equipment",
+						"Items",
+						"ItemCommandOnly",
+						"Undefined"
+					],
 					"reason": "The inline enum lists only the five legal group categories and so starts numbering at 0, while its own description says 'Valid values are 1 through 5'. The standalone CreativeItemCategory schema and __protocoldoc.json both give the real numbering, All=0 first; our captured vanilla groups use 1-4."
 				}
 			}
 		},
 		"gatheringsConfig": {
 			"fields": {
-				"worldId": {"optional": true, "reason": "Schema bug: gatheringsConfig.json lists all eight fields as required, but Mojang's own 2168 changelog says 'GatheringsConfigurationJoinInfo: The worldId, worldName, targetId, scenarioId, and serverId fields are now optional.' Optional means a presence byte, so reading these unconditionally desyncs the rest of the struct. Not reproducible against BDS: it sends serverConfigurationJoinInfo with gathering null, so this path never runs against vanilla."},
-				"worldName": {"optional": true},
-				"targetId": {"optional": true},
-				"scenarioId": {"optional": true},
-				"serverId": {"optional": true}
+				"worldId": {
+					"optional": true,
+					"reason": "Schema bug: gatheringsConfig.json lists all eight fields as required, but Mojang's own 2168 changelog says 'GatheringsConfigurationJoinInfo: The worldId, worldName, targetId, scenarioId, and serverId fields are now optional.' Optional means a presence byte, so reading these unconditionally desyncs the rest of the struct. Not reproducible against BDS: it sends serverConfigurationJoinInfo with gathering null, so this path never runs against vanilla."
+				},
+				"worldName": {
+					"optional": true
+				},
+				"targetId": {
+					"optional": true
+				},
+				"scenarioId": {
+					"optional": true
+				},
+				"serverId": {
+					"optional": true
+				}
+			}
+		},
+		"PlayerListPacket": {
+			"fields": {
+				"Entries": {
+					"optional": false,
+					"name": "records",
+					"reason": "Ahead of our target: the schema is 2169 and marks Entries optional, which puts a presence byte before the entry count. Protocol 2168 has no such byte, confirmed by CloudburstMC PlayerListSerializer_v2168, which writes the count and then the entries. Drop this override when the target moves to 2169 or later and the byte is verified against BDS."
+				}
+			}
+		},
+		"PlayerListRemoveEntry": {
+			"fields": {
+				"Action": {
+					"enum": [
+						"Add",
+						"Remove"
+					],
+					"reason": "Each entry variant declares its discriminator as a single-value enum, so both Add and Remove number from 0 and every entry writes byte 0. The values belong to the shared PlayerListPacketType enum, Add=0 and Remove=1, which is what CloudburstMC writes (entry.getAction().ordinal()). Only the remove form needs restating; the add form's own numbering already gives 0."
+				}
 			}
 		}
 	}

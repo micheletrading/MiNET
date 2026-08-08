@@ -90,6 +90,14 @@
 			"schema": "PhotoTransferPacket"
 		},
 		{
+			"name": "MCPE_PLAYER_LIST",
+			"id": "0x3f",
+			"online": false,
+			"client": false,
+			"server": true,
+			"schema": "PlayerListPacket"
+		},
+		{
 			"name": "MCPE_PLAYER_LOCATION",
 			"id": "0x146",
 			"online": false,

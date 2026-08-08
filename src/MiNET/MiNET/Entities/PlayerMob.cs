@@ -179,7 +179,7 @@ namespace MiNET.Entities
 				};
 
 				var playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerAddRecords {record};
+				playerList.records = McpePlayerList.Added(record);
 				Level.RelayBroadcast(players, Level.CreateMcpeBatch(playerList.Encode()));
 				playerList.records = null;
 				playerList.PutPool();
@@ -253,7 +253,7 @@ namespace MiNET.Entities
 			var players = Level.GetSpawnedPlayers();
 
 			var playerList = McpePlayerList.CreateObject();
-			playerList.records = new PlayerRemoveRecords {fake};
+			playerList.records = McpePlayerList.Removed(fake);
 			Level.RelayBroadcast(players, Level.CreateMcpeBatch(playerList.Encode()));
 			playerList.records = null;
 			playerList.PutPool();
@@ -273,7 +273,7 @@ namespace MiNET.Entities
 			var players = Level.GetSpawnedPlayers();
 
 			McpePlayerList playerList = McpePlayerList.CreateObject();
-			playerList.records = new PlayerAddRecords {fake};
+			playerList.records = McpePlayerList.Added(fake);
 			Level.RelayBroadcast(players, Level.CreateMcpeBatch(playerList.Encode()));
 			playerList.records = null;
 			playerList.PutPool();
@@ -291,7 +291,7 @@ namespace MiNET.Entities
 				};
 
 				McpePlayerList playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerRemoveRecords {fake};
+				playerList.records = McpePlayerList.Removed(fake);
 				Level.RelayBroadcast(players, Level.CreateMcpeBatch(playerList.Encode()));
 				playerList.records = null;
 				playerList.PutPool();

@@ -236,8 +236,8 @@ public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
 					break;
 			}
 			ReadUnsignedVarInt(); // slot
-			ReadItemStackWrapper(); // old item (zigzag wrapper; PMMP readAuthInput getItemStackWrapper)
-			ReadItemStackWrapper(); // new item
+			ReadNetworkItemStackDescriptor(); // old item (zigzag wrapper; PMMP readAuthInput getItemStackWrapper)
+			ReadNetworkItemStackDescriptor(); // new item
 		}
 
 		// Use-item body (PMMP UseItemTransactionData::decodeData).

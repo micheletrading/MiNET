@@ -542,10 +542,6 @@
 		<field name="Gamemode" type="SignedVarInt" />
 	</pdu>
 
-	<pdu id="0x3f" online="false" client="false" server="true" name="MCPE_PLAYER_LIST">
-		<field name="Records" type="PlayerRecords" />
-	</pdu>
-
 	<pdu id="0x40" online="false" client="false" server="true" name="MCPE_SIMPLE_EVENT">
 		<field name="Event Type" type="ushort" />
 	</pdu>
