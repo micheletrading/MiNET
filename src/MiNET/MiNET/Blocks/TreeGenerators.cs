@@ -24,124 +24,16 @@
 #endregion
 
 using System;
-using System.Numerics;
-using MiNET.Items;
-using MiNET.Particles;
-using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public partial class Sapling : Block
-	{
-		public Sapling() : base(6)
-		{
-			FuelEfficiency = 5;
-		}
-
-		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
-		{
-			if (base.CanPlace(world, player, blockCoordinates, targetCoordinates, face))
-			{
-				Block under = world.GetBlock(Coordinates.BlockDown());
-				return under is Dirt || under is Podzol || under is Grass;
-			}
-
-			return false;
-		}
-
-		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
-		{
-			if (player.Inventory.GetItemInHand() is ItemDye inHand && inHand.Metadata == 15)
-			{
-				var random = new Random();
-				for (int i = 0; i < 3; i++)
-				{
-					var particle = new LegacyParticle((int) ParticleType.VillagerHappy, level)
-					{
-						Position = (Vector3) Coordinates
-									+ (new Vector3(0.5f, 0.5f, 0.5f)
-										+ new Vector3((float) (random.NextDouble() - 0.5D), (float) (random.NextDouble() - 0.5D), (float) (random.NextDouble() - 0.5D)))
-					};
-					particle.Spawn();
-				}
-
-				if (random.NextDouble() < 0.45)
-				{
-					OnTick(level, true);
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		//[StateBit] public bool AgeBit { get; set; } = false;
-		//[StateEnum("oak", "spruce", "birch", "jungle", "acacia", "dark_oak")]
-		//public string SaplingType { get; set; } = "oak";
-
-		public override void OnTick(Level level, bool isRandom)
-		{
-			if (!isRandom) return;
-
-			var lightLevel = level.GetSubtractedLight(Coordinates);
-			if (lightLevel >= 9 && new Random().Next(7) == 0)
-			{
-				SmallTreeGenerator generator = null;
-				Block log = null;
-				Block leaves = null;
-				switch (SaplingType)
-				{
-					case "oak":
-						log = new Log {OldLogType = SaplingType};
-						leaves = new Leaves {OldLeafType = SaplingType};
-						generator = new SmallTreeGenerator(log, leaves, 4);
-						break;
-					case "spruce":
-						log = new Log {OldLogType = SaplingType};
-						leaves = new Leaves {OldLeafType = SaplingType};
-						//generator = new SmallTreeGenerator(log, leaves, 4);
-						break;
-					case "birch":
-						log = new Log {OldLogType = SaplingType};
-						leaves = new Leaves {OldLeafType = SaplingType};
-						generator = new SmallTreeGenerator(log, leaves, 5);
-						break;
-					case "jungle":
-						log = new Log {OldLogType = SaplingType};
-						leaves = new Leaves {OldLeafType = SaplingType};
-						//generator = new SmallTreeGenerator(log, leaves, 4 + new Random().Next(7));
-						break;
-					case "acacia":
-						log = new Log {OldLogType = SaplingType};
-						leaves = new Leaves {OldLeafType = SaplingType};
-						//generator = new SmallTreeGenerator(log, leaves, 5);
-						break;
-					case "dark_oak":
-						log = new Log {OldLogType = SaplingType};
-						leaves = new Leaves {OldLeafType = SaplingType};
-						//generator = new SmallTreeGenerator(log, leaves, 5);
-						break;
-				}
-
-				if (generator == null) return;
-
-				level.SetAir(Coordinates);
-
-				if (!generator.Generate(level, Coordinates))
-				{
-					level.SetBlock(this);
-				}
-			}
-		}
-	}
-
 	public abstract class TreeGeneratorBase
 	{
 		protected bool CanGrowInto(Block material)
 		{
-			return material is Air || material is Leaves || material is Leaves2 || material is Grass || material is Dirt || material is Log || material is Log2 || material is Sapling || material is Vine;
+			return material is Air || material is LeavesBase || material is GrassBlock || material is Dirt || material is LogBase || material is SaplingBase || material is Vine;
 		}
 	}
 
@@ -208,7 +100,7 @@ namespace MiNET.Blocks
 				{
 					Block block = level.GetBlock(position.BlockDown());
 
-					if ((block is Grass || block is Dirt || block is Farmland) && position.Y < 256 - height - 1)
+					if ((block is GrassBlock || block is Dirt || block is Farmland) && position.Y < 256 - height - 1)
 					{
 						level.SetBlock(new Dirt {Coordinates = position.BlockDown()});
 
@@ -230,7 +122,7 @@ namespace MiNET.Blocks
 										BlockCoordinates blockpos = new BlockCoordinates(x, y, z);
 										Block material = level.GetBlock(blockpos);
 
-										if (material is Air || material is Leaves || material is Leaves2)
+										if (material is Air || material is LeavesBase)
 										{
 											_leave.Coordinates = blockpos;
 											level.SetBlock(_leave);
@@ -245,7 +137,7 @@ namespace MiNET.Blocks
 							BlockCoordinates blockpos = position + (BlockCoordinates.Up * y);
 							Block material = level.GetBlock(blockpos);
 
-							if (material is Air || material is Leaves || material is Leaves2)
+							if (material is Air || material is LeavesBase)
 							{
 								_log.Coordinates = blockpos;
 								level.SetBlock(_log);

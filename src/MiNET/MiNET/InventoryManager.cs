@@ -78,7 +78,7 @@ namespace MiNET
 						case Chest _:
 							blockEntity = new ChestBlockEntity();
 							break;
-						case ShulkerBox _:
+						case var b when b.Name.EndsWith("shulker_box"):
 							blockEntity = new ShulkerBoxBlockEntity();
 							break;
 					}

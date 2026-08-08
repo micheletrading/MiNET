@@ -52,7 +52,7 @@ namespace MiNET.Plotter
 			var stone = new Stone();
 			var andesite = new Andesite();
 			var dirt = new Dirt();
-			var grass = new Grass();
+			var grass = new GrassBlock();
 
 			RoadPattern.BlockList.Add(new Pattern.BlockDataEntry()
 			{
@@ -132,7 +132,7 @@ namespace MiNET.Plotter
 			// instead of one per block in the plot.
 			int bedrockId = new Bedrock().GetRuntimeId();
 			int airId = new Air().GetRuntimeId();
-			int grassId = new Grass().GetRuntimeId();
+			int grassId = new GrassBlock().GetRuntimeId();
 			int dirtId = new Dirt().GetRuntimeId();
 			int stoneId = new Stone().GetRuntimeId();
 
@@ -213,7 +213,7 @@ namespace MiNET.Plotter
 					{
 						if (y == 0) chunk.SetBlock(x, y, z, new Bedrock()); // Bedrock
 						else if (y == PlotHeight - 1)
-							chunk.SetBlock(x, y, z, new Grass()); // grass
+							chunk.SetBlock(x, y, z, new GrassBlock()); // grass
 						else if (y == PlotHeight)
 						{
 							if (!IsZRoad(z + zOffset, true) && !IsXRoad(x + xOffset, true))

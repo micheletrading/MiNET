@@ -286,6 +286,13 @@ namespace MiNET.Entities.Behaviors
 
 	public class BlockDiagonalNeighborProvider : INeighborProvider
 	{
+		/// <summary>Fences block movement; post-flattening they are separate blocks per wood type.</summary>
+		private static bool IsFence(Block block)
+		{
+			string name = block?.Name;
+			return name != null && (name.EndsWith("_fence") || name == "minecraft:nether_brick_fence");
+		}
+
 		private static readonly ILog Log = LogManager.GetLogger(typeof(BlockDiagonalNeighborProvider));
 
 		private readonly CachedBlockAccess _level;
@@ -369,7 +376,7 @@ namespace MiNET.Entities.Behaviors
 					else
 					{
 						// Check block collision box, not hit box
-						if (_level.GetBlock(coord) is Fence)
+						if (IsFence(_level.GetBlock(coord)))
 						{
 							continue;
 						}

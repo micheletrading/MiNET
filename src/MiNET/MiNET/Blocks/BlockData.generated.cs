@@ -28,7 +28,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class AcaciaLeaves : Block // minecraft:acacia_leaves
+	public partial class AcaciaLeaves : LeavesBase // minecraft:acacia_leaves
 	{
 		public AcaciaLeaves() : base(161)
 		{
@@ -36,7 +36,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class AcaciaLog : Block // minecraft:acacia_log
+	public partial class AcaciaLog : LogBase // minecraft:acacia_log
 	{
 		public AcaciaLog() : base(162)
 		{
@@ -60,7 +60,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class AcaciaSapling : Block // minecraft:acacia_sapling
+	public partial class AcaciaSapling : SaplingBase // minecraft:acacia_sapling
 	{
 		public AcaciaSapling() : base(1083)
 		{
@@ -92,7 +92,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Allium : Block // minecraft:allium
+	public partial class Allium : FlowerBase // minecraft:allium
 	{
 		public Allium() : base(1086)
 		{
@@ -172,7 +172,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class AzaleaLeaves : Block // minecraft:azalea_leaves
+	public partial class AzaleaLeaves : LeavesBase // minecraft:azalea_leaves
 	{
 		public AzaleaLeaves() : base(579)
 		{
@@ -180,7 +180,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class AzaleaLeavesFlowered : Block // minecraft:azalea_leaves_flowered
+	public partial class AzaleaLeavesFlowered : LeavesBase // minecraft:azalea_leaves_flowered
 	{
 		public AzaleaLeavesFlowered() : base(580)
 		{
@@ -188,7 +188,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class AzureBluet : Block // minecraft:azure_bluet
+	public partial class AzureBluet : FlowerBase // minecraft:azure_bluet
 	{
 		public AzureBluet() : base(1087)
 		{
@@ -444,7 +444,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class BirchLeaves : Block // minecraft:birch_leaves
+	public partial class BirchLeaves : LeavesBase // minecraft:birch_leaves
 	{
 		public BirchLeaves() : base(1056)
 		{
@@ -452,7 +452,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class BirchLog : Block // minecraft:birch_log
+	public partial class BirchLog : LogBase // minecraft:birch_log
 	{
 		public BirchLog() : base(825)
 		{
@@ -476,7 +476,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class BirchSapling : Block // minecraft:birch_sapling
+	public partial class BirchSapling : SaplingBase // minecraft:birch_sapling
 	{
 		public BirchSapling() : base(1081)
 		{
@@ -564,7 +564,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class BlackStainedGlassPane : Block // minecraft:black_stained_glass_pane
+	public partial class BlackStainedGlassPane : GlassPaneBase // minecraft:black_stained_glass_pane
 	{
 		public BlackStainedGlassPane() : base(912)
 		{
@@ -652,7 +652,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class BlueOrchid : Block // minecraft:blue_orchid
+	public partial class BlueOrchid : FlowerBase // minecraft:blue_orchid
 	{
 		public BlueOrchid() : base(1085)
 		{
@@ -676,7 +676,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class BlueStainedGlassPane : Block // minecraft:blue_stained_glass_pane
+	public partial class BlueStainedGlassPane : GlassPaneBase // minecraft:blue_stained_glass_pane
 	{
 		public BlueStainedGlassPane() : base(908)
 		{
@@ -828,7 +828,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class BrownStainedGlassPane : Block // minecraft:brown_stained_glass_pane
+	public partial class BrownStainedGlassPane : GlassPaneBase // minecraft:brown_stained_glass_pane
 	{
 		public BrownStainedGlassPane() : base(909)
 		{
@@ -908,7 +908,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CactusFlower : Block // minecraft:cactus_flower
+	public partial class CactusFlower : FlowerBase // minecraft:cactus_flower
 	{
 		public CactusFlower() : base(1285)
 		{
@@ -1068,7 +1068,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CherryLeaves : Block // minecraft:cherry_leaves
+	public partial class CherryLeaves : LeavesBase // minecraft:cherry_leaves
 	{
 		public CherryLeaves() : base(803)
 		{
@@ -1076,7 +1076,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CherryLog : Block // minecraft:cherry_log
+	public partial class CherryLog : LogBase // minecraft:cherry_log
 	{
 		public CherryLog() : base(791)
 		{
@@ -1100,7 +1100,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CherrySapling : Block // minecraft:cherry_sapling
+	public partial class CherrySapling : SaplingBase // minecraft:cherry_sapling
 	{
 		public CherrySapling() : base(802)
 		{
@@ -1180,7 +1180,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ChiseledCinnabar : Block // minecraft:chiseled_cinnabar
+	public partial class ChiseledCinnabar : StoneBrickBase // minecraft:chiseled_cinnabar
 	{
 		public ChiseledCinnabar() : base(1379)
 		{
@@ -1196,7 +1196,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ChiseledDeepslate : Block // minecraft:chiseled_deepslate
+	public partial class ChiseledDeepslate : StoneBrickBase // minecraft:chiseled_deepslate
 	{
 		public ChiseledDeepslate() : base(650)
 		{
@@ -1212,7 +1212,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ChiseledPolishedBlackstone : Block // minecraft:chiseled_polished_blackstone
+	public partial class ChiseledPolishedBlackstone : StoneBrickBase // minecraft:chiseled_polished_blackstone
 	{
 		public ChiseledPolishedBlackstone() : base(534)
 		{
@@ -1252,7 +1252,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ChiseledStoneBricks : Block // minecraft:chiseled_stone_bricks
+	public partial class ChiseledStoneBricks : StoneBrickBase // minecraft:chiseled_stone_bricks
 	{
 		public ChiseledStoneBricks() : base(1125)
 		{
@@ -1260,7 +1260,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ChiseledSulfur : Block // minecraft:chiseled_sulfur
+	public partial class ChiseledSulfur : StoneBrickBase // minecraft:chiseled_sulfur
 	{
 		public ChiseledSulfur() : base(1362)
 		{
@@ -1268,7 +1268,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ChiseledTuff : Block // minecraft:chiseled_tuff
+	public partial class ChiseledTuff : StoneBrickBase // minecraft:chiseled_tuff
 	{
 		public ChiseledTuff() : base(1008)
 		{
@@ -1276,7 +1276,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ChiseledTuffBricks : Block // minecraft:chiseled_tuff_bricks
+	public partial class ChiseledTuffBricks : StoneBrickBase // minecraft:chiseled_tuff_bricks
 	{
 		public ChiseledTuffBricks() : base(1014)
 		{
@@ -1324,7 +1324,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CinnabarBricks : Block // minecraft:cinnabar_bricks
+	public partial class CinnabarBricks : StoneBrickBase // minecraft:cinnabar_bricks
 	{
 		public CinnabarBricks() : base(1374)
 		{
@@ -1372,7 +1372,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class ClosedEyeblossom : Block // minecraft:closed_eyeblossom
+	public partial class ClosedEyeblossom : FlowerBase // minecraft:closed_eyeblossom
 	{
 		public ClosedEyeblossom() : base(1274)
 		{
@@ -1604,7 +1604,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Cornflower : Block // minecraft:cornflower
+	public partial class Cornflower : FlowerBase // minecraft:cornflower
 	{
 		public Cornflower() : base(1093)
 		{
@@ -1612,7 +1612,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CrackedDeepslateBricks : Block // minecraft:cracked_deepslate_bricks
+	public partial class CrackedDeepslateBricks : StoneBrickBase // minecraft:cracked_deepslate_bricks
 	{
 		public CrackedDeepslateBricks() : base(665)
 		{
@@ -1620,7 +1620,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CrackedDeepslateTiles : Block // minecraft:cracked_deepslate_tiles
+	public partial class CrackedDeepslateTiles : StoneBrickBase // minecraft:cracked_deepslate_tiles
 	{
 		public CrackedDeepslateTiles() : base(664)
 		{
@@ -1636,7 +1636,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CrackedPolishedBlackstoneBricks : Block // minecraft:cracked_polished_blackstone_bricks
+	public partial class CrackedPolishedBlackstoneBricks : StoneBrickBase // minecraft:cracked_polished_blackstone_bricks
 	{
 		public CrackedPolishedBlackstoneBricks() : base(535)
 		{
@@ -1644,7 +1644,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CrackedStoneBricks : Block // minecraft:cracked_stone_bricks
+	public partial class CrackedStoneBricks : StoneBrickBase // minecraft:cracked_stone_bricks
 	{
 		public CrackedStoneBricks() : base(1124)
 		{
@@ -1756,7 +1756,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CrimsonRoots : Block // minecraft:crimson_roots
+	public partial class CrimsonRoots : FlowerBase // minecraft:crimson_roots
 	{
 		public CrimsonRoots() : base(478)
 		{
@@ -1772,7 +1772,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CrimsonStem : Block // minecraft:crimson_stem
+	public partial class CrimsonStem : LogBase // minecraft:crimson_stem
 	{
 		public CrimsonStem() : base(480)
 		{
@@ -1916,7 +1916,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class CyanStainedGlassPane : Block // minecraft:cyan_stained_glass_pane
+	public partial class CyanStainedGlassPane : GlassPaneBase // minecraft:cyan_stained_glass_pane
 	{
 		public CyanStainedGlassPane() : base(906)
 		{
@@ -1948,7 +1948,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Dandelion : Block // minecraft:dandelion
+	public partial class Dandelion : FlowerBase // minecraft:dandelion
 	{
 		public Dandelion() : base(37)
 		{
@@ -1980,7 +1980,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class DarkOakLeaves : Block // minecraft:dark_oak_leaves
+	public partial class DarkOakLeaves : LeavesBase // minecraft:dark_oak_leaves
 	{
 		public DarkOakLeaves() : base(1058)
 		{
@@ -1988,7 +1988,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class DarkOakLog : Block // minecraft:dark_oak_log
+	public partial class DarkOakLog : LogBase // minecraft:dark_oak_log
 	{
 		public DarkOakLog() : base(827)
 		{
@@ -2012,7 +2012,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class DarkOakSapling : Block // minecraft:dark_oak_sapling
+	public partial class DarkOakSapling : SaplingBase // minecraft:dark_oak_sapling
 	{
 		public DarkOakSapling() : base(1084)
 		{
@@ -2276,7 +2276,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class DeepslateBricks : Block // minecraft:deepslate_bricks
+	public partial class DeepslateBricks : StoneBrickBase // minecraft:deepslate_bricks
 	{
 		public DeepslateBricks() : base(646)
 		{
@@ -2380,7 +2380,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class DeepslateTiles : Block // minecraft:deepslate_tiles
+	public partial class DeepslateTiles : StoneBrickBase // minecraft:deepslate_tiles
 	{
 		public DeepslateTiles() : base(642)
 		{
@@ -3684,7 +3684,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class GildedBlackstone : Block // minecraft:gilded_blackstone
+	public partial class GildedBlackstone : StoneBrickBase // minecraft:gilded_blackstone
 	{
 		public GildedBlackstone() : base(536)
 		{
@@ -3708,7 +3708,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class GoldenDandelion : Block // minecraft:golden_dandelion
+	public partial class GoldenDandelion : FlowerBase // minecraft:golden_dandelion
 	{
 		public GoldenDandelion() : base(1346)
 		{
@@ -3743,14 +3743,6 @@ namespace MiNET.Blocks
 	public partial class GraniteWall : Block // minecraft:granite_wall
 	{
 		public GraniteWall() : base(1227)
-		{
-			IsGenerated = true;
-		}
-	} // class
-
-	public partial class GrassBlock : Block // minecraft:grass_block
-	{
-		public GrassBlock() : base(2)
 		{
 			IsGenerated = true;
 		}
@@ -3812,7 +3804,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class GrayStainedGlassPane : Block // minecraft:gray_stained_glass_pane
+	public partial class GrayStainedGlassPane : GlassPaneBase // minecraft:gray_stained_glass_pane
 	{
 		public GrayStainedGlassPane() : base(904)
 		{
@@ -3892,7 +3884,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class GreenStainedGlassPane : Block // minecraft:green_stained_glass_pane
+	public partial class GreenStainedGlassPane : GlassPaneBase // minecraft:green_stained_glass_pane
 	{
 		public GreenStainedGlassPane() : base(910)
 		{
@@ -4372,7 +4364,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class JungleLeaves : Block // minecraft:jungle_leaves
+	public partial class JungleLeaves : LeavesBase // minecraft:jungle_leaves
 	{
 		public JungleLeaves() : base(1057)
 		{
@@ -4380,7 +4372,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class JungleLog : Block // minecraft:jungle_log
+	public partial class JungleLog : LogBase // minecraft:jungle_log
 	{
 		public JungleLog() : base(826)
 		{
@@ -4404,7 +4396,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class JungleSapling : Block // minecraft:jungle_sapling
+	public partial class JungleSapling : SaplingBase // minecraft:jungle_sapling
 	{
 		public JungleSapling() : base(1082)
 		{
@@ -4676,7 +4668,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class LightBlueStainedGlassPane : Block // minecraft:light_blue_stained_glass_pane
+	public partial class LightBlueStainedGlassPane : GlassPaneBase // minecraft:light_blue_stained_glass_pane
 	{
 		public LightBlueStainedGlassPane() : base(900)
 		{
@@ -4756,7 +4748,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class LightGrayStainedGlassPane : Block // minecraft:light_gray_stained_glass_pane
+	public partial class LightGrayStainedGlassPane : GlassPaneBase // minecraft:light_gray_stained_glass_pane
 	{
 		public LightGrayStainedGlassPane() : base(905)
 		{
@@ -4788,7 +4780,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Lilac : Block // minecraft:lilac
+	public partial class Lilac : FlowerBase // minecraft:lilac
 	{
 		public Lilac() : base(1118)
 		{
@@ -4796,7 +4788,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class LilyOfTheValley : Block // minecraft:lily_of_the_valley
+	public partial class LilyOfTheValley : FlowerBase // minecraft:lily_of_the_valley
 	{
 		public LilyOfTheValley() : base(1094)
 		{
@@ -4860,7 +4852,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class LimeStainedGlassPane : Block // minecraft:lime_stained_glass_pane
+	public partial class LimeStainedGlassPane : GlassPaneBase // minecraft:lime_stained_glass_pane
 	{
 		public LimeStainedGlassPane() : base(902)
 		{
@@ -4964,7 +4956,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class MagentaStainedGlassPane : Block // minecraft:magenta_stained_glass_pane
+	public partial class MagentaStainedGlassPane : GlassPaneBase // minecraft:magenta_stained_glass_pane
 	{
 		public MagentaStainedGlassPane() : base(899)
 		{
@@ -5044,7 +5036,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class MangroveLeaves : Block // minecraft:mangrove_leaves
+	public partial class MangroveLeaves : LeavesBase // minecraft:mangrove_leaves
 	{
 		public MangroveLeaves() : base(727)
 		{
@@ -5052,7 +5044,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class MangroveLog : Block // minecraft:mangrove_log
+	public partial class MangroveLog : LogBase // minecraft:mangrove_log
 	{
 		public MangroveLog() : base(739)
 		{
@@ -5076,7 +5068,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class MangrovePropagule : Block // minecraft:mangrove_propagule
+	public partial class MangrovePropagule : SaplingBase // minecraft:mangrove_propagule
 	{
 		public MangrovePropagule() : base(729)
 		{
@@ -5228,7 +5220,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class MossyStoneBricks : Block // minecraft:mossy_stone_bricks
+	public partial class MossyStoneBricks : StoneBrickBase // minecraft:mossy_stone_bricks
 	{
 		public MossyStoneBricks() : base(1123)
 		{
@@ -5311,6 +5303,14 @@ namespace MiNET.Blocks
 	public partial class NetherBrickDoubleSlab : Block // minecraft:nether_brick_double_slab
 	{
 		public NetherBrickDoubleSlab() : base(1138)
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class NetherBrickFence : Block // minecraft:nether_brick_fence
+	{
+		public NetherBrickFence() : base(113)
 		{
 			IsGenerated = true;
 		}
@@ -5404,7 +5404,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class OakLeaves : Block // minecraft:oak_leaves
+	public partial class OakLeaves : LeavesBase // minecraft:oak_leaves
 	{
 		public OakLeaves() : base(18)
 		{
@@ -5412,7 +5412,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class OakLog : Block // minecraft:oak_log
+	public partial class OakLog : LogBase // minecraft:oak_log
 	{
 		public OakLog() : base(17)
 		{
@@ -5428,7 +5428,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class OakSapling : Block // minecraft:oak_sapling
+	public partial class OakSapling : SaplingBase // minecraft:oak_sapling
 	{
 		public OakSapling() : base(6)
 		{
@@ -5468,7 +5468,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class OpenEyeblossom : Block // minecraft:open_eyeblossom
+	public partial class OpenEyeblossom : FlowerBase // minecraft:open_eyeblossom
 	{
 		public OpenEyeblossom() : base(1273)
 		{
@@ -5540,7 +5540,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class OrangeStainedGlassPane : Block // minecraft:orange_stained_glass_pane
+	public partial class OrangeStainedGlassPane : GlassPaneBase // minecraft:orange_stained_glass_pane
 	{
 		public OrangeStainedGlassPane() : base(898)
 		{
@@ -5556,7 +5556,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class OrangeTulip : Block // minecraft:orange_tulip
+	public partial class OrangeTulip : FlowerBase // minecraft:orange_tulip
 	{
 		public OrangeTulip() : base(1089)
 		{
@@ -5572,7 +5572,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class OxeyeDaisy : Block // minecraft:oxeye_daisy
+	public partial class OxeyeDaisy : FlowerBase // minecraft:oxeye_daisy
 	{
 		public OxeyeDaisy() : base(1092)
 		{
@@ -5788,7 +5788,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PaleOakLeaves : Block // minecraft:pale_oak_leaves
+	public partial class PaleOakLeaves : LeavesBase // minecraft:pale_oak_leaves
 	{
 		public PaleOakLeaves() : base(1262)
 		{
@@ -5796,7 +5796,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PaleOakLog : Block // minecraft:pale_oak_log
+	public partial class PaleOakLog : LogBase // minecraft:pale_oak_log
 	{
 		public PaleOakLog() : base(1250)
 		{
@@ -5820,7 +5820,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PaleOakSapling : Block // minecraft:pale_oak_sapling
+	public partial class PaleOakSapling : SaplingBase // minecraft:pale_oak_sapling
 	{
 		public PaleOakSapling() : base(1261)
 		{
@@ -5892,7 +5892,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Peony : Block // minecraft:peony
+	public partial class Peony : FlowerBase // minecraft:peony
 	{
 		public Peony() : base(1122)
 		{
@@ -5964,7 +5964,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PinkPetals : Block // minecraft:pink_petals
+	public partial class PinkPetals : FlowerBase // minecraft:pink_petals
 	{
 		public PinkPetals() : base(804)
 		{
@@ -5988,7 +5988,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PinkStainedGlassPane : Block // minecraft:pink_stained_glass_pane
+	public partial class PinkStainedGlassPane : GlassPaneBase // minecraft:pink_stained_glass_pane
 	{
 		public PinkStainedGlassPane() : base(903)
 		{
@@ -6004,7 +6004,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PinkTulip : Block // minecraft:pink_tulip
+	public partial class PinkTulip : FlowerBase // minecraft:pink_tulip
 	{
 		public PinkTulip() : base(1091)
 		{
@@ -6028,7 +6028,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PitcherPlant : Block // minecraft:pitcher_plant
+	public partial class PitcherPlant : FlowerBase // minecraft:pitcher_plant
 	{
 		public PitcherPlant() : base(867)
 		{
@@ -6100,7 +6100,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PolishedBlackstoneBricks : Block // minecraft:polished_blackstone_bricks
+	public partial class PolishedBlackstoneBricks : StoneBrickBase // minecraft:polished_blackstone_bricks
 	{
 		public PolishedBlackstoneBricks() : base(529)
 		{
@@ -6476,7 +6476,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Poppy : Block // minecraft:poppy
+	public partial class Poppy : FlowerBase // minecraft:poppy
 	{
 		public Poppy() : base(38)
 		{
@@ -6604,7 +6604,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class PurpleStainedGlassPane : Block // minecraft:purple_stained_glass_pane
+	public partial class PurpleStainedGlassPane : GlassPaneBase // minecraft:purple_stained_glass_pane
 	{
 		public PurpleStainedGlassPane() : base(907)
 		{
@@ -6836,7 +6836,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class RedStainedGlassPane : Block // minecraft:red_stained_glass_pane
+	public partial class RedStainedGlassPane : GlassPaneBase // minecraft:red_stained_glass_pane
 	{
 		public RedStainedGlassPane() : base(911)
 		{
@@ -6852,7 +6852,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class RedTulip : Block // minecraft:red_tulip
+	public partial class RedTulip : FlowerBase // minecraft:red_tulip
 	{
 		public RedTulip() : base(1088)
 		{
@@ -6956,7 +6956,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class RoseBush : Block // minecraft:rose_bush
+	public partial class RoseBush : FlowerBase // minecraft:rose_bush
 	{
 		public RoseBush() : base(1121)
 		{
@@ -7196,7 +7196,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class SmoothStone : Block // minecraft:smooth_stone
+	public partial class SmoothStone : StoneBrickBase // minecraft:smooth_stone
 	{
 		public SmoothStone() : base(438)
 		{
@@ -7300,7 +7300,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class SpruceLeaves : Block // minecraft:spruce_leaves
+	public partial class SpruceLeaves : LeavesBase // minecraft:spruce_leaves
 	{
 		public SpruceLeaves() : base(1055)
 		{
@@ -7308,7 +7308,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class SpruceLog : Block // minecraft:spruce_log
+	public partial class SpruceLog : LogBase // minecraft:spruce_log
 	{
 		public SpruceLog() : base(824)
 		{
@@ -7332,7 +7332,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class SpruceSapling : Block // minecraft:spruce_sapling
+	public partial class SpruceSapling : SaplingBase // minecraft:spruce_sapling
 	{
 		public SpruceSapling() : base(1080)
 		{
@@ -7396,7 +7396,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StoneBricks : Block // minecraft:stone_bricks
+	public partial class StoneBricks : StoneBrickBase // minecraft:stone_bricks
 	{
 		public StoneBricks() : base(98)
 		{
@@ -7420,7 +7420,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedAcaciaLog : Block // minecraft:stripped_acacia_log
+	public partial class StrippedAcaciaLog : LogBase // minecraft:stripped_acacia_log
 	{
 		public StrippedAcaciaLog() : base(263)
 		{
@@ -7444,7 +7444,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedBirchLog : Block // minecraft:stripped_birch_log
+	public partial class StrippedBirchLog : LogBase // minecraft:stripped_birch_log
 	{
 		public StrippedBirchLog() : base(261)
 		{
@@ -7460,7 +7460,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedCherryLog : Block // minecraft:stripped_cherry_log
+	public partial class StrippedCherryLog : LogBase // minecraft:stripped_cherry_log
 	{
 		public StrippedCherryLog() : base(790)
 		{
@@ -7484,7 +7484,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedCrimsonStem : Block // minecraft:stripped_crimson_stem
+	public partial class StrippedCrimsonStem : LogBase // minecraft:stripped_crimson_stem
 	{
 		public StrippedCrimsonStem() : base(495)
 		{
@@ -7492,7 +7492,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedDarkOakLog : Block // minecraft:stripped_dark_oak_log
+	public partial class StrippedDarkOakLog : LogBase // minecraft:stripped_dark_oak_log
 	{
 		public StrippedDarkOakLog() : base(264)
 		{
@@ -7508,7 +7508,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedJungleLog : Block // minecraft:stripped_jungle_log
+	public partial class StrippedJungleLog : LogBase // minecraft:stripped_jungle_log
 	{
 		public StrippedJungleLog() : base(262)
 		{
@@ -7524,7 +7524,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedMangroveLog : Block // minecraft:stripped_mangrove_log
+	public partial class StrippedMangroveLog : LogBase // minecraft:stripped_mangrove_log
 	{
 		public StrippedMangroveLog() : base(740)
 		{
@@ -7540,7 +7540,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedOakLog : Block // minecraft:stripped_oak_log
+	public partial class StrippedOakLog : LogBase // minecraft:stripped_oak_log
 	{
 		public StrippedOakLog() : base(265)
 		{
@@ -7556,7 +7556,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedPaleOakLog : Block // minecraft:stripped_pale_oak_log
+	public partial class StrippedPaleOakLog : LogBase // minecraft:stripped_pale_oak_log
 	{
 		public StrippedPaleOakLog() : base(1249)
 		{
@@ -7588,7 +7588,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedSpruceLog : Block // minecraft:stripped_spruce_log
+	public partial class StrippedSpruceLog : LogBase // minecraft:stripped_spruce_log
 	{
 		public StrippedSpruceLog() : base(260)
 		{
@@ -7612,7 +7612,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class StrippedWarpedStem : Block // minecraft:stripped_warped_stem
+	public partial class StrippedWarpedStem : LogBase // minecraft:stripped_warped_stem
 	{
 		public StrippedWarpedStem() : base(496)
 		{
@@ -7668,7 +7668,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class SulfurBricks : Block // minecraft:sulfur_bricks
+	public partial class SulfurBricks : StoneBrickBase // minecraft:sulfur_bricks
 	{
 		public SulfurBricks() : base(1357)
 		{
@@ -7716,7 +7716,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Sunflower : Block // minecraft:sunflower
+	public partial class Sunflower : FlowerBase // minecraft:sunflower
 	{
 		public Sunflower() : base(175)
 		{
@@ -7772,7 +7772,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Torchflower : Block // minecraft:torchflower
+	public partial class Torchflower : FlowerBase // minecraft:torchflower
 	{
 		public Torchflower() : base(823)
 		{
@@ -7868,7 +7868,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class TuffBricks : Block // minecraft:tuff_bricks
+	public partial class TuffBricks : StoneBrickBase // minecraft:tuff_bricks
 	{
 		public TuffBricks() : base(1009)
 		{
@@ -8044,7 +8044,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class WarpedRoots : Block // minecraft:warped_roots
+	public partial class WarpedRoots : FlowerBase // minecraft:warped_roots
 	{
 		public WarpedRoots() : base(479)
 		{
@@ -8060,7 +8060,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class WarpedStem : Block // minecraft:warped_stem
+	public partial class WarpedStem : LogBase // minecraft:warped_stem
 	{
 		public WarpedStem() : base(481)
 		{
@@ -8788,7 +8788,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class WhiteStainedGlassPane : Block // minecraft:white_stained_glass_pane
+	public partial class WhiteStainedGlassPane : GlassPaneBase // minecraft:white_stained_glass_pane
 	{
 		public WhiteStainedGlassPane() : base(160)
 		{
@@ -8804,7 +8804,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class WhiteTulip : Block // minecraft:white_tulip
+	public partial class WhiteTulip : FlowerBase // minecraft:white_tulip
 	{
 		public WhiteTulip() : base(1090)
 		{
@@ -8820,7 +8820,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class Wildflowers : Block // minecraft:wildflowers
+	public partial class Wildflowers : FlowerBase // minecraft:wildflowers
 	{
 		public Wildflowers() : base(1279)
 		{
@@ -8828,7 +8828,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class WitherRose : Block // minecraft:wither_rose
+	public partial class WitherRose : FlowerBase // minecraft:wither_rose
 	{
 		public WitherRose() : base(471)
 		{
@@ -8908,7 +8908,7 @@ namespace MiNET.Blocks
 		}
 	} // class
 
-	public partial class YellowStainedGlassPane : Block // minecraft:yellow_stained_glass_pane
+	public partial class YellowStainedGlassPane : GlassPaneBase // minecraft:yellow_stained_glass_pane
 	{
 		public YellowStainedGlassPane() : base(901)
 		{

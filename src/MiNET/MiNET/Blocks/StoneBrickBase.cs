@@ -23,36 +23,24 @@
 
 #endregion
 
-using MiNET.Utils;
-using MiNET.Utils.Vectors;
-using MiNET.Worlds;
+using MiNET.Items;
 
 namespace MiNET.Blocks
 {
-	public partial class YellowFlower : Block
+	/// <summary>
+	///     Smelting behaviour shared by the stone brick blocks. It used to live on the legacy
+	///     <c>minecraft:stonebrick</c> class, which carried the variant as a state; flattening made
+	///     each variant its own block.
+	/// </summary>
+	public abstract partial class StoneBrickBase : Block
 	{
-		public YellowFlower() : base(37)
+		protected StoneBrickBase(int id) : base(id)
 		{
 		}
 
-		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
+		public override Item GetSmelt()
 		{
-			if (base.CanPlace(world, player, blockCoordinates, targetCoordinates, face))
-			{
-				Block under = world.GetBlock(Coordinates.BlockDown());
-				return under is Grass || under is Dirt;
-			}
-
-			return false;
-		}
-
-		public override void BlockUpdate(Level level, BlockCoordinates blockCoordinates)
-		{
-			if (Coordinates.BlockDown() == blockCoordinates)
-			{
-				level.SetAir(Coordinates);
-				UpdateBlocks(level);
-			}
+			return ItemFactory.GetItemByName("minecraft:stone", 2);
 		}
 	}
 }

@@ -23,15 +23,22 @@
 
 #endregion
 
+using MiNET.Items;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public partial class RedFlower : Block
+	/// <summary>
+	///     Behaviour shared by every flower. It used to live on the legacy
+	///     <c>minecraft:red_flower</c> and <c>minecraft:yellow_flower</c> classes, which held the
+	///     species as a state; flattening made each flower its own block. Both carried exactly this
+	///     code, so the split cost nothing but the duplication.
+	/// </summary>
+	public abstract partial class FlowerBase : Block
 	{
-		public RedFlower() : base(38)
+		protected FlowerBase(int id) : base(id)
 		{
 		}
 
@@ -40,12 +47,33 @@ namespace MiNET.Blocks
 			if (base.CanPlace(world, player, blockCoordinates, targetCoordinates, face))
 			{
 				Block under = world.GetBlock(Coordinates.BlockDown());
-				return under is Grass || under is Dirt;
+				return under is GrassBlock || under is Dirt;
 			}
 
 			return false;
 		}
 
+		/// <summary>
+		///     Two-block plants (sunflower, lilac, tall grass) drop only from their top half, or the
+		///     pair would yield twice. Single flowers carry no upper_block_bit and are unaffected.
+		/// </summary>
+		public override Item[] GetDrops(Item tool)
+		{
+			// upper_block_bit is not shared across the flower family: single flowers have no states
+			// at all, so it lives on the two-block variants and is read dynamically here.
+			BlockStateContainer state = GetState();
+			if (state != null)
+			{
+				foreach (IBlockState entry in state.States)
+				{
+					if (entry is BlockStateByte b && b.Name == "upper_block_bit") return b.Value != 0 ? base.GetDrops(tool) : new Item[0];
+				}
+			}
+
+			return base.GetDrops(tool);
+		}
+
+		/// <summary>A flower breaks when whatever it stands on goes away.</summary>
 		public override void BlockUpdate(Level level, BlockCoordinates blockCoordinates)
 		{
 			if (Coordinates.BlockDown() == blockCoordinates)

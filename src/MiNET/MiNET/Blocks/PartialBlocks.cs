@@ -381,8 +381,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -435,7 +433,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1715,8 +1712,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1769,8 +1764,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3977,8 +3970,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4031,7 +4022,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8825,8 +8815,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8879,7 +8867,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14002,7 +13989,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15551,8 +15537,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15605,7 +15589,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31298,8 +31281,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31352,7 +31333,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35944,8 +35924,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35998,7 +35976,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39038,8 +39015,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39092,7 +39067,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41666,8 +41640,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41720,7 +41692,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54067,8 +54038,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54121,7 +54090,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55547,7 +55515,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55712,7 +55679,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55822,7 +55788,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55987,7 +55952,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56042,7 +56006,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56152,7 +56115,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56262,7 +56224,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56372,7 +56333,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56482,7 +56442,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56678,7 +56637,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56843,7 +56801,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60903,7 +60860,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -66778,5 +66734,16 @@ namespace MiNET.Blocks
 
 			return 33 + d0;
 		} // method
+	} // class
+
+	public abstract partial class LeavesBase
+	{
+		[StateBit] public bool PersistentBit { get; set; } = false;
+		[StateBit] public bool UpdateBit { get; set; } = false;
+	} // class
+
+	public abstract partial class LogBase
+	{
+		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 	} // class
 }

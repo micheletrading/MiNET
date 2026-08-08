@@ -614,7 +614,7 @@ namespace MiNET.BuilderBase
 						switch (depth++)
 						{
 							case 0:
-								SetBlock(new Grass() {Coordinates = coordinates});
+								SetBlock(new GrassBlock() {Coordinates = coordinates});
 								break;
 							case 1:
 							case 2:

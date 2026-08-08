@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -8,17 +8,17 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
@@ -27,7 +27,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using log4net;
 using MiNET.Items;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
@@ -35,11 +34,14 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public partial class Grass : Block
+	/// <summary>
+	///     The behaviour that used to live on the legacy id-2 <c>Grass</c> class. That class claimed
+	///     the same name as this one, and BlockFactory always prefers the generated type, so none of
+	///     it ever ran: grass never died in the dark, never spread, and bone meal did nothing.
+	/// </summary>
+	public partial class GrassBlock : Block
 	{
-		private static readonly ILog Log = LogManager.GetLogger(typeof(Grass));
-
-		public Grass() : base(2)
+		public GrassBlock() : base(2)
 		{
 		}
 
@@ -80,7 +82,7 @@ namespace MiNET.Blocks
 							Block nextUp = level.GetBlock(coordinates.BlockUp());
 							if (nextUp.IsTransparent && (nextUp.BlockLight >= 4 || nextUp.SkyLight >= 4))
 							{
-								level.SetBlock(new Grass {Coordinates = coordinates});
+								level.SetBlock(new GrassBlock {Coordinates = coordinates});
 							}
 						}
 					}
@@ -93,20 +95,12 @@ namespace MiNET.Blocks
 			var itemInHand = player.Inventory.GetItemInHand();
 			if (itemInHand is ItemDye && itemInHand.Metadata == 15)
 			{
-				// If bone meal is used on a grass block, 0–8(double) tall grass, 8–24 grass and 0–8 flowers form on the
+				// If bone meal is used on a grass block, 0-8(double) tall grass, 8-24 grass and 0-8 flowers form on the
 				// targeted block and on randomly-selected adjacent grass blocks up to 7 blocks away (taxicab distance).
 				// The flowers that appear are dependent on the biome, meaning that in order to obtain specific flowers,
 				// the player must travel to biomes where the flowers are found naturally. See Flower § Flower biomes
 				// for more information.
 				//TODO: Grow grass and flowers randomly
-				var random = new RandomWeighted<int>(new List<RandomRange<int>>()
-				{
-					new RandomRange<int>(0, 216),
-					new RandomRange<int>(1, 24),
-					new RandomRange<int>(2, 8),
-					new RandomRange<int>(3, 8),
-				});
-
 				int grassPlanted = 0;
 				int flowersPlanted = 0;
 
@@ -126,7 +120,7 @@ namespace MiNET.Blocks
 					}
 					if (shouldContinue) continue;
 
-					if (!(level.GetBlock(coord) is Grass)) continue;
+					if (!(level.GetBlock(coord) is GrassBlock)) continue;
 					coord += BlockCoordinates.Up;
 					Block growthBlock = level.GetBlock(coord);
 
@@ -141,54 +135,33 @@ namespace MiNET.Blocks
 						{
 							if (rnd.Next(10) == 0)
 							{
-								var block = new DoublePlant();
-								block.DoublePlantType = "grass";
+								Block block = BlockFactory.GetBlockByName("minecraft:tall_grass");
+								if (block == null) continue;
 								block.Coordinates = coord;
 								level.SetBlock(block);
 								grassPlanted++;
 							}
 						}
-					} else if (growthBlock is Air)
+					}
+					else if (growthBlock is Air)
 					{
 						if (rnd.Next(8) == 0)
 						{
-							if(flowersPlanted >= 8) continue;
+							if (flowersPlanted >= 8) continue;
 
+							// Flattening made each flower its own block, so the species is a name rather
+							// than a state on one red_flower or yellow_flower block.
 							Block block = null;
 							int biomeId = level.GetBiomeId(coord);
 							switch (biomeId)
-							{ 
-								// [StateEnum(
-								// "tulip_pink",
-								// "houstonia",
-								// "lily_of_the_valley",
-								// "tulip_white",
-								// "allium",
-								// "tulip_red",
-								// "poppy",
-								// "cornflower",
-								// "tulip_orange",
-								// "oxeye",
-								// "orchid")]
+							{
 								case 1: // plains
-								{
-									if (rnd.Next(2) == 0)
-									{
-										var flower = new RedFlower();
-										flower.FlowerType = "poppy";
-										block = flower;
-									}
-									else
-									{
-										var flower = new YellowFlower();
-										block = flower;
-									}
+									block = BlockFactory.GetBlockByName(rnd.Next(2) == 0 ? "minecraft:poppy" : "minecraft:dandelion");
 									break;
-								}
 								default:
 									break;
 							}
-							if(block != null)
+							if (block != null)
 							{
 								block.Coordinates = coord;
 								level.SetBlock(block);
@@ -198,7 +171,7 @@ namespace MiNET.Blocks
 						}
 						else
 						{
-							if(grassPlanted >= 24) continue;
+							if (grassPlanted >= 24) continue;
 
 							Block block = rnd.Next(10) != 0 ? new ShortGrass() : new Fern();
 							block.Coordinates = coord;
@@ -212,10 +185,6 @@ namespace MiNET.Blocks
 			}
 
 			return false; // not handled
-		}
-
-		private void DoSpawn()
-		{
 		}
 
 		public override Item[] GetDrops(Item tool)

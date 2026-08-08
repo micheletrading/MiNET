@@ -27,9 +27,13 @@ using MiNET.Items;
 
 namespace MiNET.Blocks
 {
-	public partial class StainedGlassPane : Block
+	/// <summary>
+	///     Glass panes shatter rather than drop. Used to live on the legacy
+	///     <c>minecraft:stained_glass_pane</c> class, which carried the colour as a state.
+	/// </summary>
+	public abstract partial class GlassPaneBase : Block
 	{
-		public StainedGlassPane() : base(160)
+		protected GlassPaneBase(int id) : base(id)
 		{
 		}
 
