@@ -280,8 +280,10 @@ namespace MiNET.Console
 
 			if (!string.Equals(parts[0], "restart", StringComparison.OrdinalIgnoreCase)) return Shutdown();
 
-			// Defaults to this server, since coming straight back to it is the point.
-			string address = parts.Length > 1 ? parts[1] : "127.0.0.1";
+			// Defaults to this server, since coming straight back to it is the point. It has to be
+			// an address the CLIENT can resolve, not one that works from here: with players joining
+			// over the internet, sending them to 127.0.0.1 points them at their own machine.
+			string address = parts.Length > 1 ? parts[1] : Config.GetProperty("RemoteConsole.TransferAddress", "127.0.0.1");
 			int port = parts.Length > 2 ? int.Parse(parts[2]) : _server.Endpoint?.Port ?? 19132;
 
 			return Restart(address, port);

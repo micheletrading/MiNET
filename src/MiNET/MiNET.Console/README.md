@@ -44,9 +44,14 @@ RemoteConsole.Enabled=true
 RemoteConsole.BindAddress=127.0.0.1
 RemoteConsole.Port=19140
 RemoteConsole.Secret=<64 hex characters>
+RemoteConsole.TransferAddress=127.0.0.1
 ```
 
 `BindAddress` defaults to loopback. Set it to `0.0.0.0` to reach the server from another machine.
+
+`TransferAddress` is where `restart` sends players while the server is down. It has to be an
+address the **client** can resolve, not one that works from the server, so it needs to be a public
+name as soon as anyone joins from outside this machine. `127.0.0.1` would send them to their own.
 
 If `RemoteConsole.Secret` is empty the console refuses to start and logs a generated secret you can
 paste into the config, so there is no way to leave an open command channel running by accident.
