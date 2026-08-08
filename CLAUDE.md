@@ -38,11 +38,50 @@ CI (`.github/workflows/dotnetcore.yml`) builds and packs only the core `MiNET` p
 
 ### Restarting the server (the ONLY procedure)
 
+Players may be on the server. Never `Stop-Process` it: a killed process never reaches `StopServer`, so
+everything built since the last save interval is lost, and anyone connected is dropped with no
+warning. Stop it through the remote console instead.
+
 After every code change, this exact loop, nothing else:
 
-1. Kill the old process: `powershell -Command "Get-Process MiNET.Console -ErrorAction SilentlyContinue | Stop-Process -Force"`. A running server locks MiNET.dll and the build silently fails or runs stale code.
-2. Start with `dotnet run --project src/MiNET/MiNET.Console > temp_auto/minet-server.log 2>&1 &` from the repo root. `dotnet run` builds the project and its references itself; do NOT run a separate `dotnet build` first, and NEVER start the exe from `bin/` directly (that is how stale-binary runs happen).
-3. Wait for readiness by polling the log for `Server open for business`, with a background until-loop, never fixed `sleep N` guesses. Startup takes ~20-40s (build + 2x ~1000-chunk pre-cache).
+1. `MiNET.Console remote restart` when the server is coming straight back. It transfers everyone to
+   `RemoteConsole.TransferAddress` and shuts down cleanly, saving the level, and they reconnect on
+   their own. But the transfer starts a 22 second clock, so if a build or tests sit in the gap the
+   window is blown and transferring is WORSE than disconnecting: the client burns the window
+   retrying and ends on a generic multiplayer-services error rather than a clean shutdown message.
+   For that case, warn people first and use `remote stop`. Decide on how long the server will be
+   down, not on who is online.
+2. Build the SOLUTION: `dotnet build src/MiNET/MiNET.sln`. Not the project. `dotnet run` builds only
+   the console and its references, and the plugins (`TestPlugin`, `MiNET.Plotter`,
+   `MiNET.BuilderBase`) are loaded at runtime from `PluginDirectory`, so they are NOT references and
+   never get rebuilt that way. A plugin edit then appears to do nothing and looks like a bug in the
+   thing you changed.
+3. Start with `dotnet run --project src/MiNET/MiNET.Console --no-build > temp_auto/minet-server.log 2>&1 &`
+   from the repo root. `--no-build` because step 2 already built; never start the exe from `bin/`
+   directly.
+4. Wait for readiness by polling the log for `Server open for business`, with a background
+   until-loop, never fixed `sleep N` guesses.
+
+`temp_auto/restart-minet.sh` is this loop in one script and prints the downtime; pass `--build` to
+include step 2.
+
+**The downtime budget is real.** A transferred client retries for about 22 seconds and then gives
+up with `InitialConnection-13`, losing the player.
+
+Without a build, restart is ~6s and always fits. With `--build`, assume it does NOT: measured
+downtimes are 19s, 40s and 48s, and the 48s was a one-file change in `MiNET.Console` alone, so
+"small edit" is not a reliable predictor. Build time dominates and varies far more than the source
+change suggests. So when players are on and code has changed, tell them first; do not assume the
+transfer will carry them. The script prints the downtime, which is the only honest measure.
+
+Never assume, and never let anyone assume, that a `--build` restart is transparent to players.
+
+`RemoteConsole.TransferAddress` must be resolvable by the CLIENT. Once anyone joins from outside
+this machine it has to be the public name (`yodamine.com` here), never `127.0.0.1`, which would
+send them to their own machine.
+
+Falling back without the remote console: create `temp_auto/stop-server`, which the host watches and
+which stops it the same way pressing enter does. `SIGINT`/`SIGTERM` work too.
 
 Logs, two different files:
 - `temp_auto/minet-server.log` - stdout capture (console appender, TRACE and up).
