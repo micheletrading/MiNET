@@ -88,6 +88,10 @@ namespace MiNET.Worlds
 		{
 			Array.Clear(biomeId, 0, 256);
 			Fill<byte>(biomeId, 1);
+
+			// Rented from the shared pool, so it arrives holding the previous tenant's heights. A
+			// column RecalcHeight never resolves keeps them, and they go to disk and to the client.
+			Array.Clear(height, 0, 256);
 		}
 
 		private void SetDirty()
@@ -390,7 +394,9 @@ namespace MiNET.Worlds
 			bool isInLight = true;
 			bool isInAir = true;
 
-			for (int y = startY; y >= 0; y--)
+			// Down to the world floor, not to zero. Zero was the floor before 1.18 and a column whose
+			// only solid blocks are below it would otherwise never resolve a height at all.
+			for (int y = startY; y >= WorldMinY; y--)
 			{
 				if (isInLight)
 				{
@@ -612,7 +618,11 @@ namespace MiNET.Worlds
 				int rel = height[i] - sectionBaseY;
 				if (rel >= 0) allBelow = false;
 				if (rel < 16) allAbove = false;
-				heights[i] = (byte) (sbyte) Math.Clamp(rel, -128, 127);
+					// The array addresses this section, so a column answers inside it: 0 at the floor,
+					// 16 for anything at or above the ceiling. Clamping to the field's signed byte
+					// width instead let columns belonging to other sections through, which is what
+					// any section holding terrain on both sides of its ceiling produced.
+					heights[i] = (byte) Math.Clamp(rel, 0, 16);
 			}
 
 			if (allBelow)

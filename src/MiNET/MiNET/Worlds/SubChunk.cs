@@ -98,7 +98,11 @@ namespace MiNET.Worlds
 		{
 			//if (IsDirty)
 			{
-				_isAllAir = AllZeroFast(_blocks);
+				// Every block pointing at palette slot 0 only means air when slot 0 is air. A
+				// subchunk that is uniformly one block (solid stone underground, a bedrock layer)
+				// has a single-entry palette and all-zero indices, and calling that air deletes the
+				// whole section from the chunk while the heightmap still says terrain is there.
+				_isAllAir = AllZeroFast(_blocks) && (_runtimeIds.Count == 0 || _runtimeIds[0] == BlockFactory.AirRuntimeId);
 			}
 			return _isAllAir;
 		}

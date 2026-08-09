@@ -39,6 +39,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using fNbt;
 using log4net;
+using MiNET.BlockEntities;
 using MiNET.Blocks;
 using MiNET.LevelDB;
 using MiNET.Utils;
@@ -246,6 +247,8 @@ namespace MiNET.Worlds
 						int y = blockEntityTag["y"].IntValue;
 						int z = blockEntityTag["z"].IntValue;
 
+						InspectBlockEntity(chunkColumn, coordinates, (NbtCompound) blockEntityTag, x, y, z);
+
 						chunkColumn.SetBlockEntity(new BlockCoordinates(x, y, z), (NbtCompound) blockEntityTag);
 					}
 				}
@@ -275,6 +278,63 @@ namespace MiNET.Worlds
 			//Log.Debug($"Read chunk {coordinates.X}, {coordinates.Z} in {sw.ElapsedMilliseconds} ms. Was generated: {isGenerated}");
 
 			return chunkColumn;
+		}
+
+		/// <summary>
+		///     Reports what a stored block entity actually sits on. Breaking a container removes the
+		///     block but the block entity record is a separate key, so an orphan survives the block
+		///     that owned it and then rides out to the client in the chunk payload. The two failures
+		///     that matter are an entity whose block is gone and an entity filed under the wrong
+		///     chunk; both are logged with the block that is really there, never dropped silently.
+		/// </summary>
+		private static void InspectBlockEntity(ChunkColumn chunkColumn, ChunkCoordinates coordinates, NbtCompound blockEntity, int x, int y, int z)
+		{
+			string id = blockEntity["id"]?.StringValue ?? "<no id>";
+
+			if (x >> 4 != coordinates.X || z >> 4 != coordinates.Z)
+			{
+				Log.Warn($"Block entity {id} at {x},{y},{z} is stored in chunk {coordinates.X},{coordinates.Z} but belongs to {x >> 4},{z >> 4}");
+				return;
+			}
+
+			Block block;
+			try
+			{
+				block = chunkColumn.GetBlockObject(x & 0x0f, y, z & 0x0f);
+			}
+			catch (Exception e)
+			{
+				Log.Warn($"Block entity {id} at {x},{y},{z} sits outside the chunk's subchunk range: {e.Message}");
+				return;
+			}
+
+			// Air and every replaceable block (water and lava among them) can never own a block
+			// entity, so one filed on top of them outlived the block that put it there.
+			if (block == null || block is Air || block.IsReplaceable)
+			{
+				Log.Warn($"Orphan block entity {id} at {x},{y},{z}: the block there is {block?.Name ?? "<null>"}");
+				return;
+			}
+
+			if (BlockEntityFactory.GetBlockEntityById(id) == null)
+			{
+				Log.Warn($"Block entity {id} at {x},{y},{z} on {block.Name} has no type in BlockEntityFactory");
+				return;
+			}
+
+			if (Log.IsDebugEnabled) Log.Debug($"Block entity {id} at {x},{y},{z} on {block.Name}");
+		}
+
+		private static readonly ConcurrentDictionary<string, byte> ReportedBlocks = new ConcurrentDictionary<string, byte>();
+
+		/// <summary>
+		///     A stored block the palette cannot rebuild. Reported once per name and reason, because a
+		///     single missing block covers thousands of palette entries and would otherwise either
+		///     drown the log or, as it did before, say nothing at all while the world lost the block.
+		/// </summary>
+		private static void ReportUnreadableBlock(string name, string reason)
+		{
+			if (ReportedBlocks.TryAdd($"{name}|{reason}", 0)) Log.Warn($"Block {name ?? "<no name>"} read as air: {reason}");
 		}
 
 		/// <summary>
@@ -359,6 +419,7 @@ namespace MiNET.Worlds
 				int paletteSize = reader.ReadInt32();
 				List<int> palette = isNotLoggedStorage ? section.RuntimeIds : section.LoggedRuntimeIds;
 				palette.Clear();
+
 				for (int j = 0; j < paletteSize; j++)
 				{
 					var file = new NbtFile
@@ -369,7 +430,9 @@ namespace MiNET.Worlds
 					file.LoadFromStream(reader, NbtCompression.None);
 					var tag = (NbtCompound) file.RootTag;
 
-					Block block = BlockFactory.GetBlockByName(tag["name"].StringValue);
+					string name = tag["name"]?.StringValue;
+
+					Block block = BlockFactory.GetBlockByName(name);
 					if (block != null && block.GetType() != typeof(Block) && !(block is Air))
 					{
 						List<IBlockState> blockState = ReadBlockState(tag);
@@ -377,10 +440,24 @@ namespace MiNET.Worlds
 					}
 					else
 					{
+						// Everything the palette holds and we cannot build becomes air. That is the
+						// only thing we can put there, but it is a block the world had and no longer
+						// has, so it is reported rather than swallowed.
+						if (!(block is Air)) ReportUnreadableBlock(name, block == null ? "no block class for the name" : "resolved to the abstract base");
 						block = new Air();
 					}
 
-					palette.Add(block.GetRuntimeId());
+					int runtimeId = block.GetRuntimeId();
+					if (runtimeId < 0)
+					{
+						// The name is known but the state combination is not in the palette, so there
+						// is no id to store. Writing the -1 puts a negative index in the chunk and
+						// ships it to the client.
+						ReportUnreadableBlock(name, $"state combination has no palette entry ({string.Join(", ", tag["states"] is NbtCompound s ? s.Names : Array.Empty<string>())})");
+						runtimeId = new Air().GetRuntimeId();
+					}
+
+					palette.Add(runtimeId);
 				}
 
 				long nextStore = reader.Position;
@@ -398,7 +475,14 @@ namespace MiNET.Worlds
 						int x = (position >> 8) & 0xF;
 						int y = position & 0xF;
 						int z = (position >> 4) & 0xF;
-						if (state > palette.Count) Log.Error($"Got wrong state={state} from word. bitsPerBlock={bitsPerBlock}, blocksPerWord={blocksPerWord}, Word={word}");
+						// A palette of N has indices 0..N-1, so N itself is already out of range. The
+						// index was used regardless of this check before, which put a read past the
+						// palette into the chunk.
+						if (state >= palette.Count)
+						{
+							Log.Error($"Palette index {state} is outside a palette of {palette.Count}, reading as air. bitsPerBlock={bitsPerBlock}, blocksPerWord={blocksPerWord}, word={word}");
+							state = 0;
+						}
 
 						if (isNotLoggedStorage)
 						{
