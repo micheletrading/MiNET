@@ -25,7 +25,9 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Text.RegularExpressions;
 using System.Threading;
 using log4net;
@@ -67,6 +69,53 @@ namespace MiNET.Net.RakNet
 		///     otherwise the rejoin races the save and lands mid-shutdown.
 		/// </summary>
 		public bool AcceptConnections { get; set; } = true;
+
+		/// <summary>
+		///     Whether a ping from one of this machine's own addresses is answered. A client on the
+		///     server's own machine finds it once over loopback and again over the LAN address, and
+		///     lists both, because to the client they are two servers that happen to be identical.
+		///     Clearing the second answer leaves one entry. Loopback still answers, since that is the
+		///     one worth keeping, and a client on any other machine is untouched: it reaches us from
+		///     its own address, not ours.
+		/// </summary>
+		public bool AnswerPingsFromThisMachine { get; set; } = Config.GetProperty("AnswerPingsFromThisMachine", true);
+
+		/// <summary>
+		///     Every unicast address on this host, loopback aside. Resolved once: an address added
+		///     after startup is not worth a lookup per ping, and pings arrive constantly.
+		/// </summary>
+		private static readonly Lazy<HashSet<IPAddress>> LocalAddresses = new(() =>
+		{
+			var addresses = new HashSet<IPAddress>();
+
+			try
+			{
+				foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+				{
+					foreach (UnicastIPAddressInformation address in adapter.GetIPProperties().UnicastAddresses)
+					{
+						if (!IPAddress.IsLoopback(address.Address)) addresses.Add(address.Address);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				// An empty set answers everything, which is the old behaviour, and is the right way
+				// to fail: enumerating interfaces is not worth losing the server list over.
+				Log.Warn($"Could not enumerate local addresses, pings from this machine will be answered: {e.Message}");
+			}
+
+			return addresses;
+		});
+
+		public static bool IsThisMachine(IPAddress address)
+		{
+			// A dual stack socket hands us "::ffff:192.168.1.10" for a v4 peer, which matches nothing
+			// in a set gathered as v4.
+			if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+
+			return LocalAddresses.Value.Contains(address);
+		}
 
 		internal RakOfflineHandler(RakConnection connection, IPacketSender sender, GreyListManager greyListManager, MotdProvider motdProvider, ConnectionInfo connectionInfo)
 		{
@@ -188,10 +237,16 @@ namespace MiNET.Net.RakNet
 			//}
 
 			{
+				if (!AnswerPingsFromThisMachine && IsThisMachine(senderEndpoint.Address))
+				{
+					Log.Debug($"Ignored ping from this machine at {senderEndpoint.Address}:{senderEndpoint.Port}");
+					return;
+				}
+
 				Log.Debug($"Ping from: {senderEndpoint.Address}:{senderEndpoint.Port}");
 
 				var packet = UnconnectedPong.CreateObject();
-				packet.serverId = _motdProvider.ServerId;
+				packet.serverId = _motdProvider.GetServerId(senderEndpoint);
 				packet.pingId = message.pingId;
 				packet.serverName = _motdProvider.GetMotd(_connectionInfo, senderEndpoint);
 				byte[] data = packet.Encode();
@@ -281,7 +336,7 @@ namespace MiNET.Net.RakNet
 			if (message.mtuSize > MaxMtuSize) return;
 
 			var packet = OpenConnectionReply1.CreateObject();
-			packet.serverGuid = _motdProvider.ServerId;
+			packet.serverGuid = _motdProvider.GetServerId(senderEndpoint);
 			packet.mtuSize = message.mtuSize;
 			packet.serverHasSecurity = 0;
 			byte[] data = packet.Encode();
@@ -353,7 +408,7 @@ namespace MiNET.Net.RakNet
 			}
 
 			var reply = OpenConnectionReply2.CreateObject();
-			reply.serverGuid = _motdProvider.ServerId;
+			reply.serverGuid = _motdProvider.GetServerId(senderEndpoint);
 			reply.clientEndpoint = senderEndpoint;
 			reply.mtuSize = incoming.mtuSize;
 			reply.doSecurityAndHandshake = new byte[1];

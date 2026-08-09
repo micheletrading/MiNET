@@ -35,6 +35,7 @@ using Microsoft.IO;
 using MiNET.Crafting;
 using MiNET.Items;
 using MiNET.Net;
+using MiNET.Net.NetherNet;
 using MiNET.Net.RakNet;
 using MiNET.Plugins;
 using MiNET.Utils;
@@ -53,6 +54,7 @@ namespace MiNET
 
 		public IPEndPoint Endpoint { get; private set; }
 		private RakConnection _listener;
+		private Net.NetherNet.NetherNetListener _netherNetListener;
 
 		public MotdProvider MotdProvider { get; set; }
 
@@ -187,11 +189,33 @@ namespace MiNET
 				if (Endpoint != null)
 				{
 					MotdProvider.PortV4 = Endpoint.Port;
-					MotdProvider.PortV6 = Endpoint.Port + 1;
+
+					// Both the same, because one socket serves both families and nothing is bound on
+					// port + 1. Advertising a port we do not listen on is what the BDS convention
+					// would have us do, and the client appears to list a row per address it is
+					// offered.
+					MotdProvider.PortV6 = Endpoint.Port;
 				}
 
 				if (ServerRole == ServerRole.Full || ServerRole == ServerRole.Proxy)
 				{
+					// transport takes one or more names: "raknet", "nethernet", or both as
+					// "nethernet;raknet". BDS treats them as exclusive, but they can coexist here
+					// because RakNet is UDP and signaling is TCP on the same port, and running both
+					// is how you see which one a client reaches for when offered the choice.
+					string[] transports = Config.GetProperty("transport", "raknet")
+						.Split(new[] {';', ','}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+					bool netherNet = transports.Contains("nethernet", StringComparer.OrdinalIgnoreCase);
+					bool rakNet = transports.Contains("raknet", StringComparer.OrdinalIgnoreCase);
+
+					if (!netherNet && !rakNet)
+					{
+						// An unrecognised value must not silently leave the server unreachable.
+						Log.Warn($"transport=\"{string.Join(";", transports)}\" names no known transport, falling back to raknet");
+						rakNet = true;
+					}
+
 					_listener = new RakConnection(Endpoint, GreyListManager, MotdProvider);
 					//_listener.ServerInfo.DisableAck = true;
 					_listener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
@@ -202,7 +226,16 @@ namespace MiNET
 					ConnectionInfo.MaxNumberOfPlayers = Config.GetProperty("MaxNumberOfPlayers", 10);
 					ConnectionInfo.MaxNumberOfConcurrentConnects = Config.GetProperty("MaxNumberOfConcurrentConnects", ConnectionInfo.MaxNumberOfPlayers);
 
-					_listener.Start();
+					if (netherNet)
+					{
+						_netherNetListener = new NetherNetListener(Endpoint);
+						_netherNetListener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
+						_netherNetListener.Start();
+					}
+
+					if (rakNet) _listener.Start();
+
+					Log.Warn($"Transports live: RakNet(udp)={rakNet}, NetherNet(tcp)={netherNet}. The login line names which one each player arrived on.");
 				}
 
 				Log.Info("Server open for business on port " + Endpoint?.Port + " ...");

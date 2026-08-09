@@ -86,12 +86,45 @@ namespace MiNET
 			return parts.Length < 2 ? gameVersion : $"{parts[0]}.{parts[1]}.0";
 		}
 
+		/// <summary>
+		///     The id this caller is told the server has.
+		///     <para>
+		///         The client keys its server list on it, so one server reachable both as localhost
+		///         and by name collapses into a single entry and the two cannot be tested side by
+		///         side. Answering loopback with an id of its own keeps them apart. Derived rather
+		///         than configured, so it stays stable across restarts and needs nothing set up.
+		///     </para>
+		///     <para>
+		///         Every packet that carries the id has to agree, the pong and both connection
+		///         replies alike, or the client is told one thing while listing the server and
+		///         another while connecting to it.
+		///     </para>
+		///     <para>
+		///         The low bit rather than a complement, which would turn a positive id negative and
+		///         print above <see cref="long.MaxValue" /> in the MOTD. The id is signed on the wire,
+		///         so a client parsing that field would overflow and drop the entry instead of
+		///         listing it.
+		///     </para>
+		/// </summary>
+		public virtual long GetServerId(IPEndPoint caller)
+		{
+			if (caller == null) return ServerId;
+
+			// Three routes to the same server, each with an id of its own: loopback, this machine's
+			// own address, and everything else. The client keys on the id, so this is what decides
+			// whether the routes list separately or collapse into one entry.
+			if (IPAddress.IsLoopback(caller.Address)) return ServerId ^ 1;
+			if (RakOfflineHandler.IsThisMachine(caller.Address)) return ServerId ^ 2;
+
+			return ServerId;
+		}
+
 		public virtual string GetMotd(ConnectionInfo connectionInfo, IPEndPoint caller, bool eduMotd = false)
 		{
 			NumberOfPlayers = connectionInfo.NumberOfPlayers;
 			MaxNumberOfPlayers = connectionInfo.MaxNumberOfPlayers;
 
-			ulong serverId = (ulong) ServerId;
+			ulong serverId = (ulong) GetServerId(caller);
 
 			var protocolVersion = McpeProtocolInfo.ProtocolVersion.ToString();
 			var clientVersion = AdvertisedVersion;
