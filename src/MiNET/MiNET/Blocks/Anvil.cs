@@ -56,7 +56,8 @@ namespace MiNET.Blocks
 
 		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
-			player.UsingAnvil = true;
+			player.OpenScreen(new Screen(ScreenKind.Anvil, blockCoordinates, null));
+
 			var containerOpen = McpeContainerOpen.CreateObject();
 			containerOpen.windowId = 14;
 			containerOpen.type = 5;

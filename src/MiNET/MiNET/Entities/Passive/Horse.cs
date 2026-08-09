@@ -333,7 +333,7 @@ namespace MiNET.Entities.Passive
 		{
 			if (!_horse.IsTamed) return;
 
-			player.SetOpenInventory(this);
+			player.OpenScreen(new Screen(ScreenKind.Horse, this));
 
 			McpeUpdateEquipment equ = McpeUpdateEquipment.CreateObject();
 			equ.entityId = _horse.EntityId;

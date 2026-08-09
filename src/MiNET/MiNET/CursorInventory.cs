@@ -34,7 +34,12 @@ namespace MiNET
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(CursorInventory));
 
-		public List<Item> Slots { get; } = Enumerable.Repeat((Item) new ItemAir(), 51).ToList();
+		/// <summary>The flat UI window (0x7c), one array shared by every screen that has no
+		/// server-side storage. Sized to what SendPlayerInventory publishes, so a slot the client is
+		/// allowed to address always exists.</summary>
+		public const int Size = 54;
+
+		public List<Item> Slots { get; } = Enumerable.Repeat((Item) new ItemAir(), Size).ToList();
 
 		public Item Cursor
 		{

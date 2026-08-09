@@ -36,6 +36,7 @@ using System.Threading;
 using fNbt;
 using log4net;
 using Microsoft.IO;
+using MiNET.BlockEntities;
 using MiNET.Blocks;
 using MiNET.Camera;
 using MiNET.Crafting;
@@ -69,7 +70,10 @@ namespace MiNET
 		private Dictionary<ChunkCoordinates, McpeWrapper> _chunksUsed = new Dictionary<ChunkCoordinates, McpeWrapper>();
 		private ChunkCoordinates _currentChunkPosition;
 
-		internal IInventory _openInventory;
+		/// <summary>What the player has open. Never null: closing everything leaves the player's own
+		/// inventory screen.</summary>
+		public Screen Screen { get; private set; } = new Screen(ScreenKind.Inventory);
+
 		public PlayerInventory Inventory { get; set; }
 		public ItemStackInventoryManager ItemStackInventoryManager { get; set; }
 
@@ -2049,7 +2053,7 @@ namespace MiNET
 
 			var uiContent = McpeInventoryContent.CreateObject();
 			uiContent.inventoryId = 0x7c;
-			uiContent.input = Resize(Inventory.GetUiSlots(), 54);
+			uiContent.input = Resize(Inventory.GetUiSlots(), CursorInventory.Size);
 			SendPacket(uiContent);
 
 			var offHandContent = McpeInventoryContent.CreateObject();
@@ -2660,8 +2664,6 @@ namespace MiNET
 		}
 
 
-		public bool UsingAnvil { get; set; }
-
 		// Single request embedded in McpePlayerAuthInput (item_stack_request input flag); same
 		// processing and response flow as the standalone McpeItemStackRequest packet.
 		private void HandleSingleItemStackRequest(ItemStackRequest request)
@@ -2735,75 +2737,54 @@ namespace MiNET
 		}
 
 		/// <summary>
-		///     A container's slot, addressed the way the client does, by ContainerEnumName. Several
-		///     of these shifted with the 1.26 table (cursor 58 to 59, created output 59 to 60, hotbar
-		///     27 to 28, inventory 28 to 29, offhand 33 to 34, enchanting 21/22 to 22/23), which is
-		///     why they are named here and not written as numbers.
+		///     A container's slot, addressed the way the client does, by ContainerEnumName. Which store
+		///     that name reaches depends on the open screen, so the mapping lives in <see cref="Screen" />.
 		/// </summary>
 		protected internal virtual Item GetContainerItem(FullContainerName.ContainerEnumName containerId, int slot)
 		{
-			if (UsingAnvil && (int) containerId < 3) containerId = FullContainerName.ContainerEnumName.Craftinginputcontainer;
+			SlotBinding binding = Screen.Bind(containerId, slot);
 
-			switch (containerId)
+			switch (binding.Store)
 			{
-				case FullContainerName.ContainerEnumName.Craftinginputcontainer:
-				case FullContainerName.ContainerEnumName.Craftingoutputpreviewcontainer:
-				case FullContainerName.ContainerEnumName.Enchantinginputcontainer:
-				case FullContainerName.ContainerEnumName.Enchantingmaterialcontainer:
-				case FullContainerName.ContainerEnumName.Loominputcontainer:
-				case FullContainerName.ContainerEnumName.Cursorcontainer:
-				case FullContainerName.ContainerEnumName.Createdoutputcontainer:
-					return Inventory.UiInventory.Slots[slot];
-				case FullContainerName.ContainerEnumName.Combinedhotbarandinventorycontainer:
-				case FullContainerName.ContainerEnumName.Hotbarcontainer:
-				case FullContainerName.ContainerEnumName.Inventorycontainer:
-					return Inventory.Slots[slot];
-				case FullContainerName.ContainerEnumName.Offhandcontainer:
+				case SlotStore.Ui:
+					return Inventory.UiInventory.Slots[binding.Index];
+				case SlotStore.Main:
+					return Inventory.Slots[binding.Index];
+				case SlotStore.Offhand:
 					return Inventory.OffHand;
-				case FullContainerName.ContainerEnumName.Armorcontainer:
-					return slot switch
+				case SlotStore.Armor:
+					return binding.Index switch
 					{
 						0 => Inventory.Helmet,
 						1 => Inventory.Chest,
 						2 => Inventory.Leggings,
 						3 => Inventory.Boots,
-						_ => null
+						_ => throw new InvalidOperationException($"Armor has no slot {binding.Index}")
 					};
-				case FullContainerName.ContainerEnumName.Levelentitycontainer:
-					return _openInventory is Inventory inventory ? inventory.GetSlot((byte) slot) : null;
+				case SlotStore.Block:
+					return Screen.BlockInventory.GetSlot((byte) binding.Index);
 				default:
-					// BDS answers a request against a container it cannot resolve with an error
-					// response and an inventory resync; silently returning null here makes items
-					// vanish client-side instead.
-					throw new InvalidOperationException($"Unknown containerId: {containerId}");
+					throw new InvalidOperationException($"Container {containerId} resolved to {binding.Store}, which cannot be read");
 			}
 		}
 
 		protected internal virtual void SetContainerItem(FullContainerName.ContainerEnumName containerId, int slot, Item item)
 		{
-			if (UsingAnvil && (int) containerId < 3) containerId = FullContainerName.ContainerEnumName.Craftinginputcontainer;
+			SlotBinding binding = Screen.Bind(containerId, slot);
 
-			switch (containerId)
+			switch (binding.Store)
 			{
-				case FullContainerName.ContainerEnumName.Craftinginputcontainer:
-				case FullContainerName.ContainerEnumName.Craftingoutputpreviewcontainer:
-				case FullContainerName.ContainerEnumName.Enchantinginputcontainer:
-				case FullContainerName.ContainerEnumName.Enchantingmaterialcontainer:
-				case FullContainerName.ContainerEnumName.Loominputcontainer:
-				case FullContainerName.ContainerEnumName.Cursorcontainer:
-				case FullContainerName.ContainerEnumName.Createdoutputcontainer:
-					Inventory.UiInventory.Slots[slot] = item;
+				case SlotStore.Ui:
+					Inventory.UiInventory.Slots[binding.Index] = item;
 					break;
-				case FullContainerName.ContainerEnumName.Combinedhotbarandinventorycontainer:
-				case FullContainerName.ContainerEnumName.Hotbarcontainer:
-				case FullContainerName.ContainerEnumName.Inventorycontainer:
-					Inventory.Slots[slot] = item;
+				case SlotStore.Main:
+					Inventory.Slots[binding.Index] = item;
 					break;
-				case FullContainerName.ContainerEnumName.Offhandcontainer:
+				case SlotStore.Offhand:
 					Inventory.OffHand = item;
 					break;
-				case FullContainerName.ContainerEnumName.Armorcontainer:
-					switch (slot)
+				case SlotStore.Armor:
+					switch (binding.Index)
 					{
 						case 0:
 							Inventory.Helmet = item;
@@ -2817,14 +2798,15 @@ namespace MiNET
 						case 3:
 							Inventory.Boots = item;
 							break;
+						default:
+							throw new InvalidOperationException($"Armor has no slot {binding.Index}");
 					}
 					break;
-				case FullContainerName.ContainerEnumName.Levelentitycontainer:
-					if (_openInventory is Inventory inventory) inventory.SetSlot(this, (byte) slot, item);
+				case SlotStore.Block:
+					Screen.BlockInventory.SetSlot(this, (byte) binding.Index, item);
 					break;
 				default:
-					// See GetContainerItem: unknown container is an error, never a silent drop.
-					throw new InvalidOperationException($"Unknown containerId: {containerId}");
+					throw new InvalidOperationException($"Container {containerId} resolved to {binding.Store}, which cannot be written");
 			}
 		}
 
@@ -2935,9 +2917,20 @@ namespace MiNET
 
 		private object _inventorySync = new object();
 
-		public virtual void SetOpenInventory(IInventory inventory)
+		public virtual void OpenScreen(Screen screen)
 		{
-			_openInventory = inventory;
+			Screen = screen;
+		}
+
+		private static ScreenKind ScreenKindOf(BlockEntity blockEntity)
+		{
+			return blockEntity switch
+			{
+				FurnaceBlockEntity => ScreenKind.Furnace,
+				BlastFurnaceBlockEntity => ScreenKind.BlastFurnace,
+				EnchantingTableBlockEntity => ScreenKind.EnchantingTable,
+				_ => ScreenKind.Container
+			};
 		}
 
 		public void OpenInventory(BlockCoordinates inventoryCoord)
@@ -2945,9 +2938,9 @@ namespace MiNET
 			// https://github.com/pmmp/PocketMine-MP/blob/stable/src/pocketmine/network/mcpe/protocol/types/WindowTypes.php
 			lock (_inventorySync)
 			{
-				if (_openInventory is Inventory openInventory)
+				if (Screen.BlockInventory != null)
 				{
-					if (openInventory.Coordinates.Equals(inventoryCoord)) return;
+					if (Screen.Coordinates.Equals(inventoryCoord)) return;
 					HandleMcpeContainerClose(null);
 				}
 
@@ -2966,7 +2959,7 @@ namespace MiNET
 				// get inventory # from inventory manager
 				// set inventory as active on player
 
-				_openInventory = inventory;
+				OpenScreen(new Screen(ScreenKindOf(inventory.BlockEntity), inventoryCoord, inventory));
 
 				if (inventory.Type == 0 && !inventory.IsOpen()) // Chest open animation
 				{
@@ -3353,21 +3346,23 @@ namespace MiNET
 
 		public virtual void HandleMcpeContainerClose(McpeContainerClose message)
 		{
-			UsingAnvil = false;
-
 			lock (_inventorySync)
 			{
-				if (_openInventory is Inventory inventory)
-				{
-					_openInventory = null;
+				Screen closing = Screen;
+				Screen = new Screen(ScreenKind.Inventory);
 
+				if (closing.BlockInventory is Inventory inventory)
+				{
 					// unsubscribe to inventory changes
 					inventory.InventoryChange -= OnInventoryChange;
 					inventory.RemoveObserver(this);
 
-					if (message != null && message.windowId != inventory.WindowsId) return;
+					if (message != null && message.windowId != inventory.WindowsId)
+					{
+						Log.Warn($"Client closed window {message.windowId} while {closing.Kind} held window {inventory.WindowsId}");
+					}
 
-					// close container 
+					// close container
 					if (inventory.Type == 0 && !inventory.IsOpen())
 					{
 						var tileEvent = McpeBlockEvent.CreateObject();
@@ -3376,27 +3371,19 @@ namespace MiNET
 						tileEvent.case2 = 0;
 						Level.RelayBroadcast(tileEvent);
 					}
+				}
 
-					var closePacket = McpeContainerClose.CreateObject();
-					closePacket.windowId = inventory.WindowsId;
-					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
-					closePacket.server = message == null ? true : false;
-					SendPacket(closePacket);
-				}
-				else if (_openInventory is HorseInventory horseInventory)
-				{
-					_openInventory = null;
-				}
-				else
-				{
-					// Echo the id the client closed (vanilla answers with the allocated window id,
-					// e.g. 2 for the self-inventory pseudo window), never a hardcoded 0.
-					var closePacket = McpeContainerClose.CreateObject();
-					closePacket.windowId = message?.windowId ?? 0;
-					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
-					closePacket.server = message == null ? true : false;
-					SendPacket(closePacket);
-				}
+				if (closing.Kind == ScreenKind.Horse) return;
+
+				// A close the client asked for is ALWAYS answered, with the id it named. Skipping the
+				// answer when the ids disagree leaves the client believing its window is still open,
+				// and it then refuses to open any other: no inventory, no chest, and the lid of the
+				// one it thinks is open stays up because the block event above never ran either.
+				var closePacket = McpeContainerClose.CreateObject();
+				closePacket.windowId = message?.windowId ?? closing.BlockInventory?.WindowsId ?? 0;
+				closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
+				closePacket.server = message == null;
+				SendPacket(closePacket);
 			}
 		}
 
@@ -3455,6 +3442,11 @@ namespace MiNET
 				{
 					if (target == this)
 					{
+						// Opening the player's own screen replaces whatever was open, so a block
+						// screen still recorded here has to be torn down first: leaving it makes the
+						// player's next close carry window id 2 against a chest's window id.
+						if (Screen.BlockInventory != null) HandleMcpeContainerClose(null);
+
 						// Mirrors vanilla's answer to a self open-inventory request (captured live
 						// from BDS 1.26.34): an ALLOCATED window id (2, never the reserved
 						// inventory id 0), type 255 (none), the player's block position and
