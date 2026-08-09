@@ -109,7 +109,7 @@ namespace MiNET.Test.Worlds
 		[TestMethod]
 		public void Parse_UnknownBlock_ThrowsNamingIt()
 		{
-			var ex = Assert.ThrowsException<FormatException>(() => SuperflatPreset.Parse("minecraft:not_a_block"));
+			var ex = Assert.ThrowsExactly<FormatException>(() => SuperflatPreset.Parse("minecraft:not_a_block"));
 
 			StringAssert.Contains(ex.Message, "minecraft:not_a_block");
 		}
@@ -117,7 +117,7 @@ namespace MiNET.Test.Worlds
 		[TestMethod]
 		public void Parse_UnknownBiome_ThrowsNamingIt()
 		{
-			var ex = Assert.ThrowsException<FormatException>(() => SuperflatPreset.Parse("minecraft:bedrock;minecraft:not_a_biome"));
+			var ex = Assert.ThrowsExactly<FormatException>(() => SuperflatPreset.Parse("minecraft:bedrock;minecraft:not_a_biome"));
 
 			StringAssert.Contains(ex.Message, "minecraft:not_a_biome");
 		}
@@ -125,7 +125,7 @@ namespace MiNET.Test.Worlds
 		[TestMethod]
 		public void Parse_RepeatCountThatIsNotANumber_ThrowsNamingTheLayer()
 		{
-			var ex = Assert.ThrowsException<FormatException>(() => SuperflatPreset.Parse("x*minecraft:dirt"));
+			var ex = Assert.ThrowsExactly<FormatException>(() => SuperflatPreset.Parse("x*minecraft:dirt"));
 
 			StringAssert.Contains(ex.Message, "x*minecraft:dirt");
 		}
@@ -135,7 +135,7 @@ namespace MiNET.Test.Worlds
 		[TestMethod]
 		public void Parse_LegacyVersionedPreset_ThrowsRatherThanMisreading()
 		{
-			Assert.ThrowsException<FormatException>(
+			Assert.ThrowsExactly<FormatException>(
 				() => SuperflatPreset.Parse("3;minecraft:bedrock,2*minecraft:dirt,minecraft:grass;1;village"));
 		}
 

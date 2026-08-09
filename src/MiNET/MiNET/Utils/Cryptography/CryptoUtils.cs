@@ -356,7 +356,7 @@ namespace MiNET.Utils.Cryptography
 			return Encoding.UTF8.GetBytes(val);
 		}
 
-		private static ECDsa ConvertToSingKeyFormat(AsymmetricCipherKeyPair key)
+		public static ECDsa ConvertToSingKeyFormat(AsymmetricCipherKeyPair key)
 		{
 			ECPublicKeyParameters pubAsyKey = (ECPublicKeyParameters) key.Public;
 			ECPrivateKeyParameters privAsyKey = (ECPrivateKeyParameters) key.Private;

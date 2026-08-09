@@ -85,6 +85,13 @@ namespace MiNET.Utils.IO
 		// not at the call sites: whether to compress is a property of the batch, decided by the
 		// size rule below, and a caller that got it wrong would produce a payload no client can
 		// read rather than an error anyone could see.
+		//
+		// TODO: reserve one byte of headroom at the front of the returned buffer, and return the
+		// payload offset alongside it. NetherNet has to put a segment header byte in front of this
+		// payload and currently copies the entire batch on every send to do it, see
+		// NetherNetSegments.ForEachSegment. With headroom it writes the header in place and sends
+		// the same buffer. RakNet reads the payload from offset zero today, so the offset has to
+		// become part of this method's contract rather than something callers guess at.
 		public static byte[] CompressPacketsForWrapper(List<Packet> packets, CompressionLevel compressionLevel = CompressionLevel.Fastest)
 		{
 			long length = 0;

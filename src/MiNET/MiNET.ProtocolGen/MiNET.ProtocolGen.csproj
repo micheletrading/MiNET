@@ -15,7 +15,7 @@
        manifest), the Mojang schema submodule (MiNET.BlockGen/ProtocolDocs/json), and the roster
        and overrides files next to this project. -->
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
 </Project>

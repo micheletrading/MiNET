@@ -120,7 +120,7 @@ namespace MiNET.BuilderBase.Patterns.Tests
 		{
 			var pattern = new Pattern();
 
-			var thrown = Assert.ThrowsException<FormatException>(() => pattern.Deserialize(null, "stone,nosuchblock"));
+			var thrown = Assert.ThrowsExactly<FormatException>(() => pattern.Deserialize(null, "stone,nosuchblock"));
 			StringAssert.Contains(thrown.Message, "nosuchblock");
 		}
 
@@ -130,7 +130,7 @@ namespace MiNET.BuilderBase.Patterns.Tests
 		{
 			var pattern = new Pattern();
 
-			Assert.ThrowsException<FormatException>(() => pattern.Deserialize(null, "35:14"));
+			Assert.ThrowsExactly<FormatException>(() => pattern.Deserialize(null, "35:14"));
 		}
 
 		[TestMethod]
@@ -138,7 +138,7 @@ namespace MiNET.BuilderBase.Patterns.Tests
 		{
 			var pattern = new Pattern();
 
-			var thrown = Assert.ThrowsException<FormatException>(() => pattern.Deserialize(null, "oak_log[pilar_axis=x]"));
+			var thrown = Assert.ThrowsExactly<FormatException>(() => pattern.Deserialize(null, "oak_log[pilar_axis=x]"));
 			StringAssert.Contains(thrown.Message, "pilar_axis");
 		}
 	}

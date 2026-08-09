@@ -70,6 +70,12 @@ namespace SicStream
 			return result;
 		}
 
+		// Counter mode buffers nothing, so there is never anything left to flush.
+		public override int DoFinal(Span<byte> output)
+		{
+			return 0;
+		}
+
 		public override int GetBlockSize()
 		{
 			return blockSize;
@@ -95,11 +101,23 @@ namespace SicStream
 			return new byte[] {parent.ReturnByte(input)};
 		}
 
+		public override int ProcessByte(byte input, Span<byte> output)
+		{
+			output[0] = parent.ReturnByte(input);
+			return 1;
+		}
+
 		public override byte[] ProcessBytes(byte[] input, int inOff, int length)
 		{
 			byte[] result = new byte[length];
 			parent.ProcessBytes(input, inOff, length, result, 0);
 			return result;
+		}
+
+		public override int ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			parent.ProcessBytes(input, output);
+			return input.Length;
 		}
 
 		public override void Reset()
@@ -148,8 +166,15 @@ namespace SicStream
 
 		public void ProcessBytes(byte[] input, int inOff, int length, byte[] output, int outOff)
 		{
-			int inputProcessed = 0;
-			while (inputProcessed < length)
+			ProcessBytes(input.AsSpan(inOff, length), output.AsSpan(outOff, length));
+		}
+
+		// BouncyCastle 2.x added this span form to IStreamCipher, so the keystream now lives here and
+		// the array form delegates to it. Deliberately not two copies of the loop: the counter
+		// position is session state, and two places to advance it is two places for it to drift.
+		public void ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			for (int i = 0; i < input.Length; i++)
 			{
 				// NOTE can be optimized further
 				// the number of available bytes can be pre-calculated; too much branching
@@ -160,10 +185,9 @@ namespace SicStream
 					processed = 0;
 				}
 
-				output[outOff + inputProcessed] = (byte) (input[inOff + inputProcessed] ^ blockBuffer[processed]);
+				output[i] = (byte) (input[i] ^ blockBuffer[processed]);
 
 				processed++;
-				inputProcessed++;
 			}
 		}
 
