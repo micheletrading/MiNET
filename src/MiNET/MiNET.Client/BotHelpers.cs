@@ -205,6 +205,8 @@ namespace MiNET.Client
 				McpeCommandRequest request = new McpeCommandRequest();
 				request.command = command;
 				request.origin = new CommandOriginData(CommandOriginType.Player, new UUID(Guid.NewGuid().ToString()), string.Empty, 0);
+				// CurrentCmdVersion, the newest real entry in Mojang's enum. The two after it,
+				// Count and Latest, are the C++ bookends rather than versions of anything.
 				request.version = "latest";
 				client.SendPacket(request);
 			};

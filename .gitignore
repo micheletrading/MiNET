@@ -195,3 +195,7 @@ FakesAssemblies/
 
 # Claude Code working directory: plans, worktrees, local settings.
 .claude/
+
+# NetherNet server identity: clients pin this key, and it must never be committed.
+keys/
+*.pem

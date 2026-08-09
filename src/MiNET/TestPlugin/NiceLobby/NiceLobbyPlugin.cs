@@ -554,7 +554,12 @@ namespace TestPlugin.NiceLobby
 			Player player = eventArgs.Player;
 			Level level = eventArgs.Level;
 
-			level.BroadcastMessage($"{ChatColors.Gold}[{ChatColors.Green}+{ChatColors.Gold}]{ChatFormatting.Reset} {player.Username} joined the server");
+			// Naming the transport here rather than only in the log: with RakNet and NetherNet both
+			// live, which one a player actually arrived on is the question worth seeing, and reading
+			// it in chat beats going to the log for every join.
+			string transport = player.NetworkHandler?.TransportName ?? "unknown";
+
+			level.BroadcastMessage($"{ChatColors.Gold}[{ChatColors.Green}+{ChatColors.Gold}]{ChatFormatting.Reset} {player.Username} joined the server over {ChatColors.Aqua}{transport}");
 
 			var joinSound = new AnvilUseSound(level.SpawnPoint.ToVector3());
 			joinSound.Spawn(level);

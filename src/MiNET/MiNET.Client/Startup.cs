@@ -26,6 +26,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -33,8 +34,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using log4net;
 using log4net.Config;
+using MiNET.Blocks;
 using MiNET.Utils;
+using MiNET.Utils.Cryptography;
 using MiNET.Utils.Vectors;
+using MiNET.Worlds;
 
 namespace MiNET.Client
 {
@@ -44,6 +48,84 @@ namespace MiNET.Client
 
 		// ReSharper disable once InconsistentNaming
 		private const string MiNET = "\r\n __   __  ___   __    _  _______  _______ \r\n|  |_|  ||   | |  |  | ||       ||       |\r\n|       ||   | |   |_| ||    ___||_     _|\r\n|       ||   | |       ||   |___   |   |  \r\n|       ||   | |  _    ||    ___|  |   |  \r\n| ||_|| ||   | | | |   ||   |___   |   |  \r\n|_|   |_||___| |_|  |__||_______|  |___|  \r\n";
+
+		/// <summary>Places one of every block that keeps a block entity, in a line beside the bot, by
+		/// asking the server to do it. Nothing is read back here: the server sends the block entity
+		/// data by itself, and BedrockTraceHandler prints the tag it arrives in.</summary>
+		private static void ProbeContainerBlocks(MiNetClient client)
+		{
+			string[] blocks =
+			{
+				"chest", "trapped_chest", "copper_chest", "waxed_oxidized_copper_chest",
+				"undyed_shulker_box", "red_shulker_box", "barrel", "smoker", "brewing_stand",
+				"hopper", "dispenser", "dropper", "crafter", "furnace", "blast_furnace",
+				"ender_chest", "lectern", "chiseled_bookshelf", "decorated_pot", "enchanting_table",
+				"beacon"
+			};
+
+			Action<Task, string> send = BotHelpers.DoSendCommand(client);
+
+			var origin = (BlockCoordinates) client.CurrentLocation;
+			Log.Warn($"Block probe: placing {blocks.Length} blocks from {origin}");
+
+			for (int i = 0; i < blocks.Length; i++)
+			{
+				int x = origin.X + 2 + i * 2;
+				send(null, $"/setblock {x} {origin.Y} {origin.Z + 2} {blocks[i]}");
+				Thread.Sleep(500);
+
+				// A container the server considers empty may not be worth a block entity to it.
+				send(null, $"/replaceitem block {x} {origin.Y} {origin.Z + 2} slot.container 0 diamond 1");
+				Thread.Sleep(500);
+			}
+
+			Log.Warn("Block probe: placed, waiting for the server to answer");
+			Thread.Sleep(10000);
+			Log.Warn("Block probe: done");
+		}
+
+		/// <summary>Moves the bot to a place and reports the block the server actually sent for each
+		/// coordinate asked about. This is the client's side of a ghost block: when the world file and
+		/// the server agree that a chest is there and the player sees an outline with nothing in it,
+		/// the question is what went over the wire, and this answers it without a real client.</summary>
+		private static void InspectBlocks(MiNetClient client, string spec)
+		{
+			List<BlockCoordinates> wanted = spec
+				.Split(';', StringSplitOptions.RemoveEmptyEntries)
+				.Select(part => part.Split(','))
+				.Select(p => new BlockCoordinates(int.Parse(p[0]), int.Parse(p[1]), int.Parse(p[2])))
+				.ToList();
+
+			if (wanted.Count == 0) return;
+
+			// The server sends chunks around where it thinks the player is, so stand there first.
+			BlockCoordinates first = wanted[0];
+			client.CurrentLocation = new PlayerLocation(first.X, first.Y + 2, first.Z);
+			for (int i = 0; i < 20; i++)
+			{
+				client.SendMcpeMovePlayer();
+				Thread.Sleep(500);
+			}
+
+			Log.Warn($"Inspect: {client.Chunks.Count} chunks received, standing at {client.CurrentLocation}");
+
+			foreach (BlockCoordinates coordinates in wanted)
+			{
+				var chunkCoordinates = new ChunkCoordinates(coordinates.X >> 4, coordinates.Z >> 4);
+				// A chunk that failed to decode is still put in the dictionary, as null.
+				if (!client.Chunks.TryGetValue(chunkCoordinates, out ChunkColumn chunk) || chunk == null)
+				{
+					Log.Warn($"Inspect {coordinates}: chunk {chunkCoordinates} never arrived or did not decode");
+					continue;
+				}
+
+				int runtimeId = chunk.GetBlockRuntimeId(coordinates.X & 0x0f, coordinates.Y, coordinates.Z & 0x0f);
+				Block block = chunk.GetBlockObject(coordinates.X & 0x0f, coordinates.Y, coordinates.Z & 0x0f);
+				bool hasBlockEntity = chunk.GetBlockEntity(coordinates) != null;
+
+				Log.Warn($"Inspect {coordinates}: runtimeId={runtimeId} block={block?.Name ?? "(null)"} blockEntity={hasBlockEntity}");
+			}
+		}
 
 		static void Main(string[] args)
 		{
@@ -84,23 +166,63 @@ namespace MiNET.Client
 			// real client does; vanilla then serves blob-addressed chunks. Off keeps the plain flow.
 			client.UseBlobCache = Environment.GetEnvironmentVariable("MINET_BLOB_CACHE") == "1";
 
-			client.StartClient();
-			Log.Warn("Client listening for connecting on: " + client.ClientEndpoint);
-
-			Console.WriteLine("Looking for server...");
-
-			if(!client.Connection.TryLocate(client.ServerEndPoint, out (IPEndPoint serverEndPoint, string serverName) info))
+			// MINET_XBL=1 logs in with a real Xbox Live account instead of an offline identity, which
+			// is what an online-mode server requires. The first run prints a code to enter in a
+			// browser; after that the saved refresh token is used and nothing is asked.
+			if (Environment.GetEnvironmentVariable("MINET_XBL") == "1")
 			{
-				Console.WriteLine($"Failed to locate server at {client.ServerEndPoint}");
-				return;
+				var authentication = new XboxAuthentication();
+				authentication.DeviceCodeRequired += (uri, code) =>
+				{
+					Console.WriteLine();
+					Console.WriteLine("=======================================================");
+					Console.WriteLine($"  Sign in at : {uri}");
+					Console.WriteLine($"  Enter code : {code}");
+					Console.WriteLine("=======================================================");
+					Console.WriteLine();
+				};
+
+				client.XboxIdentity = authentication.AuthenticateAsync().GetAwaiter().GetResult();
+				Console.WriteLine($"Authenticated as {client.XboxIdentity.DisplayName}");
 			}
 
-			Console.WriteLine($"... YEAH! FOUND SERVER! It's at {info.serverEndPoint}, \"{info.serverName}\"");
+			// MINET_TRANSPORT=nethernet dials over WebRTC instead of RakNet. There is no offline
+			// ping and no connection handshake on that path: signaling is one HTTP round trip and
+			// the data channel opening is the connection.
+			bool netherNet = Environment.GetEnvironmentVariable("MINET_TRANSPORT") == "nethernet";
 
-			if (!client.Connection.TryConnect(info.serverEndPoint))
+			if (netherNet)
 			{
-				Console.WriteLine($"Failed to connect to server at {info.serverEndPoint}");
-				return;
+				Console.WriteLine($"Connecting over NetherNet to {client.ServerEndPoint} ...");
+
+				if (!client.ConnectNetherNetAsync().GetAwaiter().GetResult())
+				{
+					Console.WriteLine("Failed to connect over NetherNet");
+					return;
+				}
+
+				Console.WriteLine("NetherNet data channel open, logging in ...");
+			}
+			else
+			{
+				client.StartClient();
+				Log.Warn("Client listening for connecting on: " + client.ClientEndpoint);
+
+				Console.WriteLine("Looking for server...");
+
+				if (!client.Connection.TryLocate(client.ServerEndPoint, out (IPEndPoint serverEndPoint, string serverName) info))
+				{
+					Console.WriteLine($"Failed to locate server at {client.ServerEndPoint}");
+					return;
+				}
+
+				Console.WriteLine($"... YEAH! FOUND SERVER! It's at {info.serverEndPoint}, \"{info.serverName}\"");
+
+				if (!client.Connection.TryConnect(info.serverEndPoint))
+				{
+					Console.WriteLine($"Failed to connect to server at {info.serverEndPoint}");
+					return;
+				}
 			}
 
 			Console.WriteLine("Waiting for spawn...");
@@ -112,6 +234,25 @@ namespace MiNET.Client
 			if (Environment.GetEnvironmentVariable("MINET_EMULATE") == "1")
 			{
 				RealClientEmulator.Run(client);
+			}
+
+			// MINET_BLOCK_PROBE=1 has the server place one of every container block next to the bot
+			// and leaves what the server answers with in the log. The block entity data that comes
+			// back carries the savegame id of each one, which is the only way to know what vanilla
+			// calls a barrel's or a copper chest's tile rather than inferring it from convention.
+			if (Environment.GetEnvironmentVariable("MINET_BLOCK_PROBE") == "1")
+			{
+				ProbeContainerBlocks(client);
+			}
+
+			// MINET_INSPECT="x,y,z;x,y,z" walks the bot to the first coordinate and reports what the
+			// server sent for each: the runtime id, the block it decodes to, and whether a block entity
+			// came with it. That is the only view of a ghost block that is neither the world file nor
+			// the server's own memory.
+			string inspect = Environment.GetEnvironmentVariable("MINET_INSPECT");
+			if (!string.IsNullOrWhiteSpace(inspect))
+			{
+				InspectBlocks(client, inspect);
 			}
 
 			Action<Task, PlayerLocation> doMoveTo = BotHelpers.DoMoveTo(client);

@@ -49,6 +49,7 @@ using MiNET.Crafting;
 using MiNET.Entities;
 using MiNET.Items;
 using MiNET.Net;
+using MiNET.Net.NetherNet;
 using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
@@ -89,8 +90,16 @@ namespace MiNET.Client
 		public RakConnection Connection { get; private set; }
 		public bool FoundServer => Connection.FoundServer;
 
-		public RakSession Session => Connection.ConnectionInfo.RakSessions.Values.FirstOrDefault();
-		public bool IsConnected => Session?.State == ConnectionState.Connected;
+		// Either transport can back the session. RakNet keeps its own registry; NetherNet hands us
+		// one directly, so that takes precedence when it is set.
+		public INetworkHandler Session => _netherNetSession ?? (INetworkHandler) Connection?.ConnectionInfo.RakSessions.Values.FirstOrDefault();
+
+		private NetherNetSession _netherNetSession;
+
+		public bool IsConnected => _netherNetSession != null || RakSession?.State == ConnectionState.Connected;
+
+		/// <summary>The RakNet session when that is the transport, otherwise null.</summary>
+		public RakSession RakSession => Connection?.ConnectionInfo.RakSessions.Values.FirstOrDefault();
 
 		public Vector3 SpawnPoint { get; set; }
 		public long EntityId { get; set; }
@@ -119,7 +128,14 @@ namespace MiNET.Client
 		///     Overrides the ICustomMessageHandler wired onto the session. MiNET.Tunnel uses this to
 		///     intercept raw frames before client-side dispatch; null keeps the default handler.
 		/// </summary>
-		public Func<RakSession, IMcpeClientMessageHandler, BedrockClientMessageHandler> ClientMessageHandlerFactory { get; set; }
+		public Func<INetworkHandler, IMcpeClientMessageHandler, BedrockClientMessageHandler> ClientMessageHandlerFactory { get; set; }
+
+		/// <summary>
+		///     A real Xbox Live identity from <see cref="XboxAuthentication" />. When set, the client
+		///     logs in as that account (AuthenticationType 0) instead of minting an offline identity,
+		///     which is what an online-mode server requires.
+		/// </summary>
+		public XboxIdentity XboxIdentity { get; set; }
 
 		public McpeClientMessageDispatcher MessageDispatcher
 		{
@@ -180,6 +196,33 @@ namespace MiNET.Client
 			Connection.Start();
 		}
 
+		/// <summary>
+		///     Connects over NetherNet instead of RakNet. Everything above the transport is the same
+		///     code path: the session is an INetworkHandler, the BedrockClientMessageHandler on top of
+		///     it batches and compresses identically, and the login sequence that follows is the one
+		///     the RakNet path runs.
+		/// </summary>
+		public async Task<bool> ConnectNetherNetAsync(CancellationToken cancellationToken = default)
+		{
+			WarmUpCrypto();
+
+			_netherNetSession = await NetherNetClientConnector.ConnectAsync(
+				ServerEndPoint.Address.ToString(), ServerEndPoint.Port,
+				cancellationToken: cancellationToken, identity: XboxIdentity);
+
+			var handler = ClientMessageHandlerFactory?.Invoke(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this))
+						?? new BedrockClientMessageHandler(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this));
+
+			_netherNetSession.CustomMessageHandler = handler;
+
+			// RakNet fires this when its connection handshake completes. There is no equivalent here,
+			// because the data channel opening is the connection, so the sequence starts now.
+			handler.ConnectionAction = () => SendRequestNetworkSettings();
+			handler.Connected();
+
+			return true;
+		}
+
 		public bool StopClient()
 		{
 			Connection.Stop();
@@ -197,17 +240,37 @@ namespace MiNET.Client
 		{
 			JWT.JsonMapper = new NewtonsoftMapper();
 
-			var clientKey = CryptoUtils.GenerateClientKey();
+			string identityJson;
+			AsymmetricCipherKeyPair clientKey;
 
 			// 1.21.90+ wraps login identity in an authentication envelope; since protocol 944 the
-			// offline identity is an OIDC-style JWT in Token, and the certificate chain is empty.
+			// identity is an OIDC-style JWT in Token rather than a certificate chain.
 			// AuthenticationType: 0 = full auth, 1 = self-signed, 2 = offline.
-			string identityJson = JsonConvert.SerializeObject(new
+			if (XboxIdentity != null)
 			{
-				Certificate = JsonConvert.SerializeObject(new {chain = new[] {""}}),
-				AuthenticationType = 2,
-				Token = CryptoUtils.EncodeOfflineMultiplayerToken(username, clientKey)
-			});
+				// The keypair is not ours to choose here: the token names it in cpk, and the server
+				// keys its handshake on that, so signing the skin with any other key fails the login.
+				clientKey = XboxIdentity.IdentityKey;
+				username = XboxIdentity.DisplayName ?? username;
+
+				// Full auth sends no certificate chain at all; the token is the whole identity.
+				identityJson = JsonConvert.SerializeObject(new
+				{
+					AuthenticationType = 0,
+					Token = XboxIdentity.LoginToken
+				});
+			}
+			else
+			{
+				clientKey = CryptoUtils.GenerateClientKey();
+
+				identityJson = JsonConvert.SerializeObject(new
+				{
+					Certificate = JsonConvert.SerializeObject(new {chain = new[] {""}}),
+					AuthenticationType = 2,
+					Token = CryptoUtils.EncodeOfflineMultiplayerToken(username, clientKey)
+				});
+			}
 
 			byte[] data = CryptoUtils.CompressJwtBytes(Encoding.UTF8.GetBytes(identityJson), CryptoUtils.EncodeSkinJwt(clientKey, username), CompressionLevel.Fastest);
 
@@ -263,13 +326,20 @@ namespace MiNET.Client
 				decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
 				encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
 
+				// A transport that already encrypts below us means the peer is not expecting a second
+				// layer, so the handshake is still acknowledged but nothing is enciphered. Same rule
+				// the server side applies in LoginMessageHandler.
+				bool encrypt = !Session.IsTransportEncrypted;
+
 				bedrockHandler.CryptoContext = new CryptoContext
 				{
 					Decryptor = decryptor,
 					Encryptor = encryptor,
-					UseEncryption = true,
+					UseEncryption = encrypt,
 					Key = secret
 				};
+
+				if (!encrypt) Log.Info("Transport is already encrypted, skipping the Bedrock session cipher");
 
 				McpeClientToServerHandshake magic = new McpeClientToServerHandshake();
 				SendPacket(magic);
@@ -759,7 +829,7 @@ namespace MiNET.Client
 				//await Session.SendPacketAsync(message);
 
 				Session.SendPacket(movePlayerPacket);
-				await Session.SendQueueAsync(0);
+				await RakSession.SendQueueAsync(0);
 			}
 			else
 			{

@@ -62,8 +62,8 @@ After every code change, this exact loop, nothing else:
 4. Wait for readiness by polling the log for `Server open for business`, with a background
    until-loop, never fixed `sleep N` guesses.
 
-`temp_auto/restart-minet.sh` is this loop in one script and prints the downtime; pass `--build` to
-include step 2.
+`.claude/skills/restart-server/restart-minet.sh` is this loop in one script and prints the
+downtime; pass `--build` to include step 2.
 
 **The downtime budget is real.** A transferred client retries for about 22 seconds and then gives
 up with `InitialConnection-13`, losing the player.
