@@ -4307,13 +4307,13 @@ namespace MiNET.Net
 
 		public void Write(EmptyItemDescriptor data)
 		{
-			Write("empty");
+			Write((byte) 0);
 		}
 
 		public EmptyItemDescriptor ReadEmptyItemDescriptor()
 		{
 			var data = new EmptyItemDescriptor();
-			ReadString();
+			ReadByte();
 			return data;
 		}
 
@@ -4488,7 +4488,7 @@ namespace MiNET.Net
 
 		public void Write(ItemNameDescriptor data)
 		{
-			Write("itemname");
+			Write((byte) 1);
 			Write(data.fullName);
 			WriteSignedVarInt(data.auxValue);
 		}
@@ -4496,7 +4496,7 @@ namespace MiNET.Net
 		public ItemNameDescriptor ReadItemNameDescriptor()
 		{
 			var data = new ItemNameDescriptor();
-			ReadString();
+			ReadByte();
 			data.fullName = ReadString();
 			data.auxValue = ReadSignedVarInt();
 			return data;
@@ -4764,7 +4764,7 @@ namespace MiNET.Net
 		public void Write(ItemStackRequestCraftRepairAndDisenchantAction data)
 		{
 			Write((byte) 14);
-			WriteSignedVarInt(data.recipeNetId);
+			Write(data.recipeNetId);
 			Write(data.numberOfRequestedCrafts);
 			WriteSignedVarInt(data.repairCost);
 		}
@@ -4773,7 +4773,7 @@ namespace MiNET.Net
 		{
 			var data = new ItemStackRequestCraftRepairAndDisenchantAction();
 			ReadByte();
-			data.recipeNetId = ReadSignedVarInt();
+			data.recipeNetId = ReadInt();
 			data.numberOfRequestedCrafts = ReadByte();
 			data.repairCost = ReadSignedVarInt();
 			return data;
@@ -4863,7 +4863,7 @@ namespace MiNET.Net
 			Write((byte) 9);
 			WriteSignedVarInt(data.slot);
 			WriteSignedVarInt(data.predictedDurability);
-			WriteSignedVarInt(data.netIdVariant);
+			Write(data.netIdVariant);
 		}
 
 		public ItemStackRequestMineBlockAction ReadItemStackRequestMineBlockAction()
@@ -4872,7 +4872,7 @@ namespace MiNET.Net
 			ReadByte();
 			data.slot = ReadSignedVarInt();
 			data.predictedDurability = ReadSignedVarInt();
-			data.netIdVariant = ReadSignedVarInt();
+			data.netIdVariant = ReadInt();
 			return data;
 		}
 
@@ -4944,7 +4944,7 @@ namespace MiNET.Net
 		{
 			Write(data.fullContainerName ?? new FullContainerName());
 			Write(data.slot);
-			WriteSignedVarInt(data.netIdVariant);
+			Write(data.netIdVariant);
 		}
 
 		public ItemStackRequestSlotInfo ReadItemStackRequestSlotInfo()
@@ -4952,7 +4952,7 @@ namespace MiNET.Net
 			var data = new ItemStackRequestSlotInfo();
 			data.fullContainerName = ReadFullContainerName();
 			data.slot = ReadByte();
-			data.netIdVariant = ReadSignedVarInt();
+			data.netIdVariant = ReadInt();
 			return data;
 		}
 
@@ -5060,14 +5060,14 @@ namespace MiNET.Net
 
 		public void Write(ItemTagDescriptor data)
 		{
-			Write("itemtag");
+			Write((byte) 3);
 			Write(data.itemTag);
 		}
 
 		public ItemTagDescriptor ReadItemTagDescriptor()
 		{
 			var data = new ItemTagDescriptor();
-			ReadString();
+			ReadByte();
 			data.itemTag = ReadString();
 			return data;
 		}
@@ -5320,7 +5320,7 @@ namespace MiNET.Net
 
 		public void Write(MolangItemDescriptor data)
 		{
-			Write("molang");
+			Write((byte) 2);
 			Write(data.tagExpression);
 			Write((short) data.molangVersion);
 		}
@@ -5328,7 +5328,7 @@ namespace MiNET.Net
 		public MolangItemDescriptor ReadMolangItemDescriptor()
 		{
 			var data = new MolangItemDescriptor();
-			ReadString();
+			ReadByte();
 			data.tagExpression = ReadString();
 			data.molangVersion = (MolangItemDescriptor.MolangVersion) ReadShort();
 			return data;

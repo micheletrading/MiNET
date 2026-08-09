@@ -24,9 +24,9 @@
 		},
 		"ItemStackNetIdVariant": {
 			"csType": "int",
-			"write": "WriteSignedVarInt({0});",
-			"read": "{0} = ReadSignedVarInt();",
-			"reason": "The schema declares no properties, but the 2168 changelog is explicit: the binding 'now projects to and from a single signed-VarInt encoding (non-negative = server net id, negative-odd = client request id, negative-even = legacy client request id) instead of cereal's default tagged-variant encoding'."
+			"write": "Write({0});",
+			"read": "{0} = ReadInt();",
+			"reason": "Fixed li32, not the signed varint the 2168 changelog describes ('projects to and from a single signed-VarInt encoding, non-negative = server net id, negative-odd = client request id'). The sign convention holds, the width does not. Measured on a live 1.26.40 client: a creative pick sends client request id -93 and the slot info carries a3 ff ff ff, which is -93 as li32 and consumes one byte too many as a varint. Reading it as a varint ate the next slot info's container name, turning CursorContainer (59) into AnvilInputContainer (0), so the server answered that the item was in an anvil and the client rolled the pick back. It also left the two trailing bytes McpeItemStackRequest was warning about; as li32 the packet reads with zero left over and the text processing origin comes out -1 instead of -65536. The old hand-written ReadStackRequestSlotInfo read li32 and worked."
 		},
 		"StructureSettings": {
 			"csType": "StructureSettings",
@@ -464,6 +464,15 @@
 					"variantConstIsByte": true,
 					"name": "actions",
 					"reason": "Each action repeats its tag as a byte right after the varint tag. CloudburstMC's readRequestActionData at v2168 opens with byteBuf.readByte() before switching on the type it was handed, and the hand-written codec wrote WriteUnsignedVarInt(tag) then Write((byte) tag). Not the same as SetScore, where the const is the name spelled out, which is why this is per field and not a rule."
+				}
+			}
+		},
+		"ItemStackRequestNetworkItemInstanceDescriptor": {
+			"fields": {
+				"Item Descriptor": {
+					"variantConstIsByte": true,
+					"name": "itemDescriptor",
+					"reason": "Descriptor Type is uint8 with Enum-as-Value in every one of the four option schemas, so the const after the tag is a byte, not the name spelled out. Measured on a live 1.26.40 client picking a chest out of creative: tag 01, const byte 01, then the 0x0f-length string \"minecraft:chest\". Reading the const as a string ate the length byte and the next ReadString took 0x6d as a length, which threw inside McpeItemStackRequest and dropped the whole request."
 				}
 			}
 		},
