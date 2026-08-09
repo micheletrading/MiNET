@@ -662,10 +662,10 @@ namespace MiNET.Worlds
 				// drawn by its block entity, so the block arrives, keeps its outline and its
 				// particles, and has nothing to render.
 				//
-				// Cached, the two travel separately. The blob is content-addressed and holds the
-				// terrain, which is what the hash is for; the block entities go inline in the same
-				// packet, in the field vanilla leaves free beside the blob id. Putting them in the
-				// blob instead left the chests invisible, which is what ruled that out.
+				// Cached, the two travel separately, confirmed against a real 1.26.40 client: the blob
+				// is content-addressed and holds the terrain, which is what the hash is for, and the
+				// block entities go inline in the same packet, in the field beside the blob id. Putting
+				// them in the blob instead leaves the chests invisible, which is how that was settled.
 				if (useBlobCache)
 				{
 					entry.blobId = BlobStore.Add(stream.ToArray());
