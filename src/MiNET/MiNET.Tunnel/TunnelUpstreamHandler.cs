@@ -42,7 +42,7 @@ namespace MiNET.Tunnel
 		private readonly TunnelPlayer _downstream;
 		private bool _readySignalled;
 
-		public TunnelUpstreamHandler(RakSession session, IMcpeClientMessageHandler handler, TunnelPlayer downstream) : base(session, handler)
+		public TunnelUpstreamHandler(INetworkHandler session, IMcpeClientMessageHandler handler, TunnelPlayer downstream) : base(session, handler)
 		{
 			_downstream = downstream;
 		}

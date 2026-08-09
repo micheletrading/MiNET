@@ -56,13 +56,13 @@ namespace MiNET
 		private static readonly ILog Log = LogManager.GetLogger(typeof(LoginMessageHandler));
 
 		private readonly BedrockMessageHandler _bedrockHandler;
-		private readonly RakSession _session;
+		private readonly INetworkHandler _session;
 		private readonly IServerManager _serverManager;
 
 		private object _loginSyncLock = new object();
 		private PlayerInfo _playerInfo = new PlayerInfo();
 
-		public LoginMessageHandler(BedrockMessageHandler bedrockHandler, RakSession session, IServerManager serverManager)
+		public LoginMessageHandler(BedrockMessageHandler bedrockHandler, INetworkHandler session, IServerManager serverManager)
 		{
 			_bedrockHandler = bedrockHandler;
 			_session = session;
@@ -354,7 +354,7 @@ namespace MiNET
 							FranchiseTokenValidator.Identity verified = FranchiseTokenValidator.Validate(multiplayerToken);
 							if (verified?.Xuid == null)
 							{
-								Log.Warn($"Rejecting login from {_session.EndPoint}: the multiplayer token is not a valid Xbox Live identity");
+								Log.Warn($"Rejecting login from {_session.GetClientEndPoint()}: the multiplayer token is not a valid Xbox Live identity");
 								_session.Disconnect(Config.GetProperty("ForceXBLLogin", "You must authenticate to XBOX Live to join this server."));
 								return;
 							}
@@ -365,7 +365,7 @@ namespace MiNET
 							// someone wear another player's identity with their own everything else.
 							if (!FranchiseTokenValidator.VerifyClientData(skinData, verified.ClientPublicKey))
 							{
-								Log.Warn($"Rejecting login from {_session.EndPoint}: client data is not signed by {verified.DisplayName}'s key");
+								Log.Warn($"Rejecting login from {_session.GetClientEndPoint()}: client data is not signed by {verified.DisplayName}'s key");
 								_session.Disconnect(Config.GetProperty("ForceXBLLogin", "You must authenticate to XBOX Live to join this server."));
 								return;
 							}
@@ -504,7 +504,7 @@ namespace MiNET
 					if (_playerInfo.CertificateData?.ExtraData == null)
 					{
 						Log.Warn(
-							$"Rejecting login from {_session.EndPoint}: the login carried no readable identity. "
+							$"Rejecting login from {_session.GetClientEndPoint()}: the login carried no readable identity. "
 							+ $"AuthenticationType={authenticationType ?? "<absent>"}, "
 							+ $"Token={(string.IsNullOrEmpty(multiplayerToken) ? "<absent>" : $"{multiplayerToken.Length} chars")}, "
 							+ $"chain={(chain == null ? "<absent>" : $"{chain.Count} token(s)")}");
@@ -518,12 +518,19 @@ namespace MiNET
 						_session.Username = _playerInfo.Username;
 						string identity = _playerInfo.CertificateData.ExtraData.Identity;
 
+						// The transport is named rather than inferred: with two of them live, which one a
+						// player arrived on is otherwise only visible as a side effect, such as whether
+						// encryption got negotiated.
+						Log.Info($"Login: {_playerInfo.Username} over {_session.TransportName} from {_session.GetClientEndPoint()} on protocol {_playerInfo.ProtocolVersion}");
 						if (Log.IsDebugEnabled) Log.Debug($"Connecting user {_playerInfo.Username} with identity={identity} on protocol version={_playerInfo.ProtocolVersion}");
 						_playerInfo.ClientUuid = new UUID(identity);
 
 						_bedrockHandler.CryptoContext = new CryptoContext
 						{
-							UseEncryption = Config.GetProperty("UseEncryptionForAll", false) || (Config.GetProperty("UseEncryption", true) && !string.IsNullOrWhiteSpace(_playerInfo.CertificateData.ExtraData.Xuid)),
+							// A transport that already encrypts below us wins over any config here: a
+							// second cipher would leave the peer reading ciphertext it never expected.
+							UseEncryption = !_session.IsTransportEncrypted
+											&& (Config.GetProperty("UseEncryptionForAll", false) || (Config.GetProperty("UseEncryption", true) && !string.IsNullOrWhiteSpace(_playerInfo.CertificateData.ExtraData.Xuid))),
 						};
 
 						if (_bedrockHandler.CryptoContext.UseEncryption)

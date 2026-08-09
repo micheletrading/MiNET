@@ -35,7 +35,7 @@ namespace MiNET.Net
 
 		public Action ConnectionAction { get; set; }
 
-		public BedrockClientMessageHandler(RakSession session, IMcpeClientMessageHandler handler) : base(session)
+		public BedrockClientMessageHandler(INetworkHandler session, IMcpeClientMessageHandler handler) : base(session)
 		{
 			_messageDispatcher = new McpeClientMessageDispatcher(handler);
 		}

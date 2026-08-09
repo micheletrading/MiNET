@@ -30,7 +30,29 @@ namespace MiNET
 {
 	public interface INetworkHandler
 	{
+		// Session identity, set during login and used for logging. On the interface rather than the
+		// transport because every transport has to answer "who is this" the same way.
+		string Username { get; set; }
+
+		// True when the transport already encrypts and authenticates everything above it, as
+		// NetherNet does through DTLS. Bedrock's own session cipher is then redundant and must be
+		// skipped: the peer is not expecting a second layer and will not find one.
+		bool IsTransportEncrypted { get; }
+
+		// Which transport carried this session, for logging. Worth naming explicitly: with two
+		// transports live, "which one did this player arrive on" is otherwise only inferable from
+		// side effects such as whether encryption was negotiated.
+		string TransportName { get; }
+
+		// The layer above the transport: batching, compression and encryption. Both transports own
+		// one, and callers need to reach it without knowing which transport they are on.
+		Net.RakNet.ICustomMessageHandler CustomMessageHandler { get; set; }
+
 		void Close();
+
+		// Ending a session with a reason the player sees is every transport's job, and the login
+		// handler rejects connections before any transport-specific object exists to do it.
+		void Disconnect(string reason, bool sendDisconnect = true);
 
 		void SendPacket(Packet packet);
 		void SendDirectPacket(Packet packet);

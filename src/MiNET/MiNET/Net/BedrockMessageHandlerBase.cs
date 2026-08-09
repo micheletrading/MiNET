@@ -49,7 +49,7 @@ namespace MiNET.Net
 			Environment.GetEnvironmentVariable("MINET_PACKET_DUMP") is {Length: > 0} dir ? dir : null;
 		private static int _packetDumpSeq;
 
-		private protected readonly RakSession _session;
+		private protected readonly INetworkHandler _session;
 
 		public CryptoContext CryptoContext { get; set; }
 
@@ -58,7 +58,7 @@ namespace MiNET.Net
 		public bool CompressionEnabled { get; set; }
 		public ushort CompressionThreshold { get; set; } = 1;
 
-		protected BedrockMessageHandlerBase(RakSession session)
+		protected BedrockMessageHandlerBase(INetworkHandler session)
 		{
 			_session = session;
 		}
@@ -302,7 +302,7 @@ namespace MiNET.Net
 			}
 			else
 			{
-				Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.EndPoint.Address}");
+				Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.GetClientEndPoint().Address}");
 				if (Log.IsDebugEnabled) Log.Warn($"Unknown packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
 			}
 		}

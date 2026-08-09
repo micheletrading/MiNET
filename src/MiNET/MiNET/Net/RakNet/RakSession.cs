@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -59,6 +59,11 @@ namespace MiNET.Net.RakNet
 		public ICustomMessageHandler CustomMessageHandler { get; set; }
 
 		public string Username { get; set; }
+
+		// RakNet is plain UDP, so nothing below Bedrock's own cipher protects the payload.
+		public bool IsTransportEncrypted => false;
+
+		public string TransportName => "RakNet";
 		public IPEndPoint EndPoint { get; private set; }
 		public short MtuSize { get; set; }
 		public long NetworkIdentifier { get; set; }

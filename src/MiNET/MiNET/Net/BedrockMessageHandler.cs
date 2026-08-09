@@ -36,7 +36,7 @@ namespace MiNET.Net
 
 		public IMcpeMessageHandler Handler { get; set; }
 
-		public BedrockMessageHandler(RakSession session, IServerManager serverManager, PluginManager pluginManager) : base(session)
+		public BedrockMessageHandler(INetworkHandler session, IServerManager serverManager, PluginManager pluginManager) : base(session)
 		{
 			_pluginManager = pluginManager;
 			Handler = new LoginMessageHandler(this, session, serverManager);
@@ -324,7 +324,7 @@ namespace MiNET.Net
 
 				default:
 				{
-					Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.EndPoint.Address}");
+					Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.GetClientEndPoint().Address}");
 					if (Log.IsDebugEnabled) Log.Warn($"Unknown packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
 					break;
 				}
