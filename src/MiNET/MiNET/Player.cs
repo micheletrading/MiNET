@@ -1376,6 +1376,10 @@ namespace MiNET
 		{
 			if (message.state == (byte) McpeRespawn.RespawnState.ClientReady)
 			{
+				// The client tears its own window down when the player dies, so this is the server
+				// catching up rather than telling it anything.
+				ReleaseScreen();
+
 				HealthManager.ResetHealth();
 
 				HungerManager.ResetHunger();
@@ -1904,6 +1908,11 @@ namespace MiNET
 
 		public virtual void SpawnLevel(Level toLevel, PlayerLocation spawnPoint, bool useLoadingScreen = false, Func<Level> levelFunc = null, Action postSpawnAction = null)
 		{
+			// A screen carried into another level would still resolve slot clicks against a block in the
+			// one being left. The client is told as well as the bookkeeping being done, because unlike
+			// dying, changing level does not make the client tear its own window down.
+			if (Screen.Kind != ScreenKind.Inventory) HandleMcpeContainerClose(null);
+
 			bool oldNoAi = NoAi;
 			SetNoAi(true);
 
@@ -2213,6 +2222,11 @@ namespace MiNET
 
 						IsConnected = false;
 					}
+
+					// While the level is still there to hear it. A chest whose last viewer left without
+					// closing it reads as open forever: the lid stays up for everyone, and the inventory
+					// holds a departed player it keeps sending slot changes to.
+					ReleaseScreen();
 
 					Level?.RemovePlayer(this);
 
@@ -2922,12 +2936,53 @@ namespace MiNET
 			Screen = screen;
 		}
 
+		/// <summary>Block inventories carry a fixed window id per kind (see InventoryManager), all of
+		/// them below this, and the client reserves 0x77 and up for its own windows. Everything in
+		/// between is the server's to hand out.</summary>
+		private const byte FirstScreenWindowId = 30;
+
+		private byte _nextScreenWindowId = FirstScreenWindowId;
+
+		private byte NextScreenWindowId()
+		{
+			if (_nextScreenWindowId >= 0x77) _nextScreenWindowId = FirstScreenWindowId;
+
+			return _nextScreenWindowId++;
+		}
+
+		/// <summary>Opens a screen the client drives on its own: an anvil, a loom, a smithing table.
+		/// Every slot in one of these lives in the flat UI window, so the server holds nothing and
+		/// opening it is just naming it. Whatever was open is closed first, because the client refuses
+		/// to open a second window while it believes one is still up.</summary>
+		public virtual void OpenUiScreen(ScreenKind kind, ContainerType type, BlockCoordinates coordinates)
+		{
+			lock (_inventorySync)
+			{
+				if (Screen.Kind != ScreenKind.Inventory) HandleMcpeContainerClose(null);
+
+				byte windowId = NextScreenWindowId();
+				OpenScreen(new Screen(kind, type, windowId, coordinates, null));
+
+				var containerOpen = McpeContainerOpen.CreateObject();
+				containerOpen.windowId = windowId;
+				containerOpen.type = (byte) type;
+				containerOpen.coordinates = coordinates;
+				// -1, the same as every block container BDS opens. The anvil, the crafting table and
+				// the loom used to send EntityIdSelf here and the client took that too, so the field
+				// looks unread for a screen that names a block.
+				containerOpen.actorUniqueId = -1;
+				SendPacket(containerOpen);
+			}
+		}
+
 		private static ScreenKind ScreenKindOf(BlockEntity blockEntity)
 		{
 			return blockEntity switch
 			{
 				FurnaceBlockEntity => ScreenKind.Furnace,
 				BlastFurnaceBlockEntity => ScreenKind.BlastFurnace,
+				SmokerBlockEntity => ScreenKind.Smoker,
+				BrewingStandBlockEntity => ScreenKind.BrewingStand,
 				EnchantingTableBlockEntity => ScreenKind.EnchantingTable,
 				_ => ScreenKind.Container
 			};
@@ -2938,9 +2993,9 @@ namespace MiNET
 			// https://github.com/pmmp/PocketMine-MP/blob/stable/src/pocketmine/network/mcpe/protocol/types/WindowTypes.php
 			lock (_inventorySync)
 			{
-				if (Screen.BlockInventory != null)
+				if (Screen.Kind != ScreenKind.Inventory)
 				{
-					if (Screen.Coordinates.Equals(inventoryCoord)) return;
+					if (Screen.BlockInventory != null && Screen.Coordinates.Equals(inventoryCoord)) return;
 					HandleMcpeContainerClose(null);
 				}
 
@@ -2959,9 +3014,15 @@ namespace MiNET
 				// get inventory # from inventory manager
 				// set inventory as active on player
 
-				OpenScreen(new Screen(ScreenKindOf(inventory.BlockEntity), inventoryCoord, inventory));
+				OpenScreen(new Screen(ScreenKindOf(inventory.BlockEntity), (ContainerType) inventory.Type, inventory.WindowsId, inventoryCoord, inventory));
 
-				if (inventory.Type == 0 && !inventory.IsOpen()) // Chest open animation
+				// A barrel has no open animation to broadcast: its lid is a block state, so it opens by
+				// changing the block. Both of these ask "is anyone else already looking at it" before
+				// the subscription below, and answer again after the unsubscription in the close.
+				if (inventory.BlockEntity is BarrelBlockEntity && !inventory.IsOpen()) SetBarrelLid(inventoryCoord, true);
+
+				// Chest open animation.
+				if (inventory.BlockEntity is ChestBlockEntity or ShulkerBoxBlockEntity && !inventory.IsOpen())
 				{
 					var tileEvent = McpeBlockEvent.CreateObject();
 					tileEvent.coordinates = inventoryCoord;
@@ -2988,6 +3049,20 @@ namespace MiNET
 				containerSetContent.input = inventory.Slots;
 				SendPacket(containerSetContent);
 			}
+		}
+
+		/// <summary>The barrel's open lid, which is a block state rather than the block event a chest
+		/// answers with. Everyone in range sees it, so it follows whether ANY player has the barrel
+		/// open, not this one.</summary>
+		private void SetBarrelLid(BlockCoordinates coordinates, bool open)
+		{
+			if (Level?.GetBlock(coordinates) is not Barrel barrel || barrel.OpenBit == open) return;
+
+			barrel.OpenBit = open;
+
+			// Same block, same opacity, one state bit: nothing to relight and nothing to fall, so a
+			// barrel being opened does not drag a skylight recalculation behind it.
+			Level.SetBlock(barrel, applyPhysics: false, calculateLight: false);
 		}
 
 		private void OnInventoryChange(Player player, Inventory inventory, byte slot, Item itemStack)
@@ -3344,44 +3419,63 @@ namespace MiNET
 			}
 		}
 
-		public virtual void HandleMcpeContainerClose(McpeContainerClose message)
+		/// <summary>Lets go of whatever screen is open, server side only, and returns what was let go
+		/// of. Everything here says "this player is no longer looking": the subscription, the observer
+		/// registration, and the lid or animation that told the room. Answering the client is the
+		/// caller's business, because a player who has just disconnected has nothing left to answer to,
+		/// and a shared inventory that keeps a departed player as an observer counts as open forever.</summary>
+		protected virtual Screen ReleaseScreen()
 		{
 			lock (_inventorySync)
 			{
 				Screen closing = Screen;
 				Screen = new Screen(ScreenKind.Inventory);
 
-				if (closing.BlockInventory is Inventory inventory)
+				if (closing.BlockInventory is not Inventory inventory) return closing;
+
+				// unsubscribe to inventory changes
+				inventory.InventoryChange -= OnInventoryChange;
+				inventory.RemoveObserver(this);
+
+				if (inventory.BlockEntity is BarrelBlockEntity && !inventory.IsOpen()) SetBarrelLid(inventory.Coordinates, false);
+
+				// close container
+				if (inventory.BlockEntity is ChestBlockEntity or ShulkerBoxBlockEntity && !inventory.IsOpen())
 				{
-					// unsubscribe to inventory changes
-					inventory.InventoryChange -= OnInventoryChange;
-					inventory.RemoveObserver(this);
-
-					if (message != null && message.windowId != inventory.WindowsId)
-					{
-						Log.Warn($"Client closed window {message.windowId} while {closing.Kind} held window {inventory.WindowsId}");
-					}
-
-					// close container
-					if (inventory.Type == 0 && !inventory.IsOpen())
-					{
-						var tileEvent = McpeBlockEvent.CreateObject();
-						tileEvent.coordinates = inventory.Coordinates;
-						tileEvent.case1 = 1;
-						tileEvent.case2 = 0;
-						Level.RelayBroadcast(tileEvent);
-					}
+					var tileEvent = McpeBlockEvent.CreateObject();
+					tileEvent.coordinates = inventory.Coordinates;
+					tileEvent.case1 = 1;
+					tileEvent.case2 = 0;
+					Level.RelayBroadcast(tileEvent);
 				}
 
+				return closing;
+			}
+		}
+
+		public virtual void HandleMcpeContainerClose(McpeContainerClose message)
+		{
+			lock (_inventorySync)
+			{
+				Screen closing = ReleaseScreen();
+
 				if (closing.Kind == ScreenKind.Horse) return;
+
+				// The player's own screen is answered with an allocated id (see the self open-inventory
+				// case in HandleMcpeInteract) that is never recorded here, so only a screen the server
+				// opened has an id worth comparing.
+				if (message != null && closing.Kind != ScreenKind.Inventory && message.windowId != closing.WindowId)
+				{
+					Log.Warn($"Client closed window {message.windowId} while {closing.Kind} held window {closing.WindowId}");
+				}
 
 				// A close the client asked for is ALWAYS answered, with the id it named. Skipping the
 				// answer when the ids disagree leaves the client believing its window is still open,
 				// and it then refuses to open any other: no inventory, no chest, and the lid of the
 				// one it thinks is open stays up because the block event above never ran either.
 				var closePacket = McpeContainerClose.CreateObject();
-				closePacket.windowId = message?.windowId ?? closing.BlockInventory?.WindowsId ?? 0;
-				closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
+				closePacket.windowId = message?.windowId ?? closing.WindowId;
+				closePacket.windowType = message?.windowType ?? (byte) ContainerType.None;
 				closePacket.server = message == null;
 				SendPacket(closePacket);
 			}
@@ -3445,7 +3539,7 @@ namespace MiNET
 						// Opening the player's own screen replaces whatever was open, so a block
 						// screen still recorded here has to be torn down first: leaving it makes the
 						// player's next close carry window id 2 against a chest's window id.
-						if (Screen.BlockInventory != null) HandleMcpeContainerClose(null);
+						if (Screen.Kind != ScreenKind.Inventory) HandleMcpeContainerClose(null);
 
 						// Mirrors vanilla's answer to a self open-inventory request (captured live
 						// from BDS 1.26.34): an ALLOCATED window id (2, never the reserved

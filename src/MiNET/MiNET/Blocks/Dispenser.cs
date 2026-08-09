@@ -23,7 +23,11 @@
 
 #endregion
 
+using System.Numerics;
+using MiNET.BlockEntities;
 using MiNET.Items;
+using MiNET.Utils.Vectors;
+using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
@@ -33,10 +37,22 @@ namespace MiNET.Blocks
 		{
 		}
 
-		public override Item[] GetDrops(Item tool)
+		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
-			// TODO: Needs Dispenser TileEntity.
-			return base.GetDrops(tool);
+			// The mouth faces the player who placed it, straight up or down included.
+			FacingDirection = ItemBlock.GetFacingDirectionFromEntityWithPitch(player);
+
+			world.SetBlockEntity(new DispenserBlockEntity {Coordinates = Coordinates});
+
+			return false;
+		}
+
+		/// <summary>Nine slots that hold what is put in them. Redstone does not fire it.</summary>
+		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
+		{
+			player.OpenInventory(blockCoordinates);
+
+			return true;
 		}
 	}
 }

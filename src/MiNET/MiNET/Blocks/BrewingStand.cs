@@ -23,7 +23,11 @@
 
 #endregion
 
+using System.Numerics;
+using MiNET.BlockEntities;
 using MiNET.Items;
+using MiNET.Utils.Vectors;
+using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
@@ -36,6 +40,22 @@ namespace MiNET.Blocks
 		public override Item[] GetDrops(Item tool)
 		{
 			return new Item[] {ItemFactory.GetItemByName("minecraft:brewing_stand", 0, 1)};
+		}
+
+		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
+		{
+			world.SetBlockEntity(new BrewingStandBlockEntity {Coordinates = Coordinates});
+
+			return false;
+		}
+
+		/// <summary>Opens, and holds its five slots. No brewing: what goes in stays in, and the three
+		/// slot bits on the block state never light up.</summary>
+		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
+		{
+			player.OpenInventory(blockCoordinates);
+
+			return true;
 		}
 	}
 }

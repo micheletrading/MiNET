@@ -42,20 +42,7 @@ namespace MiNET.Blocks
 
 		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
-			var containerOpen = McpeContainerOpen.CreateObject();
-			containerOpen.windowId = 13;
-			containerOpen.type = 1;
-			containerOpen.coordinates = Coordinates;
-			containerOpen.actorUniqueId = EntityManager.EntityIdSelf;
-			player.SendPacket(containerOpen);
-
-			//var sendSlot = McpeInventorySlot.CreateObject();
-			//sendSlot.inventoryId = 124;
-			//sendSlot.slot = 32;
-			//sendSlot.uniqueid = 1;
-			//sendSlot.item = new ItemBlock(new Planks());
-			//player.SendPacket(sendSlot);
-
+			player.OpenUiScreen(ScreenKind.Workbench, ContainerType.Workbench, blockCoordinates);
 
 			return true;
 		}

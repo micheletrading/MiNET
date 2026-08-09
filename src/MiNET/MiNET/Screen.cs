@@ -32,6 +32,59 @@ using Container = MiNET.Net.FullContainerName.ContainerEnumName;
 
 namespace MiNET
 {
+	/// <summary>The screen the client is told to draw, sent as the type of ContainerOpen and echoed
+	/// back in ContainerClose. Signed on the wire (NONE is -9, INVENTORY is -1) against a byte field,
+	/// so the two negative ones are written here as the bytes they become.
+	/// <para>Names and order are Mojang's ContainerType.json. That schema spells no numbers, so the
+	/// values are its own order counted from CONTAINER, which agrees with every type MiNET already had
+	/// working: chest 0, enchanting 3, anvil 5, beacon 13, loom 24, blast furnace 27.</para></summary>
+	public enum ContainerType : byte
+	{
+		Container = 0,
+		Workbench = 1,
+		Furnace = 2,
+		Enchantment = 3,
+		BrewingStand = 4,
+		Anvil = 5,
+		Dispenser = 6,
+		Dropper = 7,
+		Hopper = 8,
+		Cauldron = 9,
+		MinecartChest = 10,
+		MinecartHopper = 11,
+		Horse = 12,
+		Beacon = 13,
+		StructureEditor = 14,
+		Trade = 15,
+		CommandBlock = 16,
+		Jukebox = 17,
+		Armor = 18,
+		Hand = 19,
+		CompoundCreator = 20,
+		ElementConstructor = 21,
+		MaterialReducer = 22,
+		LabTable = 23,
+		Loom = 24,
+		Lectern = 25,
+		Grindstone = 26,
+		BlastFurnace = 27,
+		Smoker = 28,
+		Stonecutter = 29,
+		Cartography = 30,
+		Hud = 31,
+		JigsawEditor = 32,
+		SmithingTable = 33,
+		ChestBoat = 34,
+		DecoratedPot = 35,
+		Crafter = 36,
+
+		/// <summary>-9. What BDS echoes in the ContainerClose it answers with.</summary>
+		None = 0xf7,
+
+		/// <summary>-1. The player's own screen.</summary>
+		Inventory = 0xff
+	}
+
 	/// <summary>What a player has open. One screen at a time, and there is always one: closing
 	/// everything leaves <see cref="ScreenKind.Inventory" />.</summary>
 	public enum ScreenKind
@@ -39,14 +92,28 @@ namespace MiNET
 		/// <summary>The player's own inventory. Cursor and the 2x2 grid, no block behind it.</summary>
 		Inventory,
 
-		/// <summary>Chest, shulker box, barrel. Storage that lives in the block entity.</summary>
+		/// <summary>Chest, shulker box, barrel, hopper, dispenser. Storage that lives in the block
+		/// entity, shared by everyone looking at it.</summary>
 		Container,
 
 		Furnace,
 		BlastFurnace,
+		Smoker,
+		BrewingStand,
 		EnchantingTable,
 		Anvil,
-		Horse
+		Horse,
+
+		/// <summary>Screens the client drives on its own: every slot is scratch in the flat UI window,
+		/// nothing is stored server-side, and two players at one block never see each other's work.</summary>
+		Workbench,
+
+		Beacon,
+		Loom,
+		Grindstone,
+		Stonecutter,
+		Cartography,
+		SmithingTable
 	}
 
 	/// <summary>Where a container name's items actually live.</summary>
@@ -108,6 +175,15 @@ namespace MiNET
 			[Container.Levelentitycontainer] = new SlotBinding(SlotStore.Block, -1),
 			[Container.Shulkerboxcontainer] = new SlotBinding(SlotStore.Block, -1),
 			[Container.Barrelcontainer] = new SlotBinding(SlotStore.Block, -1),
+			[Container.Crafterlevelentitycontainer] = new SlotBinding(SlotStore.Block, -1),
+
+			// Brewing stand. Three names over one five-slot block entity, and which slot each name
+			// counts from is unverified: the client's own numbering is taken as given, so a bottle
+			// landing in the ingredient slot is what tells us the layout, rather than a silent write
+			// to a slot we guessed at.
+			[Container.Brewingstandinputcontainer] = new SlotBinding(SlotStore.Block, -1),
+			[Container.Brewingstandfuelcontainer] = new SlotBinding(SlotStore.Block, -1),
+			[Container.Brewingstandresultcontainer] = new SlotBinding(SlotStore.Block, -1),
 
 			// Furnace family. Each name is one slot, and the index is the block entity's own
 			// ordering: 0 smelts, 1 burns, 2 holds the result.
@@ -155,14 +231,13 @@ namespace MiNET
 			[Container.Recipeblockscontainer] = new SlotBinding(SlotStore.Ui, -1),
 			[Container.Recipefurnaceitemscontainer] = new SlotBinding(SlotStore.Ui, -1),
 
+			// The beacon's payment slot is scratch like the rest of the UI window: the ingot is never
+			// stored in the block entity, it is consumed when the effect is chosen.
+			[Container.Beaconpaymentcontainer] = new SlotBinding(SlotStore.Ui, -1),
+
 			// Screens whose contents have to be stored server-side, and are not. Listed so the
 			// reason is "no storage yet" rather than "name unknown".
-			[Container.Beaconpaymentcontainer] = new SlotBinding(SlotStore.Unsupported, -1),
-			[Container.Brewingstandinputcontainer] = new SlotBinding(SlotStore.Unsupported, -1),
-			[Container.Brewingstandfuelcontainer] = new SlotBinding(SlotStore.Unsupported, -1),
-			[Container.Brewingstandresultcontainer] = new SlotBinding(SlotStore.Unsupported, -1),
 			[Container.Horseequipcontainer] = new SlotBinding(SlotStore.Unsupported, -1),
-			[Container.Crafterlevelentitycontainer] = new SlotBinding(SlotStore.Unsupported, -1),
 			[Container.Dynamiccontainer] = new SlotBinding(SlotStore.Unsupported, -1),
 			[Container.Tradeingredient1container] = new SlotBinding(SlotStore.Unsupported, -1),
 			[Container.Tradeingredient2container] = new SlotBinding(SlotStore.Unsupported, -1),
@@ -180,6 +255,14 @@ namespace MiNET
 
 		public ScreenKind Kind { get; }
 
+		/// <summary>What the client was told to draw, and what it echoes back when it closes.</summary>
+		public ContainerType Type { get; }
+
+		/// <summary>The window id the client was handed. Every answer about this screen carries it,
+		/// which is why it is held here and not read back off the inventory: a screen with no storage
+		/// still has one.</summary>
+		public byte WindowId { get; }
+
 		/// <summary>The block the screen belongs to, or <see cref="BlockCoordinates.Zero" /> for a
 		/// screen with no block (the player's own inventory, a horse).</summary>
 		public BlockCoordinates Coordinates { get; }
@@ -190,17 +273,19 @@ namespace MiNET
 
 		public Inventory BlockInventory => Backing as Inventory;
 
-		public Screen(ScreenKind kind) : this(kind, BlockCoordinates.Zero, null)
+		public Screen(ScreenKind kind) : this(kind, ContainerType.Inventory, 0, BlockCoordinates.Zero, null)
 		{
 		}
 
-		public Screen(ScreenKind kind, IInventory backing) : this(kind, BlockCoordinates.Zero, backing)
+		public Screen(ScreenKind kind, IInventory backing) : this(kind, ContainerType.None, 0, BlockCoordinates.Zero, backing)
 		{
 		}
 
-		public Screen(ScreenKind kind, BlockCoordinates coordinates, IInventory backing)
+		public Screen(ScreenKind kind, ContainerType type, byte windowId, BlockCoordinates coordinates, IInventory backing)
 		{
 			Kind = kind;
+			Type = type;
+			WindowId = windowId;
 			Coordinates = coordinates;
 			Backing = backing;
 		}

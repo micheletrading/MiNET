@@ -1395,6 +1395,10 @@ namespace MiNET.Worlds
 
 		public void RemoveBlockEntity(BlockCoordinates blockCoordinates)
 		{
+			// Before anything else, and whether or not the chunk still holds the tag: an inventory left
+			// in the manager's cache outlives the block it belonged to.
+			InventoryManager.RemoveInventory(blockCoordinates);
+
 			ChunkColumn chunk = GetChunk(new ChunkCoordinates(blockCoordinates.X >> 4, blockCoordinates.Z >> 4));
 			var nbt = chunk.GetBlockEntity(blockCoordinates);
 

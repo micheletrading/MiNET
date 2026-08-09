@@ -547,6 +547,10 @@
 		<field name="Command" type="string" />
 		<field name="Origin" type="CommandOriginData" />
 		<field name="Is Internal" type="bool" />
+		<!-- A string, though Mojang's schema calls it int32 (CurrentCmdVersion) and calls the origin
+		     type uint8. Those are the C++ types, not the wire: this packet serializes both by name.
+		     PMMP reads and writes both as strings, and BDS disconnected the moment we sent the
+		     version as four bytes. -->
 		<field name="Version" type="string" />
 	</pdu>
 

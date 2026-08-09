@@ -33,6 +33,7 @@ using MiNET.Blocks;
 using MiNET.Items;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
+using MiNET.Worlds;
 
 namespace MiNET
 {
@@ -53,6 +54,11 @@ namespace MiNET
 		public BlockCoordinates Coordinates { get; set; }
 		public BlockEntity BlockEntity { get; set; }
 		public byte WindowsId { get; set; }
+
+		/// <summary>The level the block entity belongs to, so a slot change reaches the chunk. Set by
+		/// <see cref="InventoryManager" />; an inventory built without one keeps its items in memory
+		/// only.</summary>
+		public Level Level { get; set; }
 
 		public Inventory(int id, BlockEntity blockEntity, short inventorySize, NbtList slots)
 		{
@@ -98,6 +104,12 @@ namespace MiNET
 
 				NbtCompound compound = BlockEntity.GetCompound();
 				compound["Items"] = GetSlots();
+
+				// The chunk keeps a CLONE of the compound, so writing the items into the block entity
+				// alone changes nothing that is ever saved: the chest emptied itself on restart. Hand
+				// it back to the level, which re-clones it and marks the chunk dirty. No broadcast, the
+				// observers below get the one slot rather than the whole tag.
+				Level?.SetBlockEntity(BlockEntity, false);
 
 				OnInventoryChange(player, slot, itemStack);
 			}

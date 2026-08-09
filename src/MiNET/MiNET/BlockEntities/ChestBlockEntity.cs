@@ -38,6 +38,11 @@ namespace MiNET.BlockEntities
 			Compound = new NbtCompound(string.Empty)
 			{
 				new NbtString("id", Id),
+				// Both read out of a chest BDS 1.26.40 saved. BlockEntityVersion is on every block
+				// entity vanilla writes; Findable is the locator flag, and every storage container
+				// carries it.
+				new NbtInt("BlockEntityVersion", 0),
+				new NbtByte("Findable", 0),
 				new NbtList("Items", new NbtCompound()),
 				new NbtInt("x", Coordinates.X),
 				new NbtInt("y", Coordinates.Y),
@@ -69,6 +74,9 @@ namespace MiNET.BlockEntities
 		public override void SetCompound(NbtCompound compound)
 		{
 			Compound = compound;
+
+			if (Compound["BlockEntityVersion"] == null) Compound["BlockEntityVersion"] = new NbtInt("BlockEntityVersion", 0);
+			if (Compound["Findable"] == null) Compound["Findable"] = new NbtByte("Findable", 0);
 
 			if (Compound["Items"] == null)
 			{

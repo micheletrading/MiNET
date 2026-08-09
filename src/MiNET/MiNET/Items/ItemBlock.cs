@@ -82,6 +82,21 @@ namespace MiNET.Items
 		}
 
 		/// <summary>
+		///     The same facing as <see cref="GetFacingDirectionFromEntity" />, except that a steep look
+		///     beats the heading. Past 45 degrees the nearest direction the player is looking is straight
+		///     up or down rather than any compass point, and the front still faces back along it: place a
+		///     barrel while looking at the floor and it opens on top. Pitch is positive looking down
+		///     (PlayerLocation.GetDirection negates its sine), so a downward look puts the front up.
+		/// </summary>
+		public static int GetFacingDirectionFromEntityWithPitch(Entity entity)
+		{
+			if (entity.KnownPosition.Pitch > 45) return (int) BlockFace.Up;
+			if (entity.KnownPosition.Pitch < -45) return (int) BlockFace.Down;
+
+			return GetFacingDirectionFromEntity(entity);
+		}
+
+		/// <summary>
 		///     The same facing as <see cref="GetFacingDirectionFromEntity" />, as the string the
 		///     minecraft:cardinal_direction state takes. Chests, furnaces and the rest moved to that
 		///     state at flattening; the facing they compute has not changed, only how it is written.

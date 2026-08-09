@@ -649,11 +649,36 @@ namespace MiNET.Worlds
 				return entry;
 			}
 
-			using (var stream = new MemoryStream())
+			// Pooled: this runs once per requested section per player, which is the busiest allocation
+			// site in the join burst.
+			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
 			{
 				subChunk.WriteVersion9(stream, (sbyte) sectionY);
-				if (useBlobCache) entry.blobId = BlobStore.Add(stream.ToArray());
-				else entry.serializedSubChunk = stream.ToArray();
+
+				// The section's block entities ride at the end of its payload, which is where the
+				// client reads them from (MiNET.Client's own decoder, written against BDS, calls them
+				// "trailing block entities, varint nbt until end"). Leaving them out does not lose a
+				// chest, it makes it invisible: a chest, ender chest, shulker box, sign or bed is
+				// drawn by its block entity, so the block arrives, keeps its outline and its
+				// particles, and has nothing to render.
+				//
+				// Cached, the two travel separately. The blob is content-addressed and holds the
+				// terrain, which is what the hash is for; the block entities go inline in the same
+				// packet, in the field vanilla leaves free beside the blob id. Putting them in the
+				// blob instead left the chests invisible, which is what ruled that out.
+				if (useBlobCache)
+				{
+					entry.blobId = BlobStore.Add(stream.ToArray());
+
+					using MemoryStream entityStream = MiNetServer.MemoryStreamManager.GetStream();
+					WriteBlockEntities(entityStream, sectionY);
+					if (entityStream.Length > 0) entry.serializedSubChunk = entityStream.ToArray();
+				}
+				else
+				{
+					WriteBlockEntities(stream, sectionY);
+					entry.serializedSubChunk = stream.ToArray();
+				}
 			}
 
 			entry.subchunkRequestResult = SubChunkPacketData.SubchunkRequestResult.Success;
@@ -789,19 +814,41 @@ namespace MiNET.Worlds
 			return stream.ToArray();
 		}
 
-		private void WriteBlockEntities(MemoryStream stream)
+		private void WriteBlockEntities(Stream stream)
 		{
 			if (BlockEntities.Count == 0) return;
 
 			foreach (NbtCompound blockEntity in BlockEntities.Values.ToArray())
 			{
-				var file = new NbtFile(blockEntity)
-				{
-					BigEndian = false,
-					UseVarInt = true
-				};
-				file.SaveToStream(stream, NbtCompression.None);
+				WriteBlockEntity(stream, blockEntity);
 			}
+		}
+
+		/// <summary>The block entities standing in one section, for the sub-chunk form where a section
+		/// travels on its own and carries its own.</summary>
+		private void WriteBlockEntities(Stream stream, int sectionY)
+		{
+			if (BlockEntities.Count == 0) return;
+
+			int floor = sectionY * 16;
+			int ceiling = floor + 16;
+
+			foreach (KeyValuePair<BlockCoordinates, NbtCompound> entry in BlockEntities.ToArray())
+			{
+				if (entry.Key.Y < floor || entry.Key.Y >= ceiling) continue;
+
+				WriteBlockEntity(stream, entry.Value);
+			}
+		}
+
+		private static void WriteBlockEntity(Stream stream, NbtCompound blockEntity)
+		{
+			var file = new NbtFile(blockEntity)
+			{
+				BigEndian = false,
+				UseVarInt = true
+			};
+			file.SaveToStream(stream, NbtCompression.None);
 		}
 
 		/// <summary>

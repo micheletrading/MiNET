@@ -117,6 +117,36 @@ namespace MiNET
 						ProcessConsumeAction(consumeAction, stackResponses);
 						break;
 					}
+					case ItemStackRequestCraftLoomAction craftLoomAction:
+					{
+						ProcessCraftLoomAction(craftLoomAction);
+						break;
+					}
+					case ItemStackRequestCraftRepairAndDisenchantAction repairAction:
+					{
+						ProcessCraftRepairAndDisenchantAction(repairAction);
+						break;
+					}
+					case ItemStackRequestBeaconPaymentAction beaconPaymentAction:
+					{
+						ProcessBeaconPaymentAction(beaconPaymentAction);
+						break;
+					}
+					case ItemStackRequestLabTableCombineAction labTableCombineAction:
+					{
+						ProcessLabTableCombineAction(labTableCombineAction);
+						break;
+					}
+					case ItemStackRequestCreateAction createAction:
+					{
+						ProcessCreateAction(createAction);
+						break;
+					}
+					case ItemStackRequestMineBlockAction mineBlockAction:
+					{
+						ProcessMineBlockAction(mineBlockAction);
+						break;
+					}
 					default:
 						throw new ArgumentOutOfRangeException(nameof(stackAction));
 				}
@@ -542,5 +572,46 @@ namespace MiNET
 		{
 		}
 
+		// Below: screens whose rules the server does not know yet. Accepting the action and leaving the
+		// output to the client's own CraftResultsDeprecated claim is what makes the screen usable at
+		// all, and it does mean the client decides what comes out of it. Refusing instead is not the
+		// safe option it looks like: an unhandled action fails the whole request, so the screen would
+		// reject every craft rather than produce a wrong one. Each of these is the hook a server that
+		// wants the real rules overrides.
+
+		/// <summary>Loom. The pattern the client picked, applied to the banner in the input slot.</summary>
+		protected virtual void ProcessCraftLoomAction(ItemStackRequestCraftLoomAction action)
+		{
+			if (Log.IsDebugEnabled) Log.Debug($"Loom craft of pattern {action.patternNameId} x{action.numCrafts} taken on the client's word");
+		}
+
+		/// <summary>Grindstone: strip the enchantments, merge the durability, pay out the experience.</summary>
+		protected virtual void ProcessCraftRepairAndDisenchantAction(ItemStackRequestCraftRepairAndDisenchantAction action)
+		{
+			if (Log.IsDebugEnabled) Log.Debug($"Grindstone craft of recipe {action.recipeNetId} at cost {action.repairCost} taken on the client's word");
+		}
+
+		/// <summary>Beacon: consume the payment and apply the two effects it bought.</summary>
+		protected virtual void ProcessBeaconPaymentAction(ItemStackRequestBeaconPaymentAction action)
+		{
+			if (Log.IsDebugEnabled) Log.Debug($"Beacon paid for effects {action.primaryEffectId} and {action.secondaryEffectId}, which are not applied");
+		}
+
+		/// <summary>Education Edition lab table.</summary>
+		protected virtual void ProcessLabTableCombineAction(ItemStackRequestLabTableCombineAction action)
+		{
+		}
+
+		/// <summary>Taking one of several outputs a craft produced. The output the client is claiming
+		/// already reached the UI window through the deprecated result action.</summary>
+		protected virtual void ProcessCreateAction(ItemStackRequestCreateAction action)
+		{
+		}
+
+		/// <summary>The client's own durability prediction for the tool it just mined with. The server
+		/// damages the tool itself, so there is nothing to do with the prediction.</summary>
+		protected virtual void ProcessMineBlockAction(ItemStackRequestMineBlockAction action)
+		{
+		}
 	}
 }
