@@ -199,3 +199,11 @@ FakesAssemblies/
 # NetherNet server identity: clients pin this key, and it must never be committed.
 keys/
 *.pem
+
+# Server world data and analysis archives (not source).
+archive/
+World/
+src/MiNET/World/
+src/MiNET/MiNET.Console/World/
+
+src/MiNET/TestPlugin/StarterKitPlugin.cs

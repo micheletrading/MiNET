@@ -604,6 +604,84 @@ namespace MiNET
 		Action _dimensionFunc;
 
 		/// <summary>
+		///     The mining speed the client applies to a block with the held item, mirrored here so the
+		///     StartBlockBreak event (3600) carries the same break time the client is about to mine.
+		///     The client paces its progress to the server's estimate, so a wrong estimate desyncs the
+		///     crack bar: too long and the player gives up before the block pops, too short and the
+		///     bar sits full while nothing breaks. Tiers match the vanilla tool speeds (2/4/12/6/8/9),
+		///     category membership follows the vanilla block tags per tool.
+		/// </summary>
+		private static double GetMiningSpeed(Item item, Block block)
+		{
+			if (item == null || item is ItemAir) return 1;
+
+			string name = item.Name ?? "";
+			double tier;
+			if (name.Contains("netherite")) tier = 9;
+			else if (name.Contains("diamond")) tier = 8;
+			else if (name.Contains("iron")) tier = 6;
+			else if (name.Contains("gold")) tier = 12;
+			else if (name.Contains("stone")) tier = 4;
+			else if (name.Contains("wood")) tier = 2;
+			else return 1;
+
+			string blockName = block.Name ?? "";
+			if (name.Contains("axe"))
+			{
+				if (blockName.Contains("log") || blockName.Contains("plank") || blockName.Contains("leaves") || blockName.Contains("wood")
+				    || blockName.Contains("fence") || blockName.Contains("stem") || blockName.Contains("pumpkin") || blockName.Contains("bookshelf")
+				    || blockName.Contains("chest") || blockName.Contains("door") || blockName.Contains("button") || blockName.Contains("sign")
+				    || blockName.Contains("trapdoor") || blockName.Contains("ladder") || blockName.Contains("barrel") || blockName.Contains("crafting_table")
+				    || blockName.Contains("cartography") || blockName.Contains("fletching") || blockName.Contains("loom") || blockName.Contains("smithing")
+				    || blockName.Contains("storage") || blockName.Contains("beehive") || blockName.Contains("honeycomb") || blockName.Contains("composter")
+				    || blockName.Contains("lectern") || blockName.Contains("shelf") || blockName.Contains("bench") || blockName.Contains("chiseled_bookshelf"))
+				{
+					return tier;
+				}
+			}
+			else if (name.Contains("pickaxe"))
+			{
+				if (blockName.Contains("stone") || blockName.Contains("ore") || blockName.Contains("cobble") || blockName.Contains("deepslate")
+				    || blockName.Contains("andesite") || blockName.Contains("diorite") || blockName.Contains("granite") || blockName.Contains("tuff")
+				    || blockName.Contains("basalt") || blockName.Contains("blackstone") || blockName.Contains("netherrack") || blockName.Contains("quartz")
+				    || blockName.Contains("obsidian") || blockName.Contains("terracotta") || blockName.Contains("concrete") || blockName.Contains("brick")
+				    || blockName.Contains("purpur") || blockName.Contains("prismarine") || blockName.Contains("end_stone") || blockName.Contains("glass")
+				    || blockName.Contains("dripstone") || blockName.Contains("amethyst") || blockName.Contains("copper") || blockName.Contains("diamond")
+				    || blockName.Contains("emerald") || blockName.Contains("lapis") || blockName.Contains("redstone") || blockName.Contains("netherite")
+				    || blockName.Contains("anvil") || blockName.Contains("conduit") || blockName.Contains("crying_obsidian") || blockName.Contains("smoker")
+				    || blockName.Contains("blast_furnace") || blockName.Contains("furnace") || blockName.Contains("cauldron"))
+				{
+					return tier;
+				}
+			}
+			else if (name.Contains("shovel"))
+			{
+				if (blockName.Contains("dirt") || blockName.Contains("grass") || blockName.Contains("sand") || blockName.Contains("gravel")
+				    || blockName.Contains("snow") || blockName.Contains("clay") || blockName.Contains("podzol") || blockName.Contains("mud")
+				    || blockName.Contains("mycelium") || blockName.Contains("soul_sand") || blockName.Contains("soul_soil") || blockName.Contains("farmland"))
+				{
+					return tier;
+				}
+			}
+			else if (name.Contains("hoe"))
+			{
+				if (blockName.Contains("hay") || blockName.Contains("target") || blockName.Contains("sponge") || blockName.Contains("wart") || blockName.Contains("shroomlight"))
+				{
+					return tier;
+				}
+			}
+			else if (name.Contains("sword"))
+			{
+				if (blockName.Contains("cobweb") || blockName.Contains("bamboo") || blockName.Contains("melon") || blockName.Contains("pumpkin") || blockName.Contains("cake"))
+				{
+					return tier;
+				}
+			}
+
+			return 1;
+		}
+
+		/// <summary>
 		///     Handles the player action.
 		/// </summary>
 		/// <param name="message">The message.</param>
@@ -630,9 +708,8 @@ namespace MiNET
 						Block target = Level.GetBlock(message.coordinates);
 						if (target.IsUnbreakable) break;
 
-						var drops = target.GetDrops(Inventory.GetItemInHand());
-						float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
-						double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
+						double toolSpeed = GetMiningSpeed(Inventory.GetItemInHand(), target);
+						double breakTime = Math.Max(1, Math.Ceiling(target.Hardness * 20 / toolSpeed));
 
 						McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
 						breakEvent.eventId = 3600;
@@ -2615,9 +2692,8 @@ namespace MiNET
 								// negative break time and read to the client as instant.
 								if (!target.IsUnbreakable)
 								{
-									var drops = target.GetDrops(Inventory.GetItemInHand());
-									float tooltypeFactor = drops == null || drops.Length == 0 ? 5f : 1.5f; // 1.5 if proper tool
-									double breakTime = Math.Ceiling(target.Hardness * tooltypeFactor * 20);
+									double toolSpeed = GetMiningSpeed(Inventory.GetItemInHand(), target);
+									double breakTime = Math.Max(1, Math.Ceiling(target.Hardness * 20 / toolSpeed));
 
 									McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
 									breakEvent.eventId = 3600;

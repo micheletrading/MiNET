@@ -1561,6 +1561,11 @@ namespace MiNET.Worlds
 
 			if (AutoSmelt) drop = drop.GetSmelt() ?? drop;
 
+			// A dropped item is not an inventory stack: the item instance on the AddItemActor
+			// wire carries no stack net id, and a spurious one (Item.UniqueId defaults to
+			// Environment.TickCount) crashes the client when it decodes the entity.
+			drop.UniqueId = 0;
+
 			Random random = new Random();
 			var itemEntity = new ItemEntity(this, drop)
 			{
