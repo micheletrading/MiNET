@@ -85,15 +85,19 @@ namespace MiNET.Items
 		///     The same facing as <see cref="GetFacingDirectionFromEntity" />, as the string the
 		///     minecraft:cardinal_direction state takes. Chests, furnaces and the rest moved to that
 		///     state at flattening; the facing they compute has not changed, only how it is written.
+		///     The front of the block faces the player who placed it, which is why this is not the
+		///     identity: the value is one step round from what <see cref="Entity.GetDirectionEmum" />
+		///     returns, exactly as the facing_direction table above turns West into 2 (north).
 		/// </summary>
 		public static string GetCardinalDirectionFromEntity(Entity entity)
 		{
 			return entity.GetDirectionEmum() switch
 			{
-				Entity.Direction.West => "west",
-				Entity.Direction.North => "north",
-				Entity.Direction.East => "east",
-				_ => "south"
+				Entity.Direction.South => "west",
+				Entity.Direction.West => "north",
+				Entity.Direction.North => "east",
+				Entity.Direction.East => "south",
+				_ => throw new ArgumentOutOfRangeException()
 			};
 		}
 
