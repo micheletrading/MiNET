@@ -458,6 +458,27 @@
 				}
 			}
 		},
+		"ItemStackRequest": {
+			"fields": {
+				"Actions": {
+					"variantConstIsByte": true,
+					"name": "actions",
+					"reason": "Each action repeats its tag as a byte right after the varint tag. CloudburstMC's readRequestActionData at v2168 opens with byteBuf.readByte() before switching on the type it was handed, and the hand-written codec wrote WriteUnsignedVarInt(tag) then Write((byte) tag). Not the same as SetScore, where the const is the name spelled out, which is why this is per field and not a rule."
+				}
+			}
+		},
+		"InventoryTransactionPacket": {
+			"fields": {
+				"Legacy Request ID": {
+					"name": "legacyRequestId"
+				},
+				"Transaction": {
+					"variantPayloadGate": true,
+					"name": "transaction",
+					"reason": "The schema shows one required oneOf, but the engine keeps mTransactionType and mTransactionData as two separate optionals and the docs collapse them, so the wire is presence, tag, presence, payload. Measured from the hand-written codec that a real 1.26.40 client accepts: an item-use place encodes as 1e 00 00 01 02 01 00 ..., where the 01 either side of the type byte are those two presence bytes. The hand codec called them dummy optional bools."
+				}
+			}
+		},
 		"SetScorePacket": {
 			"fields": {
 				"Score Info": {

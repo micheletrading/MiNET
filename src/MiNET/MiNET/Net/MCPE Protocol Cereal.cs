@@ -211,7 +211,8 @@ namespace MiNET.Net
 
 			BeforeDecode();
 
-			response = ReadUnsignedVarInt() switch
+			uint responseTag = ReadUnsignedVarInt();
+			response = responseTag switch
 			{
 				0 => ReadResourcePackClientResponseCancel(),
 				1 => ReadResourcePackClientResponseDownloading(),
@@ -779,6 +780,113 @@ namespace MiNET.Net
 			ridingRuntimeEntityId=default(long);
 			teleportData=default(MovePlayerTeleportData);
 			tick=default(long);
+		}
+
+	}
+
+	public partial class McpeInventoryTransaction : Packet<McpeInventoryTransaction>
+	{
+
+		public int legacyRequestId; // = null;
+		public List<LegacySetSlot> legacySetItemSlots; // = null;
+		public TransactionBase transaction; // = null;
+
+		public McpeInventoryTransaction()
+		{
+			Id = 0x1e;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteSignedVarInt(legacyRequestId);
+			Write(legacySetItemSlots != null);
+			if (legacySetItemSlots != null)
+			{
+				WriteUnsignedVarInt((uint) legacySetItemSlots.Count);
+				foreach (LegacySetSlot item in legacySetItemSlots) Write(item);
+			}
+			Write(transaction != null);
+			switch (transaction)
+			{
+				case NormalTransactionData v0:
+					WriteUnsignedVarInt(0);
+					Write(true);
+					Write(v0);
+					break;
+				case InventoryMismatchData v1:
+					WriteUnsignedVarInt(1);
+					Write(true);
+					Write(v1);
+					break;
+				case ItemUseInventoryTransaction v2:
+					WriteUnsignedVarInt(2);
+					Write(true);
+					Write(v2);
+					break;
+				case ItemUseOnActorInventoryTransaction v3:
+					WriteUnsignedVarInt(3);
+					Write(true);
+					Write(v3);
+					break;
+				case ItemReleaseInventoryTransaction v4:
+					WriteUnsignedVarInt(4);
+					Write(true);
+					Write(v4);
+					break;
+				default:
+					throw new Exception($"transaction variant not set or unknown: {transaction}");
+			}
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			legacyRequestId = ReadSignedVarInt();
+			if (ReadBool())
+			{
+				uint legacySetItemSlotsCount = ReadUnsignedVarInt();
+				legacySetItemSlots = new List<LegacySetSlot>((int) legacySetItemSlotsCount);
+				for (int i = 0; i < legacySetItemSlotsCount; i++) legacySetItemSlots.Add(ReadLegacySetSlot());
+			}
+			ReadBool(); // discriminator presence
+			uint transactionTag = ReadUnsignedVarInt();
+			ReadBool(); // payload presence
+			transaction = transactionTag switch
+			{
+				0 => ReadNormalTransactionData(),
+				1 => ReadInventoryMismatchData(),
+				2 => ReadItemUseInventoryTransaction(),
+				3 => ReadItemUseOnActorInventoryTransaction(),
+				4 => ReadItemReleaseInventoryTransaction(),
+				uint other => throw new Exception($"Unknown transaction variant tag {other}"),
+			};
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			legacyRequestId=default(int);
+			legacySetItemSlots=default(List<LegacySetSlot>);
+			transaction=default(TransactionBase);
 		}
 
 	}
@@ -1987,6 +2095,57 @@ namespace MiNET.Net
 
 	}
 
+	public partial class McpeItemStackRequest : Packet<McpeItemStackRequest>
+	{
+
+		public List<ItemStackRequest> requests; // = null;
+
+		public McpeItemStackRequest()
+		{
+			Id = 0x93;
+			IsMcpe = true;
+		}
+
+		protected override void EncodePacket()
+		{
+			base.EncodePacket();
+
+			BeforeEncode();
+
+			WriteUnsignedVarInt((uint) (requests?.Count ?? 0));
+			if (requests != null) foreach (ItemStackRequest item in requests) Write(item);
+
+			AfterEncode();
+		}
+
+		partial void BeforeEncode();
+		partial void AfterEncode();
+
+		protected override void DecodePacket()
+		{
+			base.DecodePacket();
+
+			BeforeDecode();
+
+			uint requestsCount = ReadUnsignedVarInt();
+			requests = new List<ItemStackRequest>((int) requestsCount);
+			for (int i = 0; i < requestsCount; i++) requests.Add(ReadItemStackRequest());
+
+			AfterDecode();
+		}
+
+		partial void BeforeDecode();
+		partial void AfterDecode();
+
+		protected override void ResetPacket()
+		{
+			base.ResetPacket();
+
+			requests=default(List<ItemStackRequest>);
+		}
+
+	}
+
 	public partial class McpeItemStackResponse : Packet<McpeItemStackResponse>
 	{
 
@@ -2339,7 +2498,8 @@ namespace MiNET.Net
 
 			targetId = ReadSignedVarLong();
 			propertyIndex = ReadUnsignedVarInt();
-			update = ReadUnsignedVarInt() switch
+			uint updateTag = ReadUnsignedVarInt();
+			update = updateTag switch
 			{
 				0 => ReadClearOverride(),
 				1 => ReadRemoveOverride(),
@@ -2411,7 +2571,8 @@ namespace MiNET.Net
 			BeforeDecode();
 
 			targetActorId = ReadSignedVarLong();
-			location = ReadUnsignedVarInt() switch
+			uint locationTag = ReadUnsignedVarInt();
+			location = locationTag switch
 			{
 				0 => ReadCoordinatesLocation(),
 				1 => ReadHiddenLocation(),
@@ -2509,7 +2670,8 @@ namespace MiNET.Net
 			for (int slot = 0; slot < 7; slot++)
 			{
 				if (!ReadBool()) continue;
-				clientboundUpdateSoundDataParamBase = ReadUnsignedVarInt() switch
+				uint clientboundUpdateSoundDataParamBaseTag = ReadUnsignedVarInt();
+				clientboundUpdateSoundDataParamBase = clientboundUpdateSoundDataParamBaseTag switch
 				{
 					0 => ReadStop(),
 					1 => ReadSetVolume(),
@@ -2542,6 +2704,14 @@ namespace MiNET.Net
 	{
 	}
 
+	public abstract class ItemDescriptorBase
+	{
+	}
+
+	public abstract class ItemStackRequestBase
+	{
+	}
+
 	public abstract class LocationBase
 	{
 	}
@@ -2555,6 +2725,10 @@ namespace MiNET.Net
 	}
 
 	public abstract class ScoreInfoElementBase
+	{
+	}
+
+	public abstract class TransactionBase
 	{
 	}
 
@@ -2665,6 +2839,10 @@ namespace MiNET.Net
 	{
 		public string buttonName;
 		public string linkUri;
+	}
+
+	public class EmptyItemDescriptor : ItemDescriptorBase
+	{
 	}
 
 	public class EntityDiagnosticTimingInfo
@@ -2791,6 +2969,215 @@ namespace MiNET.Net
 		public int value;
 	}
 
+	public class InventoryAction
+	{
+		public InventorySource source;
+		public uint slot;
+		public Item fromItem;
+		public Item toItem;
+	}
+
+	public class InventoryMismatchData : TransactionBase
+	{
+		public List<InventoryAction> actions;
+	}
+
+	public class InventorySource
+	{
+		public enum InventorySourceType
+		{
+			ContainerInventory = 0,
+			GlobalInventory = 1,
+			WorldInteraction = 2,
+			CreativeInventory = 3,
+			NonImplementedFeatureTodo = 4,
+		}
+
+		public enum InventorySourceFlags
+		{
+			NoFlag = 0,
+			WorldInteractionRandom = 1,
+		}
+
+		public InventorySource.InventorySourceType sourceType;
+		public sbyte? containerId;
+		public InventorySource.InventorySourceFlags? bitFlags;
+	}
+
+	public class ItemNameDescriptor : ItemDescriptorBase
+	{
+		public string fullName;
+		public int auxValue;
+	}
+
+	public class ItemReleaseInventoryTransaction : TransactionBase
+	{
+		public enum ItemReleaseActionType
+		{
+			Release = 0,
+			Use = 1,
+		}
+
+		public List<InventoryAction> actions;
+		public ItemReleaseInventoryTransaction.ItemReleaseActionType actionType;
+		public int slot;
+		public Item item;
+		public Vector3 fromPosition;
+	}
+
+	public class ItemStackRequest
+	{
+		public enum TextProcessingEventOrigin
+		{
+			Unknown = 0,
+			Serverchatpublic = 1,
+			Serverchatwhisper = 2,
+			Signtext = 3,
+			Anviltext = 4,
+			Bookandquilltext = 5,
+			Commandblocktext = 6,
+			Blockactordatatext = 7,
+			Joineventtext = 8,
+			Leaveeventtext = 9,
+			Slashcommandchat = 10,
+			Cartographytext = 11,
+			Kickcommand = 12,
+			Titlecommand = 13,
+			Summoncommand = 14,
+			Serverform = 15,
+			Datadrivenui = 16,
+		}
+
+		public int clientRequestId;
+		public List<ItemStackRequestBase> actions;
+		public List<string> stringsToFilter;
+		public ItemStackRequest.TextProcessingEventOrigin stringstofilterorigin;
+	}
+
+	public class ItemStackRequestBeaconPaymentAction : ItemStackRequestBase
+	{
+		public int primaryEffectId;
+		public int secondaryEffectId;
+	}
+
+	public class ItemStackRequestConsumeAction : ItemStackRequestBase
+	{
+		public byte amount;
+		public ItemStackRequestSlotInfo source;
+	}
+
+	public class ItemStackRequestCraftCreativeAction : ItemStackRequestBase
+	{
+		public uint creativeItemNetId;
+		public byte numberOfRequestedCrafts;
+	}
+
+	public class ItemStackRequestCraftLoomAction : ItemStackRequestBase
+	{
+		public string patternNameId;
+		public byte numCrafts;
+	}
+
+	public class ItemStackRequestCraftNonImplementedDeprecatedAction : ItemStackRequestBase
+	{
+	}
+
+	public class ItemStackRequestCraftRecipeAction : ItemStackRequestBase
+	{
+		public uint recipeNetId;
+		public byte numberOfRequestedCrafts;
+	}
+
+	public class ItemStackRequestCraftRecipeAutoAction : ItemStackRequestBase
+	{
+		public uint recipeNetId;
+		public byte numberOfRequestedCrafts;
+		public List<Item> ingredients;
+	}
+
+	public class ItemStackRequestCraftRecipeOptionalAction : ItemStackRequestBase
+	{
+		public uint recipeNetId;
+		public int filteredStringIndex;
+	}
+
+	public class ItemStackRequestCraftRepairAndDisenchantAction : ItemStackRequestBase
+	{
+		public int recipeNetId;
+		public byte numberOfRequestedCrafts;
+		public int repairCost;
+	}
+
+	public class ItemStackRequestCraftResultsDeprecatedAction : ItemStackRequestBase
+	{
+		public List<ItemStackRequestNetworkItemInstanceDescriptor> craftResults;
+		public byte numCrafts;
+	}
+
+	public class ItemStackRequestCreateAction : ItemStackRequestBase
+	{
+		public byte resultsIndex;
+	}
+
+	public class ItemStackRequestDestroyAction : ItemStackRequestBase
+	{
+		public byte amount;
+		public ItemStackRequestSlotInfo source;
+	}
+
+	public class ItemStackRequestDropAction : ItemStackRequestBase
+	{
+		public byte amount;
+		public ItemStackRequestSlotInfo source;
+		public bool randomly;
+	}
+
+	public class ItemStackRequestLabTableCombineAction : ItemStackRequestBase
+	{
+	}
+
+	public class ItemStackRequestMineBlockAction : ItemStackRequestBase
+	{
+		public int slot;
+		public int predictedDurability;
+		public int netIdVariant;
+	}
+
+	public class ItemStackRequestNetworkItemInstanceDescriptor
+	{
+		public ItemDescriptorBase itemDescriptor;
+		public ushort stackSize;
+		public uint blockRuntimeId;
+		public string userDataBuffer;
+	}
+
+	public class ItemStackRequestPlaceAction : ItemStackRequestBase
+	{
+		public byte amount;
+		public ItemStackRequestSlotInfo source;
+		public ItemStackRequestSlotInfo destination;
+	}
+
+	public class ItemStackRequestSlotInfo
+	{
+		public FullContainerName fullContainerName;
+		public byte slot;
+		public int netIdVariant;
+	}
+
+	public class ItemStackRequestSwapAction : ItemStackRequestBase
+	{
+		public ItemStackRequestSlotInfo source;
+		public ItemStackRequestSlotInfo destination;
+	}
+
+	public class ItemStackRequestTakeAction : ItemStackRequestBase
+	{
+		public byte amount;
+		public ItemStackRequestSlotInfo source;
+		public ItemStackRequestSlotInfo destination;
+	}
+
 	public class ItemStackResponseContainerInfo
 	{
 		public FullContainerName fullContainerName;
@@ -2884,6 +3271,149 @@ namespace MiNET.Net
 		public int? itemStackNetId;
 		public BedrockSafetyRedactableString customName;
 		public int durabilityCorrection;
+	}
+
+	public class ItemTagDescriptor : ItemDescriptorBase
+	{
+		public string itemTag;
+	}
+
+	public class ItemUseInventoryTransaction : TransactionBase
+	{
+		public enum ItemUseActionType
+		{
+			Place = 0,
+			Use = 1,
+			Destroy = 2,
+			UseAsAttack = 3,
+		}
+
+		public enum ItemUseTriggerType
+		{
+			Unknown = 0,
+			PlayerInput = 1,
+			SimulationTick = 2,
+		}
+
+		public enum ItemUsePredictedResult
+		{
+			Failure = 0,
+			Success = 1,
+		}
+
+		public enum ItemUseClientCooldownState
+		{
+			Off = 0,
+			On = 1,
+		}
+
+		public List<InventoryAction> actions;
+		public ItemUseInventoryTransaction.ItemUseActionType actionType;
+		public ItemUseInventoryTransaction.ItemUseTriggerType triggerType;
+		public BlockCoordinates position;
+		public byte face;
+		public int slot;
+		public Item item;
+		public Vector3 fromPosition;
+		public Vector3 clickPosition;
+		public uint targetBlockId;
+		public ItemUseInventoryTransaction.ItemUsePredictedResult clientInteractPrediction;
+		public ItemUseInventoryTransaction.ItemUseClientCooldownState clientCooldownState;
+	}
+
+	public class ItemUseOnActorInventoryTransaction : TransactionBase
+	{
+		public enum ItemUseOnActorActionType
+		{
+			Interact = 0,
+			Attack = 1,
+			ItemInteract = 2,
+		}
+
+		public List<InventoryAction> actions;
+		public long runtimeId;
+		public ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType actionType;
+		public int slot;
+		public Item item;
+		public Vector3 fromPosition;
+		public Vector3 hitPosition;
+	}
+
+	public class LegacySetSlot
+	{
+		public enum ContainerEnumName
+		{
+			Anvilinputcontainer = 0,
+			Anvilmaterialcontainer = 1,
+			Anvilresultpreviewcontainer = 2,
+			Smithingtableinputcontainer = 3,
+			Smithingtablematerialcontainer = 4,
+			Smithingtableresultpreviewcontainer = 5,
+			Armorcontainer = 6,
+			Levelentitycontainer = 7,
+			Beaconpaymentcontainer = 8,
+			Brewingstandinputcontainer = 9,
+			Brewingstandresultcontainer = 10,
+			Brewingstandfuelcontainer = 11,
+			Combinedhotbarandinventorycontainer = 12,
+			Craftinginputcontainer = 13,
+			Craftingoutputpreviewcontainer = 14,
+			Recipeconstructioncontainer = 15,
+			Recipenaturecontainer = 16,
+			Recipeitemscontainer = 17,
+			Recipefoodcontainer = 18,
+			Recipeblockscontainer = 19,
+			Recipefurnaceitemscontainer = 20,
+			Recipesearchcontainer = 21,
+			Recipesearchbarcontainer = 22,
+			Recipeequipmentcontainer = 23,
+			Recipebookcontainer = 24,
+			Enchantinginputcontainer = 25,
+			Enchantingmaterialcontainer = 26,
+			Furnacefuelcontainer = 27,
+			Furnaceingredientcontainer = 28,
+			Furnaceresultcontainer = 29,
+			Horseequipcontainer = 30,
+			Hotbarcontainer = 31,
+			Inventorycontainer = 32,
+			Shulkerboxcontainer = 33,
+			Tradeingredient1container = 34,
+			Tradeingredient2container = 35,
+			Traderesultpreviewcontainer = 36,
+			Offhandcontainer = 37,
+			Compoundcreatorinput = 38,
+			Compoundcreatoroutputpreview = 39,
+			Elementconstructoroutputpreview = 40,
+			Materialreducerinput = 41,
+			Materialreduceroutput = 42,
+			Labtableinput = 43,
+			Loominputcontainer = 44,
+			Loomdyecontainer = 45,
+			Loommaterialcontainer = 46,
+			Loomresultpreviewcontainer = 47,
+			Blastfurnaceingredientcontainer = 48,
+			Smokeringredientcontainer = 49,
+			Trade2ingredient1container = 50,
+			Trade2ingredient2container = 51,
+			Trade2resultpreviewcontainer = 52,
+			Grindstoneinputcontainer = 53,
+			Grindstoneadditionalcontainer = 54,
+			Grindstoneresultpreviewcontainer = 55,
+			Stonecutterinputcontainer = 56,
+			Stonecutterresultpreviewcontainer = 57,
+			Cartographyinputcontainer = 58,
+			Cartographyadditionalcontainer = 59,
+			Cartographyresultpreviewcontainer = 60,
+			Barrelcontainer = 61,
+			Cursorcontainer = 62,
+			Createdoutputcontainer = 63,
+			Smithingtabletemplatecontainer = 64,
+			Crafterlevelentitycontainer = 65,
+			Dynamiccontainer = 66,
+		}
+
+		public LegacySetSlot.ContainerEnumName containerEnum;
+		public List<byte> slots;
 	}
 
 	public class LevelSettings
@@ -3203,6 +3733,33 @@ namespace MiNET.Net
 		public ulong currentBytes;
 	}
 
+	public class MolangItemDescriptor : ItemDescriptorBase
+	{
+		public enum MolangVersion
+		{
+			Invalid = 0,
+			Beforeversioning = 1,
+			Initial = 2,
+			Fixeditemremainingusedurationquery = 3,
+			Expressionerrormessages = 4,
+			Unexpectedoperatorerrors = 5,
+			Conditionaloperatorassociativity = 6,
+			Comparisonandlogicaloperatorprecedence = 7,
+			Dividebynegativevalue = 8,
+			Fixedcapeflapamountquery = 9,
+			Queryblockpropertyrenamedtostate = 10,
+			Deprecateoldblockquerynames = 11,
+			Deprecatedsnifferandcamelqueries = 12,
+			Leafsupportinginfirstsolidblockbelow = 13,
+			Numvalidversions = 14,
+			Latest = 15,
+			Hardcodedmolang = 16,
+		}
+
+		public string tagExpression;
+		public MolangItemDescriptor.MolangVersion molangVersion;
+	}
+
 	public class MoveActorDeltaData
 	{
 		public long runtimeEntityId;
@@ -3222,6 +3779,11 @@ namespace MiNET.Net
 	{
 		public int teleportationCause;
 		public int sourceActorType;
+	}
+
+	public class NormalTransactionData : TransactionBase
+	{
+		public List<InventoryAction> actions;
 	}
 
 	public class PackIdVersion
@@ -3743,6 +4305,18 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(EmptyItemDescriptor data)
+		{
+			Write("empty");
+		}
+
+		public EmptyItemDescriptor ReadEmptyItemDescriptor()
+		{
+			var data = new EmptyItemDescriptor();
+			ReadString();
+			return data;
+		}
+
 		public void Write(EntityDiagnosticTimingInfo data)
 		{
 			Write(data.displayName);
@@ -3861,6 +4435,561 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(InventoryAction data)
+		{
+			Write(data.source ?? new InventorySource());
+			WriteUnsignedVarInt(data.slot);
+			WriteNetworkItemStackDescriptor(data.fromItem);
+			WriteNetworkItemStackDescriptor(data.toItem);
+		}
+
+		public InventoryAction ReadInventoryAction()
+		{
+			var data = new InventoryAction();
+			data.source = ReadInventorySource();
+			data.slot = ReadUnsignedVarInt();
+			data.fromItem = ReadNetworkItemStackDescriptor();
+			data.toItem = ReadNetworkItemStackDescriptor();
+			return data;
+		}
+
+		public void Write(InventoryMismatchData data)
+		{
+			WriteUnsignedVarInt((uint) (data.actions?.Count ?? 0));
+			if (data.actions != null) foreach (InventoryAction item in data.actions) Write(item);
+		}
+
+		public InventoryMismatchData ReadInventoryMismatchData()
+		{
+			var data = new InventoryMismatchData();
+			uint actionsCount = ReadUnsignedVarInt();
+			data.actions = new List<InventoryAction>((int) actionsCount);
+			for (int i = 0; i < actionsCount; i++) data.actions.Add(ReadInventoryAction());
+			return data;
+		}
+
+		public void Write(InventorySource data)
+		{
+			WriteUnsignedVarInt((uint) data.sourceType);
+			Write(data.containerId != null);
+			if (data.containerId != null) Write((byte) data.containerId.Value);
+			Write(data.bitFlags != null);
+			if (data.bitFlags != null) WriteUnsignedVarInt((uint) data.bitFlags.Value);
+		}
+
+		public InventorySource ReadInventorySource()
+		{
+			var data = new InventorySource();
+			data.sourceType = (InventorySource.InventorySourceType) ReadUnsignedVarInt();
+			if (ReadBool()) data.containerId = (sbyte) ReadByte();
+			if (ReadBool()) data.bitFlags = (InventorySource.InventorySourceFlags) ReadUnsignedVarInt();
+			return data;
+		}
+
+		public void Write(ItemNameDescriptor data)
+		{
+			Write("itemname");
+			Write(data.fullName);
+			WriteSignedVarInt(data.auxValue);
+		}
+
+		public ItemNameDescriptor ReadItemNameDescriptor()
+		{
+			var data = new ItemNameDescriptor();
+			ReadString();
+			data.fullName = ReadString();
+			data.auxValue = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(ItemReleaseInventoryTransaction data)
+		{
+			WriteUnsignedVarInt((uint) (data.actions?.Count ?? 0));
+			if (data.actions != null) foreach (InventoryAction item in data.actions) Write(item);
+			WriteSignedVarInt((int) data.actionType);
+			WriteSignedVarInt(data.slot);
+			WriteNetworkItemStackDescriptor(data.item);
+			Write(data.fromPosition);
+		}
+
+		public ItemReleaseInventoryTransaction ReadItemReleaseInventoryTransaction()
+		{
+			var data = new ItemReleaseInventoryTransaction();
+			uint actionsCount = ReadUnsignedVarInt();
+			data.actions = new List<InventoryAction>((int) actionsCount);
+			for (int i = 0; i < actionsCount; i++) data.actions.Add(ReadInventoryAction());
+			data.actionType = (ItemReleaseInventoryTransaction.ItemReleaseActionType) ReadSignedVarInt();
+			data.slot = ReadSignedVarInt();
+			data.item = ReadNetworkItemStackDescriptor();
+			data.fromPosition = ReadVector3();
+			return data;
+		}
+
+		public void Write(ItemStackRequest data)
+		{
+			WriteSignedVarInt(data.clientRequestId);
+			if (data.actions != null)
+			{
+				WriteUnsignedVarInt((uint) data.actions.Count);
+				foreach (ItemStackRequestBase item in data.actions)
+				{
+					switch (item)
+					{
+						case ItemStackRequestTakeAction v0:
+							WriteUnsignedVarInt(0);
+							Write(v0);
+							break;
+						case ItemStackRequestPlaceAction v1:
+							WriteUnsignedVarInt(1);
+							Write(v1);
+							break;
+						case ItemStackRequestSwapAction v2:
+							WriteUnsignedVarInt(2);
+							Write(v2);
+							break;
+						case ItemStackRequestDropAction v3:
+							WriteUnsignedVarInt(3);
+							Write(v3);
+							break;
+						case ItemStackRequestDestroyAction v4:
+							WriteUnsignedVarInt(4);
+							Write(v4);
+							break;
+						case ItemStackRequestConsumeAction v5:
+							WriteUnsignedVarInt(5);
+							Write(v5);
+							break;
+						case ItemStackRequestCreateAction v6:
+							WriteUnsignedVarInt(6);
+							Write(v6);
+							break;
+						case ItemStackRequestLabTableCombineAction v7:
+							WriteUnsignedVarInt(7);
+							Write(v7);
+							break;
+						case ItemStackRequestBeaconPaymentAction v8:
+							WriteUnsignedVarInt(8);
+							Write(v8);
+							break;
+						case ItemStackRequestMineBlockAction v9:
+							WriteUnsignedVarInt(9);
+							Write(v9);
+							break;
+						case ItemStackRequestCraftRecipeAction v10:
+							WriteUnsignedVarInt(10);
+							Write(v10);
+							break;
+						case ItemStackRequestCraftRecipeAutoAction v11:
+							WriteUnsignedVarInt(11);
+							Write(v11);
+							break;
+						case ItemStackRequestCraftCreativeAction v12:
+							WriteUnsignedVarInt(12);
+							Write(v12);
+							break;
+						case ItemStackRequestCraftRecipeOptionalAction v13:
+							WriteUnsignedVarInt(13);
+							Write(v13);
+							break;
+						case ItemStackRequestCraftRepairAndDisenchantAction v14:
+							WriteUnsignedVarInt(14);
+							Write(v14);
+							break;
+						case ItemStackRequestCraftLoomAction v15:
+							WriteUnsignedVarInt(15);
+							Write(v15);
+							break;
+						case ItemStackRequestCraftNonImplementedDeprecatedAction v16:
+							WriteUnsignedVarInt(16);
+							Write(v16);
+							break;
+						case ItemStackRequestCraftResultsDeprecatedAction v17:
+							WriteUnsignedVarInt(17);
+							Write(v17);
+							break;
+						default:
+							throw new Exception($"actions element variant not set or unknown: {item}");
+					}
+				}
+			}
+			else WriteUnsignedVarInt(0);
+			WriteUnsignedVarInt((uint) (data.stringsToFilter?.Count ?? 0));
+			if (data.stringsToFilter != null) foreach (string item in data.stringsToFilter) Write(item);
+			Write((int) data.stringstofilterorigin);
+		}
+
+		public ItemStackRequest ReadItemStackRequest()
+		{
+			var data = new ItemStackRequest();
+			data.clientRequestId = ReadSignedVarInt();
+			uint actionsCount = ReadUnsignedVarInt();
+			data.actions = new List<ItemStackRequestBase>((int) actionsCount);
+			for (int i = 0; i < actionsCount; i++) data.actions.Add(ReadUnsignedVarInt() switch { 0 => ReadItemStackRequestTakeAction(), 1 => ReadItemStackRequestPlaceAction(), 2 => ReadItemStackRequestSwapAction(), 3 => ReadItemStackRequestDropAction(), 4 => ReadItemStackRequestDestroyAction(), 5 => ReadItemStackRequestConsumeAction(), 6 => ReadItemStackRequestCreateAction(), 7 => ReadItemStackRequestLabTableCombineAction(), 8 => ReadItemStackRequestBeaconPaymentAction(), 9 => ReadItemStackRequestMineBlockAction(), 10 => ReadItemStackRequestCraftRecipeAction(), 11 => ReadItemStackRequestCraftRecipeAutoAction(), 12 => ReadItemStackRequestCraftCreativeAction(), 13 => ReadItemStackRequestCraftRecipeOptionalAction(), 14 => ReadItemStackRequestCraftRepairAndDisenchantAction(), 15 => ReadItemStackRequestCraftLoomAction(), 16 => ReadItemStackRequestCraftNonImplementedDeprecatedAction(), 17 => ReadItemStackRequestCraftResultsDeprecatedAction(), uint other => throw new Exception($"Unknown item variant tag {other}") });
+			uint stringsToFilterCount = ReadUnsignedVarInt();
+			data.stringsToFilter = new List<string>((int) stringsToFilterCount);
+			for (int i = 0; i < stringsToFilterCount; i++) data.stringsToFilter.Add(ReadString());
+			data.stringstofilterorigin = (ItemStackRequest.TextProcessingEventOrigin) ReadInt();
+			return data;
+		}
+
+		public void Write(ItemStackRequestBeaconPaymentAction data)
+		{
+			Write((byte) 8);
+			WriteSignedVarInt(data.primaryEffectId);
+			WriteSignedVarInt(data.secondaryEffectId);
+		}
+
+		public ItemStackRequestBeaconPaymentAction ReadItemStackRequestBeaconPaymentAction()
+		{
+			var data = new ItemStackRequestBeaconPaymentAction();
+			ReadByte();
+			data.primaryEffectId = ReadSignedVarInt();
+			data.secondaryEffectId = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(ItemStackRequestConsumeAction data)
+		{
+			Write((byte) 5);
+			Write(data.amount);
+			Write(data.source ?? new ItemStackRequestSlotInfo());
+		}
+
+		public ItemStackRequestConsumeAction ReadItemStackRequestConsumeAction()
+		{
+			var data = new ItemStackRequestConsumeAction();
+			ReadByte();
+			data.amount = ReadByte();
+			data.source = ReadItemStackRequestSlotInfo();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftCreativeAction data)
+		{
+			Write((byte) 12);
+			WriteUnsignedVarInt(data.creativeItemNetId);
+			Write(data.numberOfRequestedCrafts);
+		}
+
+		public ItemStackRequestCraftCreativeAction ReadItemStackRequestCraftCreativeAction()
+		{
+			var data = new ItemStackRequestCraftCreativeAction();
+			ReadByte();
+			data.creativeItemNetId = ReadUnsignedVarInt();
+			data.numberOfRequestedCrafts = ReadByte();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftLoomAction data)
+		{
+			Write((byte) 15);
+			Write(data.patternNameId);
+			Write(data.numCrafts);
+		}
+
+		public ItemStackRequestCraftLoomAction ReadItemStackRequestCraftLoomAction()
+		{
+			var data = new ItemStackRequestCraftLoomAction();
+			ReadByte();
+			data.patternNameId = ReadString();
+			data.numCrafts = ReadByte();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftNonImplementedDeprecatedAction data)
+		{
+			Write((byte) 16);
+		}
+
+		public ItemStackRequestCraftNonImplementedDeprecatedAction ReadItemStackRequestCraftNonImplementedDeprecatedAction()
+		{
+			var data = new ItemStackRequestCraftNonImplementedDeprecatedAction();
+			ReadByte();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftRecipeAction data)
+		{
+			Write((byte) 10);
+			WriteUnsignedVarInt(data.recipeNetId);
+			Write(data.numberOfRequestedCrafts);
+		}
+
+		public ItemStackRequestCraftRecipeAction ReadItemStackRequestCraftRecipeAction()
+		{
+			var data = new ItemStackRequestCraftRecipeAction();
+			ReadByte();
+			data.recipeNetId = ReadUnsignedVarInt();
+			data.numberOfRequestedCrafts = ReadByte();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftRecipeAutoAction data)
+		{
+			Write((byte) 11);
+			WriteUnsignedVarInt(data.recipeNetId);
+			Write(data.numberOfRequestedCrafts);
+			WriteUnsignedVarInt((uint) (data.ingredients?.Count ?? 0));
+			if (data.ingredients != null) foreach (Item item in data.ingredients) WriteRecipeIngredient(item);
+		}
+
+		public ItemStackRequestCraftRecipeAutoAction ReadItemStackRequestCraftRecipeAutoAction()
+		{
+			var data = new ItemStackRequestCraftRecipeAutoAction();
+			ReadByte();
+			data.recipeNetId = ReadUnsignedVarInt();
+			data.numberOfRequestedCrafts = ReadByte();
+			uint ingredientsCount = ReadUnsignedVarInt();
+			data.ingredients = new List<Item>((int) ingredientsCount);
+			for (int i = 0; i < ingredientsCount; i++) data.ingredients.Add(ReadRecipeIngredient());
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftRecipeOptionalAction data)
+		{
+			Write((byte) 13);
+			WriteUnsignedVarInt(data.recipeNetId);
+			Write(data.filteredStringIndex);
+		}
+
+		public ItemStackRequestCraftRecipeOptionalAction ReadItemStackRequestCraftRecipeOptionalAction()
+		{
+			var data = new ItemStackRequestCraftRecipeOptionalAction();
+			ReadByte();
+			data.recipeNetId = ReadUnsignedVarInt();
+			data.filteredStringIndex = ReadInt();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftRepairAndDisenchantAction data)
+		{
+			Write((byte) 14);
+			WriteSignedVarInt(data.recipeNetId);
+			Write(data.numberOfRequestedCrafts);
+			WriteSignedVarInt(data.repairCost);
+		}
+
+		public ItemStackRequestCraftRepairAndDisenchantAction ReadItemStackRequestCraftRepairAndDisenchantAction()
+		{
+			var data = new ItemStackRequestCraftRepairAndDisenchantAction();
+			ReadByte();
+			data.recipeNetId = ReadSignedVarInt();
+			data.numberOfRequestedCrafts = ReadByte();
+			data.repairCost = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCraftResultsDeprecatedAction data)
+		{
+			Write((byte) 17);
+			WriteUnsignedVarInt((uint) (data.craftResults?.Count ?? 0));
+			if (data.craftResults != null) foreach (ItemStackRequestNetworkItemInstanceDescriptor item in data.craftResults) Write(item);
+			Write(data.numCrafts);
+		}
+
+		public ItemStackRequestCraftResultsDeprecatedAction ReadItemStackRequestCraftResultsDeprecatedAction()
+		{
+			var data = new ItemStackRequestCraftResultsDeprecatedAction();
+			ReadByte();
+			uint craftResultsCount = ReadUnsignedVarInt();
+			data.craftResults = new List<ItemStackRequestNetworkItemInstanceDescriptor>((int) craftResultsCount);
+			for (int i = 0; i < craftResultsCount; i++) data.craftResults.Add(ReadItemStackRequestNetworkItemInstanceDescriptor());
+			data.numCrafts = ReadByte();
+			return data;
+		}
+
+		public void Write(ItemStackRequestCreateAction data)
+		{
+			Write((byte) 6);
+			Write(data.resultsIndex);
+		}
+
+		public ItemStackRequestCreateAction ReadItemStackRequestCreateAction()
+		{
+			var data = new ItemStackRequestCreateAction();
+			ReadByte();
+			data.resultsIndex = ReadByte();
+			return data;
+		}
+
+		public void Write(ItemStackRequestDestroyAction data)
+		{
+			Write((byte) 4);
+			Write(data.amount);
+			Write(data.source ?? new ItemStackRequestSlotInfo());
+		}
+
+		public ItemStackRequestDestroyAction ReadItemStackRequestDestroyAction()
+		{
+			var data = new ItemStackRequestDestroyAction();
+			ReadByte();
+			data.amount = ReadByte();
+			data.source = ReadItemStackRequestSlotInfo();
+			return data;
+		}
+
+		public void Write(ItemStackRequestDropAction data)
+		{
+			Write((byte) 3);
+			Write(data.amount);
+			Write(data.source ?? new ItemStackRequestSlotInfo());
+			Write(data.randomly);
+		}
+
+		public ItemStackRequestDropAction ReadItemStackRequestDropAction()
+		{
+			var data = new ItemStackRequestDropAction();
+			ReadByte();
+			data.amount = ReadByte();
+			data.source = ReadItemStackRequestSlotInfo();
+			data.randomly = ReadBool();
+			return data;
+		}
+
+		public void Write(ItemStackRequestLabTableCombineAction data)
+		{
+			Write((byte) 7);
+		}
+
+		public ItemStackRequestLabTableCombineAction ReadItemStackRequestLabTableCombineAction()
+		{
+			var data = new ItemStackRequestLabTableCombineAction();
+			ReadByte();
+			return data;
+		}
+
+		public void Write(ItemStackRequestMineBlockAction data)
+		{
+			Write((byte) 9);
+			WriteSignedVarInt(data.slot);
+			WriteSignedVarInt(data.predictedDurability);
+			WriteSignedVarInt(data.netIdVariant);
+		}
+
+		public ItemStackRequestMineBlockAction ReadItemStackRequestMineBlockAction()
+		{
+			var data = new ItemStackRequestMineBlockAction();
+			ReadByte();
+			data.slot = ReadSignedVarInt();
+			data.predictedDurability = ReadSignedVarInt();
+			data.netIdVariant = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(ItemStackRequestNetworkItemInstanceDescriptor data)
+		{
+			switch (data.itemDescriptor)
+			{
+				case EmptyItemDescriptor v0:
+					WriteUnsignedVarInt(0);
+					Write(v0);
+					break;
+				case ItemNameDescriptor v1:
+					WriteUnsignedVarInt(1);
+					Write(v1);
+					break;
+				case MolangItemDescriptor v2:
+					WriteUnsignedVarInt(2);
+					Write(v2);
+					break;
+				case ItemTagDescriptor v3:
+					WriteUnsignedVarInt(3);
+					Write(v3);
+					break;
+				default:
+					throw new Exception($"itemDescriptor variant not set or unknown: {data.itemDescriptor}");
+			}
+			Write(data.stackSize);
+			WriteUnsignedVarInt(data.blockRuntimeId);
+			Write(data.userDataBuffer);
+		}
+
+		public ItemStackRequestNetworkItemInstanceDescriptor ReadItemStackRequestNetworkItemInstanceDescriptor()
+		{
+			var data = new ItemStackRequestNetworkItemInstanceDescriptor();
+			uint itemDescriptorTag = ReadUnsignedVarInt();
+			data.itemDescriptor = itemDescriptorTag switch
+			{
+				0 => ReadEmptyItemDescriptor(),
+				1 => ReadItemNameDescriptor(),
+				2 => ReadMolangItemDescriptor(),
+				3 => ReadItemTagDescriptor(),
+				uint other => throw new Exception($"Unknown itemDescriptor variant tag {other}"),
+			};
+			data.stackSize = ReadUshort();
+			data.blockRuntimeId = ReadUnsignedVarInt();
+			data.userDataBuffer = ReadString();
+			return data;
+		}
+
+		public void Write(ItemStackRequestPlaceAction data)
+		{
+			Write((byte) 1);
+			Write(data.amount);
+			Write(data.source ?? new ItemStackRequestSlotInfo());
+			Write(data.destination ?? new ItemStackRequestSlotInfo());
+		}
+
+		public ItemStackRequestPlaceAction ReadItemStackRequestPlaceAction()
+		{
+			var data = new ItemStackRequestPlaceAction();
+			ReadByte();
+			data.amount = ReadByte();
+			data.source = ReadItemStackRequestSlotInfo();
+			data.destination = ReadItemStackRequestSlotInfo();
+			return data;
+		}
+
+		public void Write(ItemStackRequestSlotInfo data)
+		{
+			Write(data.fullContainerName ?? new FullContainerName());
+			Write(data.slot);
+			WriteSignedVarInt(data.netIdVariant);
+		}
+
+		public ItemStackRequestSlotInfo ReadItemStackRequestSlotInfo()
+		{
+			var data = new ItemStackRequestSlotInfo();
+			data.fullContainerName = ReadFullContainerName();
+			data.slot = ReadByte();
+			data.netIdVariant = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(ItemStackRequestSwapAction data)
+		{
+			Write((byte) 2);
+			Write(data.source ?? new ItemStackRequestSlotInfo());
+			Write(data.destination ?? new ItemStackRequestSlotInfo());
+		}
+
+		public ItemStackRequestSwapAction ReadItemStackRequestSwapAction()
+		{
+			var data = new ItemStackRequestSwapAction();
+			ReadByte();
+			data.source = ReadItemStackRequestSlotInfo();
+			data.destination = ReadItemStackRequestSlotInfo();
+			return data;
+		}
+
+		public void Write(ItemStackRequestTakeAction data)
+		{
+			Write((byte) 0);
+			Write(data.amount);
+			Write(data.source ?? new ItemStackRequestSlotInfo());
+			Write(data.destination ?? new ItemStackRequestSlotInfo());
+		}
+
+		public ItemStackRequestTakeAction ReadItemStackRequestTakeAction()
+		{
+			var data = new ItemStackRequestTakeAction();
+			ReadByte();
+			data.amount = ReadByte();
+			data.source = ReadItemStackRequestSlotInfo();
+			data.destination = ReadItemStackRequestSlotInfo();
+			return data;
+		}
+
 		public void Write(ItemStackResponseContainerInfo data)
 		{
 			Write(data.fullContainerName ?? new FullContainerName());
@@ -3926,6 +5055,101 @@ namespace MiNET.Net
 			if (ReadBool() && ReadBool()) data.itemStackNetId = ReadSignedVarInt();
 			data.customName = ReadBedrockSafetyRedactableString();
 			data.durabilityCorrection = ReadSignedVarInt();
+			return data;
+		}
+
+		public void Write(ItemTagDescriptor data)
+		{
+			Write("itemtag");
+			Write(data.itemTag);
+		}
+
+		public ItemTagDescriptor ReadItemTagDescriptor()
+		{
+			var data = new ItemTagDescriptor();
+			ReadString();
+			data.itemTag = ReadString();
+			return data;
+		}
+
+		public void Write(ItemUseInventoryTransaction data)
+		{
+			WriteUnsignedVarInt((uint) (data.actions?.Count ?? 0));
+			if (data.actions != null) foreach (InventoryAction item in data.actions) Write(item);
+			WriteSignedVarInt((int) data.actionType);
+			Write((byte) data.triggerType);
+			Write(data.position);
+			Write(data.face);
+			WriteSignedVarInt(data.slot);
+			WriteNetworkItemStackDescriptor(data.item);
+			Write(data.fromPosition);
+			Write(data.clickPosition);
+			WriteUnsignedVarInt(data.targetBlockId);
+			Write((byte) data.clientInteractPrediction);
+			Write((byte) data.clientCooldownState);
+		}
+
+		public ItemUseInventoryTransaction ReadItemUseInventoryTransaction()
+		{
+			var data = new ItemUseInventoryTransaction();
+			uint actionsCount = ReadUnsignedVarInt();
+			data.actions = new List<InventoryAction>((int) actionsCount);
+			for (int i = 0; i < actionsCount; i++) data.actions.Add(ReadInventoryAction());
+			data.actionType = (ItemUseInventoryTransaction.ItemUseActionType) ReadSignedVarInt();
+			data.triggerType = (ItemUseInventoryTransaction.ItemUseTriggerType) ReadByte();
+			data.position = ReadBlockCoordinates();
+			data.face = ReadByte();
+			data.slot = ReadSignedVarInt();
+			data.item = ReadNetworkItemStackDescriptor();
+			data.fromPosition = ReadVector3();
+			data.clickPosition = ReadVector3();
+			data.targetBlockId = ReadUnsignedVarInt();
+			data.clientInteractPrediction = (ItemUseInventoryTransaction.ItemUsePredictedResult) ReadByte();
+			data.clientCooldownState = (ItemUseInventoryTransaction.ItemUseClientCooldownState) ReadByte();
+			return data;
+		}
+
+		public void Write(ItemUseOnActorInventoryTransaction data)
+		{
+			WriteUnsignedVarInt((uint) (data.actions?.Count ?? 0));
+			if (data.actions != null) foreach (InventoryAction item in data.actions) Write(item);
+			WriteUnsignedVarLong(data.runtimeId);
+			WriteSignedVarInt((int) data.actionType);
+			WriteSignedVarInt(data.slot);
+			WriteNetworkItemStackDescriptor(data.item);
+			Write(data.fromPosition);
+			Write(data.hitPosition);
+		}
+
+		public ItemUseOnActorInventoryTransaction ReadItemUseOnActorInventoryTransaction()
+		{
+			var data = new ItemUseOnActorInventoryTransaction();
+			uint actionsCount = ReadUnsignedVarInt();
+			data.actions = new List<InventoryAction>((int) actionsCount);
+			for (int i = 0; i < actionsCount; i++) data.actions.Add(ReadInventoryAction());
+			data.runtimeId = ReadUnsignedVarLong();
+			data.actionType = (ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType) ReadSignedVarInt();
+			data.slot = ReadSignedVarInt();
+			data.item = ReadNetworkItemStackDescriptor();
+			data.fromPosition = ReadVector3();
+			data.hitPosition = ReadVector3();
+			return data;
+		}
+
+		public void Write(LegacySetSlot data)
+		{
+			Write((byte) data.containerEnum);
+			WriteUnsignedVarInt((uint) (data.slots?.Count ?? 0));
+			if (data.slots != null) foreach (byte item in data.slots) Write(item);
+		}
+
+		public LegacySetSlot ReadLegacySetSlot()
+		{
+			var data = new LegacySetSlot();
+			data.containerEnum = (LegacySetSlot.ContainerEnumName) ReadByte();
+			uint slotsCount = ReadUnsignedVarInt();
+			data.slots = new List<byte>((int) slotsCount);
+			for (int i = 0; i < slotsCount; i++) data.slots.Add(ReadByte());
 			return data;
 		}
 
@@ -4094,6 +5318,22 @@ namespace MiNET.Net
 			return data;
 		}
 
+		public void Write(MolangItemDescriptor data)
+		{
+			Write("molang");
+			Write(data.tagExpression);
+			Write((short) data.molangVersion);
+		}
+
+		public MolangItemDescriptor ReadMolangItemDescriptor()
+		{
+			var data = new MolangItemDescriptor();
+			ReadString();
+			data.tagExpression = ReadString();
+			data.molangVersion = (MolangItemDescriptor.MolangVersion) ReadShort();
+			return data;
+		}
+
 		public void Write(MoveActorDeltaData data)
 		{
 			WriteUnsignedVarLong(data.runtimeEntityId);
@@ -4143,6 +5383,21 @@ namespace MiNET.Net
 			var data = new MovePlayerTeleportData();
 			data.teleportationCause = ReadInt();
 			data.sourceActorType = ReadInt();
+			return data;
+		}
+
+		public void Write(NormalTransactionData data)
+		{
+			WriteUnsignedVarInt((uint) (data.actions?.Count ?? 0));
+			if (data.actions != null) foreach (InventoryAction item in data.actions) Write(item);
+		}
+
+		public NormalTransactionData ReadNormalTransactionData()
+		{
+			var data = new NormalTransactionData();
+			uint actionsCount = ReadUnsignedVarInt();
+			data.actions = new List<InventoryAction>((int) actionsCount);
+			for (int i = 0; i < actionsCount; i++) data.actions.Add(ReadInventoryAction());
 			return data;
 		}
 

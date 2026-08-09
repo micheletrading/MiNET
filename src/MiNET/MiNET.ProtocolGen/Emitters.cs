@@ -440,12 +440,17 @@ public static class CerealEmitter
 				yield return "{";
 			}
 
+			// Discriminator and payload are two separate optionals in the engine, so each carries a
+			// presence byte and the payload's sits between the tag and the data.
+			if (field.VariantPayloadGate) yield return $"{variantPad}Write({name} != null);";
+
 			yield return $"{variantPad}switch ({name})";
 			yield return variantPad + "{";
 			for (int i = 0; i < field.Variant.Options.Count; i++)
 			{
 				yield return $"{variantPad}\tcase {field.Variant.Options[i].Name} v{i}:";
 				yield return $"{variantPad}\t\tWriteUnsignedVarInt({i});";
+				if (field.VariantPayloadGate) yield return $"{variantPad}\t\tWrite(true);";
 				yield return $"{variantPad}\t\tWrite(v{i});";
 				yield return $"{variantPad}\t\tbreak;";
 			}
@@ -568,7 +573,12 @@ public static class CerealEmitter
 				variantPad = "\t";
 			}
 
-			yield return $"{variantPad}{name} = ReadUnsignedVarInt() switch";
+			// The engine keeps the discriminator and the payload as two separate optionals, so each
+			// carries its own presence byte and the second one sits between the tag and the data.
+			if (field.VariantPayloadGate) yield return $"{variantPad}ReadBool(); // discriminator presence";
+			yield return $"{variantPad}uint {field.FieldName}Tag = ReadUnsignedVarInt();";
+			if (field.VariantPayloadGate) yield return $"{variantPad}ReadBool(); // payload presence";
+			yield return $"{variantPad}{name} = {field.FieldName}Tag switch";
 			yield return variantPad + "{";
 			for (int i = 0; i < field.Variant.Options.Count; i++)
 			{

@@ -2664,7 +2664,7 @@ namespace MiNET
 
 		// Single request embedded in McpePlayerAuthInput (item_stack_request input flag); same
 		// processing and response flow as the standalone McpeItemStackRequest packet.
-		private void HandleSingleItemStackRequest(ItemStackActionList request)
+		private void HandleSingleItemStackRequest(ItemStackRequest request)
 		{
 			var response = McpeItemStackResponse.CreateObject();
 			response.responses = new List<ItemStackResponseInfo>();
@@ -2672,14 +2672,14 @@ namespace MiNET
 			var stackResponse = new ItemStackResponseInfo
 			{
 				result = ItemStackResponseInfo.Result.Success,
-				clientRequestId = request.RequestId,
+				clientRequestId = request.clientRequestId,
 				containers = new List<ItemStackResponseContainerInfo>()
 			};
 			response.responses.Add(stackResponse);
 
 			try
 			{
-				stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+				stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.clientRequestId, request));
 			}
 			catch (Exception e)
 			{
@@ -2697,12 +2697,12 @@ namespace MiNET
 			var response = McpeItemStackResponse.CreateObject();
 			response.responses = new List<ItemStackResponseInfo>();
 			bool anyFailed = false;
-			foreach (ItemStackActionList request in message.requests)
+			foreach (ItemStackRequest request in message.requests)
 			{
 				var stackResponse = new ItemStackResponseInfo
 				{
 					result = ItemStackResponseInfo.Result.Success,
-					clientRequestId = request.RequestId,
+					clientRequestId = request.clientRequestId,
 					containers = new List<ItemStackResponseContainerInfo>()
 				};
 
@@ -2710,7 +2710,7 @@ namespace MiNET
 
 				try
 				{
-					stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+					stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.clientRequestId, request));
 				}
 				catch (Exception e)
 				{
@@ -2734,28 +2734,34 @@ namespace MiNET
 			SendPlayerHotbar();
 		}
 
-		protected Item GetContainerItem(int containerId, int slot)
+		/// <summary>
+		///     A container's slot, addressed the way the client does, by ContainerEnumName. Several
+		///     of these shifted with the 1.26 table (cursor 58 to 59, created output 59 to 60, hotbar
+		///     27 to 28, inventory 28 to 29, offhand 33 to 34, enchanting 21/22 to 22/23), which is
+		///     why they are named here and not written as numbers.
+		/// </summary>
+		protected internal virtual Item GetContainerItem(FullContainerName.ContainerEnumName containerId, int slot)
 		{
-			if (UsingAnvil && containerId < 3) containerId = 13;
+			if (UsingAnvil && (int) containerId < 3) containerId = FullContainerName.ContainerEnumName.Craftinginputcontainer;
 
-			Item item = null;
 			switch (containerId)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
-					item = Inventory.UiInventory.Slots[slot];
-					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
-					item = Inventory.Slots[slot];
-					break;
-				case 6: // armor
-					item = slot switch
+				case FullContainerName.ContainerEnumName.Craftinginputcontainer:
+				case FullContainerName.ContainerEnumName.Craftingoutputpreviewcontainer:
+				case FullContainerName.ContainerEnumName.Enchantinginputcontainer:
+				case FullContainerName.ContainerEnumName.Enchantingmaterialcontainer:
+				case FullContainerName.ContainerEnumName.Loominputcontainer:
+				case FullContainerName.ContainerEnumName.Cursorcontainer:
+				case FullContainerName.ContainerEnumName.Createdoutputcontainer:
+					return Inventory.UiInventory.Slots[slot];
+				case FullContainerName.ContainerEnumName.Combinedhotbarandinventorycontainer:
+				case FullContainerName.ContainerEnumName.Hotbarcontainer:
+				case FullContainerName.ContainerEnumName.Inventorycontainer:
+					return Inventory.Slots[slot];
+				case FullContainerName.ContainerEnumName.Offhandcontainer:
+					return Inventory.OffHand;
+				case FullContainerName.ContainerEnumName.Armorcontainer:
+					return slot switch
 					{
 						0 => Inventory.Helmet,
 						1 => Inventory.Chest,
@@ -2763,38 +2769,40 @@ namespace MiNET
 						3 => Inventory.Boots,
 						_ => null
 					};
-					break;
-				case 7: // chest/container
-					if (_openInventory is Inventory inventory) item = inventory.GetSlot((byte) slot);
-					break;
+				case FullContainerName.ContainerEnumName.Levelentitycontainer:
+					return _openInventory is Inventory inventory ? inventory.GetSlot((byte) slot) : null;
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					// BDS answers a request against a container it cannot resolve with an error
+					// response and an inventory resync; silently returning null here makes items
+					// vanish client-side instead.
+					throw new InvalidOperationException($"Unknown containerId: {containerId}");
 			}
-
-			return item;
 		}
 
-		protected void SetContainerItem(int containerId, int slot, Item item)
+		protected internal virtual void SetContainerItem(FullContainerName.ContainerEnumName containerId, int slot, Item item)
 		{
-			if (UsingAnvil && containerId < 3) containerId = 13;
+			if (UsingAnvil && (int) containerId < 3) containerId = FullContainerName.ContainerEnumName.Craftinginputcontainer;
 
 			switch (containerId)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
+				case FullContainerName.ContainerEnumName.Craftinginputcontainer:
+				case FullContainerName.ContainerEnumName.Craftingoutputpreviewcontainer:
+				case FullContainerName.ContainerEnumName.Enchantinginputcontainer:
+				case FullContainerName.ContainerEnumName.Enchantingmaterialcontainer:
+				case FullContainerName.ContainerEnumName.Loominputcontainer:
+				case FullContainerName.ContainerEnumName.Cursorcontainer:
+				case FullContainerName.ContainerEnumName.Createdoutputcontainer:
 					Inventory.UiInventory.Slots[slot] = item;
 					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
+				case FullContainerName.ContainerEnumName.Combinedhotbarandinventorycontainer:
+				case FullContainerName.ContainerEnumName.Hotbarcontainer:
+				case FullContainerName.ContainerEnumName.Inventorycontainer:
 					Inventory.Slots[slot] = item;
 					break;
-				case 6: // armor
+				case FullContainerName.ContainerEnumName.Offhandcontainer:
+					Inventory.OffHand = item;
+					break;
+				case FullContainerName.ContainerEnumName.Armorcontainer:
 					switch (slot)
 					{
 						case 0:
@@ -2811,12 +2819,12 @@ namespace MiNET
 							break;
 					}
 					break;
-				case 7: // chest/container
+				case FullContainerName.ContainerEnumName.Levelentitycontainer:
 					if (_openInventory is Inventory inventory) inventory.SetSlot(this, (byte) slot, item);
 					break;
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					// See GetContainerItem: unknown container is an error, never a silent drop.
+					throw new InvalidOperationException($"Unknown containerId: {containerId}");
 			}
 		}
 
@@ -3021,19 +3029,19 @@ namespace MiNET
 		{
 			switch (message.transaction)
 			{
-				case InventoryMismatchTransaction inventoryMismatchTransaction:
+				case InventoryMismatchData inventoryMismatchTransaction:
 					HandleInventoryMismatchTransaction(inventoryMismatchTransaction);
 					break;
-				case ItemReleaseTransaction itemReleaseTransaction:
+				case ItemReleaseInventoryTransaction itemReleaseTransaction:
 					HandleItemReleaseTransaction(itemReleaseTransaction);
 					break;
-				case ItemUseOnEntityTransaction itemUseOnEntityTransaction:
+				case ItemUseOnActorInventoryTransaction itemUseOnEntityTransaction:
 					HandleItemUseOnEntityTransaction(itemUseOnEntityTransaction);
 					break;
-				case ItemUseTransaction itemUseTransaction:
+				case ItemUseInventoryTransaction itemUseTransaction:
 					HandleItemUseTransaction(itemUseTransaction);
 					break;
-				case NormalTransaction normalTransaction:
+				case NormalTransactionData normalTransaction:
 					HandleNormalTransaction(normalTransaction);
 					break;
 				default:
@@ -3041,17 +3049,17 @@ namespace MiNET
 			}
 		}
 
-		protected virtual void HandleItemUseOnEntityTransaction(ItemUseOnEntityTransaction transaction)
+		protected virtual void HandleItemUseOnEntityTransaction(ItemUseOnActorInventoryTransaction transaction)
 		{
-			switch ((McpeInventoryTransaction.ItemUseOnEntityAction) transaction.ActionType)
+			switch (transaction.actionType)
 			{
-				case McpeInventoryTransaction.ItemUseOnEntityAction.Interact: // Right click
+				case ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.Interact: // Right click
 					EntityInteract(transaction);
 					break;
-				case McpeInventoryTransaction.ItemUseOnEntityAction.Attack: // Left click
+				case ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.Attack: // Left click
 					EntityAttack(transaction);
 					break;
-				case McpeInventoryTransaction.ItemUseOnEntityAction.ItemInteract:
+				case ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.ItemInteract:
 					Log.Warn($"Got Entity ItemInteract. Was't sure it existed, but obviously it does :-o");
 					EntityItemInteract(transaction);
 					break;
@@ -3060,35 +3068,35 @@ namespace MiNET
 			}
 		}
 
-		private void EntityItemInteract(ItemUseOnEntityTransaction transaction)
+		private void EntityItemInteract(ItemUseOnActorInventoryTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.item.Metadata)
 			{
-				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
+				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.item}");
 			}
 
-			if (!Level.TryGetEntity(transaction.EntityId, out Entity target)) return;
+			if (!Level.TryGetEntity(transaction.runtimeId, out Entity target)) return;
 			target.DoItemInteraction(this, itemInHand);
 		}
 
-		protected virtual void EntityInteract(ItemUseOnEntityTransaction transaction)
+		protected virtual void EntityInteract(ItemUseOnActorInventoryTransaction transaction)
 		{
-			DoInteraction((int) transaction.ActionType, this);
+			DoInteraction((int) transaction.actionType, this);
 
-			if (!Level.TryGetEntity(transaction.EntityId, out Entity target)) return;
-			target.DoInteraction((int) transaction.ActionType, this);
+			if (!Level.TryGetEntity(transaction.runtimeId, out Entity target)) return;
+			target.DoInteraction((int) transaction.actionType, this);
 		}
 
-		protected virtual void EntityAttack(ItemUseOnEntityTransaction transaction)
+		protected virtual void EntityAttack(ItemUseOnActorInventoryTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.item.Metadata)
 			{
-				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
+				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.item}");
 			}
 
-			if (!Level.TryGetEntity(transaction.EntityId, out Entity target)) return;
+			if (!Level.TryGetEntity(transaction.runtimeId, out Entity target)) return;
 
 
 			LastAttackTarget = target;
@@ -3130,23 +3138,23 @@ namespace MiNET
 			HungerManager.IncreaseExhaustion(0.3f);
 		}
 
-		protected virtual void HandleInventoryMismatchTransaction(InventoryMismatchTransaction transaction)
+		protected virtual void HandleInventoryMismatchTransaction(InventoryMismatchData transaction)
 		{
 			Log.Warn($"Transaction mismatch");
 		}
 
-		protected virtual void HandleItemReleaseTransaction(ItemReleaseTransaction transaction)
+		protected virtual void HandleItemReleaseTransaction(ItemReleaseInventoryTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
 
-			switch (transaction.ActionType)
+			switch (transaction.actionType)
 			{
-				case McpeInventoryTransaction.ItemReleaseAction.Release:
+				case ItemReleaseInventoryTransaction.ItemReleaseActionType.Release:
 				{
-					itemInHand.Release(Level, this, transaction.FromPosition);
+					itemInHand.Release(Level, this, transaction.fromPosition);
 					break;
 				}
-				case McpeInventoryTransaction.ItemReleaseAction.Use:
+				case ItemReleaseInventoryTransaction.ItemReleaseActionType.Use:
 				{
 					break;
 				}
@@ -3154,108 +3162,68 @@ namespace MiNET
 					throw new ArgumentOutOfRangeException();
 			}
 
-			HandleTransactionRecords(transaction.TransactionRecords);
+			HandleTransactionRecords(transaction.actions);
 		}
 
-		protected virtual void HandleItemUseTransaction(ItemUseTransaction transaction)
+		protected virtual void HandleItemUseTransaction(ItemUseInventoryTransaction transaction)
 		{
 			var itemInHand = Inventory.GetItemInHand();
 
-			switch (transaction.ActionType)
+			switch (transaction.actionType)
 			{
-				case McpeInventoryTransaction.ItemUseAction.Place:
+				case ItemUseInventoryTransaction.ItemUseActionType.Place:
 				{
-					Level.Interact(this, itemInHand, transaction.Position, (BlockFace) transaction.Face, transaction.ClickPosition);
+					Level.Interact(this, itemInHand, transaction.position, (BlockFace) transaction.face, transaction.clickPosition);
 					break;
 				}
-				case McpeInventoryTransaction.ItemUseAction.Use:
+				case ItemUseInventoryTransaction.ItemUseActionType.Use:
 				{
-					itemInHand.UseItem(Level, this, transaction.Position);
+					itemInHand.UseItem(Level, this, transaction.position);
 					break;
 				}
-				case McpeInventoryTransaction.ItemUseAction.Destroy:
+				case ItemUseInventoryTransaction.ItemUseActionType.Destroy:
 				{
 					//TODO: Add face and other parameters to break. For logic in break block.
-					Level.BreakBlock(this, transaction.Position, (BlockFace) transaction.Face);
+					Level.BreakBlock(this, transaction.position, (BlockFace) transaction.face);
 					break;
 				}
 			}
 
-			HandleTransactionRecords(transaction.TransactionRecords);
+			HandleTransactionRecords(transaction.actions);
 		}
 
-		protected virtual void HandleNormalTransaction(NormalTransaction transaction)
+		protected virtual void HandleNormalTransaction(NormalTransactionData transaction)
 		{
-			HandleTransactionRecords(transaction.TransactionRecords);
+			HandleTransactionRecords(transaction.actions);
 		}
 
-		protected virtual void HandleTransactionRecords(List<TransactionRecord> records)
+		/// <summary>
+		///     The actions a transaction carries. Since the packet moved onto the schemas these are
+		///     InventoryAction, where the kind is the source's own type rather than a subclass, and
+		///     the item the client says the slot ends up holding is toItem.
+		/// </summary>
+		/// <summary>
+		///     Only the world-interaction source still arrives here. Slot movement moved to
+		///     ItemStackRequest with the stack net id, which is a stronger claim than "the item I
+		///     believe is in that slot", so container records stopped being sent and the code that
+		///     verified them against the server's own slots went with them. Dropping an item is
+		///     what is left.
+		/// </summary>
+		protected virtual void HandleTransactionRecords(List<InventoryAction> records)
 		{
-			if (records.Count == 0) return;
+			if (records == null || records.Count == 0) return;
 
-			foreach (TransactionRecord record in records)
+			foreach (InventoryAction record in records)
 			{
-				//Item oldItem = record.OldItem;
-				Item newItem = record.NewItem;
-				//int slot = record.Slot;
+				Item newItem = record.toItem;
 
-				switch (record)
+				switch (record.source?.sourceType)
 				{
-					//case ContainerTransactionRecord rec:
-					//{
-					//	int inventoryId = rec.InventoryId;
-
-					//	switch (inventoryId)
-					//	{
-					//		case 0: // Player inventory
-					//		{
-					//			Item existingItem = Inventory.Slots[slot];
-
-					//			if (!newItem.Equals(existingItem)) Log.Warn($"Inventory mismatch. Client reported new item as {oldItem} and it did not match existing item {existingItem}");
-					//			else Log.Debug($"Verified new inventory slot {slot} to {Inventory.Slots[slot]}");
-					//			break;
-					//		}
-					//		case 119: // Armor inventory
-					//		case 120: // Armor inventory
-					//		case 121: // Creative inventory
-					//		case 124: // Cursor inventory
-					//			throw new Exception($"This should never happen with new inventory transactions");
-					//		default:
-					//		{
-					//			throw new Exception($"This should never happen with new inventory transactions");
-					//			////TODO Handle custom items, like player inventory and cursor
-
-					//			//if (_openInventory != null)
-					//			//{
-					//			//	if (_openInventory is Inventory inventory && inventory.WindowsId == inventoryId)
-					//			//	{
-					//			//		//if (!oldItem.Equals(inventory.CraftRemoveIngredient((byte)slot))) Log.Warn($"Cursor mismatch. Client reported old item as {oldItem} and it did not match existing the item {inventory.CraftRemoveIngredient((byte)slot)}");
-
-					//			//		// block inventories of various kinds (chests, furnace, etc)
-					//			//		inventory.SetSlot(this, (byte) slot, newItem);
-					//			//	}
-					//			//	else if (_openInventory is HorseInventory horseInventory)
-					//			//	{
-					//			//		//if (!oldItem.Equals(horseInventory.CraftRemoveIngredient((byte)slot))) Log.Warn($"Cursor mismatch. Client reported old item as {oldItem} and it did not match existing the item {horseInventory.CraftRemoveIngredient((byte)slot)}");
-					//			//		horseInventory.SetSlot(slot, newItem);
-					//			//	}
-					//			//}
-					//			//break;
-					//		}
-					//	}
-					//	break;
-					//}
-
-					//TODO Handle custom items, like player inventory and cursor. Not entirely sure how to handle this for crafting and similar inventories.
-					case CraftTransactionRecord _:
+					case InventorySource.InventorySourceType.CreativeInventory:
 					{
 						throw new Exception($"This should never happen with new inventory transactions");
 					}
-					case CreativeTransactionRecord _:
-					{
-						throw new Exception($"This should never happen with new inventory transactions");
-					}
-					case WorldInteractionTransactionRecord _:
+					case InventorySource.InventorySourceType.WorldInteraction:
 					{
 						// Drop
 						Item sourceItem = Inventory.GetItemInHand();

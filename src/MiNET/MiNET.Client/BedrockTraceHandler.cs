@@ -249,6 +249,17 @@ namespace MiNET.Client
 
 		private bool _splitSent;
 
+		/// <summary>A request slot, named by container and slot, citing the stack id we believe is there.</summary>
+		private static ItemStackRequestSlotInfo Slot(int container, byte slot, int stackNetId)
+		{
+			return new ItemStackRequestSlotInfo
+			{
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) container},
+				slot = slot,
+				netIdVariant = stackNetId
+			};
+		}
+
 		public override void HandleMcpeInventoryContent(McpeInventoryContent message)
 		{
 			CallPacketHandlers(message);
@@ -271,14 +282,20 @@ namespace MiNET.Client
 					int target = slot + 1;
 
 					var packet = McpeItemStackRequest.CreateObject();
-					packet.requests = new ItemStackRequests();
-					var actions = new ItemStackActionList {RequestId = -1};
-					actions.Add(new TakeAction
+					packet.requests = new List<ItemStackRequest>();
+					var actions = new ItemStackRequest
 					{
-						Count = (byte) half,
-						Source = new StackRequestSlotInfo {ContainerId = 28, Slot = (byte) slot, StackNetworkId = item.UniqueId},
-						Destination = new StackRequestSlotInfo {ContainerId = 28, Slot = (byte) target, StackNetworkId = 0}
-					});
+						clientRequestId = -1,
+						actions = new List<ItemStackRequestBase>
+						{
+							new ItemStackRequestTakeAction
+							{
+								amount = (byte) half,
+								source = Slot(28, (byte) slot, item.UniqueId),
+								destination = Slot(28, (byte) target, 0)
+							}
+						}
+					};
 					packet.requests.Add(actions);
 					Log.Warn($"SPLIT: taking {half} from slot {slot} into slot {target}");
 					Client.SendPacket(packet);
@@ -537,15 +554,15 @@ namespace MiNET.Client
 						Log.Warn("Sending transaction for horse");
 
 						var transaction = McpeInventoryTransaction.CreateObject();
-						transaction.transaction = new ItemUseOnEntityTransaction()
+						transaction.transaction = new ItemUseOnActorInventoryTransaction
 						{
-							TransactionRecords = new List<TransactionRecord>(),
-							EntityId = id,
-							ActionType = 0,
-							Slot = 0,
-							Item = new ItemAir(),
-							FromPosition = Client.CurrentLocation,
-							ClickPosition = pos,
+							actions = new List<InventoryAction>(),
+							runtimeId = id,
+							actionType = ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.Interact,
+							slot = 0,
+							item = new ItemAir(),
+							fromPosition = Client.CurrentLocation,
+							hitPosition = pos,
 						};
 
 						Client.SendPacket(transaction);

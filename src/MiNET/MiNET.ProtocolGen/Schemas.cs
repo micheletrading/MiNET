@@ -123,6 +123,8 @@ public class Overrides
 					if (o["enum"] != null) p.FieldEnums[f.Name] = ((JArray) o["enum"]).Select(v => (string) v).ToList();
 					if (o["optional"] != null) p.FieldOptional[f.Name] = (bool) o["optional"];
 					if (o["presenceBytes"] != null) p.FieldPresenceBytes[f.Name] = (int) o["presenceBytes"];
+					if (o["variantPayloadGate"] != null) p.FieldVariantPayloadGate[f.Name] = (bool) o["variantPayloadGate"];
+					if (o["variantConstIsByte"] != null) p.FieldVariantConstIsByte[f.Name] = (bool) o["variantConstIsByte"];
 					if (o["type"] != null)
 					{
 						var t = (JObject) o["type"];
@@ -166,6 +168,12 @@ public class PacketOverride
 	///     either is false. The schema says only "optional", so the count comes from here.
 	/// </summary>
 	public Dictionary<string, int> FieldPresenceBytes = new();
+
+	/// <summary>Wire field name -> the variant's payload carries its own presence byte after the tag.</summary>
+	public Dictionary<string, bool> FieldVariantPayloadGate = new();
+
+	/// <summary>Wire field name -> the options' discriminator const is the tag as a byte, not the name.</summary>
+	public Dictionary<string, bool> FieldVariantConstIsByte = new();
 }
 
 public class TypeMapping
@@ -244,6 +252,21 @@ public class CerealField
 
 	/// <summary>How many presence bytes gate this field when it is optional. See PacketOverride.FieldPresenceBytes.</summary>
 	public int PresenceBytes = 1;
+
+	/// <summary>
+	///     A variant whose payload carries its own presence byte after the tag. Mojang's docs
+	///     collapse a pair of C++ optionals, one for the discriminator and one for the data, into a
+	///     single oneOf, so the wire is presence, tag, presence, payload where the schema shows only
+	///     a required variant.
+	/// </summary>
+	public bool VariantPayloadGate;
+
+	/// <summary>
+	///     The options' discriminator const is a byte carrying the variant tag, not the name spelled
+	///     out. Both forms exist: item stack request actions write the byte (CloudburstMC reads it
+	///     with byteBuf.readByte after the tag), SetScore entries write the name.
+	/// </summary>
+	public bool VariantConstIsByte;
 
 	/// <summary>For const-discriminator fields inside variant payloads: the literal written on the wire.</summary>
 	public string ConstValue;
@@ -389,6 +412,8 @@ public class CerealPacket
 				Ordinal = (int) ((JObject) prop.Value)["x-ordinal-index"],
 				Optional = optional,
 				PresenceBytes = presenceBytes < 1 ? 1 : presenceBytes,
+				VariantPayloadGate = packetOverride != null && packetOverride.FieldVariantPayloadGate.TryGetValue(prop.Name, out bool gate) && gate,
+				VariantConstIsByte = packetOverride != null && packetOverride.FieldVariantConstIsByte.TryGetValue(prop.Name, out bool cb) && cb,
 			};
 
 			TypeMapping forced = null;
@@ -431,7 +456,15 @@ public class CerealPacket
 
 		if ((string) prop["type"] == "array")
 		{
-			var element = new CerealField {WireName = field.WireName + " element", FieldName = "item"};
+			// The variant flags belong to the field the override names, but for a vector the oneOf
+			// sits on the element, so they have to travel with it.
+			var element = new CerealField
+			{
+				WireName = field.WireName + " element",
+				FieldName = "item",
+				VariantConstIsByte = field.VariantConstIsByte,
+				VariantPayloadGate = field.VariantPayloadGate,
+			};
 			ResolveType(owner, element, (JObject) prop["items"], schemas, overrides, structs);
 			if (element.Kind == FieldKind.Array) throw new NotImplementedException($"{owner}.{field.WireName}: nested arrays are not implemented yet");
 			field.Kind = FieldKind.Array;
@@ -529,6 +562,15 @@ public class CerealPacket
 					foreach (CerealField carrier in new[] {optionField, optionField.Element})
 					{
 						if (carrier?.Enum != null) carrier.EnumRef = $"{optionName}.{carrier.Enum.Name}";
+					}
+				}
+
+				// Where the discriminator is a byte it repeats the tag, which is only known here.
+				if (field.VariantConstIsByte)
+				{
+					foreach (CerealField optionField in option.Fields)
+					{
+						if (optionField.ConstValue != null) optionField.Type = new TypeMapping {CsType = "byte", Write = $"Write((byte) {i});", Read = "ReadByte();"};
 					}
 				}
 

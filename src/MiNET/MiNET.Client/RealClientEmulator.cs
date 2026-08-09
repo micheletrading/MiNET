@@ -254,19 +254,34 @@ namespace MiNET.Client
 		// slot 0. Container id 60 = creative output; 0 = the player's own inventory (hotbar slot 9
 		// maps to hotbar 0). Mirrors PMMP ItemStackRequest::read / minecraft-data 1001 exactly (see
 		// Packet.Write(ItemStackRequests) and Write(StackRequestSlotInfo)).
+		private static ItemStackRequestSlotInfo Slot(int container, byte slot)
+		{
+			return new ItemStackRequestSlotInfo
+			{
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) container},
+				slot = slot
+			};
+		}
+
 		private static void SendItemStackRequest(MiNetClient client)
 		{
 			var packet = McpeItemStackRequest.CreateObject();
-			packet.requests = new ItemStackRequests();
+			packet.requests = new List<ItemStackRequest>();
 
-			var actions = new ItemStackActionList {RequestId = -1};
-			actions.Add(new CraftCreativeAction {CreativeItemNetworkId = 1});
-			actions.Add(new TakeAction
+			var actions = new ItemStackRequest
 			{
-				Count = 1,
-				Source = new StackRequestSlotInfo {ContainerId = 60, Slot = 50, StackNetworkId = 0},
-				Destination = new StackRequestSlotInfo {ContainerId = 0, Slot = 9, StackNetworkId = 0}
-			});
+				clientRequestId = -1,
+				actions = new List<ItemStackRequestBase>
+				{
+					new ItemStackRequestCraftCreativeAction {creativeItemNetId = 1},
+					new ItemStackRequestTakeAction
+					{
+						amount = 1,
+						source = Slot(60, 50),
+						destination = Slot(0, 9)
+					}
+				}
+			};
 			packet.requests.Add(actions);
 
 			client.SendPacket(packet);
@@ -275,21 +290,20 @@ namespace MiNET.Client
 		private static void SendInventoryTransactionPlace(MiNetClient client, BlockCoordinates position, Vector3 playerPosition)
 		{
 			var packet = McpeInventoryTransaction.CreateObject();
-			var transaction = new ItemUseTransaction
+			var transaction = new ItemUseInventoryTransaction
 			{
-				ActionType = McpeInventoryTransaction.ItemUseAction.Place,
-				TriggerType = 1,
-				Position = position,
-				Face = (int) BlockFace.Up,
-				Slot = 0,
-				Item = ItemFactory.GetItemByName("minecraft:dirt"),
-				FromPosition = playerPosition,
-				ClickPosition = new Vector3(0.5f, 1f, 0.5f),
-				BlockRuntimeId = 0,
-				ClientPrediction = 0,
-				ClientCooldownState = 0
+				actionType = ItemUseInventoryTransaction.ItemUseActionType.Place,
+				triggerType = ItemUseInventoryTransaction.ItemUseTriggerType.PlayerInput,
+				position = position,
+				face = (byte) BlockFace.Up,
+				slot = 0,
+				item = ItemFactory.GetItemByName("minecraft:dirt"),
+				fromPosition = playerPosition,
+				clickPosition = new Vector3(0.5f, 1f, 0.5f),
+				targetBlockId = 0,
+				actions = new List<InventoryAction>()
 			};
-			transaction.RequestId = 0;
+			packet.legacyRequestId = 0;
 			packet.transaction = transaction;
 			client.SendPacket(packet);
 		}

@@ -58,6 +58,14 @@
 			"schema": "CreativeContentPacket"
 		},
 		{
+			"name": "MCPE_INVENTORY_TRANSACTION",
+			"id": "0x1e",
+			"online": false,
+			"client": true,
+			"server": true,
+			"schema": "InventoryTransactionPacket"
+		},
+		{
 			"name": "MCPE_INVENTORY_CONTENT",
 			"id": "0x31",
 			"online": false,
@@ -72,6 +80,14 @@
 			"client": true,
 			"server": true,
 			"schema": "InventorySlotPacket"
+		},
+		{
+			"name": "MCPE_ITEM_STACK_REQUEST",
+			"id": "0x93",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "ItemStackRequestPacket"
 		},
 		{
 			"name": "MCPE_ITEM_STACK_RESPONSE",

@@ -82,7 +82,7 @@ public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
 	/// <summary>
 	///		Single item stack request, present when InputFlags has PerformItemStackRequest.
 	/// </summary>
-	public ItemStackActionList ItemStackRequest;
+	public ItemStackRequest ItemStackRequest;
 
 	/// <summary>
 	///		Block actions (start/abort/crack/predict/continue break etc), present when InputFlags
