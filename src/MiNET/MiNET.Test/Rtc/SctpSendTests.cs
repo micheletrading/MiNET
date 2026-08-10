@@ -163,35 +163,49 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(unchecked(cumulativeBefore + 1), server.CumulativeTsnAck); // FORWARD-TSN carried the receiver past it anyway
 		}
 
+		/// <summary>
+		///     Fix-round Important 4: a peer that advertises a permanently zero (or too-tiny) a_rwnd must
+		///     not stall the head-of-line message forever - the original version of this test asserted only
+		///     that nothing was sent, which is exactly the deadlock the fix (RFC 4960 6.1 rule A's
+		///     zero-window probe) closes: once nothing is in flight, the association may always put one
+		///     chunk on the wire regardless of the advertised window, so the peer gets a chance to ack and
+		///     reopen it. The message here is small, unordered, and under the fragmentation threshold, so it
+		///     delivers zero-copy on arrival regardless of the server's own (zero) buffering budget - that
+		///     isolates this test to the SEND-side window gate the fix touches, not receive-side budget
+		///     accounting (already covered elsewhere in this file's sibling, SctpReceiveTests.cs).
+		/// </summary>
 		[TestMethod]
-		public void PeerAdvertisesTinyWindow_SenderQueuesInsteadOfSending()
+		public void PeerAdvertisesZeroWindow_ZeroWindowProbeStillDeliversTheMessage()
 		{
 			SctpAssociation server = null;
 			SctpAssociation client = null;
 			var sentByClient = new List<byte[]>();
+			var serverReceived = new List<byte[]>();
 
 			client = new SctpAssociation(true, 5000, 131072, p =>
 			{
 				sentByClient.Add(p.ToArray());
 				server.OnPacketReceived(p.ToArray());
 			});
-			// The server's own arwndBudget is what it advertises to the client during the handshake; the
-			// client's peer-arwnd becomes this tiny value the moment the association is established.
-			server = new SctpAssociation(false, 5000, 10, p => client.OnPacketReceived(p.ToArray()));
+			// The server's own arwndBudget is what it advertises to the client during the handshake and in
+			// every SACK: a permanently zero receive window from the client's point of view.
+			server = new SctpAssociation(false, 5000, 0, p => client.OnPacketReceived(p.ToArray()));
+			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) => serverReceived.Add(message.ToArray());
 
 			client.Start();
 			Assert.AreEqual(SctpState.Established, client.State);
 
 			sentByClient.Clear(); // drop the handshake packets from the count below
 
-			byte[] message = new byte[50];
+			byte[] message = new byte[20];
+			new Random(7).NextBytes(message);
 			Assert.IsTrue(client.Send(streamId: 1, ppid: 1, message, unordered: true, maxRetransmits: -1));
 
-			// Accepted into the send queue (Send returns true - the send-queue budget is independent of
-			// the peer's window), but the peer's 10-byte advertised window cannot fit even this one
-			// below-threshold, single-chunk message: nothing was actually put on the wire.
-			Assert.AreEqual(0, sentByClient.Count);
-			Assert.AreEqual(50u, client.SendQueuedBytes);
+			// Without the zero-window probe, a_rwnd 0 gates the head-of-line chunk forever and this never
+			// sends at all, so the server never sees it.
+			Assert.AreEqual(1, sentByClient.Count);
+			Assert.AreEqual(1, serverReceived.Count);
+			CollectionAssert.AreEqual(message, serverReceived[0]);
 		}
 
 		[TestMethod]

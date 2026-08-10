@@ -82,6 +82,26 @@ namespace MiNET.Test.Rtc
 			receiver.OnPacketReceived(packetArray.AsMemory(0, n));
 		}
 
+		private static void FeedForwardTsn(SctpAssociation receiver, uint verificationTag, uint newCumulativeTsn, params (ushort StreamId, ushort StreamSeq)[] pairs)
+		{
+			Span<byte> pairBytes = stackalloc byte[pairs.Length * 4];
+			for (int i = 0; i < pairs.Length; i++)
+			{
+				System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(pairBytes.Slice(i * 4, 2), pairs[i].StreamId);
+				System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(pairBytes.Slice(i * 4 + 2, 2), pairs[i].StreamSeq);
+			}
+
+			var forwardTsn = new ForwardTsnChunk(newCumulativeTsn, pairBytes);
+
+			byte[] packetArray = new byte[SctpPacket.MaxSize];
+			Span<byte> packet = packetArray;
+			int n = SctpPacket.WriteHeader(packet, 5000, 5000, verificationTag);
+			n += forwardTsn.WriteTo(packet.Slice(n));
+			SctpPacket.FinishChecksum(packet.Slice(0, n));
+
+			receiver.OnPacketReceived(packetArray.AsMemory(0, n));
+		}
+
 		[TestMethod]
 		public void SingleChunkMessages_DeliverInOrder_OnAnOrderedStream()
 		{
@@ -573,6 +593,83 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(1, received.Count);
 			Assert.AreEqual((ushort) 51, received[0].StreamId);
 			CollectionAssert.AreEqual("ok"u8.ToArray(), received[0].Payload);
+		}
+
+		/// <summary>
+		///     Fix-round Critical 1: <see cref="SctpReceiveBuffer.AdvanceCumulative" /> had no horizon guard,
+		///     unlike <see cref="SctpReceiveBuffer.Receive" />'s own (see
+		///     <see cref="TsnBeyondGapOffsetHorizon_IsDroppedAndCounted_BoundaryTsnIsAccepted" /> above): a
+		///     hostile or corrupt FORWARD-TSN naming a cumulative TSN far beyond anything legitimately
+		///     reachable would desync <see cref="SctpAssociation.CumulativeTsnAck" /> permanently, since
+		///     every later genuine DATA chunk then falls at-or-behind the bogus point and is treated as an
+		///     already-seen duplicate forever - a one-packet denial of service. A FORWARD-TSN landing beyond
+		///     the horizon must be ignored and counted the same way an out-of-horizon DATA chunk already is,
+		///     and normal DATA must keep delivering afterward.
+		/// </summary>
+		[TestMethod]
+		public void ForwardTsn_BeyondHorizon_IsIgnoredAndCounted_NormalDataStillDelivers()
+		{
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint baseline = server.CumulativeTsnAck;
+
+			long droppedBefore = server.DataDroppedBeyondHorizonCount;
+			uint hostileTarget = unchecked(baseline + 65536 + 5); // beyond MaxGapOffset (65535), same boundary as the DATA-path test above
+
+			FeedForwardTsn(server, tag, hostileTarget);
+
+			Assert.AreEqual(baseline, server.CumulativeTsnAck); // unmoved: the desync never took hold
+			Assert.AreEqual(droppedBefore + 1, server.DataDroppedBeyondHorizonCount);
+
+			// Normal DATA still delivers afterward - proof the association is not left desynced.
+			FeedData(server, tag, baseline + 1, 60, 0, 9, unordered: true, begin: true, end: true, "ok"u8);
+			Assert.AreEqual(1, received.Count);
+			CollectionAssert.AreEqual("ok"u8.ToArray(), received[0].Payload);
+		}
+
+		/// <summary>
+		///     Fix-round Critical 2: a FORWARD-TSN's ordered (streamId, streamSeq) pairs name only the
+		///     highest skipped stream sequence number per stream (RFC 3758's normal shape), not every seq in
+		///     between. The old implementation reused the ordinary in-turn-delivery helper directly, which
+		///     only ever scans forward from the pair's own seq - so any message with a LOWER seq than the
+		///     pair that had already arrived complete and was sitting in the ordered-pending buffer (just
+		///     waiting for an earlier, now-abandoned message's turn) was silently skipped over: never
+		///     delivered, its lease never returned, its bytes never released from the budget. RFC 3758 3.6
+		///     requires delivering that stranded message first, in seq order, before jumping the stream's
+		///     expected seq forward to just past the pair.
+		/// </summary>
+		[TestMethod]
+		public void ForwardTsn_OrderedPairJump_DeliversStrandedBufferedMessage_BeforeAdvancingExpectedSeq()
+		{
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+			const ushort streamId = 5;
+
+			uint budgetBaseline = server.CurrentArwnd;
+
+			// Stream sequence 1 arrives complete but out of turn (sequence 0 never arrives): buffered in
+			// ordered-pending, consuming budget, not delivered.
+			FeedData(server, tag, tsn, streamId, 1, ppid: 1, unordered: false, begin: true, end: true, "one"u8);
+			Assert.AreEqual(0, received.Count);
+			Assert.IsTrue(server.CurrentArwnd < budgetBaseline);
+
+			// FORWARD-TSN: cumulative moves forward past this TSN (independent bookkeeping from the
+			// ordered-pair skip below), pair (streamId, 3) - skip ordered delivery on this stream up to and
+			// including sequence 3. Sequence 1's already-buffered message must not be orphaned by the jump.
+			FeedForwardTsn(server, tag, tsn + 1, (streamId, (ushort) 3));
+
+			Assert.AreEqual(1, received.Count);
+			Assert.AreEqual(streamId, received[0].StreamId);
+			CollectionAssert.AreEqual("one"u8.ToArray(), received[0].Payload);
+
+			// Its lease was actually returned: budget is back to where it started.
+			Assert.AreEqual(budgetBaseline, server.CurrentArwnd);
+
+			// Expected sequence advanced to 4 (past the pair): sequence 4 delivers immediately, in turn.
+			FeedData(server, tag, tsn + 2, streamId, 4, ppid: 1, unordered: false, begin: true, end: true, "four"u8);
+			Assert.AreEqual(2, received.Count);
+			CollectionAssert.AreEqual("four"u8.ToArray(), received[1].Payload);
 		}
 	}
 }

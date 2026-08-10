@@ -217,15 +217,28 @@ namespace MiNET.Net.Rtc
 		///     chunk while an earlier one is still outstanding is ordinary SCTP pipelining), but the walk
 		///     stops, rather than skipping ahead to a smaller one, the moment a due chunk does not fit:
 		///     first transmissions stay in TSN order.
+		///     <para>
+		///     RFC 4960 6.1 rule A's zero-window probe: when nothing at all is currently in flight, the
+		///     first due chunk is returned regardless of how small (even zero) <paramref name="windowBudget" />
+		///     is. Without this, a peer that advertises a permanently zero or too-tiny a_rwnd - which
+		///     <see cref="AvailableWindowBytes" /> folds directly into the budget passed in here - would
+		///     never see a single byte leave the wire, since nothing would ever get the chance to be acked
+		///     and reopen the window: a deadlock, not congestion control. The probe is exactly one chunk:
+		///     once it is sent, <see cref="InFlightBytes" /> becomes nonzero and this reverts to the
+		///     ordinary strict gate until an ack (or the probe's own eventual loss/retransmit) frees it
+		///     again.
+		///     </para>
 		/// </summary>
 		public PendingChunk PeekReadyToSend(uint windowBudget)
 		{
+			bool zeroWindowProbeAllowed = InFlightBytes() == 0;
+
 			for (PendingChunk n = _head; n != null; n = n.Next)
 			{
 				if (n.Abandoned) continue;
 				bool due = n.SentAtTicks == 0 || n.PendingRetransmit;
 				if (!due) continue;
-				if (n.Length > windowBudget) return null;
+				if (n.Length > windowBudget && !zeroWindowProbeAllowed) return null;
 				return n;
 			}
 
@@ -259,6 +272,25 @@ namespace MiNET.Net.Rtc
 		///     if this retransmission would exceed its own <see cref="PendingChunk.MaxRetransmits" />. SCTP
 		///     has one timer per association (there is only ever one destination address here), not one per
 		///     chunk, so a single expiry covers everything currently in flight.
+		///     <para>
+		///     Marking every outstanding chunk here does not by itself produce an unbounded retransmit
+		///     burst (RFC 4960 6.3.3 rule E3's actual requirement): marking only flips
+		///     <see cref="PendingChunk.PendingRetransmit" />, it does not put anything back on the wire.
+		///     That happens in the caller's own <see cref="SctpAssociation.Flush" />, via repeated
+		///     <see cref="PeekReadyToSend" /> calls - which walk the list in TSN order (chunks are always
+		///     appended TSN-ascending, so the head is always the earliest outstanding one) and stop, rather
+		///     than skip ahead to a smaller later chunk, the instant one does not fit the shrunken window
+		///     (<see cref="AvailableWindowBytes" />, now gated by the just-halved <see cref="_cwnd" />).
+		///     So the retransmit burst this produces is already earliest-first and bounded by the
+		///     post-timeout window - RFC-4960-shaped - without needing every-chunk marking replaced by an
+		///     earliest-only variant here.
+		///     </para>
+		///     <para>
+		///     Halving cwnd (rather than RFC 4960 7.2.3's harsher "cwnd = 1 MTU on a T3 timeout") is not an
+		///     oversight: it is what the task brief for this send path specified verbatim ("halve on
+		///     retransmit timeout"), a deliberate, plan-recorded simplification over strict RFC congestion
+		///     control, not a bug to reconcile here.
+		///     </para>
 		/// </summary>
 		public void HandleTimeout(long nowMillis)
 		{

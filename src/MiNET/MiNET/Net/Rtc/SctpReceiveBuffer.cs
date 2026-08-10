@@ -332,16 +332,34 @@ namespace MiNET.Net.Rtc
 		///     below the new point is discarded (it can never complete: the sender already gave up on it),
 		///     never delivered. <paramref name="pairs" /> (per-stream, the highest stream sequence number
 		///     being skipped) advance <see cref="_nextOrderedSeq" /> the same way <see cref="AdvanceOrderedSeqAndDrain" />
-		///     does for an ordinary delivery, which also drains any already-complete ordered message in
-		///     <see cref="_orderedPending" /> that was only waiting on the now-abandoned one's turn - the
-		///     actual reason RFC 3758 carries these pairs, so ordered delivery on that stream does not stall
-		///     forever behind a message that will never arrive. A stale or duplicate FORWARD-TSN (one that
-		///     does not actually move the cumulative ack forward) is a no-op.
+		///     does for an ordinary delivery, except that before jumping <see cref="_nextOrderedSeq" />
+		///     forward it first delivers, in seq order, any message on that stream already fully received
+		///     and sitting in <see cref="_orderedPending" /> with a seq at or below the pair's (RFC 3758
+		///     3.6: the FORWARD-TSN abandoned the messages that were blocking its turn, not the message
+		///     itself, so a jump straight to the pair's seq would otherwise silently orphan it - lost
+		///     forever, its lease never returned). The actual reason RFC 3758 carries these pairs is so
+		///     ordered delivery on that stream does not stall forever behind a message that will never
+		///     arrive. A stale or duplicate FORWARD-TSN (one that does not actually move the cumulative ack
+		///     forward) is a no-op. A <paramref name="newCumulative" /> more than <see cref="MaxGapOffset" />
+		///     TSNs ahead of the current one is rejected the same way an out-of-horizon DATA chunk is
+		///     (<see cref="Receive" />'s own horizon guard, whose remarks explain the exact bound): anything
+		///     the peer could legitimately forward us past had to be within the horizon when it was
+		///     originally sent, since DATA beyond the horizon is dropped, unacked, never entering
+		///     <see cref="_gapTsns" /> - so a further-out value is a hostile or corrupt FORWARD-TSN, not a
+		///     real one. Accepting it would desync <see cref="_cumulativeTsn" /> permanently: every later
+		///     legitimate DATA chunk would fall at-or-behind the bogus point and be treated as a duplicate
+		///     forever, a one-packet denial of service.
 		/// </summary>
 		public void AdvanceCumulative(uint newCumulative, ReadOnlySpan<(ushort StreamId, ushort StreamSeq)> pairs)
 		{
 			if (!_initialized) return;
 			if (!SctpTsn.IsNewer(newCumulative, _cumulativeTsn)) return;
+
+			if (SctpTsn.Compare(newCumulative, _cumulativeTsn) > MaxGapOffset)
+			{
+				Interlocked.Increment(ref _droppedBeyondHorizonCount);
+				return;
+			}
 
 			if (_fragments.Count > 0)
 			{
@@ -379,8 +397,45 @@ namespace MiNET.Net.Rtc
 				(ushort streamId, ushort streamSeq) = pairs[i];
 				ushort candidateNext = unchecked((ushort) (streamSeq + 1));
 				ushort currentNext = _nextOrderedSeq.TryGetValue(streamId, out ushort v) ? v : (ushort) 0;
-				if (SctpSeq.IsNewer(candidateNext, currentNext)) AdvanceOrderedSeqAndDrain(streamId, streamSeq);
+				if (SctpSeq.IsNewer(candidateNext, currentNext)) DeliverStrandedThenAdvanceOrderedSeq(streamId, streamSeq);
 			}
+		}
+
+		/// <summary>
+		///     The FORWARD-TSN ordered-pair case: unlike an ordinary in-turn delivery (which only ever
+		///     advances one seq at a time, so nothing can be sitting further ahead in
+		///     <see cref="_orderedPending" /> than what it is about to drain), a pair can jump the expected
+		///     seq forward by any distance in one step. Every seq the jump crosses that is already a
+		///     complete, buffered message - not merely one this stream happened to skip - is a real
+		///     delivery the FORWARD-TSN is not entitled to discard, so this delivers each of those, in order,
+		///     before moving <see cref="_nextOrderedSeq" /> to just past the pair and running the ordinary
+		///     forward drain (<see cref="AdvanceOrderedSeqAndDrain" />) for whatever is already buffered
+		///     beyond it.
+		/// </summary>
+		private void DeliverStrandedThenAdvanceOrderedSeq(ushort streamId, ushort pairSeq)
+		{
+			if (_orderedPending.TryGetValue(streamId, out Dictionary<ushort, (byte[] Buffer, int Length, uint Ppid)> pending))
+			{
+				ushort seq = _nextOrderedSeq.TryGetValue(streamId, out ushort v) ? v : (ushort) 0;
+
+				while (true)
+				{
+					if (pending.TryGetValue(seq, out (byte[] Buffer, int Length, uint Ppid) msg))
+					{
+						pending.Remove(seq);
+
+						PooledSegment segment = RentSegment();
+						segment.Initialize(msg.Buffer, msg.Length, 0);
+						Deliveries.Add(new LeasedDelivery(streamId, msg.Ppid, segment, segment));
+						_bufferedBytes -= (uint) msg.Length;
+					}
+
+					if (seq == pairSeq) break; // reached the pair itself; stop before (ushort) seq+1 could wrap past it
+					seq = unchecked((ushort) (seq + 1));
+				}
+			}
+
+			AdvanceOrderedSeqAndDrain(streamId, pairSeq);
 		}
 
 		/// <summary>

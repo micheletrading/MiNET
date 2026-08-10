@@ -125,6 +125,12 @@ namespace MiNET.Net.Rtc
 		// different budget pass their own value.
 		private const uint DefaultSendQueueBudgetBytes = 1_048_576;
 
+		// An inbound FORWARD-TSN's pair count is already implicitly bounded by SctpPacket.MaxSize (about
+		// 290 pairs' worth fits at all), but HandleForwardTsn's stackalloc sizes stack space straight from
+		// the wire-supplied count, so this caps it explicitly and locally rather than relying on that
+		// outer bound alone.
+		private const int MaxForwardTsnPairs = 512;
+
 		// RFC 4960 6.2 SACK policy: a SACK goes out on the second packet carrying DATA, or 200ms after
 		// the first unacked one, whichever comes first (plus the immediate triggers HandleData/MaybeSendSack
 		// check for separately).
@@ -636,6 +642,16 @@ namespace MiNET.Net.Rtc
 			}
 
 			int pairCount = chunk.PairCount;
+
+			// Wire-bounded in practice (a chunk this size cannot carry more than ~290 pairs), but the
+			// stackalloc below sizes stack space straight from that count, so this keeps the bound local
+			// and visible rather than relying on the outer packet-size limit alone.
+			if (pairCount > MaxForwardTsnPairs)
+			{
+				CountIgnored();
+				return false;
+			}
+
 			Span<(ushort StreamId, ushort StreamSeq)> pairs = stackalloc (ushort, ushort)[pairCount];
 			for (int i = 0; i < pairCount; i++) pairs[i] = chunk.GetPair(i);
 
