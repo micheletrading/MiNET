@@ -90,5 +90,49 @@ namespace MiNET.Test.Rtc
 
 			await Assert.ThrowsExactlyAsync<TimeoutException>(() => nominated.Task.WaitAsync(TimeSpan.FromSeconds(3)));
 		}
+
+		[TestMethod]
+		public async Task Dispose_StopsConsentChecksAndTicking()
+		{
+			using var serverMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			using var clientMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+
+			string serverUfrag = IceSession.NewUfrag(), serverPwd = IceSession.NewPassword();
+			string clientUfrag = IceSession.NewUfrag(), clientPwd = IceSession.NewPassword();
+
+			var server = new IceSession(serverMux, IceRole.ControlledLite, serverUfrag, serverPwd);
+			server.SetRemoteCredentials(clientUfrag, clientPwd);
+			serverMux.RegisterUfrag(serverUfrag, _ => server);
+
+			var client = new IceSession(clientMux, IceRole.Controlling, clientUfrag, clientPwd);
+			client.SetRemoteCredentials(serverUfrag, serverPwd);
+			clientMux.RegisterUfrag(clientUfrag, _ => client);
+
+			var clientNominated = new TaskCompletionSource<IPEndPoint>(TaskCreationOptions.RunContinuationsAsynchronously);
+			client.OnNominated += ep => clientNominated.TrySetResult(ep);
+
+			serverMux.Start();
+			clientMux.Start();
+			client.AddRemoteCandidate(serverMux.LocalEndPoint);
+			client.StartChecks();
+
+			await clientNominated.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+			// Let at least one consent keepalive actually fire (it starts ~2.5s after nomination), so
+			// disposing proves it stops an already-running cycle, not merely one that never got the
+			// chance to start.
+			DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+			while (client.ConsentChecksSent == 0 && DateTime.UtcNow < deadline) await Task.Delay(50);
+			Assert.IsTrue(client.ConsentChecksSent >= 1, "expected at least one consent check to have fired before dispose");
+
+			client.Dispose();
+			long sentAtDispose = client.ConsentChecksSent;
+
+			// Two more consent intervals' worth of waiting: if Dispose had not actually unsubscribed
+			// from mux.OnTick, at least one more consent check would fire in this window.
+			await Task.Delay(TimeSpan.FromSeconds(6));
+
+			Assert.AreEqual(sentAtDispose, client.ConsentChecksSent, "consent checks kept advancing after Dispose");
+		}
 	}
 }

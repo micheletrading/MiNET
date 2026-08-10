@@ -41,6 +41,7 @@ namespace MiNET.Test.Rtc
 			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
 			mux.Start();
 			using var ourServer = RtcPeer.CreateAnswerer(mux, RtcCertificate.CreateSelfSigned());
+			ourServer.RemapCandidatesForSameMachine = true; // no-op here (AcceptOffer never adds remote candidates); set for symmetry with the offerer direction below.
 
 			var theirClient = new SIPSorcery.Net.RTCPeerConnection(new SIPSorcery.Net.RTCConfiguration());
 			await theirClient.createDataChannel("ReliableDataChannel");
@@ -83,6 +84,7 @@ namespace MiNET.Test.Rtc
 			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
 			mux.Start();
 			using var ourClient = RtcPeer.CreateOfferer(mux, RtcCertificate.CreateSelfSigned());
+			ourClient.RemapCandidatesForSameMachine = true;
 
 			string offerSdp = ourClient.CreateOffer();
 			var result = theirServer.setRemoteDescription(new SIPSorcery.Net.RTCSessionDescriptionInit

@@ -55,7 +55,7 @@ namespace MiNET.Net.Rtc
 	///     Every timed behaviour (retransmits, consent keepalives, the two failure timeouts) rides
 	///     <see cref="UdpMux.OnTick" />; there are no timers or background threads of its own.
 	/// </summary>
-	public class IceSession : IMuxPeer
+	public class IceSession : IMuxPeer, IDisposable
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(IceSession));
 
@@ -80,6 +80,17 @@ namespace MiNET.Net.Rtc
 		private readonly object _gate = new();
 		private readonly List<CandidateState> _candidates = new();
 
+		// Every endpoint this session has ever asked the mux to route to it: candidates registered
+		// via AddRemoteCandidate (Controlling), plus, for either role, the sender of any inbound
+		// binding request the mux routed here (first contact auto-registers the ControlledLite
+		// responder's own endpoints; a Controlling session's checked candidates duplicate what
+		// _candidates already holds, but a HashSet makes that harmless). Dispose walks this to give
+		// every one of them back to the mux via RemovePeer, so a torn-down session leaves no
+		// _peers/_sendAddresses entries behind.
+		private readonly HashSet<IPEndPoint> _knownEndpoints = new();
+
+		private int _closedFlag;
+
 		private string _remoteUfrag;
 		private byte[] _remotePasswordBytes;
 		private string _checkUsername;
@@ -94,6 +105,15 @@ namespace MiNET.Net.Rtc
 		private int _nominatedFlag;
 		private int _failedFlag;
 		private long _integrityFailures;
+		private long _consentChecksSent;
+
+		/// <summary>
+		///     Test visibility only (via the assembly's existing InternalsVisibleTo to MiNETTests): how
+		///     many consent keepalives this session has actually sent on the wire. Used to prove
+		///     <see cref="Dispose" /> stops an already-running keepalive cycle rather than merely one
+		///     that never got the chance to start.
+		/// </summary>
+		internal long ConsentChecksSent => Interlocked.Read(ref _consentChecksSent);
 
 		public IPEndPoint RemoteEndPoint { get; private set; }
 
@@ -148,6 +168,7 @@ namespace MiNET.Net.Rtc
 			lock (_gate)
 			{
 				_candidates.Add(new CandidateState(candidate));
+				_knownEndpoints.Add(candidate);
 			}
 		}
 
@@ -159,6 +180,33 @@ namespace MiNET.Net.Rtc
 			_checkUsername = _remoteUfrag + ":" + _localUfrag;
 			_checksStartedAtTicks = Environment.TickCount64;
 			_checksStarted = true;
+		}
+
+		/// <summary>
+		///     Tears the session down: unsubscribes from <see cref="UdpMux.OnTick" /> (stopping every
+		///     further retransmit, consent keepalive, and repeated <see cref="Fail" /> call this
+		///     session would otherwise keep making forever) and gives every endpoint it ever registered
+		///     back to the mux via <see cref="UdpMux.RemovePeer" />, so a disposed session leaves no
+		///     live subscription, no outbound traffic, and no <c>_peers</c>/<c>_sendAddresses</c>
+		///     entries behind. Idempotent; safe to call more than once.
+		/// </summary>
+		public void Dispose()
+		{
+			if (Interlocked.CompareExchange(ref _closedFlag, 1, 0) != 0) return;
+
+			_mux.OnTick -= OnTick;
+
+			IPEndPoint[] endpoints;
+			lock (_gate)
+			{
+				endpoints = new IPEndPoint[_knownEndpoints.Count];
+				_knownEndpoints.CopyTo(endpoints);
+			}
+
+			foreach (IPEndPoint endpoint in endpoints)
+			{
+				_mux.RemovePeer(endpoint);
+			}
 		}
 
 		public void OnStun(StunMessage message, ReadOnlySpan<byte> raw, IPEndPoint from)
@@ -193,6 +241,11 @@ namespace MiNET.Net.Rtc
 				Interlocked.Increment(ref _integrityFailures);
 				Log.Debug("Ignoring binding request with invalid MESSAGE-INTEGRITY.");
 				return;
+			}
+
+			lock (_gate)
+			{
+				_knownEndpoints.Add(from);
 			}
 
 			RefreshLastSeen();
@@ -252,6 +305,14 @@ namespace MiNET.Net.Rtc
 
 		private void OnTick()
 		{
+			// Closed: Dispose already unsubscribed this handler from mux.OnTick, so reaching this
+			// point at all means a tick that was already in flight when Dispose ran; bail rather
+			// than touch a session that may be mid-teardown. Failed: without this, a session stuck
+			// past the consent timeout would call Fail() again on every single tick forever (it is
+			// idempotent, but that is still unbounded wasted work); once failed there is nothing
+			// left for a tick to usefully do either way.
+			if (Volatile.Read(ref _closedFlag) == 1 || Volatile.Read(ref _failedFlag) == 1) return;
+
 			long now = Environment.TickCount64;
 
 			if (Volatile.Read(ref _nominatedFlag) == 1)
@@ -276,7 +337,7 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			if (_role != IceRole.Controlling || !_checksStarted || Volatile.Read(ref _failedFlag) == 1) return;
+			if (_role != IceRole.Controlling || !_checksStarted) return;
 
 			if (now - _checksStartedAtTicks >= GiveUpAfterMillis)
 			{
@@ -337,6 +398,7 @@ namespace MiNET.Net.Rtc
 			_mux.Send(candidate.EndPoint, buffer.Slice(0, written));
 
 			_lastConsentSentTicks = now;
+			Interlocked.Increment(ref _consentChecksSent);
 		}
 
 		private void SendBindingSuccess(byte[] transactionId, IPEndPoint to)

@@ -69,6 +69,20 @@ namespace MiNET.Net.Rtc
 
 		public string LocalUfrag => _localUfrag;
 
+		/// <summary>
+		///     Off by default; exists only for same-machine test topologies where the peer's ICE
+		///     candidate gathering advertises a real interface address (its own loopback filtering
+		///     excludes 127.0.0.1) that this side cannot reach because its own <see cref="UdpMux" /> is
+		///     itself bound to loopback, a combination that only ever arises when both peers of a test
+		///     run on one machine. When set, <see cref="AcceptAnswer" /> remaps a same-address-family
+		///     remote candidate to this side's own loopback address, keeping its port, and drops a
+		///     candidate of a different address family outright (unreachable either way). Never set
+		///     this for a real deployment: a production bind address is never a loopback address, so
+		///     the remap would never trigger anyway, but leaving it off keeps protocol code free of
+		///     test-topology behaviour by default.
+		/// </summary>
+		public bool RemapCandidatesForSameMachine { get; set; }
+
 		public event DtlsSession.DecryptedHandler OnDecrypted;
 
 		private RtcPeer(UdpMux mux, RtcCertificate certificate, IceSession ice, bool isAnswerer, string localUfrag, string localPassword)
@@ -170,7 +184,7 @@ namespace MiNET.Net.Rtc
 			_ice.SetRemoteCredentials(remote.IceUfrag, remote.IcePassword);
 			foreach (IPEndPoint candidate in remote.Candidates)
 			{
-				IPEndPoint reachable = MakeReachable(candidate);
+				IPEndPoint reachable = RemapCandidatesForSameMachine ? MakeReachable(candidate) : candidate;
 				if (reachable != null) _ice.AddRemoteCandidate(reachable);
 			}
 
@@ -186,21 +200,17 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     A socket bound to a loopback address can never reach a non-loopback destination: the OS
-		///     rejects the send outright, since 127.0.0.1 is not a valid source address for a packet
-		///     leaving the loopback interface. This only bites in exactly the topology stage 1's own
-		///     interop tests use (both peers on one machine, this side bound to loopback) because a
-		///     spec-compliant WebRTC ICE agent's own candidate gathering unconditionally excludes
-		///     loopback addresses (RFC 8445 host candidates favour real interfaces, with no
-		///     configuration to disable that), so its answer never offers one to fall back to.
-		///     Remapping a same-family remote candidate's address to our own loopback address, keeping
-		///     its port, reaches the peer anyway: an endpoint listening on a wildcard bind (the common
-		///     default) still accepts traffic addressed to 127.0.0.1 on that same port, exactly as
-		///     proven by the reverse direction (the answerer role above), where such a peer dials our
-		///     loopback address successfully on its own. A candidate of a different address family than
-		///     this side's own bind (e.g. an IPv6 candidate while this mux is bound IPv4) can never be
-		///     reached either way and is dropped outright: production peers never hit this path at all,
-		///     since a real bind address is never a loopback address to begin with.
+		///     Only ever called when <see cref="RemapCandidatesForSameMachine" /> is set. A socket
+		///     bound to a loopback address can never reach a non-loopback destination: the OS rejects
+		///     the send outright, since 127.0.0.1 is not a valid source address for a packet leaving
+		///     the loopback interface. Remapping a same-family remote candidate's address to our own
+		///     loopback address, keeping its port, reaches the peer anyway: an endpoint listening on a
+		///     wildcard bind (the common default) still accepts traffic addressed to 127.0.0.1 on that
+		///     same port, exactly as proven by the reverse direction (the answerer role above), where
+		///     such a peer dials our loopback address successfully on its own with no remapping needed.
+		///     A candidate of a different address family than this side's own bind (e.g. an IPv6
+		///     candidate while this mux is bound IPv4) can never be reached either way and is dropped
+		///     outright.
 		/// </summary>
 		private IPEndPoint MakeReachable(IPEndPoint candidate)
 		{
@@ -284,6 +294,7 @@ namespace MiNET.Net.Rtc
 			_ice.OnFailed -= OnIceFailed;
 			_ice.OnDtlsDatagram -= _feedDtls;
 			_mux.RemoveUfrag(_localUfrag);
+			_ice.Dispose();
 			_dtls?.Dispose();
 		}
 	}
