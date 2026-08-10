@@ -189,19 +189,18 @@ namespace MiNET.Net.Rtc
 		///     A socket bound to a loopback address can never reach a non-loopback destination: the OS
 		///     rejects the send outright, since 127.0.0.1 is not a valid source address for a packet
 		///     leaving the loopback interface. This only bites in exactly the topology stage 1's own
-		///     interop tests use (both peers on one machine, this side bound to loopback) because
-		///     SIPSorcery's own candidate gathering unconditionally excludes loopback addresses (RFC 8445
-		///     host candidates favour real interfaces; confirmed in its <c>RtpIceChannel</c>, which
-		///     filters <c>IPAddress.IsLoopback</c> out with no configuration to disable it), so its
-		///     answer never offers one to fall back to. Remapping a same-family remote candidate's
-		///     address to our own loopback address, keeping its port, reaches the peer anyway: a
-		///     WebRTC/SIPSorcery endpoint listening on a wildcard bind (its default) still accepts
-		///     traffic addressed to 127.0.0.1 on that same port, exactly as proven by the reverse
-		///     direction (the answerer role above), where SIPSorcery itself dials our loopback address
-		///     successfully. A candidate of a different address family than this side's own bind (e.g.
-		///     an IPv6 candidate while this mux is bound IPv4) can never be reached either way and is
-		///     dropped outright: production peers never hit this path at all, since a real bind address
-		///     is never a loopback address to begin with.
+		///     interop tests use (both peers on one machine, this side bound to loopback) because a
+		///     spec-compliant WebRTC ICE agent's own candidate gathering unconditionally excludes
+		///     loopback addresses (RFC 8445 host candidates favour real interfaces, with no
+		///     configuration to disable that), so its answer never offers one to fall back to.
+		///     Remapping a same-family remote candidate's address to our own loopback address, keeping
+		///     its port, reaches the peer anyway: an endpoint listening on a wildcard bind (the common
+		///     default) still accepts traffic addressed to 127.0.0.1 on that same port, exactly as
+		///     proven by the reverse direction (the answerer role above), where such a peer dials our
+		///     loopback address successfully on its own. A candidate of a different address family than
+		///     this side's own bind (e.g. an IPv6 candidate while this mux is bound IPv4) can never be
+		///     reached either way and is dropped outright: production peers never hit this path at all,
+		///     since a real bind address is never a loopback address to begin with.
 		/// </summary>
 		private IPEndPoint MakeReachable(IPEndPoint candidate)
 		{

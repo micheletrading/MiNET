@@ -60,9 +60,9 @@ namespace MiNET.Net.Rtc
 	///     plain application-data stream, so no SRTP key export is ever performed, but RFC 8827 still
 	///     requires a spec-compliant WebRTC peer to see the RFC 5764 <c>use_srtp</c> extension on
 	///     every DTLS handshake regardless of whether the session carries any RTP: a peer that
-	///     enforces this (confirmed against SIPSorcery's DTLS stack, which raises a fatal
-	///     <c>internal_error</c> alert and aborts the handshake the instant a ServerHello omits it)
-	///     will otherwise refuse to complete. <see cref="ProcessClientExtensions" /> echoes back
+	///     enforces this (confirmed against a real WebRTC DTLS stack in interop testing, which raises a
+	///     fatal <c>internal_error</c> alert and aborts the handshake the instant a ServerHello omits
+	///     it) will otherwise refuse to complete. <see cref="ProcessClientExtensions" /> echoes back
 	///     whichever single profile the client offered, purely as this formality; no protection
 	///     profile is ever used to derive a key.
 	/// </summary>
@@ -178,7 +178,7 @@ namespace MiNET.Net.Rtc
 	/// <summary>
 	///     Client side of the DTLS handshake. Always offers the RFC 5764 <c>use_srtp</c> extension
 	///     for the same reason <see cref="DtlsHandshakeServer" /> echoes it back: a spec-compliant
-	///     WebRTC server (SIPSorcery confirmed) requires it on the ClientHello and aborts the
+	///     WebRTC server (confirmed in interop testing) requires it on the ClientHello and aborts the
 	///     handshake with a fatal alert otherwise, even though this stack never derives an SRTP key
 	///     from whatever profile the server answers with.
 	/// </summary>
