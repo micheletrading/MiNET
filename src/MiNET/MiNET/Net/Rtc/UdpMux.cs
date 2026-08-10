@@ -59,6 +59,11 @@ namespace MiNET.Net.Rtc
 		private readonly ConcurrentDictionary<SocketAddress, PeerEntry> _peers = new();
 		private readonly ConcurrentDictionary<string, Func<IPEndPoint, IMuxPeer>> _ufragResolvers = new();
 
+		// Send-side mirror of the SocketAddress already computed for every registered peer, so
+		// Send can hand the alloc-free SendTo(ReadOnlySpan<byte>, SocketFlags, SocketAddress)
+		// overload a cached address instead of re-serializing the IPEndPoint on every call.
+		private readonly ConcurrentDictionary<IPEndPoint, SocketAddress> _sendAddresses = new();
+
 		private HighPrecisionTimer _timer;
 		private long _droppedDatagrams;
 		private long _dispatchFailures;
@@ -102,12 +107,15 @@ namespace MiNET.Net.Rtc
 
 		public void RegisterPeer(IPEndPoint remote, IMuxPeer peer)
 		{
-			_peers[remote.Serialize()] = new PeerEntry(peer, remote);
+			SocketAddress address = remote.Serialize();
+			_peers[address] = new PeerEntry(peer, remote);
+			_sendAddresses[remote] = address;
 		}
 
 		public void RemovePeer(IPEndPoint remote)
 		{
 			_peers.TryRemove(remote.Serialize(), out _);
+			_sendAddresses.TryRemove(remote, out _);
 		}
 
 		public void RegisterUfrag(string localUfrag, Func<IPEndPoint, IMuxPeer> resolver)
@@ -122,7 +130,18 @@ namespace MiNET.Net.Rtc
 
 		public void Send(IPEndPoint to, ReadOnlySpan<byte> datagram)
 		{
-			_socket.SendTo(datagram, SocketFlags.None, to);
+			// Known peer: the SocketAddress was already computed when it was registered, so the
+			// alloc-free SendTo(SocketAddress) overload skips re-serializing the IPEndPoint here.
+			if (_sendAddresses.TryGetValue(to, out SocketAddress address))
+			{
+				_socket.SendTo(datagram, SocketFlags.None, address);
+				return;
+			}
+
+			// Unregistered target (e.g. a one-off send before the peer is known): pay the
+			// serialization once for this call rather than growing the cache unbounded for
+			// endpoints that may never be seen again.
+			_socket.SendTo(datagram, SocketFlags.None, to.Serialize());
 		}
 
 		private async Task ReceiveLoopAsync()
@@ -246,7 +265,9 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			_peers[endPoint.Serialize()] = new PeerEntry(peer, endPoint);
+			SocketAddress address = endPoint.Serialize();
+			_peers[address] = new PeerEntry(peer, endPoint);
+			_sendAddresses[endPoint] = address;
 			peer.OnStun(message, data, endPoint);
 		}
 

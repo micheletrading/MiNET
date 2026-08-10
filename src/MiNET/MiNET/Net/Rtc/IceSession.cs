@@ -181,8 +181,8 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Shared by both roles: a full ICE agent (SIPSorcery on the other end, or our own
-		///     Controlling session answering a triggered check) always answers an inbound request
+		///     Shared by both roles: a full ICE agent on the other end, or our own Controlling
+		///     session answering a triggered check, always answers an inbound request
 		///     with valid integrity, keyed with our LOCAL password since we are the recipient. A
 		///     USE-CANDIDATE flag on the request nominates the sender's endpoint.
 		/// </summary>

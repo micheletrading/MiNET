@@ -88,6 +88,37 @@ namespace MiNET.Test.Rtc
 		}
 
 		[TestMethod]
+		public async Task Send_ToRegisteredPeer_DeliversUsingCachedSocketAddress()
+		{
+			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			var peer = new RecordingPeer();
+			mux.RegisterUfrag("sendUfrag", _ => peer);
+			mux.Start();
+
+			using var sender = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+			var senderEndPoint = (IPEndPoint) sender.Client.LocalEndPoint;
+
+			var request = new StunMessage
+			{
+				Type = StunMessageType.BindingRequest,
+				TransactionId = RandomNumberGenerator.GetBytes(12),
+				Username = "sendUfrag:cliUfrag"
+			};
+			byte[] wire = new byte[StunMessage.MaxSize];
+			int written = request.WriteTo(wire);
+			await sender.SendAsync(wire.AsMemory(0, written), mux.LocalEndPoint);
+
+			// First contact registers the peer, which also populates the send-address cache.
+			await peer.Stun.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+			byte[] payload = {9, 8, 7, 6};
+			mux.Send(senderEndPoint, payload);
+
+			UdpReceiveResult result = await sender.ReceiveAsync().WaitAsync(TimeSpan.FromSeconds(5));
+			CollectionAssert.AreEqual(payload, result.Buffer);
+		}
+
+		[TestMethod]
 		public async Task Tick_Fires()
 		{
 			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
