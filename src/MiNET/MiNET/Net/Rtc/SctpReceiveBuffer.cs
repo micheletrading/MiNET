@@ -326,6 +326,64 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
+		///     Inbound RFC 3758 FORWARD-TSN: the peer has abandoned everything up to and including
+		///     <paramref name="newCumulative" />, so this skips the cumulative ack point ahead to match
+		///     rather than waiting for it to arrive. Any incomplete fragment run whose TSN falls at or
+		///     below the new point is discarded (it can never complete: the sender already gave up on it),
+		///     never delivered. <paramref name="pairs" /> (per-stream, the highest stream sequence number
+		///     being skipped) advance <see cref="_nextOrderedSeq" /> the same way <see cref="AdvanceOrderedSeqAndDrain" />
+		///     does for an ordinary delivery, which also drains any already-complete ordered message in
+		///     <see cref="_orderedPending" /> that was only waiting on the now-abandoned one's turn - the
+		///     actual reason RFC 3758 carries these pairs, so ordered delivery on that stream does not stall
+		///     forever behind a message that will never arrive. A stale or duplicate FORWARD-TSN (one that
+		///     does not actually move the cumulative ack forward) is a no-op.
+		/// </summary>
+		public void AdvanceCumulative(uint newCumulative, ReadOnlySpan<(ushort StreamId, ushort StreamSeq)> pairs)
+		{
+			if (!_initialized) return;
+			if (!SctpTsn.IsNewer(newCumulative, _cumulativeTsn)) return;
+
+			if (_fragments.Count > 0)
+			{
+				List<uint> toDiscard = null;
+				foreach (uint tsn in _fragments.Keys)
+				{
+					if (!SctpTsn.IsNewer(tsn, newCumulative)) (toDiscard ??= new List<uint>()).Add(tsn);
+				}
+
+				if (toDiscard != null)
+				{
+					foreach (uint tsn in toDiscard)
+					{
+						if (_fragments.Remove(tsn, out FragmentEntry entry))
+						{
+							ArrayPool<byte>.Shared.Return(entry.Buffer);
+							_bufferedBytes -= (uint) entry.Length;
+						}
+					}
+				}
+			}
+
+			_gapTsns.RemoveWhere(tsn => !SctpTsn.IsNewer(tsn, newCumulative));
+
+			_cumulativeTsn = newCumulative;
+			uint next = unchecked(_cumulativeTsn + 1);
+			while (_gapTsns.Remove(next))
+			{
+				_cumulativeTsn = next;
+				next = unchecked(next + 1);
+			}
+
+			for (int i = 0; i < pairs.Length; i++)
+			{
+				(ushort streamId, ushort streamSeq) = pairs[i];
+				ushort candidateNext = unchecked((ushort) (streamSeq + 1));
+				ushort currentNext = _nextOrderedSeq.TryGetValue(streamId, out ushort v) ? v : (ushort) 0;
+				if (SctpSeq.IsNewer(candidateNext, currentNext)) AdvanceOrderedSeqAndDrain(streamId, streamSeq);
+			}
+		}
+
+		/// <summary>
 		///     Fills <paramref name="destination" /> with gap-ack blocks (offsets relative to the
 		///     cumulative TSN ack point, RFC 4960 3.3.4), ascending from the ack point and capped at
 		///     <paramref name="destination" />'s length. Returns the number written.

@@ -110,6 +110,21 @@ namespace MiNET.Net.Rtc
 		private const long RtoMaxMillis = 10000;
 		private const int MaxAttempts = 5;
 
+		// Task 5's send path. Messages at or under this size go out as a single DATA chunk; above it
+		// they split into pieces of exactly this size (the last one shorter). Deliberately well under
+		// the 1172-byte hard per-chunk ceiling (MaxSize 1200 - common header 12 - DATA header 16), so a
+		// full-size DATA chunk still leaves headroom for a bundled SACK (16 bytes plus up to 16 bytes of
+		// gap blocks) in the same packet.
+		private const int FragmentThreshold = 1024;
+
+		// The send-side queue budget (bytes of payload resident - queued plus in-flight, not yet
+		// cumulatively acked - across the whole association): generous relative to the 128 KB congestion
+		// window cap (SctpSendQueue.CwndCap) so a healthy peer under ordinary jitter never has a
+		// fully-reliable Send blocked on it, but still bounded so a stalled or hostile peer cannot grow
+		// this association's memory without limit. Documented in the task report; callers needing a
+		// different budget pass their own value.
+		private const uint DefaultSendQueueBudgetBytes = 1_048_576;
+
 		// RFC 4960 6.2 SACK policy: a SACK goes out on the second packet carrying DATA, or 200ms after
 		// the first unacked one, whichever comes first (plus the immediate triggers HandleData/MaybeSendSack
 		// check for separately).
@@ -168,6 +183,25 @@ namespace MiNET.Net.Rtc
 		private bool _sackTimerArmed;
 		private long _sackTimerArmedAtTicks;
 
+		// Send path (Task 5).
+		private readonly SctpSendQueue _sendQueue;
+		private uint _nextOutboundTsn;
+		private readonly Dictionary<ushort, ushort> _nextOutboundSeqByStream = new();
+		private readonly List<(ushort StreamId, ushort StreamSeq)> _forwardTsnPairsScratch = new();
+		private bool _flushing;
+
+		/// <summary>
+		///     The clock seam for RTO/T3-rtx: every "now" read on the send path goes through this instead
+		///     of <see cref="Environment.TickCount64" /> directly, so a test can drive RTO backoff and
+		///     timeout deterministically (advance a fake clock, call <see cref="OnTick" />) instead of
+		///     paying real wall-clock delay up to <c>RtoMaxMillis</c> (10s) per retransmit round. Defaults
+		///     to the real clock; only tests (via the assembly's InternalsVisibleTo) ever replace it. The
+		///     existing handshake retransmit logic above intentionally still reads
+		///     <see cref="Environment.TickCount64" /> directly - it predates this seam and is out of this
+		///     task's scope, so it is left alone rather than switched over incidentally.
+		/// </summary>
+		internal Func<long> ClockNowMillis = () => Environment.TickCount64;
+
 		public SctpState State => _state;
 
 		public event Action OnEstablished;
@@ -202,13 +236,14 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
-		public SctpAssociation(bool isClient, ushort sctpPort, uint arwndBudget, PacketSender sendPacket)
+		public SctpAssociation(bool isClient, ushort sctpPort, uint arwndBudget, PacketSender sendPacket, uint sendQueueBudgetBytes = DefaultSendQueueBudgetBytes)
 		{
 			_isClient = isClient;
 			_sctpPort = sctpPort;
 			_arwndBudget = arwndBudget;
 			_sendPacket = sendPacket;
 			_receiveBuffer = new SctpReceiveBuffer(arwndBudget);
+			_sendQueue = new SctpSendQueue(sendQueueBudgetBytes);
 		}
 
 		/// <summary>Test visibility only: budget minus buffered bytes, what the next outgoing SACK would carry as a_rwnd.</summary>
@@ -241,6 +276,45 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
+		/// <summary>Test visibility only: bytes of outbound payload still resident (queued or in-flight, not yet cumulatively acked by the peer).</summary>
+		internal uint SendQueuedBytes
+		{
+			get
+			{
+				lock (_gate) return _sendQueue.QueuedBytes;
+			}
+		}
+
+		/// <summary>Test visibility only: current send-side congestion window.</summary>
+		internal uint SendCwnd
+		{
+			get
+			{
+				lock (_gate) return _sendQueue.Cwnd;
+			}
+		}
+
+		/// <summary>Test visibility only: current send-side RTO.</summary>
+		internal long SendRtoMillis
+		{
+			get
+			{
+				lock (_gate) return _sendQueue.RtoMillis;
+			}
+		}
+
+		/// <summary>Test visibility only: how many outbound DATA chunks were retransmitted (T3-rtx or fast retransmit), whether or not the retransmission itself was later abandoned.</summary>
+		internal long SendRetransmitCount => _sendQueue.RetransmitCount;
+
+		/// <summary>Test visibility only: how many outbound DATA chunks were abandoned (RFC 3758) after exceeding their own maxRetransmits.</summary>
+		internal long SendAbandonedCount => _sendQueue.AbandonedCount;
+
+		/// <summary>Test visibility only: how many times three duplicate gap-carrying SACKs triggered a fast retransmit ahead of T3-rtx.</summary>
+		internal long SendFastRetransmitCount => _sendQueue.FastRetransmitCount;
+
+		/// <summary>Test visibility only: how many times T3-rtx actually fired.</summary>
+		internal long SendTimeoutCount => _sendQueue.TimeoutCount;
+
 		/// <summary>
 		///     Client role: sends the opening INIT and arms the retransmit timer. Server role: nothing to
 		///     do, it only ever reacts to <see cref="OnPacketReceived" />.
@@ -256,6 +330,50 @@ namespace MiNET.Net.Rtc
 				_state = SctpState.CookieWait;
 				ResetRetransmitState();
 				SendInitPacket();
+			}
+		}
+
+		/// <summary>
+		///     Queues <paramref name="message" /> for delivery on <paramref name="streamId" />, fragmenting
+		///     it above <see cref="FragmentThreshold" /> bytes into consecutive-TSN, one-streamSeq B/middle/E
+		///     chunks, and flushes whatever the current send window (<c>min(peer a_rwnd, cwnd)</c>) allows
+		///     right away. Returns false, never blocking, when the association is not
+		///     <see cref="SctpState.Established" /> or the send-queue budget is already spent by
+		///     already-queued data (the caller's problem: back off and retry, this is not itself a
+		///     transport error). <paramref name="maxRetransmits" /> negative means fully reliable; a
+		///     non-negative value is the partial-reliability budget (RFC 3758) before this message's
+		///     remaining unacked chunks are abandoned and FORWARD-TSN carries the peer past them.
+		/// </summary>
+		public bool Send(ushort streamId, uint ppid, ReadOnlySpan<byte> message, bool unordered, int maxRetransmits)
+		{
+			lock (_gate)
+			{
+				if (_state != SctpState.Established) return false;
+				if (!_sendQueue.HasRoomFor((uint) message.Length)) return false;
+
+				ushort streamSeq = 0;
+				if (!unordered)
+				{
+					streamSeq = _nextOutboundSeqByStream.TryGetValue(streamId, out ushort v) ? v : (ushort) 0;
+					_nextOutboundSeqByStream[streamId] = unchecked((ushort) (streamSeq + 1));
+				}
+
+				int pieceCount = Math.Max(1, (message.Length + FragmentThreshold - 1) / FragmentThreshold);
+				int offset = 0;
+				for (int i = 0; i < pieceCount; i++)
+				{
+					int len = Math.Min(FragmentThreshold, message.Length - offset);
+					bool begin = i == 0;
+					bool end = i == pieceCount - 1;
+					uint tsn = _nextOutboundTsn;
+					_nextOutboundTsn = unchecked(_nextOutboundTsn + 1);
+
+					_sendQueue.Enqueue(tsn, streamId, streamSeq, ppid, unordered, begin, end, message.Slice(offset, len), maxRetransmits);
+					offset += len;
+				}
+
+				Flush();
+				return true;
 			}
 		}
 
@@ -301,6 +419,16 @@ namespace MiNET.Net.Rtc
 					SendSackPacket();
 					_dataPacketsSinceSack = 0;
 					_sackTimerArmed = false;
+				}
+
+				// T3-rtx (RFC 4960 6.3.3): role-agnostic, same as the SACK fallback above - either side
+				// can have outstanding outbound DATA once established.
+				if (_state == SctpState.Established && _sendQueue.IsTimerExpired(ClockNowMillis()))
+				{
+					long now = ClockNowMillis();
+					_sendQueue.HandleTimeout(now);
+					MaybeSendForwardTsn();
+					Flush();
 				}
 			}
 
@@ -372,9 +500,13 @@ namespace MiNET.Net.Rtc
 							break;
 
 						case SctpChunkType.Sack:
-							// Acks our own outbound DATA; Task 5 owns retransmission and has nothing to
-							// react to yet, so a bundled SACK from the peer is not acted on here. Not an
-							// unrecognised chunk, so it does not count against IgnoredPacketCount.
+							HandleSack(value);
+							break;
+
+						case SctpChunkType.ForwardTsn:
+							// A FORWARD-TSN moves our receive cumulative just like DATA can, so the peer
+							// should get a SACK reflecting the new point.
+							packetHadData = HandleForwardTsn(value) || packetHadData;
 							break;
 
 						default:
@@ -453,6 +585,171 @@ namespace MiNET.Net.Rtc
 			}
 
 			return zeroCopy;
+		}
+
+		/// <summary>
+		///     Server or client role, called under <see cref="_gate" />: applies an inbound SACK to the send
+		///     side (<see cref="_sendQueue" />), refreshes the peer's advertised receive window, and follows
+		///     up with a FORWARD-TSN and/or an outbound flush if the SACK made either possible (fast
+		///     retransmit abandoning a chunk, or the window opening back up).
+		/// </summary>
+		private void HandleSack(ReadOnlySpan<byte> value)
+		{
+			if (!SackChunk.TryParse(value, out SackChunk sack))
+			{
+				CountIgnored();
+				return;
+			}
+
+			if (_state != SctpState.Established)
+			{
+				CountIgnored();
+				return;
+			}
+
+			_peerArwnd = sack.Arwnd;
+			_sendQueue.OnSackReceived(sack.CumulativeTsnAck, sack.GapBlocks, ClockNowMillis());
+
+			MaybeSendForwardTsn();
+			Flush();
+		}
+
+		/// <summary>
+		///     Server or client role, called under <see cref="_gate" />: an inbound FORWARD-TSN moves our
+		///     receive cumulative ack point exactly like DATA arriving can (RFC 3758), so it needs the same
+		///     "does the caller owe the peer a SACK now" signal <see cref="HandleData" /> gives via its own
+		///     return value. Returns false (and counts the chunk as ignored) for a malformed chunk or one
+		///     that arrives before <see cref="SctpState.Established" />.
+		/// </summary>
+		private bool HandleForwardTsn(ReadOnlySpan<byte> value)
+		{
+			if (_state != SctpState.Established)
+			{
+				CountIgnored();
+				return false;
+			}
+
+			if (!ForwardTsnChunk.TryParse(value, out ForwardTsnChunk chunk))
+			{
+				CountIgnored();
+				return false;
+			}
+
+			int pairCount = chunk.PairCount;
+			Span<(ushort StreamId, ushort StreamSeq)> pairs = stackalloc (ushort, ushort)[pairCount];
+			for (int i = 0; i < pairCount; i++) pairs[i] = chunk.GetPair(i);
+
+			_receiveBuffer.AdvanceCumulative(chunk.NewCumulativeTsn, pairs);
+			return true;
+		}
+
+		/// <summary>
+		///     Called under <see cref="_gate" /> after anything that might have abandoned a chunk (T3-rtx in
+		///     <see cref="OnTick" />, fast retransmit inside <see cref="HandleSack" />): sends a FORWARD-TSN
+		///     when <see cref="_sendQueue" /> can now advertise further than it already has.
+		/// </summary>
+		private void MaybeSendForwardTsn()
+		{
+			if (_sendQueue.TryComputeForwardTsnAdvance(_forwardTsnPairsScratch, out uint newTarget))
+			{
+				SendForwardTsnPacket(newTarget, _forwardTsnPairsScratch);
+				_sendQueue.MarkForwardTsnAdvertised(newTarget);
+			}
+		}
+
+		/// <summary>
+		///     Called under <see cref="_gate" /> from <see cref="Send" />, <see cref="HandleSack" />, and
+		///     <see cref="OnTick" />'s T3-rtx branch: packs every chunk <see cref="_sendQueue" /> currently
+		///     has ready (never yet sent, or marked for retransmission) into as many <see cref="SctpPacket.MaxSize" />
+		///     packets as the send window allows, oldest TSN first. A pending delayed SACK
+		///     (<see cref="_sackTimerArmed" />) bundles into the very first packet of the flush, if any -
+		///     "a pending SACK bundles with outgoing DATA" is this task's job, a standalone one with no data
+		///     to ride along is still <see cref="SendSackPacket" />'s and <see cref="MaybeSendSack" />'s.
+		///     <para>
+		///     Guarded by <see cref="_flushing" /> against the reentrancy this codebase's synchronous
+		///     loopback wiring produces: sending a packet here can synchronously walk all the way into the
+		///     peer's own reply landing back on <see cref="OnPacketReceived" />, which reacquires
+		///     <see cref="_gate" /> (reentrant on this thread) and may call this method again. Rather than
+		///     nesting - which would let an inner call free or repool linked-list nodes the outer call's
+		///     loop still expects to advance through - the inner call is a no-op; the outer loop already
+		///     re-reads live state (window, queue) on every iteration, so it picks up whatever the reentrant
+		///     SACK processing just changed on its own next pass.
+		///     </para>
+		/// </summary>
+		private void Flush()
+		{
+			if (_flushing) return;
+			if (_sendQueue.PeekReadyToSend(_sendQueue.AvailableWindowBytes(_peerArwnd)) == null) return;
+
+			_flushing = true;
+			try
+			{
+				byte[] scratch = ArrayPool<byte>.Shared.Rent(SctpPacket.MaxSize);
+				try
+				{
+					Span<byte> packet = scratch.AsSpan(0, SctpPacket.MaxSize);
+					bool sackBundled = false;
+
+					SctpSendQueue.PendingChunk chunk = _sendQueue.PeekReadyToSend(_sendQueue.AvailableWindowBytes(_peerArwnd));
+					while (chunk != null)
+					{
+						int n = SctpPacket.WriteHeader(packet, _sctpPort, _sctpPort, _peerTag);
+						int used = n;
+
+						if (!sackBundled && _sackTimerArmed)
+						{
+							used += WriteSackChunkInto(packet.Slice(used));
+							sackBundled = true;
+							_sackTimerArmed = false;
+							_dataPacketsSinceSack = 0;
+						}
+
+						long now = ClockNowMillis();
+						while (chunk != null)
+						{
+							int valueLength = 12 + chunk.Length;
+							int totalLength = SctpChunkCodec.HeaderLength + valueLength;
+							int paddedLength = totalLength + ((4 - totalLength % 4) % 4);
+							if (used + paddedLength > SctpPacket.MaxSize) break;
+
+							var header = new DataChunkHeader(chunk.Tsn, chunk.StreamId, chunk.StreamSeq, chunk.Ppid, chunk.Unordered, chunk.Begin, chunk.End, immediateSack: false);
+							used += header.WriteTo(packet.Slice(used), chunk.Buffer.AsSpan(0, chunk.Length));
+
+							_sendQueue.MarkTransmitted(chunk, now);
+							chunk = _sendQueue.PeekReadyToSend(_sendQueue.AvailableWindowBytes(_peerArwnd));
+						}
+
+						SctpPacket.FinishChecksum(packet.Slice(0, used));
+						_sendPacket(packet.Slice(0, used));
+					}
+				}
+				finally
+				{
+					ArrayPool<byte>.Shared.Return(scratch);
+				}
+			}
+			finally
+			{
+				_flushing = false;
+			}
+		}
+
+		private void SendForwardTsnPacket(uint newCumulativeTsn, List<(ushort StreamId, ushort StreamSeq)> pairs)
+		{
+			Span<byte> pairBytes = stackalloc byte[pairs.Count * 4];
+			for (int i = 0; i < pairs.Count; i++)
+			{
+				BinaryPrimitives.WriteUInt16BigEndian(pairBytes.Slice(i * 4, 2), pairs[i].StreamId);
+				BinaryPrimitives.WriteUInt16BigEndian(pairBytes.Slice(i * 4 + 2, 2), pairs[i].StreamSeq);
+			}
+
+			var forwardTsn = new ForwardTsnChunk(newCumulativeTsn, pairBytes);
+
+			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
+			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
+			n += forwardTsn.WriteTo(buffer.Slice(n));
+			SctpPacket.FinishChecksum(buffer.Slice(0, n));
+			_sendPacket(buffer.Slice(0, n));
 		}
 
 		/// <summary>
@@ -678,6 +975,10 @@ namespace MiNET.Net.Rtc
 			_dataPacketsSinceSack = 0;
 			_sackTimerArmed = false;
 
+			_nextOutboundTsn = _localInitialTsn;
+			_nextOutboundSeqByStream.Clear();
+			_sendQueue.Reset(_localInitialTsn);
+
 			_state = SctpState.Established;
 			return true;
 		}
@@ -714,6 +1015,10 @@ namespace MiNET.Net.Rtc
 			_dataPacketsSinceSack = 0;
 			_sackTimerArmed = false;
 
+			_nextOutboundTsn = _localInitialTsn;
+			_nextOutboundSeqByStream.Clear();
+			_sendQueue.Reset(_localInitialTsn);
+
 			_state = SctpState.Established;
 			return true;
 		}
@@ -747,8 +1052,18 @@ namespace MiNET.Net.Rtc
 			_sendPacket(buffer.Slice(0, n));
 		}
 
-		/// <summary>Called under <see cref="_gate" /> by <see cref="MaybeSendSack" /> and <see cref="OnTick" />'s 200ms fallback.</summary>
+		/// <summary>Called under <see cref="_gate" /> by <see cref="MaybeSendSack" /> and <see cref="OnTick" />'s 200ms fallback: a standalone SACK packet, with no outbound DATA to ride along.</summary>
 		private void SendSackPacket()
+		{
+			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
+			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
+			n += WriteSackChunkInto(buffer.Slice(n));
+			SctpPacket.FinishChecksum(buffer.Slice(0, n));
+			_sendPacket(buffer.Slice(0, n));
+		}
+
+		/// <summary>Shared by <see cref="SendSackPacket" /> and <see cref="Flush" />'s bundling case: writes one SACK chunk (current cumulative ack, gap blocks, duplicate TSNs) into <paramref name="destination" />, returning the padded length written.</summary>
+		private int WriteSackChunkInto(Span<byte> destination)
 		{
 			Span<SackChunk.GapBlock> gapBlocks = stackalloc SackChunk.GapBlock[SackChunk.MaxGapBlocks];
 			int gapCount = _receiveBuffer.BuildGapBlocks(gapBlocks);
@@ -759,11 +1074,7 @@ namespace MiNET.Net.Rtc
 			var sack = new SackChunk(_receiveBuffer.CumulativeTsnAck, _receiveBuffer.CurrentArwnd,
 				gapBlocks.Slice(0, gapCount).ToArray(), duplicateTsns.Slice(0, duplicateCount).ToArray());
 
-			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
-			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
-			n += sack.WriteTo(buffer.Slice(n));
-			SctpPacket.FinishChecksum(buffer.Slice(0, n));
-			_sendPacket(buffer.Slice(0, n));
+			return sack.WriteTo(destination);
 		}
 
 		private void SendCookieAckPacket()
