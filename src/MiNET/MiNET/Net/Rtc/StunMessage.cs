@@ -27,6 +27,7 @@ using System;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace MiNET.Net.Rtc
@@ -54,14 +55,20 @@ namespace MiNET.Net.Rtc
 		public const int MaxSize = 548;
 
 		private const ushort AttributeUsername = 0x0006;
+		private const ushort AttributeMessageIntegrity = 0x0008;
 		private const ushort AttributeXorMappedAddress = 0x0020;
 		private const ushort AttributePriority = 0x0024;
 		private const ushort AttributeUseCandidate = 0x0025;
 		private const ushort AttributeIceControlled = 0x8029;
 		private const ushort AttributeIceControlling = 0x802A;
+		private const ushort AttributeFingerprint = 0x8028;
 
 		private const byte FamilyIPv4 = 0x01;
 		private const byte FamilyIPv6 = 0x02;
+
+		private const int MessageIntegritySize = 20;
+		private const int FingerprintSize = 4;
+		private const uint FingerprintXor = 0x5354554E;
 
 		public StunMessageType Type { get; set; }
 		public byte[] TransactionId { get; set; }
@@ -149,12 +156,26 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Writes the header and attributes in a fixed order: USERNAME, PRIORITY,
-		///     USE-CANDIDATE, ICE-CONTROLLING, ICE-CONTROLLED, XOR-MAPPED-ADDRESS. Task 2's
-		///     overload appends MESSAGE-INTEGRITY then FINGERPRINT after this and re-patches
-		///     the length field.
+		///     Writes the header and attributes with no MESSAGE-INTEGRITY or FINGERPRINT.
+		///     Equivalent to <see cref="WriteTo(Span{byte}, ReadOnlySpan{byte}, bool)" /> with an
+		///     empty key and no fingerprint.
 		/// </summary>
 		public int WriteTo(Span<byte> destination)
+		{
+			return WriteTo(destination, ReadOnlySpan<byte>.Empty, false);
+		}
+
+		/// <summary>
+		///     Writes the header and attributes in a fixed order: USERNAME, PRIORITY,
+		///     USE-CANDIDATE, ICE-CONTROLLING, ICE-CONTROLLED, XOR-MAPPED-ADDRESS, then
+		///     optionally MESSAGE-INTEGRITY (HMAC-SHA1 keyed with <paramref name="integrityKey" />,
+		///     RFC 5389 section 15.4) and FINGERPRINT (CRC-32 XOR'd with 0x5354554e, section 15.5).
+		///     Each trailer patches the header length field to cover itself before it is hashed,
+		///     since both are computed over the bytes that precede them, including that length.
+		///     An empty <paramref name="integrityKey" /> skips MESSAGE-INTEGRITY (and therefore
+		///     FINGERPRINT is computed over the message without it).
+		/// </summary>
+		public int WriteTo(Span<byte> destination, ReadOnlySpan<byte> integrityKey, bool addFingerprint)
 		{
 			BinaryPrimitives.WriteUInt16BigEndian(destination, (ushort) Type);
 			BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(4), MagicCookie);
@@ -206,7 +227,90 @@ namespace MiNET.Net.Rtc
 
 			BinaryPrimitives.WriteUInt16BigEndian(destination.Slice(2), (ushort) (offset - HeaderSize));
 
+			if (!integrityKey.IsEmpty)
+			{
+				// The HMAC covers the message up to but not including the MESSAGE-INTEGRITY
+				// attribute itself (RFC 5389 section 15.4): neither its TLV header nor its
+				// value, so the prefix length used here is "offset" as it stands right now.
+				int integrityOffset = offset;
+				int lengthThroughIntegrity = integrityOffset - HeaderSize + 4 + MessageIntegritySize;
+				BinaryPrimitives.WriteUInt16BigEndian(destination.Slice(2), (ushort) lengthThroughIntegrity);
+
+				WriteAttributeHeader(destination.Slice(integrityOffset), AttributeMessageIntegrity, MessageIntegritySize);
+				HMACSHA1.HashData(integrityKey, destination.Slice(0, integrityOffset), destination.Slice(integrityOffset + 4, MessageIntegritySize));
+				offset = integrityOffset + 4 + MessageIntegritySize;
+
+				if (addFingerprint)
+				{
+					// Same rule for FINGERPRINT (section 15.5): the CRC covers everything
+					// before the FINGERPRINT attribute, header and value both excluded.
+					int fingerprintOffset = offset;
+					int lengthThroughFingerprint = fingerprintOffset - HeaderSize + 4 + FingerprintSize;
+					BinaryPrimitives.WriteUInt16BigEndian(destination.Slice(2), (ushort) lengthThroughFingerprint);
+
+					WriteAttributeHeader(destination.Slice(fingerprintOffset), AttributeFingerprint, FingerprintSize);
+					uint crc = StunCrc32.Compute(destination.Slice(0, fingerprintOffset)) ^ FingerprintXor;
+					BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(fingerprintOffset + 4), crc);
+					offset = fingerprintOffset + 4 + FingerprintSize;
+				}
+			}
+
 			return offset;
+		}
+
+		/// <summary>
+		///     Recomputes MESSAGE-INTEGRITY over <paramref name="packet" /> and compares it to the
+		///     attribute's value in constant time. Walks the attribute TLVs to find MESSAGE-INTEGRITY
+		///     (it may be followed by FINGERPRINT, which is not covered by the HMAC), copies the
+		///     covered prefix into a stack buffer, patches its length field to cover through
+		///     MESSAGE-INTEGRITY per RFC 5389 section 15.4, and recomputes the HMAC over that copy.
+		/// </summary>
+		public static bool VerifyIntegrity(ReadOnlySpan<byte> packet, ReadOnlySpan<byte> integrityKey)
+		{
+			if (!LooksLikeStun(packet)) return false;
+
+			int attributesLength = BinaryPrimitives.ReadUInt16BigEndian(packet.Slice(2));
+			int end = HeaderSize + attributesLength;
+			if (end > packet.Length) return false;
+
+			int offset = HeaderSize;
+			int integrityAttributeOffset = -1;
+			while (offset + 4 <= end)
+			{
+				ushort attributeType = BinaryPrimitives.ReadUInt16BigEndian(packet.Slice(offset));
+				ushort attributeLength = BinaryPrimitives.ReadUInt16BigEndian(packet.Slice(offset + 2));
+				int valueOffset = offset + 4;
+				if (valueOffset + attributeLength > end) return false;
+
+				if (attributeType == AttributeMessageIntegrity)
+				{
+					integrityAttributeOffset = offset;
+					break;
+				}
+
+				int padded = (attributeLength + 3) & ~3;
+				offset = valueOffset + padded;
+			}
+
+			if (integrityAttributeOffset < 0) return false;
+			if (integrityAttributeOffset > MaxSize) return false;
+
+			ushort integrityValueLength = BinaryPrimitives.ReadUInt16BigEndian(packet.Slice(integrityAttributeOffset + 2));
+			if (integrityValueLength != MessageIntegritySize) return false;
+
+			int integrityValueOffset = integrityAttributeOffset + 4;
+			if (integrityValueOffset + MessageIntegritySize > packet.Length) return false;
+
+			ReadOnlySpan<byte> receivedHmac = packet.Slice(integrityValueOffset, MessageIntegritySize);
+
+			Span<byte> covered = stackalloc byte[integrityAttributeOffset];
+			packet.Slice(0, integrityAttributeOffset).CopyTo(covered);
+			BinaryPrimitives.WriteUInt16BigEndian(covered.Slice(2), (ushort) (integrityAttributeOffset - HeaderSize + 4 + MessageIntegritySize));
+
+			Span<byte> computedHmac = stackalloc byte[MessageIntegritySize];
+			HMACSHA1.HashData(integrityKey, covered, computedHmac);
+
+			return CryptographicOperations.FixedTimeEquals(receivedHmac, computedHmac);
 		}
 
 		private static int WriteAttributeHeader(Span<byte> destination, ushort attributeType, ushort valueLength)

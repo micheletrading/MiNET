@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageReference Include="MSTest" Version="4.3.3" />
+    <PackageReference Include="SIPSorcery" Version="10.0.13" />
     <PackageReference Include="System.CodeDom" Version="10.0.10" />
   </ItemGroup>
   <ItemGroup>
