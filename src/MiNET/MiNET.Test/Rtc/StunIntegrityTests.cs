@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -67,6 +67,20 @@ namespace MiNET.Test.Rtc
 			int written = message.WriteTo(buffer, Password, addFingerprint: false);
 			buffer[StunMessage.HeaderSize + 4] ^= 0xff; // first byte of the first attribute's value (USERNAME)
 			Assert.IsFalse(StunMessage.VerifyIntegrity(buffer.Slice(0, written), Password));
+		}
+
+		[TestMethod]
+		public void Fingerprint_IsIndependent_OfIntegrity()
+		{
+			var message = new StunMessage {Type = StunMessageType.BindingRequest, TransactionId = RandomNumberGenerator.GetBytes(12), Username = "a:b"};
+			Span<byte> buffer = stackalloc byte[StunMessage.MaxSize];
+			int written = message.WriteTo(buffer, ReadOnlySpan<byte>.Empty, addFingerprint: true);
+			byte[] bytes = buffer.Slice(0, written).ToArray();
+
+			SIPSorcery.Net.STUNMessage theirs = SIPSorcery.Net.STUNMessage.ParseSTUNMessage(bytes, bytes.Length);
+			Assert.IsTrue(theirs.isFingerprintValid, "SIPSorcery rejected our FINGERPRINT-only message");
+
+			Assert.IsFalse(StunMessage.VerifyIntegrity(bytes, Password), "message has no MESSAGE-INTEGRITY attribute to verify");
 		}
 
 		// The oracle: SIPSorcery must accept what we emit, and we must accept what SIPSorcery emits.

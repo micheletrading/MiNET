@@ -169,11 +169,12 @@ namespace MiNET.Net.Rtc
 		///     Writes the header and attributes in a fixed order: USERNAME, PRIORITY,
 		///     USE-CANDIDATE, ICE-CONTROLLING, ICE-CONTROLLED, XOR-MAPPED-ADDRESS, then
 		///     optionally MESSAGE-INTEGRITY (HMAC-SHA1 keyed with <paramref name="integrityKey" />,
-		///     RFC 5389 section 15.4) and FINGERPRINT (CRC-32 XOR'd with 0x5354554e, section 15.5).
-		///     Each trailer patches the header length field to cover itself before it is hashed,
-		///     since both are computed over the bytes that precede them, including that length.
-		///     An empty <paramref name="integrityKey" /> skips MESSAGE-INTEGRITY (and therefore
-		///     FINGERPRINT is computed over the message without it).
+		///     RFC 5389 section 15.4) and, independently, FINGERPRINT (CRC-32 XOR'd with
+		///     0x5354554e, section 15.5). Each trailer patches the header length field to cover
+		///     itself before it is hashed, since both are computed over the bytes that precede
+		///     them, including that length. An empty <paramref name="integrityKey" /> skips
+		///     MESSAGE-INTEGRITY; <paramref name="addFingerprint" /> controls FINGERPRINT on its
+		///     own, matching FINGERPRINT's independence from the credential mechanism.
 		/// </summary>
 		public int WriteTo(Span<byte> destination, ReadOnlySpan<byte> integrityKey, bool addFingerprint)
 		{
@@ -239,20 +240,22 @@ namespace MiNET.Net.Rtc
 				WriteAttributeHeader(destination.Slice(integrityOffset), AttributeMessageIntegrity, MessageIntegritySize);
 				HMACSHA1.HashData(integrityKey, destination.Slice(0, integrityOffset), destination.Slice(integrityOffset + 4, MessageIntegritySize));
 				offset = integrityOffset + 4 + MessageIntegritySize;
+			}
 
-				if (addFingerprint)
-				{
-					// Same rule for FINGERPRINT (section 15.5): the CRC covers everything
-					// before the FINGERPRINT attribute, header and value both excluded.
-					int fingerprintOffset = offset;
-					int lengthThroughFingerprint = fingerprintOffset - HeaderSize + 4 + FingerprintSize;
-					BinaryPrimitives.WriteUInt16BigEndian(destination.Slice(2), (ushort) lengthThroughFingerprint);
+			if (addFingerprint)
+			{
+				// FINGERPRINT (section 15.5) is independent of the credential mechanism, so
+				// it is added whenever requested, whether or not MESSAGE-INTEGRITY is present.
+				// The CRC covers everything before the FINGERPRINT attribute, header and
+				// value both excluded, same rule as MESSAGE-INTEGRITY above.
+				int fingerprintOffset = offset;
+				int lengthThroughFingerprint = fingerprintOffset - HeaderSize + 4 + FingerprintSize;
+				BinaryPrimitives.WriteUInt16BigEndian(destination.Slice(2), (ushort) lengthThroughFingerprint);
 
-					WriteAttributeHeader(destination.Slice(fingerprintOffset), AttributeFingerprint, FingerprintSize);
-					uint crc = StunCrc32.Compute(destination.Slice(0, fingerprintOffset)) ^ FingerprintXor;
-					BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(fingerprintOffset + 4), crc);
-					offset = fingerprintOffset + 4 + FingerprintSize;
-				}
+				WriteAttributeHeader(destination.Slice(fingerprintOffset), AttributeFingerprint, FingerprintSize);
+				uint crc = StunCrc32.Compute(destination.Slice(0, fingerprintOffset)) ^ FingerprintXor;
+				BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(fingerprintOffset + 4), crc);
+				offset = fingerprintOffset + 4 + FingerprintSize;
 			}
 
 			return offset;
