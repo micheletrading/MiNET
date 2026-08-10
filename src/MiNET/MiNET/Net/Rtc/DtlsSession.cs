@@ -76,7 +76,15 @@ namespace MiNET.Net.Rtc
 		private const int WireLimit = 1472;
 		private const int ScratchBufferSize = 4096;
 
-		public delegate void DecryptedHandler(ReadOnlySpan<byte> payload);
+		/// <summary>
+		///     Round-4b: <see cref="ReadOnlyMemory{T}" />, not <see cref="ReadOnlySpan{T}" />, because the
+		///     receive pipeline this feeds (<see cref="SctpAssociation.OnPacketReceived" />, ultimately
+		///     <see cref="SctpAssociation.OnMessage" />) delivers a <see cref="System.Buffers.ReadOnlySequence{T}" />
+		///     end to end, and a sequence cannot wrap a span. <paramref name="payload" /> is still only
+		///     valid for the duration of the callback: it is a slice of <see cref="_receiveScratch" />, our
+		///     own pooled array, unchanged from when this was a span.
+		/// </summary>
+		public delegate void DecryptedHandler(ReadOnlyMemory<byte> payload);
 
 		/// <summary>
 		///     Round-4 Finding A: takes the outgoing datagram as a span, not a <see cref="ReadOnlyMemory{T}" />,
@@ -393,7 +401,7 @@ namespace MiNET.Net.Rtc
 				int n = transport.Receive(_receiveScratch.AsSpan(), 1);
 				while (n > 0)
 				{
-					OnDecrypted?.Invoke(_receiveScratch.AsSpan(0, n));
+					OnDecrypted?.Invoke(_receiveScratch.AsMemory(0, n));
 
 					// Round-2 Item 1: a subscriber may have called Dispose() from inside that
 					// invocation. Dispose is reentrant-safe on this thread (see the class doc

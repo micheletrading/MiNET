@@ -26,6 +26,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace MiNET.Net.Rtc
@@ -80,6 +81,17 @@ namespace MiNET.Net.Rtc
 	///     allow discarding (see its own remarks) rather than any run touching data already covered by the
 	///     cumulative TSN ack, which would be unrecoverable loss.
 	///     </para>
+	///     <para>
+	///     Delivery (round 4b): a completed fragment run no longer pays a concatenation copy to reach
+	///     <see cref="SctpAssociation.OnMessage" />. It delivers as a multi-segment
+	///     <see cref="ReadOnlySequence{T}" /> chained directly over its individual leased buffers via
+	///     pooled <see cref="PooledSegment" /> nodes (<see cref="DeliverFragmentsAsSequence" />); a
+	///     single-chunk message stays a single-segment sequence wrapping the incoming datagram, zero
+	///     copy. The one place concatenation still happens is <see cref="ConcatenateFragmentsIntoPending" />,
+	///     for a completed-but-not-yet-due ordered message: it has to sit in <see cref="_orderedPending" />
+	///     for however long its turn takes, and one buffer is cheaper to hold open-ended than N buffers
+	///     plus N segment nodes.
+	///     </para>
 	/// </summary>
 	internal sealed class SctpReceiveBuffer
 	{
@@ -125,15 +137,23 @@ namespace MiNET.Net.Rtc
 		private long _droppedByGapCapCount;
 		private long _renegedFragmentRunCount;
 
+		// Free list of PooledSegment nodes, reused across deliveries so chaining a multi-segment
+		// ReadOnlySequence<byte> over a completed fragment run allocates no segment objects at steady
+		// state. A node is rented in TryCompleteAround/AdvanceOrderedSeqAndDrain and returned by
+		// ReleaseDelivery once the caller's callback for that delivery has run.
+		private PooledSegment _freeSegments;
+
 		/// <summary>
 		///     Deliveries produced by the most recent <see cref="Receive" /> call: fragment-reassembly
 		///     completions and any ordered messages a cascade unblocked. Cleared at the start of every
 		///     <see cref="Receive" /> call, so the caller must drain it before calling <see cref="Receive" />
-		///     again. Each buffer was leased from <see cref="ArrayPool{T}.Shared" /> and is the caller's to
-		///     return once its callback has run. A single-chunk message that can be delivered the instant
-		///     it arrives never appears here at all: <see cref="Receive" /> reports that case through its
-		///     own return value instead, so the caller can hand the original incoming span straight to the
-		///     application with no lease and no copy.
+		///     again. Each delivery's <see cref="LeasedDelivery.Sequence" /> is chained over one or more
+		///     buffers leased from <see cref="ArrayPool{T}.Shared" />, via <see cref="PooledSegment" />
+		///     nodes from this instance's own pool; the caller returns both (buffers and nodes) via
+		///     <see cref="ReleaseDelivery" /> once its callback has run. A single-chunk message that can be
+		///     delivered the instant it arrives never appears here at all: <see cref="Receive" /> reports
+		///     that case through its own return value instead, so the caller can hand the original incoming
+		///     memory straight to the application with no lease, no segment, and no copy.
 		/// </summary>
 		public readonly List<LeasedDelivery> Deliveries = new();
 
@@ -362,7 +382,12 @@ namespace MiNET.Net.Rtc
 			while (pending.TryGetValue(next, out (byte[] Buffer, int Length, uint Ppid) msg))
 			{
 				pending.Remove(next);
-				Deliveries.Add(new LeasedDelivery(streamId, msg.Ppid, msg.Buffer, msg.Length));
+
+				// A pending entry is always one already-consolidated buffer (see the WaitForTurn branch
+				// of TryCompleteAround), so it delivers as a trivial single-segment sequence.
+				PooledSegment segment = RentSegment();
+				segment.Initialize(msg.Buffer, msg.Length, 0);
+				Deliveries.Add(new LeasedDelivery(streamId, msg.Ppid, segment, segment));
 				_bufferedBytes -= (uint) msg.Length;
 
 				next = unchecked((ushort) (next + 1));
@@ -449,6 +474,94 @@ namespace MiNET.Net.Rtc
 			uint ppid = beginEntry.Ppid;
 			ushort streamSeq = beginEntry.StreamSeq;
 
+			if (unordered)
+			{
+				DeliverFragmentsAsSequence(streamId, ppid, begin, pieceCount);
+				return;
+			}
+
+			switch (ClassifyOrdered(streamId, streamSeq))
+			{
+				case OrderedDisposition.DueNow:
+					DeliverFragmentsAsSequence(streamId, ppid, begin, pieceCount);
+					AdvanceOrderedSeqAndDrain(streamId, streamSeq);
+					break;
+
+				case OrderedDisposition.Stale:
+					DiscardFragments(begin, pieceCount);
+					break;
+
+				default: // WaitForTurn
+					ConcatenateFragmentsIntoPending(streamId, ppid, streamSeq, begin, pieceCount);
+					break;
+			}
+		}
+
+		/// <summary>
+		///     The immediate-delivery path (unordered, or ordered and exactly due): chains a
+		///     <see cref="ReadOnlySequence{T}" /> directly over the <paramref name="pieceCount" /> leased
+		///     fragment buffers starting at <paramref name="begin" />, via pooled
+		///     <see cref="PooledSegment" /> nodes, with NO copy. This is the design point 4 of the round-4b
+		///     contract calls for: a fragmented message used to pay one memcpy per completion to land in a
+		///     single concatenated buffer (a <see cref="ReadOnlySpan{T}" /> could not represent anything
+		///     else); a <see cref="ReadOnlySequence{T}" /> does not need one, so it no longer happens here.
+		///     Ownership of each fragment's leased buffer transfers to its segment; <see cref="ReleaseDelivery" />
+		///     returns both the buffers and the segment nodes once the caller's callback has run.
+		/// </summary>
+		private void DeliverFragmentsAsSequence(ushort streamId, uint ppid, uint begin, int pieceCount)
+		{
+			PooledSegment head = null;
+			PooledSegment tail = null;
+			long runningIndex = 0;
+			uint scan = begin;
+
+			for (int i = 0; i < pieceCount; i++)
+			{
+				_fragments.Remove(scan, out FragmentEntry piece);
+				_bufferedBytes -= (uint) piece.Length;
+
+				PooledSegment segment = RentSegment();
+				segment.Initialize(piece.Buffer, piece.Length, runningIndex);
+				runningIndex += piece.Length;
+
+				if (head == null) head = segment;
+				else tail.SetNext(segment);
+				tail = segment;
+
+				scan = unchecked(scan + 1);
+			}
+
+			Deliveries.Add(new LeasedDelivery(streamId, ppid, head, tail));
+		}
+
+		/// <summary>A stream-sequence-stale completed run: nothing to deliver, so its pieces are simply returned, never concatenated first.</summary>
+		private void DiscardFragments(uint begin, int pieceCount)
+		{
+			uint scan = begin;
+			for (int i = 0; i < pieceCount; i++)
+			{
+				if (_fragments.Remove(scan, out FragmentEntry piece))
+				{
+					ArrayPool<byte>.Shared.Return(piece.Buffer);
+					_bufferedBytes -= (uint) piece.Length;
+				}
+
+				scan = unchecked(scan + 1);
+			}
+		}
+
+		/// <summary>
+		///     The one case round-4b's contract (point 5) still concatenates: a completed ordered message
+		///     that is not yet due has to sit in <see cref="_orderedPending" /> until its stream sequence
+		///     number's turn, for however long that takes, and holding N separate leased buffers plus N
+		///     pooled segment nodes for an indefinite wait is worse than paying one copy up front to land
+		///     it in the single leased buffer <see cref="_orderedPending" /> already expects. The immediate
+		///     paths (<see cref="DeliverFragmentsAsSequence" />) never pay this: they chain a
+		///     <see cref="ReadOnlySequence{T}" /> directly over the individual fragment leases instead, no
+		///     memcpy at all.
+		/// </summary>
+		private void ConcatenateFragmentsIntoPending(ushort streamId, uint ppid, ushort streamSeq, uint begin, int pieceCount)
+		{
 			int totalLength = 0;
 			uint scan = begin;
 			for (int i = 0; i < pieceCount; i++)
@@ -462,45 +575,16 @@ namespace MiNET.Net.Rtc
 			scan = begin;
 			for (int i = 0; i < pieceCount; i++)
 			{
-				FragmentEntry piece = _fragments[scan];
-				// A single memcpy per fragment run. If fragmentation ever turns out to be a real cost in
-				// practice, the alternative is delivering the message as a ReadOnlySequence<byte> chained
-				// over the individual fragment buffers instead of concatenating here, trading this one
-				// copy for segment-aware parsing in consumers.
+				_fragments.Remove(scan, out FragmentEntry piece);
 				Array.Copy(piece.Buffer, 0, combined, offset, piece.Length);
 				offset += piece.Length;
 				ArrayPool<byte>.Shared.Return(piece.Buffer);
-				_fragments.Remove(scan);
 				_bufferedBytes -= (uint) piece.Length;
 				scan = unchecked(scan + 1);
 			}
 
 			_bufferedBytes += (uint) totalLength;
-
-			if (unordered)
-			{
-				Deliveries.Add(new LeasedDelivery(streamId, ppid, combined, totalLength));
-				_bufferedBytes -= (uint) totalLength;
-				return;
-			}
-
-			switch (ClassifyOrdered(streamId, streamSeq))
-			{
-				case OrderedDisposition.DueNow:
-					Deliveries.Add(new LeasedDelivery(streamId, ppid, combined, totalLength));
-					_bufferedBytes -= (uint) totalLength;
-					AdvanceOrderedSeqAndDrain(streamId, streamSeq);
-					break;
-
-				case OrderedDisposition.Stale:
-					ArrayPool<byte>.Shared.Return(combined);
-					_bufferedBytes -= (uint) totalLength;
-					break;
-
-				default: // WaitForTurn
-					EnqueueOrderedPending(streamId, streamSeq, ppid, combined, totalLength);
-					break;
-			}
+			EnqueueOrderedPending(streamId, streamSeq, ppid, combined, totalLength);
 		}
 
 		/// <summary>
@@ -597,6 +681,44 @@ namespace MiNET.Net.Rtc
 			return true;
 		}
 
+		private PooledSegment RentSegment()
+		{
+			if (_freeSegments == null) return new PooledSegment();
+
+			PooledSegment segment = _freeSegments;
+			_freeSegments = segment.FreeListNext;
+			segment.FreeListNext = null;
+			return segment;
+		}
+
+		private void ReturnSegmentToPool(PooledSegment segment)
+		{
+			segment.Reset();
+			segment.FreeListNext = _freeSegments;
+			_freeSegments = segment;
+		}
+
+		/// <summary>
+		///     Returns every fragment lease and pooled segment node backing <paramref name="delivery" />'s
+		///     sequence, walking from its head segment to its tail via each segment's own
+		///     <see cref="ReadOnlySequenceSegment{T}.Next" />. Called by
+		///     <see cref="SctpAssociation.DeliverLeasedMessages" /> once the subscriber callback for that
+		///     delivery has returned - or thrown, since it is called from a <c>finally</c> there.
+		/// </summary>
+		public void ReleaseDelivery(LeasedDelivery delivery)
+		{
+			PooledSegment segment = delivery.HeadSegment;
+			while (segment != null)
+			{
+				var next = (PooledSegment) segment.Next;
+
+				if (MemoryMarshal.TryGetArray(segment.Memory, out ArraySegment<byte> arraySegment) && arraySegment.Array != null) ArrayPool<byte>.Shared.Return(arraySegment.Array);
+				ReturnSegmentToPool(segment);
+
+				segment = next;
+			}
+		}
+
 		private enum OrderedDisposition
 		{
 			DueNow,
@@ -650,20 +772,62 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
-		/// <summary>One message ready for delivery from a leased buffer; see <see cref="Deliveries" />.</summary>
+		/// <summary>
+		///     A pooled <see cref="ReadOnlySequenceSegment{T}" /> node: one link in a delivered message's
+		///     chain, wrapping exactly one leased fragment buffer. Rented from and returned to
+		///     <see cref="SctpReceiveBuffer" />'s own free list (<see cref="RentSegment" />/
+		///     <see cref="ReturnSegmentToPool" />) so chaining a multi-segment sequence over a completed
+		///     fragment run allocates no segment objects at steady state.
+		/// </summary>
+		internal sealed class PooledSegment : ReadOnlySequenceSegment<byte>
+		{
+			/// <summary>
+			///     Intrusive free-list link, used only while this node is NOT part of a live delivered
+			///     sequence. The base class's own <see cref="ReadOnlySequenceSegment{T}.Next" /> serves the
+			///     live-chain role once rented, so a node is never in both roles at once.
+			/// </summary>
+			public PooledSegment FreeListNext;
+
+			public void Initialize(byte[] buffer, int length, long runningIndex)
+			{
+				Memory = buffer.AsMemory(0, length);
+				RunningIndex = runningIndex;
+				Next = null;
+			}
+
+			public void SetNext(PooledSegment next)
+			{
+				Next = next;
+			}
+
+			public void Reset()
+			{
+				Memory = default;
+				Next = null;
+			}
+		}
+
+		/// <summary>
+		///     One message ready for delivery; see <see cref="Deliveries" />. <see cref="Sequence" /> is
+		///     either single-segment (a single-chunk message drained out of <see cref="_orderedPending" />)
+		///     or multi-segment (a completed fragment run delivered straight from its individual leased
+		///     buffers, no concatenation - see <see cref="DeliverFragmentsAsSequence" />); either way,
+		///     <see cref="HeadSegment" /> is what <see cref="ReleaseDelivery" /> walks to return every
+		///     buffer and segment node once the callback has run.
+		/// </summary>
 		public readonly struct LeasedDelivery
 		{
 			public readonly ushort StreamId;
 			public readonly uint Ppid;
-			public readonly byte[] Buffer;
-			public readonly int Length;
+			public readonly ReadOnlySequence<byte> Sequence;
+			internal readonly PooledSegment HeadSegment;
 
-			public LeasedDelivery(ushort streamId, uint ppid, byte[] buffer, int length)
+			public LeasedDelivery(ushort streamId, uint ppid, PooledSegment head, PooledSegment tail)
 			{
 				StreamId = streamId;
 				Ppid = ppid;
-				Buffer = buffer;
-				Length = length;
+				Sequence = new ReadOnlySequence<byte>(head, 0, tail, tail.Memory.Length);
+				HeadSegment = head;
 			}
 		}
 	}

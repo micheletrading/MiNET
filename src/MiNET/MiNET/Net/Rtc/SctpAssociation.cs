@@ -27,6 +27,8 @@ using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using log4net;
@@ -63,12 +65,19 @@ namespace MiNET.Net.Rtc
 	/// <summary>
 	///     One complete, reassembled application message. <see cref="SctpAssociation.OnMessage" />'s
 	///     established contract (stage 1's <see cref="PacketSender" /> doc comment set the precedent):
-	///     <paramref name="message" /> is valid only for the duration of the callback. It either borrows
-	///     directly from the incoming datagram (a single-chunk message delivered with zero copy) or from
-	///     a leased buffer the association returns the instant the callback returns; either way, holding
-	///     onto the span past the call is a use-after-free.
+	///     <paramref name="message" /> is valid only for the duration of the callback. Round 4b: a
+	///     <see cref="ReadOnlySequence{T}" />, not a span - a span cannot represent a fragmented message
+	///     chained over more than one leased buffer without copying them together first, and Kestrel-style
+	///     pipelines pay that copy's cost on every fragmented message forever rather than once, up front,
+	///     to build this contract. A single-chunk message still delivers zero-copy, as a single-segment
+	///     sequence wrapping the incoming datagram directly (<c>message.IsSingleSegment</c> is true); a
+	///     fragmented one is a multi-segment sequence chained over its individual leased fragment buffers,
+	///     never concatenated. Either way, every buffer backing the sequence is returned the instant the
+	///     callback returns, so holding onto the sequence past the call is a use-after-free exactly like a
+	///     span would have been. Fast-path consumers: <c>if (message.IsSingleSegment) { var span =
+	///     message.FirstSpan; ... }</c>.
 	/// </summary>
-	public delegate void SctpMessageHandler(ushort streamId, uint ppid, ReadOnlySpan<byte> message);
+	public delegate void SctpMessageHandler(ushort streamId, uint ppid, in ReadOnlySequence<byte> message);
 
 	/// <summary>
 	///     RFC 4960 the four-way handshake only (INIT / INIT-ACK / COOKIE-ECHO / COOKIE-ACK); Tasks 4-6
@@ -307,15 +316,17 @@ namespace MiNET.Net.Rtc
 		///     dropped-and-counted packet (or chunk) rather than an exception, per this codebase's
 		///     hot-path rule for the mux receive thread.
 		/// </summary>
-		public void OnPacketReceived(ReadOnlySpan<byte> packet)
+		public void OnPacketReceived(ReadOnlyMemory<byte> packet)
 		{
-			if (!SctpPacket.TryReadHeader(packet, out _, out _, out uint verificationTag))
+			ReadOnlySpan<byte> packetSpan = packet.Span;
+
+			if (!SctpPacket.TryReadHeader(packetSpan, out _, out _, out uint verificationTag))
 			{
 				CountIgnored();
 				return;
 			}
 
-			SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(packet);
+			SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(packetSpan);
 			bool anyChunk = false;
 			bool packetHadData = false;
 			bool immediateSackRequested = false;
@@ -329,7 +340,7 @@ namespace MiNET.Net.Rtc
 				bool hasZeroCopyDelivery = false;
 				ushort zcStreamId = 0;
 				uint zcPpid = 0;
-				ReadOnlySpan<byte> zcPayload = default;
+				ReadOnlyMemory<byte> zcPayload = default;
 
 				lock (_gate)
 				{
@@ -353,7 +364,7 @@ namespace MiNET.Net.Rtc
 
 						case SctpChunkType.Data:
 							packetHadData = true;
-							hasZeroCopyDelivery = HandleData(flags, value, out zcStreamId, out zcPpid, out zcPayload, out bool chunkWantsImmediateSack);
+							hasZeroCopyDelivery = HandleData(flags, value, packet, packetSpan, out zcStreamId, out zcPpid, out zcPayload, out bool chunkWantsImmediateSack);
 							if (chunkWantsImmediateSack) immediateSackRequested = true;
 							break;
 
@@ -370,10 +381,14 @@ namespace MiNET.Net.Rtc
 				}
 
 				// Raised/delivered outside _gate: see the class remarks and PacketSender's doc comment.
-				// zcPayload borrows directly from `value`, itself a slice of `packet`, which is still on
-				// this method's stack for the whole call, so the span stays valid here.
+				// zcPayload is a slice of `packet`, which is still on this method's stack for the whole
+				// call, so the memory (and the single-segment sequence built over it) stays valid here.
 				if (becameEstablished) OnEstablished?.Invoke();
-				if (hasZeroCopyDelivery) SafeInvokeOnMessage(zcStreamId, zcPpid, zcPayload);
+				if (hasZeroCopyDelivery)
+				{
+					var sequence = new ReadOnlySequence<byte>(zcPayload);
+					SafeInvokeOnMessage(zcStreamId, zcPpid, in sequence);
+				}
 
 				DeliverLeasedMessages();
 			}
@@ -397,14 +412,15 @@ namespace MiNET.Net.Rtc
 		///     Server or client role, called under <see cref="_gate" />: decodes one DATA chunk and hands
 		///     it to <see cref="_receiveBuffer" />. Returns true when the chunk alone is a complete,
 		///     immediately deliverable message (unordered, or exactly the next due ordered message on its
-		///     stream): <paramref name="zcPayload" /> then borrows straight from <paramref name="value" />,
-		///     the zero-copy path the task brief requires. Any other completed delivery (a reassembled
-		///     fragment run, or an ordered message a cascade unblocked) lands in
-		///     <see cref="SctpReceiveBuffer.Deliveries" /> instead, which the caller drains once outside
-		///     the lock regardless of this method's return value. DATA received before
+		///     stream): <paramref name="zcPayload" /> is then the slice of <paramref name="packet" /> (the
+		///     original memory <see cref="OnPacketReceived" /> was given, not a copy) matching
+		///     <paramref name="value" />'s payload, the zero-copy path the delivery contract requires. Any
+		///     other completed delivery (a reassembled fragment run, or an ordered message a cascade
+		///     unblocked) lands in <see cref="SctpReceiveBuffer.Deliveries" /> instead, which the caller
+		///     drains once outside the lock regardless of this method's return value. DATA received before
 		///     <see cref="SctpState.Established" /> is dropped and counted, never buffered.
 		/// </summary>
-		private bool HandleData(byte flags, ReadOnlySpan<byte> value, out ushort streamId, out uint ppid, out ReadOnlySpan<byte> zcPayload, out bool immediateSackRequested)
+		private bool HandleData(byte flags, ReadOnlySpan<byte> value, ReadOnlyMemory<byte> packet, ReadOnlySpan<byte> packetSpan, out ushort streamId, out uint ppid, out ReadOnlyMemory<byte> zcPayload, out bool immediateSackRequested)
 		{
 			streamId = 0;
 			ppid = 0;
@@ -430,10 +446,25 @@ namespace MiNET.Net.Rtc
 			{
 				streamId = header.StreamId;
 				ppid = header.Ppid;
-				zcPayload = payload;
+				zcPayload = SliceMemoryFor(packet, packetSpan, payload);
 			}
 
 			return zeroCopy;
+		}
+
+		/// <summary>
+		///     The chunk codecs (<see cref="SctpPacket.EnumerateChunks" />, <see cref="DataChunkHeader.TryParse" />)
+		///     are span-only and untouched by the round-4b memory/sequence contract change: they hand back
+		///     <paramref name="inner" /> as a span slice of <paramref name="packetSpan" />, not an offset.
+		///     This locates that slice by reference (both spans are views over the same backing array) and
+		///     returns the equivalent slice of <paramref name="packet" />, the original memory, so the
+		///     zero-copy delivery path can hand out a <see cref="ReadOnlySequence{T}" /> (which cannot wrap
+		///     a span) without copying the payload.
+		/// </summary>
+		private static ReadOnlyMemory<byte> SliceMemoryFor(ReadOnlyMemory<byte> packet, ReadOnlySpan<byte> packetSpan, ReadOnlySpan<byte> inner)
+		{
+			int offset = (int) Unsafe.ByteOffset(ref MemoryMarshal.GetReference(packetSpan), ref MemoryMarshal.GetReference(inner));
+			return packet.Slice(offset, inner.Length);
 		}
 
 		/// <summary>
@@ -441,8 +472,8 @@ namespace MiNET.Net.Rtc
 		///     ordered messages a cascade unblocked), called once per chunk processed regardless of chunk
 		///     type: the list is empty except right after a DATA chunk that completed one or more
 		///     messages. Raised the same way <see cref="OnEstablished" /> is, outside <see cref="_gate" />.
-		///     Each delivery's buffer came from <see cref="ArrayPool{T}.Shared" /> and is returned exactly
-		///     once, in a <c>finally</c>, regardless of whether the subscriber threw.
+		///     Every leased fragment buffer and pooled segment node backing a delivery's sequence is
+		///     returned exactly once, in a <c>finally</c>, regardless of whether the subscriber threw.
 		/// </summary>
 		private void DeliverLeasedMessages()
 		{
@@ -452,11 +483,12 @@ namespace MiNET.Net.Rtc
 				SctpReceiveBuffer.LeasedDelivery delivery = deliveries[i];
 				try
 				{
-					SafeInvokeOnMessage(delivery.StreamId, delivery.Ppid, delivery.Buffer.AsSpan(0, delivery.Length));
+					ReadOnlySequence<byte> sequence = delivery.Sequence;
+					SafeInvokeOnMessage(delivery.StreamId, delivery.Ppid, in sequence);
 				}
 				finally
 				{
-					ArrayPool<byte>.Shared.Return(delivery.Buffer);
+					_receiveBuffer.ReleaseDelivery(delivery);
 				}
 			}
 
@@ -473,11 +505,11 @@ namespace MiNET.Net.Rtc
 		///     own caller (the mux receive loop) without also making every well-behaved caller's session
 		///     die for a fault outside this class's own code.
 		/// </summary>
-		private void SafeInvokeOnMessage(ushort streamId, uint ppid, ReadOnlySpan<byte> message)
+		private void SafeInvokeOnMessage(ushort streamId, uint ppid, in ReadOnlySequence<byte> message)
 		{
 			try
 			{
-				OnMessage?.Invoke(streamId, ppid, message);
+				OnMessage?.Invoke(streamId, ppid, in message);
 			}
 			catch (Exception ex)
 			{

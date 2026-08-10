@@ -44,8 +44,8 @@ namespace MiNET.Test.Rtc
 		{
 			SctpAssociation server = null;
 			SctpAssociation client = null;
-			client = new SctpAssociation(isClient: true, sctpPort: 5000, arwndBudget: 131072, sendPacket: p => server.OnPacketReceived(p));
-			server = new SctpAssociation(isClient: false, sctpPort: 5000, arwndBudget: 131072, sendPacket: p => client.OnPacketReceived(p));
+			client = new SctpAssociation(isClient: true, sctpPort: 5000, arwndBudget: 131072, sendPacket: p => server.OnPacketReceived(p.ToArray()));
+			server = new SctpAssociation(isClient: false, sctpPort: 5000, arwndBudget: 131072, sendPacket: p => client.OnPacketReceived(p.ToArray()));
 
 			int clientEstablished = 0;
 			int serverEstablished = 0;
@@ -90,7 +90,8 @@ namespace MiNET.Test.Rtc
 				ourInitialTsn: 9000,
 				timestampMillis: staleTimestamp);
 
-			Span<byte> packet = stackalloc byte[256];
+			byte[] packetArray = new byte[256];
+			Span<byte> packet = packetArray;
 			int n = SctpPacket.WriteHeader(packet, 5000, 5000, 222); // header tag = ourTag as embedded in the cookie
 			n += new CookieEchoChunk(cookie).WriteTo(packet.Slice(n));
 			SctpPacket.FinishChecksum(packet.Slice(0, n));
@@ -98,7 +99,7 @@ namespace MiNET.Test.Rtc
 			int established = 0;
 			server.OnEstablished += () => established++;
 
-			server.OnPacketReceived(packet.Slice(0, n));
+			server.OnPacketReceived(packetArray.AsMemory(0, n));
 
 			Assert.AreEqual(SctpState.Closed, server.State);
 			Assert.AreEqual(0, established);
@@ -125,19 +126,20 @@ namespace MiNET.Test.Rtc
 			// not zero, which RFC 4960 5.1 requires for the packet carrying an INIT.
 			var freshServer2 = new SctpAssociation(isClient: false, sctpPort: 5000, arwndBudget: 131072, sendPacket: _ => Assert.Fail("must not reply to a bad-tag INIT"));
 			var init = new InitChunk(initiateTag: 555, arwnd: 131072, outboundStreams: 1024, inboundStreams: 1024, initialTsn: 42, forwardTsnSupported: true);
-			Span<byte> badTagInit = stackalloc byte[128];
+			byte[] badTagInitArray = new byte[128];
+			Span<byte> badTagInit = badTagInitArray;
 			int n1 = SctpPacket.WriteHeader(badTagInit, 5000, 5000, 999);
 			n1 += init.WriteTo(badTagInit.Slice(n1));
 			SctpPacket.FinishChecksum(badTagInit.Slice(0, n1));
-			freshServer2.OnPacketReceived(badTagInit.Slice(0, n1));
+			freshServer2.OnPacketReceived(badTagInitArray.AsMemory(0, n1));
 			Assert.AreEqual(SctpState.Closed, freshServer2.State);
 			Assert.AreEqual(1L, freshServer2.IgnoredPacketCount);
 
 			// Complete a real handshake so the "after establishment" half exercises live associations.
 			SctpAssociation server = null;
 			SctpAssociation client = null;
-			client = new SctpAssociation(true, 5000, 131072, p => server.OnPacketReceived(p));
-			server = new SctpAssociation(false, 5000, 131072, p => client.OnPacketReceived(p));
+			client = new SctpAssociation(true, 5000, 131072, p => server.OnPacketReceived(p.ToArray()));
+			server = new SctpAssociation(false, 5000, 131072, p => client.OnPacketReceived(p.ToArray()));
 			client.Start();
 			Assert.AreEqual(SctpState.Established, client.State);
 			Assert.AreEqual(SctpState.Established, server.State);
@@ -155,11 +157,12 @@ namespace MiNET.Test.Rtc
 
 			// After establishment: a well-formed COOKIE-ACK chunk (type 11, RFC 4960 3.2) carrying a
 			// tag that matches neither side's tag.
-			Span<byte> badTagCookieAck = stackalloc byte[32];
+			byte[] badTagCookieAckArray = new byte[32];
+			Span<byte> badTagCookieAck = badTagCookieAckArray;
 			int n2 = SctpPacket.WriteHeader(badTagCookieAck, 5000, 5000, 0xDEADBEEF);
 			n2 += SctpChunkCodec.FinishChunk(badTagCookieAck.Slice(n2), 11, 0, 0);
 			SctpPacket.FinishChecksum(badTagCookieAck.Slice(0, n2));
-			client.OnPacketReceived(badTagCookieAck.Slice(0, n2));
+			client.OnPacketReceived(badTagCookieAckArray.AsMemory(0, n2));
 			Assert.AreEqual(SctpState.Established, client.State);
 			Assert.AreEqual(clientIgnoredBefore + 2, client.IgnoredPacketCount);
 		}

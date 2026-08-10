@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Net.Rtc;
@@ -48,14 +49,14 @@ namespace MiNET.Test.Rtc
 
 			SctpAssociation server = null;
 			SctpAssociation client = null;
-			client = new SctpAssociation(true, 5000, arwndBudget, p => server.OnPacketReceived(p));
+			client = new SctpAssociation(true, 5000, arwndBudget, p => server.OnPacketReceived(p.ToArray()));
 			server = new SctpAssociation(false, 5000, arwndBudget, p =>
 			{
 				sent.Add(p.ToArray());
-				client.OnPacketReceived(p);
+				client.OnPacketReceived(p.ToArray());
 			});
 
-			server.OnMessage += (streamId, ppid, message) => received.Add((streamId, ppid, message.ToArray()));
+			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) => received.Add((streamId, ppid, message.ToArray()));
 
 			client.Start();
 
@@ -72,12 +73,13 @@ namespace MiNET.Test.Rtc
 		{
 			var header = new DataChunkHeader(tsn, streamId, streamSeq, ppid, unordered, begin, end, immediateSack);
 
-			Span<byte> packet = stackalloc byte[SctpPacket.MaxSize];
+			byte[] packetArray = new byte[SctpPacket.MaxSize];
+			Span<byte> packet = packetArray;
 			int n = SctpPacket.WriteHeader(packet, 5000, 5000, verificationTag);
 			n += header.WriteTo(packet.Slice(n), payload);
 			SctpPacket.FinishChecksum(packet.Slice(0, n));
 
-			receiver.OnPacketReceived(packet.Slice(0, n));
+			receiver.OnPacketReceived(packetArray.AsMemory(0, n));
 		}
 
 		[TestMethod]
@@ -306,9 +308,9 @@ namespace MiNET.Test.Rtc
 			uint tsn = server.CumulativeTsnAck + 1;
 
 			var invokedFor = new List<string>();
-			server.OnMessage += (streamId, ppid, message) =>
+			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) =>
 			{
-				invokedFor.Add(System.Text.Encoding.UTF8.GetString(message));
+				invokedFor.Add(System.Text.Encoding.UTF8.GetString(message.ToArray()));
 				throw new InvalidOperationException("boom from a subscriber");
 			};
 
@@ -472,6 +474,64 @@ namespace MiNET.Test.Rtc
 			FeedData(server, tag, tsn + 1, 30, 0, 1, unordered: true, begin: false, end: true, "ZZZZZ"u8);
 			Assert.AreEqual(1, received.Count);
 			CollectionAssert.AreEqual("AAAAAZZZZZ"u8.ToArray(), received[0].Payload);
+		}
+
+		/// <summary>
+		///     Fix-round-4b contract test: the fast path Niclas's <see cref="ReadOnlySequence{T}" /> change
+		///     exists to keep zero-copy. A single-chunk message must deliver as a single-segment sequence
+		///     wrapping the incoming packet directly, never a multi-segment one, so a consumer's
+		///     <c>if (message.IsSingleSegment) { var span = message.FirstSpan; ... }</c> fast path is real
+		///     rather than dead code.
+		/// </summary>
+		[TestMethod]
+		public void SingleChunkDelivery_IsASingleSegmentSequence()
+		{
+			(SctpAssociation server, _, _) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			bool isSingleSegment = false;
+			byte[] content = null;
+			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) =>
+			{
+				isSingleSegment = message.IsSingleSegment;
+				content = message.IsSingleSegment ? message.FirstSpan.ToArray() : message.ToArray();
+			};
+
+			FeedData(server, tag, tsn, 40, 0, 1, unordered: true, begin: true, end: true, "hello"u8);
+
+			Assert.IsTrue(isSingleSegment);
+			CollectionAssert.AreEqual("hello"u8.ToArray(), content);
+		}
+
+		/// <summary>
+		///     Fix-round-4b contract test: a fragmented message now delivers as a multi-segment
+		///     <see cref="ReadOnlySequence{T}" /> chained over the individual leased fragment buffers
+		///     (point 4 of the new contract: the old concatenation copy is gone), not one concatenated
+		///     buffer. <see cref="ReadOnlySequence{T}.ToArray" /> exercises reading correctly across those
+		///     segment boundaries.
+		/// </summary>
+		[TestMethod]
+		public void FragmentedDelivery_IsAMultiSegmentSequence_AndReadsCorrectlyAcrossSegments()
+		{
+			(SctpAssociation server, _, _) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			bool isSingleSegment = true;
+			byte[] content = null;
+			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) =>
+			{
+				isSingleSegment = message.IsSingleSegment;
+				content = message.ToArray();
+			};
+
+			FeedData(server, tag, tsn, 41, 0, 1, unordered: true, begin: true, end: false, "AAA"u8);
+			FeedData(server, tag, tsn + 1, 41, 0, 1, unordered: true, begin: false, end: false, "BBB"u8);
+			FeedData(server, tag, tsn + 2, 41, 0, 1, unordered: true, begin: false, end: true, "CCC"u8);
+
+			Assert.IsFalse(isSingleSegment);
+			CollectionAssert.AreEqual("AAABBBCCC"u8.ToArray(), content);
 		}
 	}
 }
