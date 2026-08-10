@@ -226,6 +226,9 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only: how many DATA chunks were dropped because the out-of-order TSN set was already full.</summary>
 		internal long DataDroppedByGapCapCount => _receiveBuffer.DroppedByGapCapCount;
 
+		/// <summary>Test visibility only: how many DATA chunks were dropped for arriving more than 65535 TSNs ahead of the cumulative ack (unrepresentable in any SACK gap block).</summary>
+		internal long DataDroppedBeyondHorizonCount => _receiveBuffer.DroppedBeyondHorizonCount;
+
 		/// <summary>Test visibility only: how many incomplete fragment runs were reneged (discarded early, RFC 4960 6.2) to make room under budget pressure.</summary>
 		internal long DataRenegedFragmentRunCount => _receiveBuffer.RenegedFragmentRunCount;
 

@@ -108,6 +108,18 @@ namespace MiNET.Net.Rtc
 		// hardcoding the bound.
 		internal const int MaxOutOfOrderTsns = 256;
 
+		// The furthest a TSN may sit ahead of the cumulative ack point and still be admitted at all.
+		// Two independent reasons this is exactly ushort.MaxValue, not some other bound: (1) a SACK gap
+		// block's Start/End (BuildGapBlocks, SackChunk.GapBlock) are 16-bit offsets from the cumulative
+		// ack, so a TSN further out could never be represented in any gap block this receiver sends -
+		// the offset would silently wrap on the (ushort) cast rather than fail, aliasing onto some
+		// other, wrong TSN - and the peer would never learn we hold it. (2) SctpTsn's serial-number
+		// comparisons (RFC 1982) lose transitivity once distances approach 2^31, so admitting a TSN this
+		// far out risks corrupting the sorted structures that assume it. A legitimate peer can never
+		// reach this: it would need more than 65535 unacked chunks in flight, far past any window we
+		// advertise.
+		internal const int MaxGapOffset = ushort.MaxValue;
+
 		private readonly uint _budgetBytes;
 		private uint _bufferedBytes;
 		private uint _cumulativeTsn;
@@ -136,6 +148,7 @@ namespace MiNET.Net.Rtc
 		private long _droppedByBudgetCount;
 		private long _droppedByGapCapCount;
 		private long _renegedFragmentRunCount;
+		private long _droppedBeyondHorizonCount;
 
 		// Free list of PooledSegment nodes, reused across deliveries so chaining a multi-segment
 		// ReadOnlySequence<byte> over a completed fragment run allocates no segment objects at steady
@@ -179,6 +192,9 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>Test visibility only: how many incomplete fragment runs were reneged (discarded early, RFC 4960 6.2) to make room under budget pressure.</summary>
 		public long RenegedFragmentRunCount => Interlocked.Read(ref _renegedFragmentRunCount);
+
+		/// <summary>Test visibility only: how many DATA chunks were dropped for arriving more than <see cref="MaxGapOffset" /> TSNs ahead of the cumulative ack.</summary>
+		public long DroppedBeyondHorizonCount => Interlocked.Read(ref _droppedBeyondHorizonCount);
 
 		/// <summary>
 		///     (Re)arms the buffer for a fresh association: the peer's Initial TSN sets the cumulative ack
@@ -228,6 +244,16 @@ namespace MiNET.Net.Rtc
 			if (!SctpTsn.IsNewer(tsn, _cumulativeTsn) || _gapTsns.Contains(tsn) || _fragments.ContainsKey(tsn))
 			{
 				_duplicateTsns.Add(tsn);
+				return false;
+			}
+
+			// TSN horizon guard: see MaxGapOffset's own remarks for why exactly ushort.MaxValue. Dropped
+			// and counted like the other hostile shapes, before any lease and before RecordTsnReceived -
+			// it must never enter _gapTsns or advance the cumulative ack, or a real-if-implausible peer
+			// that eventually catches up could never retransmit it.
+			if (SctpTsn.Compare(tsn, _cumulativeTsn) > MaxGapOffset)
+			{
+				Interlocked.Increment(ref _droppedBeyondHorizonCount);
 				return false;
 			}
 
@@ -517,7 +543,11 @@ namespace MiNET.Net.Rtc
 
 			for (int i = 0; i < pieceCount; i++)
 			{
-				_fragments.Remove(scan, out FragmentEntry piece);
+				// The backward/forward scan in TryCompleteAround already verified every TSN in
+				// [begin, begin+pieceCount) is present; if that invariant ever regressed, fail loud here
+				// rather than let PooledSegment.Initialize(null, 0, ...) silently splice a phantom
+				// zero-length segment into a delivered sequence.
+				if (!_fragments.Remove(scan, out FragmentEntry piece)) throw new InvalidOperationException($"TSN {scan} was verified present but is missing from _fragments during fragment delivery.");
 				_bufferedBytes -= (uint) piece.Length;
 
 				PooledSegment segment = RentSegment();
@@ -575,7 +605,10 @@ namespace MiNET.Net.Rtc
 			scan = begin;
 			for (int i = 0; i < pieceCount; i++)
 			{
-				_fragments.Remove(scan, out FragmentEntry piece);
+				// Same guard as DeliverFragmentsAsSequence, for symmetry: this path would already fail
+				// loud via Array.Copy(null, ...) if the invariant regressed, but an explicit check gives
+				// a clearer diagnostic than a NullReferenceException.
+				if (!_fragments.Remove(scan, out FragmentEntry piece)) throw new InvalidOperationException($"TSN {scan} was verified present but is missing from _fragments during fragment concatenation.");
 				Array.Copy(piece.Buffer, 0, combined, offset, piece.Length);
 				offset += piece.Length;
 				ArrayPool<byte>.Shared.Return(piece.Buffer);

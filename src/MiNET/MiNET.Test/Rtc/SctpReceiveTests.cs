@@ -533,5 +533,46 @@ namespace MiNET.Test.Rtc
 			Assert.IsFalse(isSingleSegment);
 			CollectionAssert.AreEqual("AAABBBCCC"u8.ToArray(), content);
 		}
+
+		/// <summary>
+		///     Fix-round-4c: the TSN horizon guard. A SACK gap block's Start/End (<see cref="SackChunk.GapBlock" />,
+		///     written by <see cref="SctpPacket" />'s codec via <c>BinaryPrimitives.WriteUInt16BigEndian</c>)
+		///     are 16-bit offsets from the cumulative ack, and <see cref="SctpReceiveBuffer.BuildGapBlocks" />
+		///     computes that offset as <c>(ushort) unchecked(tsn - cumulativeTsn)</c> - a silent wraparound,
+		///     not a thrown error, once the true distance exceeds <see cref="ushort.MaxValue" />. So
+		///     cumulative+65535 is the last TSN any gap block could ever represent (offset 65535, the
+		///     largest value a ushort holds) and cumulative+65536 is the first one that would alias onto
+		///     some other, wrong offset (65536 mod 65536 = 0) if admitted. This pins that exact boundary,
+		///     verified against the encoder above rather than assumed: the +65535 TSN must still be
+		///     accepted normally, and the +65536 one must be dropped and counted, never entering
+		///     <c>_gapTsns</c> or advancing the cumulative ack (so a real-if-implausible peer that
+		///     eventually catches up could still retransmit it), before any lease and with the budget left
+		///     untouched.
+		/// </summary>
+		[TestMethod]
+		public void TsnBeyondGapOffsetHorizon_IsDroppedAndCounted_BoundaryTsnIsAccepted()
+		{
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint baseline = server.CumulativeTsnAck;
+
+			uint boundaryTsn = baseline + 65535; // offset 65535: still representable, must be accepted
+			uint beyondTsn = baseline + 65536; // offset would alias to 0: must be dropped, never acked
+
+			uint arwndBefore = server.CurrentArwnd;
+
+			FeedData(server, tag, beyondTsn, 50, 0, 1, unordered: true, begin: true, end: true, "beyond"u8);
+
+			Assert.AreEqual(0, received.Count); // not delivered
+			Assert.AreEqual(1L, server.DataDroppedBeyondHorizonCount);
+			Assert.AreEqual(arwndBefore, server.CurrentArwnd); // budget untouched
+			Assert.AreEqual(baseline, server.CumulativeTsnAck); // never acked: cumulative did not advance
+
+			FeedData(server, tag, boundaryTsn, 51, 0, 2, unordered: true, begin: true, end: true, "ok"u8);
+
+			Assert.AreEqual(1, received.Count);
+			Assert.AreEqual((ushort) 51, received[0].StreamId);
+			CollectionAssert.AreEqual("ok"u8.ToArray(), received[0].Payload);
+		}
 	}
 }
