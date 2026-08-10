@@ -61,6 +61,12 @@ namespace MiNET.Utils
 			return (long) (n >> 1) ^ -(long) (n & 1);
 		}
 
+		// TODO varint: rework decode to a span-based reader (ReadOnlySpan + index) instead of
+		// Stream.ReadByte per byte; add a first-byte fast path (b < 0x80 => return b). Later rung,
+		// once packet buffers are pooled leases with 8 bytes of slack: branchless SWAR decode
+		// (single unaligned 8-byte load, tzcnt on ~x & 0x8080.. for length, BMI2 PEXT with
+		// 0x7F7F.. to compact payload bits; guard Bmi2.X64.IsSupported, PEXT is microcoded on
+		// AMD Zen 1/2). Planned as part of the zero-alloc packet-layer refactor.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private static uint ReadRawVarInt32(Stream buf, int maxSize)
 		{
@@ -84,6 +90,9 @@ namespace MiNET.Utils
 			return result;
 		}
 
+		// TODO varint: the List<byte> below is a debug leftover that allocates on EVERY 64-bit
+		// varint read (entity ids, actor unique ids, in every movement/entity packet) even when
+		// printBytes is false. Delete it and the ToArray with the span-based rework above.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private static ulong ReadRawVarInt64(Stream buf, int maxSize, bool printBytes = false)
 		{
