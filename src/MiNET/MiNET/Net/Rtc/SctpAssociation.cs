@@ -217,6 +217,9 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only: how many DATA chunks were dropped because the out-of-order TSN set was already full.</summary>
 		internal long DataDroppedByGapCapCount => _receiveBuffer.DroppedByGapCapCount;
 
+		/// <summary>Test visibility only: how many in-progress fragment runs were abandoned because a new Begin arrived for the same stream before the old one ever saw its End.</summary>
+		internal long DataAbandonedFragmentRunCount => _receiveBuffer.AbandonedFragmentRunCount;
+
 		/// <summary>Test visibility only: the receive-side cumulative TSN ack point (highest TSN received with nothing missing before it).</summary>
 		internal uint CumulativeTsnAck
 		{

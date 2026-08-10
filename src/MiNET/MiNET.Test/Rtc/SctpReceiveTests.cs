@@ -320,5 +320,40 @@ namespace MiNET.Test.Rtc
 
 			CollectionAssert.AreEqual(new[] { "first", "second" }, invokedFor);
 		}
+
+		/// <summary>
+		///     Fix-round-2 regression: a NEW Important the round-1 Critical-1 fix itself introduced. When a
+		///     peer starts a second fragmented message on a stream before the first one ever saw its End
+		///     (Begin@T, stalls; then a fresh Begin@T+5, End@T+6), the stale first fragment must not survive
+		///     into the completed second message: it must be abandoned - its lease returned, its bytes
+		///     backed out of the byte budget, and the abandonment counted - not left in
+		///     <see cref="SctpReceiveBuffer.LeasedDelivery" />'s <c>PieceTsns</c> list to be spliced into an
+		///     unrelated later completion.
+		/// </summary>
+		[TestMethod]
+		public void FragmentReassembly_SecondBeginOnSameStream_AbandonsTheStaleFirstRun()
+		{
+			const uint budget = 100;
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair(budget);
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			FeedData(server, tag, tsn, 9, 0, 1, unordered: true, begin: true, end: false, "X"u8); // message 1, Begin - stalls, no End ever arrives
+			FeedData(server, tag, tsn + 5, 9, 0, 1, unordered: true, begin: true, end: false, "Y"u8); // message 2, Begin - message 1 is now stale
+			FeedData(server, tag, tsn + 6, 9, 0, 1, unordered: true, begin: false, end: true, "Z"u8); // message 2, End - completes
+
+			// Message 2 delivers exactly its own two pieces, never the stale "X" from the abandoned
+			// message 1.
+			Assert.AreEqual(1, received.Count);
+			Assert.AreEqual((ushort) 9, received[0].StreamId);
+			CollectionAssert.AreEqual("YZ"u8.ToArray(), received[0].Payload);
+
+			// "X"'s stale lease was returned (not leaked, not left counted forever) and "Y"+"Z" were
+			// consumed and delivered: nothing is left buffered, so the budget is fully back.
+			Assert.AreEqual(budget, server.CurrentArwnd);
+
+			// The abandonment itself is counted.
+			Assert.AreEqual(1L, server.DataAbandonedFragmentRunCount);
+		}
 	}
 }
