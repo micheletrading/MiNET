@@ -99,26 +99,6 @@ namespace MiNET.Client
 
 		public override void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
-			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
-			foreach (SubChunkPacketData entry in message.subchunkData)
-			{
-				switch ((SubChunkPacketData.SubchunkRequestResult) entry.subchunkRequestResult)
-				{
-					case SubChunkPacketData.SubchunkRequestResult.Success:
-						success++;
-						if (ClientUtils.TryParseSubChunkPayload(entry.serializedSubChunk, Client.BlockNetworkIdsAreHashes)) parsedOk++;
-						else parseFail++;
-						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
-						break;
-					case SubChunkPacketData.SubchunkRequestResult.Successallair:
-						allAir++;
-						break;
-					default:
-						other++;
-						break;
-				}
-			}
-
 			// Blob hashes on subchunk entries need answering just like the ones on a LevelChunk, or
 			// the server has no reason to send the blobs and we never see their contents. We hold
 			// no blob storage, so everything is a miss, which is also what a real client reports
@@ -138,6 +118,31 @@ namespace MiNET.Client
 					status.hashHits = Array.Empty<ulong>();
 					status.hashMisses = misses;
 					Client.SendPacket(status);
+				}
+			}
+
+			// The blob reply above is the only part of this packet a bot needs. Parsing the block
+			// storage is trace/verification work, and at fleet scale it is what melts the emulator
+			// process (measured ~14 cores and 0.9 s/s GC pause on a 200-bot join burst).
+			if (Client.IsEmulator) return;
+
+			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
+			foreach (SubChunkPacketData entry in message.subchunkData)
+			{
+				switch ((SubChunkPacketData.SubchunkRequestResult) entry.subchunkRequestResult)
+				{
+					case SubChunkPacketData.SubchunkRequestResult.Success:
+						success++;
+						if (ClientUtils.TryParseSubChunkPayload(entry.serializedSubChunk, Client.BlockNetworkIdsAreHashes)) parsedOk++;
+						else parseFail++;
+						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
+						break;
+					case SubChunkPacketData.SubchunkRequestResult.Successallair:
+						allAir++;
+						break;
+					default:
+						other++;
+						break;
 				}
 			}
 
@@ -728,65 +733,22 @@ namespace MiNET.Client
 			Log.DebugFormat("NBT:\n{0}", message.namedtag.NbtFile.RootTag);
 		}
 
-		/// <summary>
-		///     Skeleton chunk: the payload is biomes only and block data has to be asked for a
-		///     section at a time. Highest requestable relative index is subChunkCount in limited
-		///     mode; relative index 0 is section y -4.
-		/// </summary>
-		private void SendSubChunkRequest(McpeLevelChunk message)
-		{
-			int highest = message.clientRequestSubchunkLimit ?? 23;
-
-			var request = McpeSubChunkRequestPacket.CreateObject();
-			request.dimension = message.dimension;
-			request.originX = message.chunkPosition.x;
-			request.originY = 0;
-			request.originZ = message.chunkPosition.z;
-			for (int i = 0; i <= highest; i++)
-			{
-				request.offsets.Add(new SubChunkPosOffset {subchunkOffsetX = 0, subchunkOffsetY = (sbyte) (i - 4), subchunkOffsetZ = 0});
-			}
-
-			Client.SendPacket(request);
-		}
-
 		public override void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
-			// TODO doesn't work anymore I guess
+			// Blob-status replies and subchunk requests are protocol behaviour and live in the
+			// base handler; this override only decodes and records what arrived.
+			base.HandleMcpeLevelChunk(message);
+
 			if (Client.IsEmulator) return;
 
 			if (message.cacheEnabled)
 			{
-				// Client.BlobCache isn't wired up to any actual blob storage yet, so every hash is
-				// reported as a miss (matches a real client's behaviour before it has anything
-				// cached). Previously this always reported every hash as a hit and left hashMisses
-				// null, which threw a NullReferenceException in McpeClientCacheBlobStatus.AfterEncode
-				// as soon as UseBlobCache was enabled.
-				var hits = new List<ulong>();
-				var misses = new List<ulong>();
-
 				foreach (ulong hash in message.cacheMetadata)
 				{
 					Log.Debug($"Got hashes for {message.chunkPosition.x}, {message.chunkPosition.z}, {hash}");
-					if (Client.BlobCache.ContainsKey(hash)) hits.Add(hash);
-					else misses.Add(hash);
-				}
-
-				var status = McpeClientCacheBlobStatus.CreateObject();
-				status.hashHits = hits.ToArray();
-				status.hashMisses = misses.ToArray();
-				Client.SendPacket(status);
-
-				// The hash on a cached LevelChunk covers the column's biome blob only, so the
-				// subchunks still have to be requested exactly as in the uncached case. Returning
-				// here left the chunk half fetched and, more to the point, meant we never saw the
-				// SubChunk entries that carry the per-section blob hashes.
-				if (message.clientRequestSubchunkLimit != null)
-				{
-					SendSubChunkRequest(message);
 				}
 			}
-			else
+			else if (message.clientRequestSubchunkLimit == null)
 			{
 				Client.Chunks.GetOrAdd(new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z), coordinates =>
 				{
@@ -795,12 +757,6 @@ namespace MiNET.Client
 					ChunkColumn chunk = null;
 					try
 					{
-						if (message.clientRequestSubchunkLimit != null)
-						{
-							SendSubChunkRequest(message);
-							return null;
-						}
-
 						chunk = ClientUtils.DecodeChunkColumn((int) message.subChunkCount, message.chunkData, blockNetworkIdsAreHashes: Client.BlockNetworkIdsAreHashes);
 						if (chunk != null)
 						{
@@ -929,19 +885,6 @@ namespace MiNET.Client
 
 		public override void HandleMcpeNetworkChunkPublisherUpdate(McpeNetworkChunkPublisherUpdate message)
 		{
-		}
-
-		public override void HandleMcpePlayStatus(McpePlayStatus message)
-		{
-
-			base.HandleMcpePlayStatus(message);
-
-			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess)
-			{
-				var packet = McpeClientCacheStatus.CreateObject();
-				packet.enabled = Client.UseBlobCache;
-				Client.SendPacket(packet);
-			}
 		}
 
 		/// <inheritdoc />

@@ -54,6 +54,15 @@ namespace MiNET.Client
 		{
 			Client.PlayerStatus = (McpePlayStatus.PlayStatus) message.status;
 
+			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess)
+			{
+				// A real client announces its blob cache right after login success; the server
+				// keys the chunk send path (cached or plain) off this packet.
+				var packet = McpeClientCacheStatus.CreateObject();
+				packet.enabled = Client.UseBlobCache;
+				Client.SendPacket(packet);
+			}
+
 			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.PlayerSpawn)
 			{
 				// Spawn tail exactly like a real 1.26 client (captured live): close the loading
@@ -180,21 +189,24 @@ namespace MiNET.Client
 			client.SpawnPoint = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
 			client.CurrentLocation = new PlayerLocation(client.SpawnPoint, message.rotation.X, message.rotation.X, message.rotation.Y);
 
+			// The LEVEL spawn, distinct from the player position above: plugins (Plotter) persist
+			// per-player spawns, so position is wherever this player last stood, while this is the
+			// world's fixed point. The emulator anchors its walk band on it.
+			client.WorldSpawn = new Vector3(
+				message.settings.defaultSpawnBlockPosition.X,
+				message.settings.defaultSpawnBlockPosition.Y,
+				message.settings.defaultSpawnBlockPosition.Z);
+
 			client.LevelInfo.LevelName = message.levelName;
 			client.LevelInfo.Version = 19133;
 			client.LevelInfo.GameType = (int) message.settings.gameType;
 
 			var packet = McpeRequestChunkRadius.CreateObject();
-			client.ChunkRadius = 5;
+			// Whatever the client was configured with (bots take it from the CLI), floored at 4:
+			// the join-burst radius that must be covered for the client to spawn.
+			client.ChunkRadius = Math.Max(4, client.ChunkRadius);
 			packet.chunkRadius = client.ChunkRadius;
 			packet.maxRadius = 32;
-
-			if (Client.IsEmulator)
-			{
-				Client.HasSpawned = true;
-				Client.PlayerStatusChangedWaitHandle.Set();
-				Client.SendMcpeMovePlayer();
-			}
 
 			client.SendPacket(packet);
 
@@ -365,8 +377,52 @@ namespace MiNET.Client
 		{
 		}
 
+		/// <summary>
+		///     Skeleton chunk: the payload is biomes only and block data has to be asked for a
+		///     section at a time. Highest requestable relative index is subChunkCount in limited
+		///     mode; relative index 0 is section y -4.
+		/// </summary>
+		protected void SendSubChunkRequest(McpeLevelChunk message)
+		{
+			int highest = message.clientRequestSubchunkLimit ?? 23;
+
+			var request = McpeSubChunkRequestPacket.CreateObject();
+			request.dimension = message.dimension;
+			request.originX = message.chunkPosition.x;
+			request.originY = 0;
+			request.originZ = message.chunkPosition.z;
+			for (int i = 0; i <= highest; i++)
+			{
+				request.offsets.Add(new SubChunkPosOffset {subchunkOffsetX = 0, subchunkOffsetY = (sbyte) (i - 4), subchunkOffsetZ = 0});
+			}
+
+			Client.SendPacket(request);
+		}
+
 		public virtual void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
+			if (message.cacheEnabled)
+			{
+				// Report hits and misses against the local blob cache; a fresh client misses on
+				// everything, and the server answers misses with the full blobs.
+				var hits = new List<ulong>();
+				var misses = new List<ulong>();
+
+				foreach (ulong hash in message.cacheMetadata)
+				{
+					if (Client.BlobCache.ContainsKey(hash)) hits.Add(hash);
+					else misses.Add(hash);
+				}
+
+				var status = McpeClientCacheBlobStatus.CreateObject();
+				status.hashHits = hits.ToArray();
+				status.hashMisses = misses.ToArray();
+				Client.SendPacket(status);
+			}
+
+			// The hash on a cached LevelChunk covers the column's biome blob only, so the
+			// subchunks still have to be requested exactly as in the uncached case.
+			if (message.clientRequestSubchunkLimit != null) SendSubChunkRequest(message);
 		}
 
 		public virtual void HandleMcpeSetCommandsEnabled(McpeSetCommandsEnabled message)

@@ -62,6 +62,9 @@ namespace MiNET.ServiceKiller
 
 		public bool Running { get; set; } = true;
 
+		private static bool UseNetherNet = false;
+		private static int NameOffset = 0;
+
 		/// <summary>
 		/// </summary>
 		/// <param name="numberOfBots">The number of bots to spawn.</param>
@@ -70,13 +73,29 @@ namespace MiNET.ServiceKiller
 		/// <param name="batchSize">If parallel spawn, how many in each batch.</param>
 		/// <param name="chunkRadius">The chunk radius the bots will request. Server may override.</param>
 		/// <param name="processorAffinity">Processor affinity mask represented as an integer.</param>
-		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0)
+		/// <param name="transport">Transport the bots connect over: raknet or nethernet.</param>
+		/// <param name="nameOffset">Offset for bot numbering, so parallel emulator processes get distinct names.</param>
+		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "raknet", int nameOffset = 0)
 		{
 			NumberOfBots = numberOfBots;
 			DurationOfConnection = TimeSpan.FromSeconds(durationOfConnection);
 			ConcurrentSpawn = concurrentSpawn;
 			ConcurrentBatchSize = batchSize;
 			RequestChunkRadius = chunkRadius;
+			NameOffset = nameOffset;
+
+			switch (transport.ToLowerInvariant())
+			{
+				case "raknet":
+					UseNetherNet = false;
+					break;
+				case "nethernet":
+					UseNetherNet = true;
+					break;
+				default:
+					Console.WriteLine($"Unknown transport '{transport}', expected raknet or nethernet.");
+					return;
+			}
 
 			var currentProcess = Process.GetCurrentProcess();
 			currentProcess.ProcessorAffinity = processorAffinity <= 0 ? currentProcess.ProcessorAffinity : (IntPtr) processorAffinity;
@@ -99,7 +118,10 @@ namespace MiNET.ServiceKiller
 				Console.WriteLine("Press <Enter> to start emulation...");
 				Console.ReadLine();
 
-				var threadPool = new DedicatedThreadPool(new DedicatedThreadPoolSettings(numberOfBots, "Shared_Thread"));
+				// Floor of 4: with few bots a pool sized to the bot count starves the client-side
+				// machinery during the join burst (ACK flushes queue behind chunk decode), which
+				// makes the server spuriously retransmit and pollutes the measurements.
+				var threadPool = new DedicatedThreadPool(new DedicatedThreadPoolSettings(Math.Max(32, numberOfBots), "Shared_Thread"));
 
 				var emulator = new Emulator {Running = true};
 				long start = DateTime.UtcNow.Ticks;
@@ -112,7 +134,7 @@ namespace MiNET.ServiceKiller
 					var sw = Stopwatch.StartNew();
 					for (int j = 0; j < NumberOfBots; j++)
 					{
-						string playerName = $"TheGrey{j + 1:D3}";
+						string playerName = $"TheGrey{j + 1 + NameOffset:D3}";
 
 						var client = new EmulatorClient(threadPool,
 							emulator,
@@ -122,7 +144,8 @@ namespace MiNET.ServiceKiller
 							endPoint,
 							RanSleepMin,
 							RanSleepMax,
-							RequestChunkRadius);
+							RequestChunkRadius,
+							UseNetherNet);
 
 						new Thread(o => { client.EmulateClient(); }) {IsBackground = true}.Start();
 

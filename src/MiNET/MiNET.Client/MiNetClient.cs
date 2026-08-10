@@ -87,8 +87,33 @@ namespace MiNET.Client
 
 		public bool IsEmulator { get; set; }
 
+		/// <summary>
+		///     What an emulator bot never reads, skipped before decode (see
+		///     BedrockMessageHandlerBase.DropPacketIds): SubChunk block data, and the entity
+		///     broadcast traffic (movement, actor state, sounds, effects) that scales O(N²) with
+		///     fleet size and otherwise dominates the bot process. The one self-directed loss is
+		///     MovePlayer position corrections, which a load bot ignores anyway.
+		/// </summary>
+		private static readonly HashSet<int> EmulatorDropPacketIds = new()
+		{
+			0x12, // McpeMoveEntity (MoveActorAbsolute)
+			0x13, // McpeMovePlayer
+			0x19, // McpeLevelEvent
+			0x1d, // McpeUpdateAttributes
+			0x27, // McpeSetEntityData
+			0x28, // McpeSetEntityMotion
+			0x2c, // McpeAnimate
+			0x6f, // McpeMoveEntityDelta
+			0x7b, // McpeLevelSoundEvent
+			0xae, // McpeSubChunkPacket
+		};
+
 		public RakConnection Connection { get; private set; }
 		public bool FoundServer => Connection.FoundServer;
+
+		/// <summary>The wrapper-level handler for the active connection, whichever transport backs
+		/// it. Exposed so the emulator can flip its post-spawn receive-and-ack-only mode.</summary>
+		public BedrockMessageHandlerBase WrapperHandler { get; private set; }
 
 		// Either transport can back the session. RakNet keeps its own registry; NetherNet hands us
 		// one directly, so that takes precedence when it is set.
@@ -102,6 +127,10 @@ namespace MiNET.Client
 		public RakSession RakSession => Connection?.ConnectionInfo.RakSessions.Values.FirstOrDefault();
 
 		public Vector3 SpawnPoint { get; set; }
+
+		/// <summary>The level's fixed spawn from StartGame (defaultSpawnBlockPosition), as opposed
+		/// to SpawnPoint which is wherever this player spawned (plugins persist per-player spawns).</summary>
+		public Vector3 WorldSpawn { get; set; }
 		public long EntityId { get; set; }
 		public long NetworkEntityId { get; set; }
 		public int ChunkRadius { get; set; } = 5;
@@ -185,6 +214,8 @@ namespace MiNET.Client
 			var handlerFactory = ClientMessageHandlerFactory?.Invoke(Session, MessageHandler ?? new DefaultMessageHandler(this))
 				?? new BedrockClientMessageHandler(Session, MessageHandler ?? new DefaultMessageHandler(this));
 			handlerFactory.ConnectionAction = () => SendRequestNetworkSettings();
+			if (IsEmulator) handlerFactory.DropPacketIds = EmulatorDropPacketIds;
+			WrapperHandler = handlerFactory;
 			Connection.CustomMessageHandlerFactory = session => handlerFactory;
 
 			//TODO: This is bad design, need to refactor this later.
@@ -212,6 +243,8 @@ namespace MiNET.Client
 
 			var handler = ClientMessageHandlerFactory?.Invoke(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this))
 						?? new BedrockClientMessageHandler(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this));
+			if (IsEmulator) handler.DropPacketIds = EmulatorDropPacketIds;
+			WrapperHandler = handler;
 
 			_netherNetSession.CustomMessageHandler = handler;
 
@@ -225,7 +258,10 @@ namespace MiNET.Client
 
 		public bool StopClient()
 		{
-			Connection.Stop();
+			// Either transport may be live; closing the data channel is the NetherNet disconnect.
+			_netherNetSession?.Close();
+			_netherNetSession = null;
+			Connection?.Stop();
 			return true;
 		}
 
@@ -798,9 +834,9 @@ namespace MiNET.Client
 			SendPacket(movePlayerPacket);
 		}
 
-		public async Task SendCurrentPlayerPositionAsync()
+		public Task SendCurrentPlayerPositionAsync()
 		{
-			if (CurrentLocation == null) return;
+			if (CurrentLocation == null) return Task.CompletedTask;
 
 			if (CurrentLocation.Y < 0) CurrentLocation.Y = 64f;
 
@@ -813,28 +849,8 @@ namespace MiNET.Client
 			movePlayerPacket.mode = McpeMovePlayer.PositionMode.Respawn;
 			movePlayerPacket.onGround = false;
 
-			if (Connection.ConnectionInfo.IsEmulator)
-			{
-				//var batch = McpeWrapper.CreateObject();
-				//batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				//batch.payload = Compression.CompressPacketsForWrapper(new List<Packet> {movePlayerPacket});
-
-				//Packet message = null;
-				//if (Session.CustomMessageHandler != null) message = Session.CustomMessageHandler.HandleOrderedSend(batch);
-
-				//Reliability reliability = message.ReliabilityHeader.Reliability;
-				//if (reliability == Reliability.Undefined) reliability = Reliability.Reliable; // Questionable practice
-
-				//if (reliability == Reliability.ReliableOrdered) message.ReliabilityHeader.OrderingIndex = Interlocked.Increment(ref Session.OrderingIndex);
-				//await Session.SendPacketAsync(message);
-
-				Session.SendPacket(movePlayerPacket);
-				await RakSession.SendQueueAsync(0);
-			}
-			else
-			{
-				Session.SendPacket(movePlayerPacket);
-			}
+			Session.SendPacket(movePlayerPacket);
+			return Task.CompletedTask;
 		}
 
 
