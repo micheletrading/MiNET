@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -146,6 +147,59 @@ namespace MiNET.Test.Rtc
 			cts.CancelAfter(TimeSpan.FromMilliseconds(300));
 
 			Assert.IsFalse(await handshake.WaitAsync(TimeSpan.FromSeconds(3)));
+		}
+
+		/// <summary>
+		///     Regression for round-2 Item 1 (reentrant Dispose defeats the gate invariant): the
+		///     realistic stage-2 pattern is tearing the session down as soon as an application-data
+		///     record signals an abort, i.e. calling Dispose synchronously from inside an
+		///     <see cref="DtlsSession.OnDecrypted" /> subscriber, which is still further up the same
+		///     call stack as FeedDatagram's drain loop (a Monitor lock is reentrant on the owning
+		///     thread, so the lock alone does not stop this). Before the fix, DrainPending's `while`
+		///     loop would call ReceivePending against the scratch buffer after Dispose had already
+		///     returned it to the pool.
+		/// </summary>
+		[TestMethod]
+		public async Task DisposeFromWithinOnDecrypted_DoesNotCorruptTheScratchBuffer()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes.Span));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes.Span));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload =>
+			{
+				received.TrySetResult(payload.ToArray());
+				server.Dispose(); // Reentrant: FeedDatagram is still on the stack, holding _gate.
+			};
+
+			// Must not throw: this exercises the exact reentrant path.
+			client.SendApplicationData(new byte[] {7, 7, 7});
+			CollectionAssert.AreEqual(new byte[] {7, 7, 7}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+			// Pool sanity, best effort: renting immediately after must succeed cleanly. This cannot
+			// prove an unrelated consumer elsewhere in the process was not corrupted, but a double
+			// return or a still-in-use buffer handed back early is exactly the kind of bug that tends
+			// to surface as a failure on the very next rent from the same shared pool.
+			byte[] probe = ArrayPool<byte>.Shared.Rent(4096);
+			ArrayPool<byte>.Shared.Return(probe);
+
+			// The session no longer delivers: FeedDatagram on a disposed session is a no-op.
+			bool deliveredAfterDispose = false;
+			server.OnDecrypted += _ => deliveredAfterDispose = true;
+			client.SendApplicationData(new byte[] {8, 8, 8});
+			await Task.Delay(200);
+			Assert.IsFalse(deliveredAfterDispose);
+
+			client.Dispose();
 		}
 	}
 }

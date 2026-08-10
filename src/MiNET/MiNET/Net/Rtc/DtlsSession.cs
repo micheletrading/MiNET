@@ -46,8 +46,16 @@ namespace MiNET.Net.Rtc
 	///     all inline on the caller's thread. No background thread ever exists after the handshake.
 	///     Invariant: <see cref="_gate" /> serializes every access to <see cref="_dtlsTransport" /> and
 	///     <see cref="_receiveScratch" /> between <see cref="FeedDatagram" />'s drain section and
-	///     <see cref="Dispose" />, so a concurrent teardown can never return the scratch buffer to the
-	///     pool (or close the transport) while a drain still holds a span over it.
+	///     <see cref="Dispose" />, so a concurrent teardown from another thread can never return the
+	///     scratch buffer to the pool (or close the transport) while a drain still holds a span over
+	///     it. A <c>lock</c> is a .NET Monitor, which is reentrant on the thread that already owns it,
+	///     so this alone does not stop a subscriber calling <see cref="Dispose" /> synchronously from
+	///     inside <see cref="OnDecrypted" /> while <see cref="FeedDatagram" /> is still on the stack
+	///     holding the gate: <see cref="_draining" /> tracks that case (touched only while holding
+	///     <see cref="_gate" />, so it needs no synchronization of its own) so a reentrant
+	///     <see cref="Dispose" /> defers the scratch buffer's return to <see cref="FeedDatagram" />'s
+	///     own unwind instead of freeing it out from under the drain loop still running further up the
+	///     same call stack.
 	/// </summary>
 	public sealed class DtlsSession : IDisposable
 	{
@@ -76,6 +84,12 @@ namespace MiNET.Net.Rtc
 		private volatile bool _closed;
 		private int _disposed;
 
+		// Both touched only while holding _gate (see the class doc comment's Invariant paragraph),
+		// so neither needs volatile or Interlocked: _gate's acquire/release already provides the
+		// necessary visibility across the two threads that can ever reach either field.
+		private bool _draining;
+		private bool _deferredScratchReturn;
+
 		public DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, Action<ReadOnlyMemory<byte>> sendToWire)
 		{
 			_localCertificate = localCertificate;
@@ -94,7 +108,12 @@ namespace MiNET.Net.Rtc
 		///     (Finding 3: the disposed check alone is check-then-act, not a real exclusion). A
 		///     <see cref="DtlsSessionClosedException" /> raised by the drain (Dispose or a cancelled
 		///     handshake closed the session while this call was in flight) is swallowed here: it is an
-		///     expected race during teardown, not a caller-visible failure.
+		///     expected race during teardown, not a caller-visible failure. <see cref="_draining" />
+		///     brackets the call so a <em>reentrant</em> <see cref="Dispose" />, called synchronously
+		///     from inside an <see cref="OnDecrypted" /> subscriber, defers returning
+		///     <see cref="_receiveScratch" /> to the pool until this method's own <c>finally</c> below,
+		///     after the drain loop (further up this same call stack) has stopped touching it (round-2
+		///     Item 1: the lock alone is reentrant on this thread and does not by itself prevent that).
 		/// </summary>
 		public void FeedDatagram(ReadOnlySpan<byte> datagram)
 		{
@@ -115,12 +134,22 @@ namespace MiNET.Net.Rtc
 			{
 				if (Volatile.Read(ref _disposed) != 0) return;
 
+				_draining = true;
 				try
 				{
 					DrainPending();
 				}
 				catch (DtlsSessionClosedException)
 				{
+				}
+				finally
+				{
+					_draining = false;
+					if (_deferredScratchReturn)
+					{
+						_deferredScratchReturn = false;
+						ArrayPool<byte>.Shared.Return(_receiveScratch);
+					}
 				}
 			}
 		}
@@ -136,6 +165,19 @@ namespace MiNET.Net.Rtc
 		///     <see cref="Task.Run" />, it does nothing once BouncyCastle's blocking Accept/Connect is
 		///     already running), and the registration is removed again once this call returns so a
 		///     later cancellation of the same token has no effect on the now-established session.
+		///     <para>
+		///     Round-2 Item 3: <see cref="RequestClose" /> firing (cancellation, or a concurrent
+		///     <see cref="Dispose" />) at the exact instant Accept/Connect was already returning
+		///     successfully is a real, if low-probability, race: the <c>await</c> below can complete
+		///     with a valid transport even though <see cref="_closed" /> is now true. Handing back
+		///     <see langword="true" /> in that case would leave a "successful" session whose
+		///     <see cref="FeedDatagram" /> writes into an already-completed channel forever, silently
+		///     going nowhere. The check immediately after the <c>await</c> catches this and reports
+		///     failure instead; the transport is closed directly since it was never stored into
+		///     <see cref="_dtlsTransport" />; the residual window between BouncyCastle's internal
+		///     success and this check being observed cannot be forced deterministically, so it is not
+		///     covered by a test (see the fix report).
+		///     </para>
 		/// </summary>
 		public async Task<bool> DoHandshakeAsync(CancellationToken cancellationToken)
 		{
@@ -144,7 +186,19 @@ namespace MiNET.Net.Rtc
 				: default;
 			try
 			{
-				_dtlsTransport = await Task.Run(RunHandshake, cancellationToken).ConfigureAwait(false);
+				DtlsTransport transport = await Task.Run(RunHandshake, cancellationToken).ConfigureAwait(false);
+
+				if (_closed)
+				{
+					lock (_gate)
+					{
+						transport.Close();
+					}
+
+					return false;
+				}
+
+				_dtlsTransport = transport;
 				_handshakeDone = true;
 				return true;
 			}
@@ -205,6 +259,15 @@ namespace MiNET.Net.Rtc
 				while (n > 0)
 				{
 					OnDecrypted?.Invoke(_receiveScratch.AsSpan(0, n));
+
+					// Round-2 Item 1: a subscriber may have called Dispose() from inside that
+					// invocation. Dispose is reentrant-safe on this thread (see the class doc
+					// comment's Invariant paragraph) and, when it runs while _draining is true,
+					// closes the transport and defers the scratch buffer's return rather than
+					// freeing it immediately, but it still closes the transport right away, so
+					// this loop must not call anything on it again once disposal has happened.
+					if (Volatile.Read(ref _disposed) != 0) return;
+
 					n = transport.ReceivePending(_receiveScratch.AsSpan(), null);
 				}
 			} while (_inbound.Reader.Count > 0);
@@ -217,10 +280,31 @@ namespace MiNET.Net.Rtc
 		///     through <see cref="NoDataOrThrow" /> so a session closed mid-wait
 		///     (<see cref="RequestClose" />) aborts the caller instead of returning an ordinary -1 for
 		///     it to retry.
+		///     <para>
+		///     Round-2 Item 2: the zero-allocation read (<see cref="TryReadNow" />) is always attempted
+		///     first, regardless of <paramref name="waitMillis" />. The steady-state plan requires zero
+		///     per-datagram allocation; <see cref="DrainPending" /> passing 1 rather than 0 (Finding 1)
+		///     must not, by itself, move every post-handshake receive onto the
+		///     <see cref="CancellationTokenSource" />-and-OS-timer path when the very datagram being
+		///     drained is already sitting in <see cref="_inbound" /> (it always is, on
+		///     <see cref="DrainPending" />'s first call: <see cref="FeedDatagram" /> enqueues it
+		///     immediately before draining). The bounded wait below is now reached only when the queue
+		///     is genuinely empty: BouncyCastle's own discard-retry case (Finding 1) or the handshake's
+		///     network-bound retransmission wait, both already rare/already-waiting-on-the-network, so
+		///     paying for a timer there is acceptable. <see cref="CancellationTokenSource.TryReset" />
+		///     was considered for reuse (verified against its Microsoft Learn documentation) but
+		///     rejected: it is documented for "the sole owner... when the operation... has completed
+		///     [and] no-one else will attempt to cancel it", explicitly warns reuse concurrently with a
+		///     pending cancellation is not thread-safe, and does not itself rearm a new delay (a
+		///     millisecond-delay <see cref="CancellationTokenSource" /> still needs <c>CancelAfter</c>
+		///     after every reset) — extra bookkeeping this now-rare branch does not need.
+		///     </para>
 		/// </summary>
 		private int ReceiveFromQueue(Span<byte> buffer, int waitMillis)
 		{
-			if (waitMillis <= 0) return TryDeliverOne(buffer);
+			if (TryReadNow(buffer, out int length)) return length;
+
+			if (waitMillis <= 0) return NoDataOrThrow();
 
 			bool canRead;
 			using (var cts = new CancellationTokenSource(waitMillis))
@@ -235,18 +319,24 @@ namespace MiNET.Net.Rtc
 				}
 			}
 
-			return canRead ? TryDeliverOne(buffer) : NoDataOrThrow();
+			if (canRead && TryReadNow(buffer, out length)) return length;
+
+			return NoDataOrThrow();
 		}
 
-		private int TryDeliverOne(Span<byte> buffer)
+		private bool TryReadNow(Span<byte> buffer, out int length)
 		{
-			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item)) return NoDataOrThrow();
+			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
+			{
+				length = 0;
+				return false;
+			}
 
 			try
 			{
-				int copyLength = Math.Min(item.Length, buffer.Length);
-				item.Leased.AsSpan(0, copyLength).CopyTo(buffer);
-				return copyLength;
+				length = Math.Min(item.Length, buffer.Length);
+				item.Leased.AsSpan(0, length).CopyTo(buffer);
+				return true;
 			}
 			finally
 			{
@@ -299,10 +389,17 @@ namespace MiNET.Net.Rtc
 		///     running on the <see cref="Task.Run" /> thread, then, under <see cref="_gate" />, closes
 		///     the BouncyCastle transport if the handshake reached that far and returns every
 		///     still-queued lease to the pool. The gate excludes a concurrently running
-		///     <see cref="FeedDatagram" /> drain (Finding 3): either the drain finishes and releases the
-		///     gate before this section runs, or this section runs first and the drain's own disposed
-		///     check, repeated inside its own gate acquisition, bails out before touching the now-freed
-		///     <see cref="_receiveScratch" />.
+		///     <see cref="FeedDatagram" /> drain called from another thread (Finding 3): either the
+		///     drain finishes and releases the gate before this section runs, or this section runs
+		///     first and the drain's own disposed check, repeated inside its own gate acquisition,
+		///     bails out before touching the now-freed <see cref="_receiveScratch" />. A same-thread
+		///     <em>reentrant</em> call (Dispose invoked synchronously from an <see cref="OnDecrypted" />
+		///     subscriber, round-2 Item 1) is different: the gate is already held by this same thread,
+		///     so it does not block, and <see cref="_draining" /> being true means the drain loop is
+		///     still further up this exact call stack, still about to touch <see cref="_receiveScratch" />
+		///     once this call returns control to it. In that case the buffer is not returned here;
+		///     <see cref="_deferredScratchReturn" /> is set instead, and <see cref="FeedDatagram" />'s
+		///     own <c>finally</c> performs the return once the drain has actually stopped.
 		/// </summary>
 		public void Dispose()
 		{
@@ -319,7 +416,14 @@ namespace MiNET.Net.Rtc
 					ArrayPool<byte>.Shared.Return(item.Leased);
 				}
 
-				ArrayPool<byte>.Shared.Return(_receiveScratch);
+				if (_draining)
+				{
+					_deferredScratchReturn = true;
+				}
+				else
+				{
+					ArrayPool<byte>.Shared.Return(_receiveScratch);
+				}
 			}
 		}
 
