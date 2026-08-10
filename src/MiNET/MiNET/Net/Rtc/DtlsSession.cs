@@ -56,6 +56,16 @@ namespace MiNET.Net.Rtc
 	///     synchronization of its own) so a reentrant <see cref="Dispose" /> defers both buffers'
 	///     return to <see cref="FeedDatagram" />'s own unwind instead of freeing them out from under
 	///     the drain loop still running further up the same call stack.
+	///     Threading: <see cref="FeedDatagram" /> itself is safe to call concurrently from multiple
+	///     threads (round 5), even though nothing in today's topology actually does so, a single
+	///     receive loop per <see cref="UdpMux" /> feeding one datagram at a time. Every datagram passed
+	///     to it is either drained inline or queued onto <see cref="_inbound" />, on exactly one of
+	///     those two paths, and is never silently dropped or corrupted by an overlapping call: the
+	///     direct-feed fast path's guard-check-through-drain sequence runs entirely under
+	///     <see cref="_gate" />, and the lease-and-<see cref="_inbound" /> path was already safe under
+	///     concurrency on its own (a fresh per-call <see cref="ArrayPool{T}" /> lease, and
+	///     <see cref="System.Threading.Channels.Channel{T}" /> is internally thread-safe for concurrent
+	///     writers).
 	/// </summary>
 	public sealed class DtlsSession : IDisposable
 	{
@@ -137,32 +147,53 @@ namespace MiNET.Net.Rtc
 		///     nothing else backlogged. Leasing it from <see cref="ArrayPool{T}" /> and round-tripping it
 		///     through <see cref="_inbound" /> just to read it straight back out again bought nothing in
 		///     that case. When the handshake is done, no drain from this same thread is already running
-		///     (<see cref="_draining" />; a <em>different</em> thread cannot be draining at all, since
-		///     drains only ever run under <see cref="_gate" />), the channel is empty, and the datagram
-		///     fits <see cref="_directFeedBuffer" />, this copies straight into that persistent buffer
+		///     (<see cref="_draining" />), the channel is empty, and the datagram fits
+		///     <see cref="_directFeedBuffer" />, this copies straight into that persistent buffer
 		///     (allocated once, at construction, never per-call) instead and lets
 		///     <see cref="TryReadNow" /> pick it up first. <see cref="_directFeedLength" /> is the only
 		///     state that says the slot is live; it is cleared by <see cref="TryReadNow" /> the instant
 		///     it copies the bytes into BouncyCastle's own buffer (synchronously, nested inside this same
 		///     call, well before this method returns: traced through <see cref="DrainPending" />'s single
 		///     <c>Receive</c> call down to <see cref="DatagramTransportAdapter.Receive(Span{byte}, int)" />),
-		///     and <see cref="DrainUnderGate" />'s own <c>finally</c> clears it unconditionally besides,
-		///     so the slot can never outlive this call on any path, including one that never reaches
+		///     and <see cref="DrainLocked" />'s own <c>finally</c> clears it unconditionally besides, so
+		///     the slot can never outlive this call on any path, including one that never reaches
 		///     <see cref="TryReadNow" /> at all. Anything that does not fit this fast path (mid-handshake,
 		///     an existing backlog, a reentrant drain, or a datagram too large for the staging buffer)
 		///     falls through to the unchanged lease-and-<see cref="_inbound" /> path below.
+		///     </para>
+		///     <para>
+		///     Round-5 (concurrent <see cref="FeedDatagram" /> calls): the guard, the copy into
+		///     <see cref="_directFeedBuffer" />, and the <see cref="_directFeedLength" /> set are all
+		///     inside <see cref="_gate" /> below, not before it, so the whole decide-copy-drain sequence
+		///     is atomic per caller. Two concurrent callers on different threads (unreachable under
+		///     today's single-receive-loop-per-mux topology, but not guaranteed by anything this class
+		///     enforces on its own) now simply serialize on <see cref="_gate" /> rather than racing to
+		///     clobber the shared staging buffer: the first caller's guard-through-drain runs to
+		///     completion, including clearing <see cref="_directFeedLength" />, before the second caller
+		///     can even evaluate its own guard. <see cref="_inbound" />'s lease-and-write path was already
+		///     safe under concurrency on its own (a fresh <see cref="ArrayPool{T}" /> lease per call, and
+		///     <see cref="Channel{T}" /> is internally thread-safe for concurrent writers), so it stays
+		///     outside the lock; only the shared, mutable staging buffer needed it. Concurrent
+		///     <see cref="FeedDatagram" /> calls are therefore safe: every datagram is either drained
+		///     inline or queued, on exactly one path, never silently dropped or corrupted, regardless of
+		///     how many callers overlap.
 		///     </para>
 		/// </summary>
 		public void FeedDatagram(ReadOnlySpan<byte> datagram)
 		{
 			if (Volatile.Read(ref _disposed) != 0) return;
 
-			if (_handshakeDone && !_draining && _inbound.Reader.Count == 0 && datagram.Length <= _directFeedBuffer.Length)
+			lock (_gate)
 			{
-				datagram.CopyTo(_directFeedBuffer);
-				_directFeedLength = datagram.Length;
-				DrainUnderGate();
-				return;
+				if (Volatile.Read(ref _disposed) != 0) return;
+
+				if (_handshakeDone && !_draining && _inbound.Reader.Count == 0 && datagram.Length <= _directFeedBuffer.Length)
+				{
+					datagram.CopyTo(_directFeedBuffer);
+					_directFeedLength = datagram.Length;
+					DrainLocked();
+					return;
+				}
 			}
 
 			byte[] leased = ArrayPool<byte>.Shared.Rent(datagram.Length);
@@ -180,9 +211,10 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     The locked drain section shared by both of <see cref="FeedDatagram" />'s paths (the
-		///     round-4 direct-feed fast path and the pre-existing lease-and-<see cref="_inbound" /> path).
-		///     See <see cref="FeedDatagram" />'s own doc comment for the invariants this preserves.
+		///     Acquires <see cref="_gate" /> and runs <see cref="DrainLocked" />. Used by the
+		///     lease-and-<see cref="_inbound" /> path, which does not already hold the gate when it
+		///     decides to drain (unlike the direct-feed fast path in <see cref="FeedDatagram" />, which
+		///     calls <see cref="DrainLocked" /> directly since it is already inside the lock).
 		/// </summary>
 		private void DrainUnderGate()
 		{
@@ -194,24 +226,34 @@ namespace MiNET.Net.Rtc
 					return;
 				}
 
-				_draining = true;
-				try
+				DrainLocked();
+			}
+		}
+
+		/// <summary>
+		///     The actual drain-and-cleanup body shared by both of <see cref="FeedDatagram" />'s paths.
+		///     Must only be called while already holding <see cref="_gate" />. See
+		///     <see cref="FeedDatagram" />'s own doc comment for the invariants this preserves.
+		/// </summary>
+		private void DrainLocked()
+		{
+			_draining = true;
+			try
+			{
+				DrainPending();
+			}
+			catch (DtlsSessionClosedException)
+			{
+			}
+			finally
+			{
+				_draining = false;
+				_directFeedLength = -1;
+				if (_deferredScratchReturn)
 				{
-					DrainPending();
-				}
-				catch (DtlsSessionClosedException)
-				{
-				}
-				finally
-				{
-					_draining = false;
-					_directFeedLength = -1;
-					if (_deferredScratchReturn)
-					{
-						_deferredScratchReturn = false;
-						ArrayPool<byte>.Shared.Return(_receiveScratch);
-						ArrayPool<byte>.Shared.Return(_directFeedBuffer);
-					}
+					_deferredScratchReturn = false;
+					ArrayPool<byte>.Shared.Return(_receiveScratch);
+					ArrayPool<byte>.Shared.Return(_directFeedBuffer);
 				}
 			}
 		}

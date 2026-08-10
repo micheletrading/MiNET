@@ -25,6 +25,9 @@
 
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -199,6 +202,94 @@ namespace MiNET.Test.Rtc
 			await Task.Delay(200);
 			Assert.IsFalse(deliveredAfterDispose);
 
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     Regression for round 5 (concurrent FeedDatagram): before the fix, the direct-feed fast
+		///     path's guard check, its copy into the shared staging buffer, and the length flag it set
+		///     all ran outside the lock, so two threads could both pass the empty-channel guard and race
+		///     to write the one shared buffer; the loser's datagram would be silently dropped or, worse,
+		///     the buffer's contents would be corrupted mid-copy. Two threads, synchronized with a
+		///     <see cref="Barrier" /> to maximise actual overlap, each feed a disjoint half of a batch of
+		///     distinct, never-before-delivered wire datagrams (captured up front rather than replayed,
+		///     since a genuine replay is deliberately discarded by BouncyCastle's anti-replay window,
+		///     which is a different code path already covered by <see cref="ReplayedRecord_IsDiscarded_WithoutLivelock_AndSessionKeepsWorking" />).
+		///     Every one of them must arrive exactly once, none dropped, none corrupted.
+		/// </summary>
+		[TestMethod]
+		public async Task ConcurrentFeedDatagram_DeliversEveryDatagram_NoneDroppedOrCorrupted()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			bool captureOnly = false;
+			var captured = new List<byte[]>();
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				if (captureOnly)
+				{
+					captured.Add(bytes.ToArray());
+				}
+				else
+				{
+					server.FeedDatagram(bytes);
+				}
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			// Produce 2 * perThread distinct, valid, never-yet-delivered wire datagrams: each carries
+			// its own DTLS sequence number, so BouncyCastle's anti-replay window accepts all of them
+			// regardless of the order the two threads below happen to feed them in.
+			const int perThread = 25;
+			var payloads = new List<byte[]>();
+			captureOnly = true;
+			for (int i = 0; i < perThread * 2; i++)
+			{
+				byte[] payload = {(byte) i, (byte) (i >> 8), 0xAA};
+				payloads.Add(payload);
+				client.SendApplicationData(payload);
+			}
+			captureOnly = false;
+			Assert.AreEqual(perThread * 2, captured.Count, "expected to have captured one wire datagram per SendApplicationData call");
+
+			var receivedPayloads = new ConcurrentBag<byte[]>();
+			server.OnDecrypted += payload => receivedPayloads.Add(payload.ToArray());
+
+			using var barrier = new Barrier(2);
+
+			void Feed(int startIndex)
+			{
+				barrier.SignalAndWait();
+				for (int i = 0; i < perThread; i++)
+				{
+					server.FeedDatagram(captured[startIndex + i]);
+				}
+			}
+
+			Task t1 = Task.Run(() => Feed(0));
+			Task t2 = Task.Run(() => Feed(perThread));
+			await Task.WhenAll(t1, t2).WaitAsync(TimeSpan.FromSeconds(10));
+
+			var deadline = DateTime.UtcNow.AddSeconds(5);
+			while (receivedPayloads.Count < perThread * 2 && DateTime.UtcNow < deadline)
+			{
+				await Task.Delay(10);
+			}
+
+			Assert.AreEqual(perThread * 2, receivedPayloads.Count, "expected every concurrently-fed datagram to be decrypted exactly once; a drop or a corrupted copy would show up as a count mismatch here");
+
+			List<string> expected = payloads.Select(Convert.ToHexString).OrderBy(s => s).ToList();
+			List<string> actual = receivedPayloads.Select(Convert.ToHexString).OrderBy(s => s).ToList();
+			CollectionAssert.AreEqual(expected, actual);
+
+			server.Dispose();
 			client.Dispose();
 		}
 	}
