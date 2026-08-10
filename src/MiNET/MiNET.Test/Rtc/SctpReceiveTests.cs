@@ -322,16 +322,16 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-2 regression: a NEW Important the round-1 Critical-1 fix itself introduced. When a
-		///     peer starts a second fragmented message on a stream before the first one ever saw its End
-		///     (Begin@T, stalls; then a fresh Begin@T+5, End@T+6), the stale first fragment must not survive
-		///     into the completed second message: it must be abandoned - its lease returned, its bytes
-		///     backed out of the byte budget, and the abandonment counted - not left in
-		///     <see cref="SctpReceiveBuffer.LeasedDelivery" />'s <c>PieceTsns</c> list to be spliced into an
-		///     unrelated later completion.
+		///     Fix-round-3 rework: round 2's "abandon the stale run on a new Begin" rule turned out to be
+		///     unsafe under ordinary UDP reordering (see <see cref="SctpReceiveBuffer" />'s class remarks)
+		///     and was removed. Under the round-3 design, a same-stream stale Begin simply sits incomplete
+		///     holding its own share of the budget - never spliced into a later, unrelated completion (the
+		///     invariant round 1 and round 2 both cared about is unchanged), and never discarded just
+		///     because a newer message on the same stream showed up. Discard only happens under real
+		///     budget pressure via reneging, covered by the tests below.
 		/// </summary>
 		[TestMethod]
-		public void FragmentReassembly_SecondBeginOnSameStream_AbandonsTheStaleFirstRun()
+		public void FragmentReassembly_SecondBeginOnSameStream_StaleFirstRunStaysIncompleteAndHoldsBudget()
 		{
 			const uint budget = 100;
 			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair(budget);
@@ -339,21 +339,139 @@ namespace MiNET.Test.Rtc
 			uint tsn = server.CumulativeTsnAck + 1;
 
 			FeedData(server, tag, tsn, 9, 0, 1, unordered: true, begin: true, end: false, "X"u8); // message 1, Begin - stalls, no End ever arrives
-			FeedData(server, tag, tsn + 5, 9, 0, 1, unordered: true, begin: true, end: false, "Y"u8); // message 2, Begin - message 1 is now stale
+			FeedData(server, tag, tsn + 5, 9, 0, 1, unordered: true, begin: true, end: false, "Y"u8); // message 2, Begin - a distinct, later message on the same stream
 			FeedData(server, tag, tsn + 6, 9, 0, 1, unordered: true, begin: false, end: true, "Z"u8); // message 2, End - completes
 
-			// Message 2 delivers exactly its own two pieces, never the stale "X" from the abandoned
-			// message 1.
+			// Message 2 delivers exactly its own two pieces; message 1's stale "X" is never spliced in.
 			Assert.AreEqual(1, received.Count);
 			Assert.AreEqual((ushort) 9, received[0].StreamId);
 			CollectionAssert.AreEqual("YZ"u8.ToArray(), received[0].Payload);
 
-			// "X"'s stale lease was returned (not leaked, not left counted forever) and "Y"+"Z" were
-			// consumed and delivered: nothing is left buffered, so the budget is fully back.
-			Assert.AreEqual(budget, server.CurrentArwnd);
+			// "X" is not discarded: it still holds its 1 byte of budget, waiting for either a real End
+			// or reneging under actual budget pressure (neither happens here).
+			Assert.AreEqual(budget - 1, server.CurrentArwnd);
+			Assert.AreEqual(0L, server.DataRenegedFragmentRunCount);
+		}
 
-			// The abandonment itself is counted.
-			Assert.AreEqual(1L, server.DataAbandonedFragmentRunCount);
+		/// <summary>
+		///     Fix-round-3 new RED test (a): the scenario that proved round 2's abandon-on-new-Begin rule
+		///     was actually unsafe. UDP guarantees nothing about arrival order; RFC 4960 6.9 only promises
+		///     the SENDER never interleaves two messages of one stream in TSN space, so Begin(msg2)
+		///     arriving before End(msg1) is a completely ordinary reorder, not hostile input. Both messages
+		///     must still deliver, with correct content, in stream-sequence order.
+		/// </summary>
+		[TestMethod]
+		public void ReorderedFragments_BothMessagesDeliver_EvenWhenSecondBeginArrivesBeforeFirstEnd()
+		{
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			// Arrival order: Begin(msg1)@T, Begin(msg2)@T+2, End(msg2)@T+3, End(msg1)@T+1.
+			FeedData(server, tag, tsn, 10, 0, 30, unordered: false, begin: true, end: false, "A1"u8); // msg1 Begin, streamSeq 0
+			FeedData(server, tag, tsn + 2, 10, 1, 31, unordered: false, begin: true, end: false, "B1"u8); // msg2 Begin, streamSeq 1
+			FeedData(server, tag, tsn + 3, 10, 1, 31, unordered: false, begin: false, end: true, "B2"u8); // msg2 End
+			FeedData(server, tag, tsn + 1, 10, 0, 30, unordered: false, begin: false, end: true, "A2"u8); // msg1 End
+
+			// Both messages deliver, in stream-sequence order, each with its own correct content.
+			Assert.AreEqual(2, received.Count);
+			Assert.AreEqual((ushort) 10, received[0].StreamId);
+			Assert.AreEqual(30u, received[0].Ppid);
+			CollectionAssert.AreEqual("A1A2"u8.ToArray(), received[0].Payload);
+			Assert.AreEqual((ushort) 10, received[1].StreamId);
+			Assert.AreEqual(31u, received[1].Ppid);
+			CollectionAssert.AreEqual("B1B2"u8.ToArray(), received[1].Payload);
+		}
+
+		/// <summary>
+		///     Fix-round-3 new RED test (b): under real budget pressure, the oldest renegable incomplete
+		///     run is discarded to make room - leases returned, its TSNs struck from the next SACK's gap
+		///     blocks (RFC 4960 6.2: this is what makes reneging legal, since the peer must be told to
+		///     retransmit), and a later retransmit of those TSNs is accepted as novel data rather than
+		///     dropped as a duplicate.
+		/// </summary>
+		[TestMethod]
+		public void BudgetPressure_RenegesOldestEligibleRun_ThenAdmitsTheNewData()
+		{
+			const uint budget = 10;
+			(SctpAssociation server, List<byte[]> sent, _) = CreateEstablishedPair(budget);
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			// A stalled, renegable fragment: far ahead of the cumulative ack (a real gap in front of it,
+			// so it never folds into cumulative), Begin only, no End ever arrives. 5 bytes.
+			uint staleTsn = tsn + 10;
+			FeedData(server, tag, staleTsn, 20, 0, 1, unordered: true, begin: true, end: false, "AAAAA"u8);
+			Assert.AreEqual(budget - 5, server.CurrentArwnd);
+
+			// New data needing 6 more bytes: 5 + 6 = 11 > 10, so it does not fit until the stalled run
+			// is reneged; once reneged, the new fragment is admitted.
+			sent.Clear();
+			uint newTsn = tsn + 20;
+			FeedData(server, tag, newTsn, 21, 0, 2, unordered: true, begin: true, end: false, "BBBBBB"u8);
+
+			Assert.AreEqual(1L, server.DataRenegedFragmentRunCount);
+			Assert.AreEqual(budget - 6, server.CurrentArwnd); // only the new fragment remains buffered
+
+			// A gap is always outstanding here (cumulative never advances past its starting point), so
+			// this packet triggered an immediate SACK: the reneged TSN must no longer appear in it.
+			Assert.AreEqual(1, sent.Count);
+			SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(sent[0]);
+			Assert.IsTrue(enumerator.MoveNext());
+			(byte type, byte _, ReadOnlySpan<byte> value) = enumerator.Current;
+			Assert.AreEqual((byte) 3, type);
+			Assert.IsTrue(SackChunk.TryParse(value, out SackChunk sack));
+
+			bool staleStillReported = false;
+			foreach (SackChunk.GapBlock block in sack.GapBlocks)
+			{
+				if (staleTsn >= sack.CumulativeTsnAck + block.Start && staleTsn <= sack.CumulativeTsnAck + block.End) staleStillReported = true;
+			}
+			Assert.IsFalse(staleStillReported);
+
+			// The peer eventually retransmits the reneged TSN: it is accepted as genuinely novel data
+			// (needing its own room, triggering a second reneging of what is now the oldest run) rather
+			// than silently dropped as a duplicate.
+			FeedData(server, tag, staleTsn, 20, 0, 1, unordered: true, begin: true, end: false, "AAAAA"u8);
+			Assert.AreEqual(2L, server.DataRenegedFragmentRunCount);
+		}
+
+		/// <summary>
+		///     Fix-round-3 new RED test (c): a run is only ever a reneging candidate if none of its
+		///     fragments' TSNs is at or below the cumulative ack. A TSN that folds directly into the
+		///     cumulative ack the instant it arrives (because it happened to be exactly the next expected
+		///     one) is binding - the peer will never retransmit it again - so a run holding one must
+		///     survive budget pressure untouched; the incoming chunk that couldn't be admitted is dropped
+		///     and counted the ordinary way instead.
+		/// </summary>
+		[TestMethod]
+		public void BudgetPressure_NeverRenegesARunCoveredByTheCumulativeAck()
+		{
+			const uint budget = 10;
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair(budget);
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			// This fragment's TSN is exactly the next expected, so it folds straight into the cumulative
+			// ack point the instant it is recorded, even though the message (Begin only, no End) is
+			// still incomplete.
+			FeedData(server, tag, tsn, 30, 0, 1, unordered: true, begin: true, end: false, "AAAAA"u8); // 5 bytes
+			Assert.AreEqual(tsn, server.CumulativeTsnAck);
+			Assert.AreEqual(budget - 5, server.CurrentArwnd);
+
+			// New data needing 6 more bytes: 5 + 6 = 11 > 10, but the only incomplete run is not
+			// renegable, so nothing is discarded and the new fragment is dropped instead.
+			uint newTsn = tsn + 20;
+			FeedData(server, tag, newTsn, 31, 0, 2, unordered: true, begin: true, end: false, "BBBBBB"u8);
+
+			Assert.AreEqual(0L, server.DataRenegedFragmentRunCount);
+			Assert.AreEqual(1L, server.DataDroppedByBudgetCount);
+			Assert.AreEqual(budget - 5, server.CurrentArwnd); // unchanged: still just the protected fragment
+
+			// The protected run survives intact and still completes normally later.
+			FeedData(server, tag, tsn + 1, 30, 0, 1, unordered: true, begin: false, end: true, "ZZZZZ"u8);
+			Assert.AreEqual(1, received.Count);
+			CollectionAssert.AreEqual("AAAAAZZZZZ"u8.ToArray(), received[0].Payload);
 		}
 	}
 }

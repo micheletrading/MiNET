@@ -63,19 +63,30 @@ namespace MiNET.Net.Rtc
 	///     TSN accounting and message delivery are deliberately independent: a TSN is folded into the
 	///     cumulative ack point (or the gap set) the moment its chunk is accepted, regardless of when -
 	///     or whether - the message it belongs to becomes deliverable. An unordered message delivers as
-	///     soon as its own fragments (which are always TSN-contiguous) are complete, even while an
-	///     unrelated gap sits open elsewhere in the window; an ordered message additionally waits for
-	///     its stream sequence number's turn.
+	///     soon as its own fragments are complete, even while an unrelated gap sits open elsewhere in the
+	///     window; an ordered message additionally waits for its stream sequence number's turn.
+	///     </para>
+	///     <para>
+	///     Fragment reassembly design (as of the round-3 fix, superseding round 2's abandon-on-new-Begin):
+	///     UDP guarantees nothing about arrival order, so a peer's second message on a stream routinely
+	///     arrives, and even completes, before an earlier one on the same stream (RFC 4960 6.9 forbids the
+	///     SENDER from interleaving two messages of one stream in TSN space, but says nothing about the
+	///     NETWORK's delivery order). Multiple incomplete fragment runs per stream therefore coexist as
+	///     the normal case, not an edge case: <see cref="_fragments" /> is the single TSN-keyed source of
+	///     truth, each entry carrying its own stream and ordering affinity, and completion is checked by
+	///     scanning outward from whichever TSN just arrived (see <see cref="TryCompleteAround" />). The
+	///     only bound on how much incomplete data can pile up is the byte budget itself; when it is spent,
+	///     <see cref="TryRenegeForSpace" /> discards the single oldest run that RFC 4960's reneging rules
+	///     allow discarding (see its own remarks) rather than any run touching data already covered by the
+	///     cumulative TSN ack, which would be unrecoverable loss.
 	///     </para>
 	/// </summary>
 	internal sealed class SctpReceiveBuffer
 	{
-		// RFC 4960 6.9: an endpoint does not interleave fragments of two different user messages on the
-		// same stream, so one in-progress reassembly run per stream is all a well-behaved peer ever
-		// produces; a peer that violates this (a stall followed by a fresh Begin, or a hostile peer)
-		// has its earlier, still-incomplete run actively abandoned by BufferFragment - every fragment
-		// lease returned, its bytes backed out of the budget, the abandonment counted - rather than left
-		// sitting in PieceTsns where a later completion could splice its stale bytes into the new run.
+		// A bound on how many fragments a single message's backward/forward completion scan (and a
+		// single reneged run) can span, purely to cap the cost of a hostile or wildly out-of-spec TSN
+		// gap; ordinary traffic never gets close to it (the byte budget already limits how many
+		// fragments can be resident at all).
 		private const int MaxFragmentsPerMessage = 65536;
 
 		// Caps the out-of-order TSN set independent of the byte budget: a peer sending sparse,
@@ -95,12 +106,12 @@ namespace MiNET.Net.Rtc
 		// duplicate detection.
 		private readonly SortedSet<uint> _gapTsns = new(TsnOrder.Instance);
 
-		// Individual DATA chunk payloads still waiting on their message to complete: mid-reassembly
-		// fragments, keyed by their own TSN.
-		private readonly Dictionary<uint, (byte[] Buffer, int Length)> _fragments = new();
-
-		// One in-progress B../E run per stream.
-		private readonly Dictionary<ushort, ReassemblyRun> _runs = new();
+		// Every fragment (a DATA chunk that is not itself a complete Begin+End message) still waiting
+		// on its message to complete, keyed by its own TSN. The single source of truth for reassembly:
+		// nothing here is inferred from a per-stream "current run" structure, because arrival order is
+		// UDP's, not TSN order's, and a stream can have more than one incomplete message resident at
+		// once (see the class remarks).
+		private readonly Dictionary<uint, FragmentEntry> _fragments = new();
 
 		// Next stream sequence number an ordered stream is due to deliver.
 		private readonly Dictionary<ushort, ushort> _nextOrderedSeq = new();
@@ -112,7 +123,7 @@ namespace MiNET.Net.Rtc
 		private readonly List<uint> _duplicateTsns = new();
 		private long _droppedByBudgetCount;
 		private long _droppedByGapCapCount;
-		private long _abandonedFragmentRunCount;
+		private long _renegedFragmentRunCount;
 
 		/// <summary>
 		///     Deliveries produced by the most recent <see cref="Receive" /> call: fragment-reassembly
@@ -140,14 +151,14 @@ namespace MiNET.Net.Rtc
 		/// <summary>Whether any TSN above the cumulative ack point is outstanding, i.e. a SACK would carry at least one gap block.</summary>
 		public bool HasGap => _gapTsns.Count > 0;
 
-		/// <summary>Test visibility only: how many DATA chunks were dropped for arriving when the byte budget was already spent.</summary>
+		/// <summary>Test visibility only: how many DATA chunks were dropped for arriving when the byte budget was already spent and nothing could be reneged to make room.</summary>
 		public long DroppedByBudgetCount => Interlocked.Read(ref _droppedByBudgetCount);
 
 		/// <summary>Test visibility only: how many DATA chunks were dropped because <see cref="MaxOutOfOrderTsns" /> was already spent.</summary>
 		public long DroppedByGapCapCount => Interlocked.Read(ref _droppedByGapCapCount);
 
-		/// <summary>Test visibility only: how many in-progress fragment runs were abandoned because a new Begin arrived for the same stream before the old one ever saw its End.</summary>
-		public long AbandonedFragmentRunCount => Interlocked.Read(ref _abandonedFragmentRunCount);
+		/// <summary>Test visibility only: how many incomplete fragment runs were reneged (discarded early, RFC 4960 6.2) to make room under budget pressure.</summary>
+		public long RenegedFragmentRunCount => Interlocked.Read(ref _renegedFragmentRunCount);
 
 		/// <summary>
 		///     (Re)arms the buffer for a fresh association: the peer's Initial TSN sets the cumulative ack
@@ -162,9 +173,8 @@ namespace MiNET.Net.Rtc
 			_bufferedBytes = 0;
 			_gapTsns.Clear();
 
-			foreach ((byte[] buffer, int _) in _fragments.Values) ArrayPool<byte>.Shared.Return(buffer);
+			foreach (FragmentEntry fragment in _fragments.Values) ArrayPool<byte>.Shared.Return(fragment.Buffer);
 			_fragments.Clear();
-			_runs.Clear();
 			_nextOrderedSeq.Clear();
 
 			foreach (Dictionary<ushort, (byte[] Buffer, int Length, uint Ppid)> perStream in _orderedPending.Values)
@@ -242,7 +252,7 @@ namespace MiNET.Net.Rtc
 				}
 			}
 
-			if (_bufferedBytes + (uint) payload.Length > _budgetBytes)
+			if (_bufferedBytes + (uint) payload.Length > _budgetBytes && !TryRenegeForSpace((uint) payload.Length))
 			{
 				Interlocked.Increment(ref _droppedByBudgetCount);
 				// Not recorded as received: the peer times out and retransmits it, exactly what a_rwnd
@@ -262,8 +272,8 @@ namespace MiNET.Net.Rtc
 			}
 			else
 			{
-				BufferFragment(tsn, header, leased, payload.Length);
-				TryCompleteRun(header.StreamId);
+				_fragments[tsn] = new FragmentEntry(header.StreamId, header.Unordered, header.Begin, header.End, header.Ppid, header.StreamSeq, leased, payload.Length, Environment.TickCount64);
+				TryCompleteAround(tsn);
 			}
 
 			return false;
@@ -382,86 +392,68 @@ namespace MiNET.Net.Rtc
 			pending[seq] = (buffer, length, ppid);
 		}
 
-		private void BufferFragment(uint tsn, in DataChunkHeader header, byte[] leased, int length)
-		{
-			_runs.TryGetValue(header.StreamId, out ReassemblyRun run);
-
-			// A Begin arriving while this stream already has pieces recorded means an earlier message
-			// on this stream never saw its End (peer stalled it, or never intended to finish it) and a
-			// new one is starting now. The old run is abandoned outright rather than left around:
-			// leaving it meant its stale PieceTsns entries could later satisfy the new run's piece-count
-			// check and get spliced into the new message's payload (round 2's regression).
-			if (header.Begin && run.PieceTsns is { Count: > 0 }) AbandonRun(run);
-
-			if (header.Begin) run = default;
-
-			_fragments[tsn] = (leased, length);
-			run.Unordered = header.Unordered;
-			run.StreamSeq = header.StreamSeq;
-			run.Ppid = header.Ppid;
-			run.PieceTsns ??= new List<uint>();
-			run.PieceTsns.Add(tsn);
-			if (header.Begin) run.BeginTsn = tsn;
-			if (header.End) run.EndTsn = tsn;
-			_runs[header.StreamId] = run;
-		}
-
 		/// <summary>
-		///     Returns every fragment lease an abandoned run was holding, removes them from
-		///     <see cref="_fragments" />, and backs their bytes out of <see cref="_bufferedBytes" />: the
-		///     same cleanup <see cref="TryCompleteRun" /> would have done had the run actually completed,
-		///     just without ever delivering it. Counted via <see cref="AbandonedFragmentRunCount" />.
+		///     Checked on every fragment arrival, around the TSN that just arrived: scans backward to a
+		///     Begin and forward to an End (bounded by <see cref="MaxFragmentsPerMessage" />), requiring
+		///     every TSN in between to actually be present, on this same stream, with the same unordered
+		///     affinity, and never a stray Begin or End inside the span. Any hole or mismatch means "still
+		///     incomplete" and touches nothing - this is what makes it safe for more than one message on
+		///     the same stream, and messages on different streams, to sit here incomplete at once: a
+		///     foreign chunk sitting in the middle of the scan is never mistaken for a piece of this
+		///     message (round 1's cross-stream fix), and completion never fires from list bookkeeping
+		///     alone without this walk confirming the window itself is intact (round 2's regression, since
+		///     removed along with the abandon-on-new-Begin rule it depended on: see the class remarks for
+		///     why that rule was unsafe).
 		/// </summary>
-		private void AbandonRun(ReassemblyRun run)
+		private void TryCompleteAround(uint arrivedTsn)
 		{
-			foreach (uint pieceTsn in run.PieceTsns)
+			if (!_fragments.TryGetValue(arrivedTsn, out FragmentEntry arrived)) return;
+
+			ushort streamId = arrived.StreamId;
+			bool unordered = arrived.Unordered;
+
+			uint begin = arrivedTsn;
+			if (!arrived.Begin)
 			{
-				if (!_fragments.Remove(pieceTsn, out (byte[] Buffer, int Length) piece)) continue;
-				ArrayPool<byte>.Shared.Return(piece.Buffer);
-				_bufferedBytes -= (uint) piece.Length;
+				int steps = 0;
+				while (true)
+				{
+					uint candidate = unchecked(begin - 1);
+					if (!_fragments.TryGetValue(candidate, out FragmentEntry e) || e.StreamId != streamId || e.Unordered != unordered) return; // hole or a foreign/mismatched chunk: incomplete
+					if (e.End) return; // an End sitting before us with no Begin between: inconsistent, fail safe
+					begin = candidate;
+					if (e.Begin) break;
+					if (++steps > MaxFragmentsPerMessage) return;
+				}
 			}
 
-			Interlocked.Increment(ref _abandonedFragmentRunCount);
-		}
+			uint end = arrivedTsn;
+			if (!arrived.End)
+			{
+				int steps = 0;
+				while (true)
+				{
+					uint candidate = unchecked(end + 1);
+					if (!_fragments.TryGetValue(candidate, out FragmentEntry e) || e.StreamId != streamId || e.Unordered != unordered) return; // hole or a foreign/mismatched chunk: incomplete
+					if (e.Begin) return; // a Begin sitting after us with no End between: inconsistent, fail safe
+					end = candidate;
+					if (e.End) break;
+					if (++steps > MaxFragmentsPerMessage) return;
+				}
+			}
 
-		/// <summary>
-		///     Completes a run only once every TSN in the current <c>[BeginTsn, EndTsn]</c> window is
-		///     verified as a piece THIS run itself recorded (<see cref="ReassemblyRun.PieceTsns" />), never
-		///     by trusting <see cref="_fragments" /> directly (round 1's cross-stream theft) and never by
-		///     trusting <see cref="ReassemblyRun.PieceTsns" />'s raw count alone (round 2's same-stream
-		///     splice, where a stale entry left outside the window could inflate the count without actually
-		///     covering it). The count check is still worth keeping as a cheap O(1) early-out for the
-		///     common "still waiting on more pieces" case, true on every arrival but the last; only the
-		///     final arrival pays for the window walk.
-		/// </summary>
-		private void TryCompleteRun(ushort streamId)
-		{
-			if (!_runs.TryGetValue(streamId, out ReassemblyRun run)) return;
-			if (run.BeginTsn == null || run.EndTsn == null) return;
-
-			uint begin = run.BeginTsn.Value;
-			uint end = run.EndTsn.Value;
 			int pieceCount = SctpTsn.Compare(end, begin) + 1;
-			if (pieceCount <= 0 || pieceCount > MaxFragmentsPerMessage)
-			{
-				// Malformed (End TSN behind Begin TSN, or an absurd span): abandon this run rather than
-				// waiting on a piece count that can never be reached. The individual fragment bytes stay
-				// accounted for in _fragments/_bufferedBytes until budget pressure or the next Reset
-				// reclaims them.
-				_runs.Remove(streamId);
-				return;
-			}
+			if (pieceCount <= 0 || pieceCount > MaxFragmentsPerMessage) return; // should be unreachable given the bounded walks above; fail safe regardless
 
-			if (run.PieceTsns.Count < pieceCount) return; // still waiting on more pieces
-
-			var members = new HashSet<uint>(run.PieceTsns);
+			FragmentEntry beginEntry = _fragments[begin];
+			uint ppid = beginEntry.Ppid;
+			ushort streamSeq = beginEntry.StreamSeq;
 
 			int totalLength = 0;
 			uint scan = begin;
 			for (int i = 0; i < pieceCount; i++)
 			{
-				if (!members.Contains(scan) || !_fragments.TryGetValue(scan, out (byte[] Buffer, int Length) p)) return; // window has a hole: still incomplete, fails safe
-				totalLength += p.Length;
+				totalLength += _fragments[scan].Length;
 				scan = unchecked(scan + 1);
 			}
 
@@ -470,7 +462,7 @@ namespace MiNET.Net.Rtc
 			scan = begin;
 			for (int i = 0; i < pieceCount; i++)
 			{
-				(byte[] Buffer, int Length) piece = _fragments[scan];
+				FragmentEntry piece = _fragments[scan];
 				// A single memcpy per fragment run. If fragmentation ever turns out to be a real cost in
 				// practice, the alternative is delivering the message as a ReadOnlySequence<byte> chained
 				// over the individual fragment buffers instead of concatenating here, trading this one
@@ -483,22 +475,21 @@ namespace MiNET.Net.Rtc
 				scan = unchecked(scan + 1);
 			}
 
-			_runs.Remove(streamId);
 			_bufferedBytes += (uint) totalLength;
 
-			if (run.Unordered)
+			if (unordered)
 			{
-				Deliveries.Add(new LeasedDelivery(streamId, run.Ppid, combined, totalLength));
+				Deliveries.Add(new LeasedDelivery(streamId, ppid, combined, totalLength));
 				_bufferedBytes -= (uint) totalLength;
 				return;
 			}
 
-			switch (ClassifyOrdered(streamId, run.StreamSeq))
+			switch (ClassifyOrdered(streamId, streamSeq))
 			{
 				case OrderedDisposition.DueNow:
-					Deliveries.Add(new LeasedDelivery(streamId, run.Ppid, combined, totalLength));
+					Deliveries.Add(new LeasedDelivery(streamId, ppid, combined, totalLength));
 					_bufferedBytes -= (uint) totalLength;
-					AdvanceOrderedSeqAndDrain(streamId, run.StreamSeq);
+					AdvanceOrderedSeqAndDrain(streamId, streamSeq);
 					break;
 
 				case OrderedDisposition.Stale:
@@ -507,9 +498,103 @@ namespace MiNET.Net.Rtc
 					break;
 
 				default: // WaitForTurn
-					EnqueueOrderedPending(streamId, run.StreamSeq, run.Ppid, combined, totalLength);
+					EnqueueOrderedPending(streamId, streamSeq, ppid, combined, totalLength);
 					break;
 			}
+		}
+
+		/// <summary>
+		///     Called only when a new chunk needs <paramref name="neededBytes" /> more room than the
+		///     budget currently has free. Reneges (RFC 4960 6.2: a receiver MAY discard data it has only
+		///     gap-acked, never data covered by the cumulative TSN ack, and MUST stop reporting a reneged
+		///     TSN's gap so the sender knows to retransmit it) the single oldest eligible fragment run,
+		///     repeating against the next-oldest if one run's worth still isn't enough, until either
+		///     enough space exists or nothing eligible is left to discard.
+		/// </summary>
+		private bool TryRenegeForSpace(uint neededBytes)
+		{
+			while (_bufferedBytes + neededBytes > _budgetBytes)
+			{
+				if (!RenegeOldestEligibleRun()) return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		///     Finds every maximal contiguous run of fragments sharing (streamId, unordered) - the same
+		///     affinity <see cref="TryCompleteAround" /> matches on, so a "run" here means exactly what
+		///     could eventually complete together - discards the one with the oldest arrival tick among
+		///     those where every fragment's TSN is still strictly newer than the cumulative ack point
+		///     (a run with any fragment at or below it is never a candidate: that TSN's arrival is already
+		///     committed via the cumulative ack, which is not revocable, so discarding it would be
+		///     unrecoverable data loss rather than a legal renege), and returns true. Returns false if no
+		///     eligible run exists.
+		/// </summary>
+		private bool RenegeOldestEligibleRun()
+		{
+			var groups = new Dictionary<(ushort StreamId, bool Unordered), List<uint>>();
+			foreach (KeyValuePair<uint, FragmentEntry> kv in _fragments)
+			{
+				var key = (kv.Value.StreamId, kv.Value.Unordered);
+				if (!groups.TryGetValue(key, out List<uint> list))
+				{
+					list = new List<uint>();
+					groups[key] = list;
+				}
+
+				list.Add(kv.Key);
+			}
+
+			List<uint> bestRun = null;
+			long bestOldestTick = long.MaxValue;
+
+			foreach (List<uint> tsns in groups.Values)
+			{
+				tsns.Sort(SctpTsn.Compare);
+
+				int i = 0;
+				while (i < tsns.Count)
+				{
+					int j = i;
+					while (j + 1 < tsns.Count && tsns[j + 1] == unchecked(tsns[j] + 1)) j++;
+
+					bool eligible = true;
+					long oldestTick = long.MaxValue;
+					for (int k = i; k <= j; k++)
+					{
+						FragmentEntry entry = _fragments[tsns[k]];
+						if (!SctpTsn.IsNewer(tsns[k], _cumulativeTsn)) eligible = false;
+						if (entry.ArrivalTick < oldestTick) oldestTick = entry.ArrivalTick;
+					}
+
+					if (eligible && oldestTick < bestOldestTick)
+					{
+						bestOldestTick = oldestTick;
+						bestRun = tsns.GetRange(i, j - i + 1);
+					}
+
+					i = j + 1;
+				}
+			}
+
+			if (bestRun == null) return false;
+
+			foreach (uint tsn in bestRun)
+			{
+				if (_fragments.Remove(tsn, out FragmentEntry entry))
+				{
+					ArrayPool<byte>.Shared.Return(entry.Buffer);
+					_bufferedBytes -= (uint) entry.Length;
+				}
+
+				// Stop reporting this TSN as a gap: reneging is only legal because the sender is told to
+				// retransmit it again, and it must also pass Receive's duplicate check on that retransmit.
+				_gapTsns.Remove(tsn);
+			}
+
+			Interlocked.Increment(ref _renegedFragmentRunCount);
+			return true;
 		}
 
 		private enum OrderedDisposition
@@ -517,24 +602,6 @@ namespace MiNET.Net.Rtc
 			DueNow,
 			WaitForTurn,
 			Stale
-		}
-
-		private struct ReassemblyRun
-		{
-			public uint? BeginTsn;
-			public uint? EndTsn;
-			public bool Unordered;
-			public ushort StreamSeq;
-			public uint Ppid;
-
-			/// <summary>
-			///     TSNs of every fragment <see cref="BufferFragment" /> has recorded as belonging to THIS
-			///     run, in arrival order (not necessarily TSN order). The only source of truth for run
-			///     membership: <see cref="TryCompleteRun" /> never infers membership from the [Begin, End]
-			///     TSN span alone, which is what let a foreign stream's interleaved chunk be silently
-			///     pulled into a different stream's message.
-			/// </summary>
-			public List<uint> PieceTsns;
 		}
 
 		/// <summary>
@@ -549,6 +616,38 @@ namespace MiNET.Net.Rtc
 			public static readonly TsnOrder Instance = new();
 
 			public int Compare(uint x, uint y) => SctpTsn.Compare(x, y);
+		}
+
+		/// <summary>
+		///     One stored DATA fragment: everything <see cref="TryCompleteAround" /> and
+		///     <see cref="RenegeOldestEligibleRun" /> need without consulting anything else. Carries its
+		///     own stream and ordering affinity rather than relying on a shared per-stream structure,
+		///     since more than one message per stream can be incomplete here at once.
+		/// </summary>
+		private readonly struct FragmentEntry
+		{
+			public readonly ushort StreamId;
+			public readonly bool Unordered;
+			public readonly bool Begin;
+			public readonly bool End;
+			public readonly uint Ppid;
+			public readonly ushort StreamSeq;
+			public readonly byte[] Buffer;
+			public readonly int Length;
+			public readonly long ArrivalTick;
+
+			public FragmentEntry(ushort streamId, bool unordered, bool begin, bool end, uint ppid, ushort streamSeq, byte[] buffer, int length, long arrivalTick)
+			{
+				StreamId = streamId;
+				Unordered = unordered;
+				Begin = begin;
+				End = end;
+				Ppid = ppid;
+				StreamSeq = streamSeq;
+				Buffer = buffer;
+				Length = length;
+				ArrivalTick = arrivalTick;
+			}
 		}
 
 		/// <summary>One message ready for delivery from a leased buffer; see <see cref="Deliveries" />.</summary>
