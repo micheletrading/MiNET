@@ -138,12 +138,17 @@ namespace MiNET.Net.Rtc
 		{
 			if (_role != IceRole.Controlling) throw new InvalidOperationException("AddRemoteCandidate is only valid for the Controlling role.");
 
+			// Register on the mux BEFORE the candidate becomes visible to the tick thread: a
+			// binding SUCCESS carries no USERNAME, so it can only route back to us by endpoint.
+			// Adding to _candidates first would let the tick thread send the very first check
+			// against an endpoint the mux does not know yet, and its fast loopback response
+			// would be dropped as unrouted.
+			_mux.RegisterPeer(candidate, this);
+
 			lock (_gate)
 			{
 				_candidates.Add(new CandidateState(candidate));
 			}
-
-			_mux.RegisterPeer(candidate, this);
 		}
 
 		public void StartChecks()
@@ -235,7 +240,7 @@ namespace MiNET.Net.Rtc
 
 			RefreshLastSeen();
 
-			if (_nominatedFlag == 0)
+			if (Volatile.Read(ref _nominatedFlag) == 0)
 			{
 				lock (_gate)
 				{
@@ -249,7 +254,7 @@ namespace MiNET.Net.Rtc
 		{
 			long now = Environment.TickCount64;
 
-			if (_nominatedFlag == 1)
+			if (Volatile.Read(ref _nominatedFlag) == 1)
 			{
 				if (now - Interlocked.Read(ref _lastSeenTicks) >= ConsentTimeoutMillis)
 				{
@@ -257,15 +262,21 @@ namespace MiNET.Net.Rtc
 					return;
 				}
 
-				if (_role == IceRole.Controlling && now - _lastConsentSentTicks >= ConsentIntervalMillis)
+				// _lastConsentSentTicks and candidate.TransactionId also cross to the receive
+				// thread (read under _gate in HandleBindingSuccess), so both the read here and
+				// the write inside SendConsentCheck happen under the same lock.
+				lock (_gate)
 				{
-					SendConsentCheck(now);
+					if (_role == IceRole.Controlling && now - _lastConsentSentTicks >= ConsentIntervalMillis)
+					{
+						SendConsentCheck(now);
+					}
 				}
 
 				return;
 			}
 
-			if (_role != IceRole.Controlling || !_checksStarted || _failedFlag == 1) return;
+			if (_role != IceRole.Controlling || !_checksStarted || Volatile.Read(ref _failedFlag) == 1) return;
 
 			if (now - _checksStartedAtTicks >= GiveUpAfterMillis)
 			{
@@ -347,7 +358,10 @@ namespace MiNET.Net.Rtc
 			if (Interlocked.CompareExchange(ref _nominatedFlag, 1, 0) != 0) return;
 
 			RemoteEndPoint = endpoint;
-			_lastConsentSentTicks = Environment.TickCount64;
+			lock (_gate)
+			{
+				_lastConsentSentTicks = Environment.TickCount64;
+			}
 			OnNominated?.Invoke(endpoint);
 		}
 
