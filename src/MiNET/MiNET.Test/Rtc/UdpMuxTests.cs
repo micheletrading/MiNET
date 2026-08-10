@@ -27,6 +27,7 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Net.Rtc;
@@ -94,6 +95,54 @@ namespace MiNET.Test.Rtc
 			mux.OnTick += () => ticked.TrySetResult(true);
 			mux.Start();
 			await ticked.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		}
+
+		private sealed class ThrowOnceThenRecordPeer : IMuxPeer
+		{
+			private int _calls;
+			public readonly TaskCompletionSource<StunMessage> Stun = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+			public void OnStun(StunMessage message, ReadOnlySpan<byte> raw, IPEndPoint from)
+			{
+				if (Interlocked.Increment(ref _calls) == 1) throw new InvalidOperationException("Simulated peer callback failure");
+				Stun.TrySetResult(message);
+			}
+
+			public void OnDtls(ReadOnlySpan<byte> datagram, IPEndPoint from)
+			{
+			}
+		}
+
+		[TestMethod]
+		public async Task PeerCallbackException_DoesNotKillTheReceiveLoop()
+		{
+			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			var peer = new ThrowOnceThenRecordPeer();
+			mux.RegisterUfrag("throwUfrag", _ => peer);
+			mux.Start();
+
+			using var sender = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+			byte[] wire = new byte[StunMessage.MaxSize];
+
+			StunMessage MakeRequest() => new()
+			{
+				Type = StunMessageType.BindingRequest,
+				TransactionId = RandomNumberGenerator.GetBytes(12),
+				Username = "throwUfrag:cliUfrag"
+			};
+
+			// First datagram: first-contact registers the peer, then its OnStun throws.
+			int written = MakeRequest().WriteTo(wire);
+			await sender.SendAsync(wire.AsMemory(0, written), mux.LocalEndPoint);
+
+			// Second datagram, same endpoint: proves the receive loop survived the throw above,
+			// since it still routes to the now-registered peer and completes normally.
+			written = MakeRequest().WriteTo(wire);
+			await sender.SendAsync(wire.AsMemory(0, written), mux.LocalEndPoint);
+
+			StunMessage seen = await peer.Stun.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			Assert.AreEqual("throwUfrag:cliUfrag", seen.Username);
+			Assert.AreEqual(1, mux.DispatchFailures);
 		}
 	}
 }

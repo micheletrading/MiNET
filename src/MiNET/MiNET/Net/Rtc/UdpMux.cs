@@ -30,6 +30,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using log4net;
 using MiNET.Utils.IO;
 
 namespace MiNET.Net.Rtc
@@ -45,6 +46,8 @@ namespace MiNET.Net.Rtc
 	/// </summary>
 	public class UdpMux : IDisposable
 	{
+		private static readonly ILog Log = LogManager.GetLogger(typeof(UdpMux));
+
 		// SIO_UDP_CONNRESET: stop an ICMP port-unreachable from a dead peer aborting the socket.
 		private const int SioUdpConnReset = -1744830452;
 		private const int SocketBufferSize = 1024 * 1024;
@@ -58,11 +61,20 @@ namespace MiNET.Net.Rtc
 
 		private HighPrecisionTimer _timer;
 		private long _droppedDatagrams;
+		private long _dispatchFailures;
 		private bool _disposed;
 
 		public IPEndPoint LocalEndPoint { get; }
 
 		public long DroppedDatagrams => Interlocked.Read(ref _droppedDatagrams);
+
+		/// <summary>
+		///     Datagrams whose dispatch threw after routing (a peer callback, or a STUN parse
+		///     failure other than the expected <see cref="FormatException" />). Counted and
+		///     logged rather than allowed to unwind <see cref="ReceiveLoopAsync" />, which runs
+		///     fire-and-forget and would otherwise go silently deaf for every peer on the mux.
+		/// </summary>
+		public long DispatchFailures => Interlocked.Read(ref _dispatchFailures);
 
 		public event Action OnTick;
 
@@ -141,7 +153,19 @@ namespace MiNET.Net.Rtc
 						continue;
 					}
 
-					Dispatch(buffer.AsSpan(0, received), address);
+					try
+					{
+						Dispatch(buffer.AsSpan(0, received), address);
+					}
+					catch (Exception e)
+					{
+						// A peer's OnStun/OnDtls (or anything else Dispatch reaches into) threw.
+						// This loop is started fire-and-forget from Start(), so an unhandled
+						// exception here would unwind it silently and deafen the mux for every
+						// peer, not just the one that misbehaved. Count it, log it, keep serving.
+						Interlocked.Increment(ref _dispatchFailures);
+						Log.Warn("Unhandled exception dispatching a datagram; continuing the receive loop.", e);
+					}
 				}
 			}
 			finally
