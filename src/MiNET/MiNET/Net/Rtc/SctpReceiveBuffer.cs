@@ -76,6 +76,13 @@ namespace MiNET.Net.Rtc
 		// straggler TSNs still occupy budget until Reset, but nothing throws or wedges).
 		private const int MaxFragmentsPerMessage = 65536;
 
+		// Caps the out-of-order TSN set independent of the byte budget: a peer sending sparse,
+		// non-contiguous TSNs (e.g. every other one) can otherwise grow _gapTsns forever without ever
+		// touching _bufferedBytes, since a single-chunk unordered message delivers zero-copy and is
+		// never leased. internal (not private) so tests can loop exactly this many times rather than
+		// hardcoding the bound.
+		internal const int MaxOutOfOrderTsns = 256;
+
 		private readonly uint _budgetBytes;
 		private uint _bufferedBytes;
 		private uint _cumulativeTsn;
@@ -102,6 +109,7 @@ namespace MiNET.Net.Rtc
 
 		private readonly List<uint> _duplicateTsns = new();
 		private long _droppedByBudgetCount;
+		private long _droppedByGapCapCount;
 
 		/// <summary>
 		///     Deliveries produced by the most recent <see cref="Receive" /> call: fragment-reassembly
@@ -131,6 +139,9 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>Test visibility only: how many DATA chunks were dropped for arriving when the byte budget was already spent.</summary>
 		public long DroppedByBudgetCount => Interlocked.Read(ref _droppedByBudgetCount);
+
+		/// <summary>Test visibility only: how many DATA chunks were dropped because <see cref="MaxOutOfOrderTsns" /> was already spent.</summary>
+		public long DroppedByGapCapCount => Interlocked.Read(ref _droppedByGapCapCount);
 
 		/// <summary>
 		///     (Re)arms the buffer for a fresh association: the peer's Initial TSN sets the cumulative ack
@@ -181,6 +192,19 @@ namespace MiNET.Net.Rtc
 			if (!SctpTsn.IsNewer(tsn, _cumulativeTsn) || _gapTsns.Contains(tsn) || _fragments.ContainsKey(tsn))
 			{
 				_duplicateTsns.Add(tsn);
+				return false;
+			}
+
+			// A chunk that is not exactly the next contiguous TSN needs a new slot in the out-of-order
+			// set (mirrors RecordTsnReceived's own contiguity test below). That set is capped
+			// independently of the byte budget: an unordered single-chunk message delivers zero-copy and
+			// is never leased, so a peer sending only sparse, non-contiguous TSNs could otherwise grow
+			// _gapTsns forever without ever touching _bufferedBytes. Dropped and counted the same way
+			// budget-exceeding DATA already is, before any lease or delivery decision is made.
+			bool isNextContiguous = tsn == unchecked(_cumulativeTsn + 1);
+			if (!isNextContiguous && _gapTsns.Count >= MaxOutOfOrderTsns)
+			{
+				Interlocked.Increment(ref _droppedByGapCapCount);
 				return false;
 			}
 
@@ -338,10 +362,16 @@ namespace MiNET.Net.Rtc
 				_orderedPending[streamId] = pending;
 			}
 
-			// A duplicate stream sequence number under a different TSN should not be reachable (TSN
-			// dedup runs first), but if a hostile peer manages it anyway, release the entry it would
-			// otherwise silently leak rather than ever throwing.
-			if (pending.TryGetValue(seq, out (byte[] Buffer, int Length, uint Ppid) existing)) ArrayPool<byte>.Shared.Return(existing.Buffer);
+			// TSN dedup only rejects a TSN already seen; it does nothing to stop two DIFFERENT, fresh
+			// TSNs from carrying the same (streamId, seq) - a peer bug or a hostile peer trying to drain
+			// a_rwnd can reach this. The second overwrites the first: its lease is returned AND its
+			// bytes are backed out of _bufferedBytes, matching the increment Receive already applied for
+			// it, or CurrentArwnd would drain toward zero forever on every such overwrite.
+			if (pending.TryGetValue(seq, out (byte[] Buffer, int Length, uint Ppid) existing))
+			{
+				ArrayPool<byte>.Shared.Return(existing.Buffer);
+				_bufferedBytes -= (uint) existing.Length;
+			}
 
 			pending[seq] = (buffer, length, ppid);
 		}
@@ -354,49 +384,64 @@ namespace MiNET.Net.Rtc
 			run.Unordered = header.Unordered;
 			run.StreamSeq = header.StreamSeq;
 			run.Ppid = header.Ppid;
+			run.PieceTsns ??= new List<uint>();
+			run.PieceTsns.Add(tsn);
 			if (header.Begin) run.BeginTsn = tsn;
 			if (header.End) run.EndTsn = tsn;
 			_runs[header.StreamId] = run;
 		}
 
+		/// <summary>
+		///     Completes a run using only the TSNs <see cref="BufferFragment" /> recorded as belonging to
+		///     THIS stream's run (<see cref="ReassemblyRun.PieceTsns" />), never by scanning every TSN in
+		///     [Begin, End] and trusting whatever <see cref="_fragments" /> happens to hold there: a
+		///     hostile or non-conformant peer that interleaves another stream's chunk inside this stream's
+		///     fragmentation run must not have that foreign chunk pulled in as this message's own middle
+		///     fragment (silent data corruption) or removed out from under its real stream (permanently
+		///     wedging it). Because every arriving fragment is appended to its own run's list, comparing
+		///     <see cref="ReassemblyRun.PieceTsns" />'s count against the Begin/End TSN span is an O(1)
+		///     completeness check with no rescan needed.
+		/// </summary>
 		private void TryCompleteRun(ushort streamId)
 		{
 			if (!_runs.TryGetValue(streamId, out ReassemblyRun run)) return;
 			if (run.BeginTsn == null || run.EndTsn == null) return;
 
-			uint begin = run.BeginTsn.Value;
-			uint end = run.EndTsn.Value;
-			int pieceCount = unchecked((int) (end - begin)) + 1;
+			int pieceCount = SctpTsn.Compare(run.EndTsn.Value, run.BeginTsn.Value) + 1;
 			if (pieceCount <= 0 || pieceCount > MaxFragmentsPerMessage)
 			{
 				// Malformed (End TSN behind Begin TSN, or an absurd span): abandon this run rather than
-				// looping over a hostile length. The individual fragment bytes stay accounted for in
-				// _fragments/_bufferedBytes until budget pressure or the next Reset reclaims them.
+				// waiting on a piece count that can never be reached. The individual fragment bytes stay
+				// accounted for in _fragments/_bufferedBytes until budget pressure or the next Reset
+				// reclaims them.
 				_runs.Remove(streamId);
 				return;
 			}
 
+			// Still waiting on more of this stream's own fragments (or, for a non-conformant peer that
+			// interleaved another stream's chunk into this TSN span, waiting forever - which is the
+			// correct outcome: the message genuinely never completes rather than completing with someone
+			// else's bytes).
+			if (run.PieceTsns.Count < pieceCount) return;
+
+			run.PieceTsns.Sort(SctpTsn.Compare);
+
 			int totalLength = 0;
-			uint scan = begin;
-			for (int i = 0; i < pieceCount; i++)
+			foreach (uint pieceTsn in run.PieceTsns)
 			{
-				if (!_fragments.TryGetValue(scan, out (byte[] Buffer, int Length) piece)) return; // still incomplete
-				totalLength += piece.Length;
-				scan = unchecked(scan + 1);
+				totalLength += _fragments[pieceTsn].Length;
 			}
 
 			byte[] combined = ArrayPool<byte>.Shared.Rent(totalLength);
 			int offset = 0;
-			scan = begin;
-			for (int i = 0; i < pieceCount; i++)
+			foreach (uint pieceTsn in run.PieceTsns)
 			{
-				(byte[] Buffer, int Length) piece = _fragments[scan];
+				(byte[] Buffer, int Length) piece = _fragments[pieceTsn];
 				Array.Copy(piece.Buffer, 0, combined, offset, piece.Length);
 				offset += piece.Length;
 				ArrayPool<byte>.Shared.Return(piece.Buffer);
-				_fragments.Remove(scan);
+				_fragments.Remove(pieceTsn);
 				_bufferedBytes -= (uint) piece.Length;
-				scan = unchecked(scan + 1);
 			}
 
 			_runs.Remove(streamId);
@@ -442,6 +487,15 @@ namespace MiNET.Net.Rtc
 			public bool Unordered;
 			public ushort StreamSeq;
 			public uint Ppid;
+
+			/// <summary>
+			///     TSNs of every fragment <see cref="BufferFragment" /> has recorded as belonging to THIS
+			///     run, in arrival order (not necessarily TSN order). The only source of truth for run
+			///     membership: <see cref="TryCompleteRun" /> never infers membership from the [Begin, End]
+			///     TSN span alone, which is what let a foreign stream's interleaved chunk be silently
+			///     pulled into a different stream's message.
+			/// </summary>
+			public List<uint> PieceTsns;
 		}
 
 		/// <summary>

@@ -214,6 +214,9 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only: how many DATA chunks were dropped for arriving when the byte budget was already spent.</summary>
 		internal long DataDroppedByBudgetCount => _receiveBuffer.DroppedByBudgetCount;
 
+		/// <summary>Test visibility only: how many DATA chunks were dropped because the out-of-order TSN set was already full.</summary>
+		internal long DataDroppedByGapCapCount => _receiveBuffer.DroppedByGapCapCount;
+
 		/// <summary>Test visibility only: the receive-side cumulative TSN ack point (highest TSN received with nothing missing before it).</summary>
 		internal uint CumulativeTsnAck
 		{
@@ -367,7 +370,7 @@ namespace MiNET.Net.Rtc
 				// zcPayload borrows directly from `value`, itself a slice of `packet`, which is still on
 				// this method's stack for the whole call, so the span stays valid here.
 				if (becameEstablished) OnEstablished?.Invoke();
-				if (hasZeroCopyDelivery) OnMessage?.Invoke(zcStreamId, zcPpid, zcPayload);
+				if (hasZeroCopyDelivery) SafeInvokeOnMessage(zcStreamId, zcPpid, zcPayload);
 
 				DeliverLeasedMessages();
 			}
@@ -435,8 +438,8 @@ namespace MiNET.Net.Rtc
 		///     ordered messages a cascade unblocked), called once per chunk processed regardless of chunk
 		///     type: the list is empty except right after a DATA chunk that completed one or more
 		///     messages. Raised the same way <see cref="OnEstablished" /> is, outside <see cref="_gate" />.
-		///     Each delivery's buffer came from <see cref="ArrayPool{T}.Shared" /> and is returned
-		///     immediately once its callback returns.
+		///     Each delivery's buffer came from <see cref="ArrayPool{T}.Shared" /> and is returned exactly
+		///     once, in a <c>finally</c>, regardless of whether the subscriber threw.
 		/// </summary>
 		private void DeliverLeasedMessages()
 		{
@@ -444,11 +447,39 @@ namespace MiNET.Net.Rtc
 			for (int i = 0; i < deliveries.Count; i++)
 			{
 				SctpReceiveBuffer.LeasedDelivery delivery = deliveries[i];
-				OnMessage?.Invoke(delivery.StreamId, delivery.Ppid, delivery.Buffer.AsSpan(0, delivery.Length));
-				ArrayPool<byte>.Shared.Return(delivery.Buffer);
+				try
+				{
+					SafeInvokeOnMessage(delivery.StreamId, delivery.Ppid, delivery.Buffer.AsSpan(0, delivery.Length));
+				}
+				finally
+				{
+					ArrayPool<byte>.Shared.Return(delivery.Buffer);
+				}
 			}
 
 			deliveries.Clear();
+		}
+
+		/// <summary>
+		///     The hot-path law (see this file's class remarks and CLAUDE.md: an unhandled throw on a
+		///     receive path is a hard defect) applied to a third party's code we do not control: a
+		///     subscriber that throws must not kill the transport. Caught and logged here, then the caller
+		///     continues - the next delivery in the same batch, the rest of this packet's chunks, and
+		///     every later packet all keep flowing. The exception is deliberately NOT rethrown after
+		///     cleanup: <see cref="OnPacketReceived" /> has no way to report a subscriber's bug back to its
+		///     own caller (the mux receive loop) without also making every well-behaved caller's session
+		///     die for a fault outside this class's own code.
+		/// </summary>
+		private void SafeInvokeOnMessage(ushort streamId, uint ppid, ReadOnlySpan<byte> message)
+		{
+			try
+			{
+				OnMessage?.Invoke(streamId, ppid, message);
+			}
+			catch (Exception ex)
+			{
+				Log.Error("SctpAssociation.OnMessage subscriber threw; message dropped, transport continues.", ex);
+			}
 		}
 
 		/// <summary>

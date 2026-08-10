@@ -198,5 +198,127 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(0u, server.CurrentArwnd);
 			Assert.AreEqual(0, received.Count);
 		}
+
+		/// <summary>
+		///     Fix-round regression for Critical finding 1: reassembly must never pull a fragment that
+		///     belongs to a different stream into a message just because its TSN falls inside the
+		///     [Begin, End] span. Stream 1 sends Begin@T and End@T+2 without ever sending a real T+1
+		///     fragment of its own (T+1 belongs to an unrelated, still in-flight stream 2 message); stream
+		///     1's message must therefore never complete (it is genuinely missing a piece it never sent),
+		///     and - the actual "wedge" the finding describes - stream 2's own in-flight fragment at T+1
+		///     must not be silently freed out from under it. Non-theft is proven two ways: no corrupted
+		///     stream-1 delivery, and all three fragments' bytes (A, B, C) are still individually held
+		///     (nothing was combined-and-freed as a bogus completion), which a byte-accounting bug would
+		///     not show but the buggy code's actual behavior does: it wrongly completes, delivers, and
+		///     frees all three, so <see cref="SctpAssociation.CurrentArwnd" /> would read back to full budget.
+		/// </summary>
+		[TestMethod]
+		public void FragmentReassembly_NeverStealsAnotherStreamsFragment()
+		{
+			const uint budget = 100;
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair(budget);
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			FeedData(server, tag, tsn, 1, 0, 1, unordered: true, begin: true, end: false, "A"u8); // stream 1, Begin
+			FeedData(server, tag, tsn + 1, 2, 0, 2, unordered: true, begin: true, end: false, "B"u8); // stream 2, Begin - still in-flight
+			FeedData(server, tag, tsn + 2, 1, 0, 1, unordered: true, begin: false, end: true, "C"u8); // stream 1, End - missing its own middle
+
+			// Stream 1 must not have delivered a corrupted "A" + stolen "B" + "C": it is genuinely
+			// incomplete (its own middle fragment never arrived) and must stay that way.
+			Assert.AreEqual(0, received.Count);
+
+			// All three 1-byte fragments (A, B, C) are still individually buffered: stream 1's failed
+			// completion attempt did not combine-and-free B (stream 2's own in-flight piece) as if it
+			// belonged to stream 1's message.
+			Assert.AreEqual(budget - 3, server.CurrentArwnd);
+		}
+
+		/// <summary>
+		///     Fix-round regression for Important finding 2: the out-of-order TSN set must not grow
+		///     without bound. A peer that only ever sends non-contiguous TSNs (skipping the one the
+		///     cumulative ack point is actually waiting for) can otherwise grow <c>_gapTsns</c> forever
+		///     without ever touching the byte budget (these are all single-chunk unordered messages,
+		///     delivered zero-copy, so no bytes are ever buffered). Once the cap is reached, further
+		///     distinct gap TSNs are dropped and counted instead.
+		/// </summary>
+		[TestMethod]
+		public void OutOfOrderTsnSet_IsCapped_FurtherGapsAreDroppedAndCounted()
+		{
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			// `tsn` itself is never sent, so every one of these is a distinct out-of-order TSN.
+			for (int i = 0; i < SctpReceiveBuffer.MaxOutOfOrderTsns; i++)
+			{
+				FeedData(server, tag, tsn + 1 + (uint) i, 9, 0, 1, unordered: true, begin: true, end: true, "x"u8);
+			}
+
+			Assert.AreEqual(SctpReceiveBuffer.MaxOutOfOrderTsns, received.Count);
+			Assert.AreEqual(0L, server.DataDroppedByGapCapCount);
+
+			// The set is now full: one more distinct gap TSN is dropped and counted, not tracked.
+			FeedData(server, tag, tsn + 1 + (uint) SctpReceiveBuffer.MaxOutOfOrderTsns, 9, 0, 1, unordered: true, begin: true, end: true, "y"u8);
+
+			Assert.AreEqual(SctpReceiveBuffer.MaxOutOfOrderTsns, received.Count); // not delivered
+			Assert.AreEqual(1L, server.DataDroppedByGapCapCount);
+		}
+
+		/// <summary>
+		///     Fix-round regression for Important finding 3: two ordered chunks that carry the same
+		///     (streamId, streamSeq) under different, fresh TSNs both land in the same ordered-pending
+		///     slot; the second overwrites the first. The buffered-byte accounting must reflect only the
+		///     surviving entry, not both, or a_rwnd drains toward zero permanently.
+		/// </summary>
+		[TestMethod]
+		public void EnqueueOrderedPending_DuplicateSeqUnderAFreshTsn_DoesNotDoubleCountBufferedBytes()
+		{
+			(SctpAssociation server, _, _) = CreateEstablishedPair(arwndBudget: 20);
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			// Both stream sequence 1 (the stream still expects 0, so neither is due): two different,
+			// fresh TSNs land in the same (streamId=7, seq=1) pending slot, the second overwriting the
+			// first.
+			FeedData(server, tag, tsn, 7, 1, 1, unordered: false, begin: true, end: true, new byte[10]);
+			FeedData(server, tag, tsn + 1, 7, 1, 1, unordered: false, begin: true, end: true, new byte[10]);
+
+			// Only the second 10-byte entry is actually still buffered; the first's lease was returned
+			// and must not still be counted.
+			Assert.AreEqual(10u, server.CurrentArwnd); // budget(20) - buffered(10)
+		}
+
+		/// <summary>
+		///     Fix-round regression for Important finding 4: a throwing <see cref="SctpAssociation.OnMessage" />
+		///     subscriber must not leak the leased buffer, stop later deliveries in the same
+		///     <see cref="SctpAssociation.OnPacketReceived" /> call, or propagate out of it (the hot-path
+		///     law: a subscriber throw must not kill the transport). One incoming packet (stream sequence 0
+		///     arriving after 1 was already buffered) produces two deliveries in a single call: the
+		///     zero-copy one and the leased cascade-drained one. The subscriber records what it was called
+		///     with and then always throws; both must still be recorded.
+		/// </summary>
+		[TestMethod]
+		public void ThrowingOnMessageSubscriber_DoesNotStopLaterDeliveriesInTheSameBatch()
+		{
+			(SctpAssociation server, _, _) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			var invokedFor = new List<string>();
+			server.OnMessage += (streamId, ppid, message) =>
+			{
+				invokedFor.Add(System.Text.Encoding.UTF8.GetString(message));
+				throw new InvalidOperationException("boom from a subscriber");
+			};
+
+			// Sequence 1 arrives first and must be buffered (leased); sequence 0 then arrives, itself
+			// delivered zero-copy AND draining the already-buffered sequence 1 as a second, leased
+			// delivery - two OnMessage invocations from one incoming packet.
+			FeedData(server, tag, tsn + 1, 8, 1, 1, unordered: false, begin: true, end: true, "second"u8);
+			FeedData(server, tag, tsn, 8, 0, 1, unordered: false, begin: true, end: true, "first"u8);
+
+			CollectionAssert.AreEqual(new[] { "first", "second" }, invokedFor);
+		}
 	}
 }
