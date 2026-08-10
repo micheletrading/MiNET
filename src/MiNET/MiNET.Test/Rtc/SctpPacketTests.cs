@@ -45,6 +45,17 @@ namespace MiNET.Test.Rtc
 		// (10.0.13): a HEARTBEAT chunk with no value is just the base SctpChunk constructed with
 		// SctpChunkType.HEARTBEAT, which is exactly the raw 4-byte chunk this test builds by hand
 		// for the reverse direction.
+		//
+		// Two halves, two different things proven:
+		//  - "theirs, read by us" compares checksums (our TryReadHeader recomputes and checks
+		//    against the checksum they wrote), so this half is the one that actually settles the
+		//    byte order.
+		//  - "ours, read by them" calls both SctpPacket.VerifyChecksum (their real receive-path
+		//    checksum check, used at SctpUdpTransport.cs:72 in their source) and SctpPacket.Parse.
+		//    VerifyChecksum is what makes this half check checksum agreement too, symmetric with
+		//    the first half; Parse on top additionally proves the header/chunk framing (ports,
+		//    tag, chunk type/flags/length layout) round-trips through a real SCTP stack, which
+		//    VerifyChecksum alone would not exercise since it never looks at the chunks.
 		[TestMethod]
 		public void ChecksumByteOrder_AgreesWithSipSorcery()
 		{
@@ -62,22 +73,56 @@ namespace MiNET.Test.Rtc
 			BinaryPrimitives.WriteUInt16BigEndian(ours.Slice(n + 2), 4);
 			n += 4;
 			SctpPacket.FinishChecksum(ours.Slice(0, n));
-			var parsed = SIPSorcery.Net.SctpPacket.Parse(ours.Slice(0, n).ToArray(), 0, n);
+			byte[] oursBytes = ours.Slice(0, n).ToArray();
+			Assert.IsTrue(SIPSorcery.Net.SctpPacket.VerifyChecksum(oursBytes, 0, n));
+			var parsed = SIPSorcery.Net.SctpPacket.Parse(oursBytes, 0, n);
 			Assert.IsNotNull(parsed);
 		}
 
 		[TestMethod]
 		public void HostileChunkLengths_TerminateCleanly()
 		{
-			Span<byte> packet = stackalloc byte[32];
-			SctpPacket.WriteHeader(packet, 5000, 5000, 1);
-			packet[12] = 0; packet[13] = 0;
-			BinaryPrimitives.WriteUInt16BigEndian(packet.Slice(14), 0); // zero-length chunk
-			SctpPacket.FinishChecksum(packet);
-			int count = 0;
-			var e = SctpPacket.EnumerateChunks(packet);
-			while (e.MoveNext()) count++;
-			Assert.AreEqual(0, count); // malformed chunk terminates enumeration, no infinite loop
+			// Zero-length chunk: shorter than even the chunk's own 4-byte header.
+			Span<byte> zeroLength = stackalloc byte[32];
+			SctpPacket.WriteHeader(zeroLength, 5000, 5000, 1);
+			zeroLength[12] = 0; zeroLength[13] = 0;
+			BinaryPrimitives.WriteUInt16BigEndian(zeroLength.Slice(14), 0); // zero-length chunk
+			SctpPacket.FinishChecksum(zeroLength);
+			int zeroLengthCount = 0;
+			var zeroLengthEnumerator = SctpPacket.EnumerateChunks(zeroLength);
+			while (zeroLengthEnumerator.MoveNext()) zeroLengthCount++;
+			Assert.AreEqual(0, zeroLengthCount); // malformed chunk terminates enumeration, no infinite loop
+
+			// Oversized length: the chunk's declared length reaches past the end of the packet.
+			Span<byte> oversized = stackalloc byte[32];
+			SctpPacket.WriteHeader(oversized, 5000, 5000, 1);
+			oversized[12] = 7; oversized[13] = 0;
+			BinaryPrimitives.WriteUInt16BigEndian(oversized.Slice(14), 1000); // claims 1000 bytes, packet is 32
+			SctpPacket.FinishChecksum(oversized);
+			int oversizedCount = 0;
+			var oversizedEnumerator = SctpPacket.EnumerateChunks(oversized);
+			while (oversizedEnumerator.MoveNext()) oversizedCount++;
+			Assert.AreEqual(0, oversizedCount); // terminates cleanly instead of slicing out of bounds
+
+			// Unpadded tail: one valid chunk, then a second, final chunk whose declared length is
+			// valid (>= 4) and fits the buffer exactly unpadded (a spec-legal last chunk: RFC 4960
+			// only pads to keep a FOLLOWING chunk aligned, so nothing sent after the last chunk is
+			// required to pad it out). Both chunks must still yield; the interesting part is what
+			// happens next, since the enumerator's internal cursor steps by the PADDED length and so
+			// lands past the end of the buffer. The following call must still terminate cleanly
+			// rather than reading out of bounds.
+			Span<byte> unpaddedTail = stackalloc byte[21];
+			SctpPacket.WriteHeader(unpaddedTail, 5000, 5000, 1);
+			unpaddedTail[12] = 4; unpaddedTail[13] = 0; // first chunk: type 4 (HEARTBEAT), no value
+			BinaryPrimitives.WriteUInt16BigEndian(unpaddedTail.Slice(14), 4);
+			unpaddedTail[16] = 9; unpaddedTail[17] = 0; // second chunk: type 9, length 5 (1-byte value)
+			BinaryPrimitives.WriteUInt16BigEndian(unpaddedTail.Slice(18), 5);
+			unpaddedTail[20] = 0xAB; // the second chunk's single value byte; its padding (3 bytes) is absent
+			SctpPacket.FinishChecksum(unpaddedTail);
+			int unpaddedTailCount = 0;
+			var unpaddedTailEnumerator = SctpPacket.EnumerateChunks(unpaddedTail);
+			while (unpaddedTailEnumerator.MoveNext()) unpaddedTailCount++;
+			Assert.AreEqual(2, unpaddedTailCount); // both chunks yield; the cursor overrun after the last one does not throw
 		}
 	}
 }
