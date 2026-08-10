@@ -56,10 +56,15 @@ namespace MiNET.Net.Rtc
 	}
 
 	/// <summary>
-	///     Server side of the DTLS handshake used to secure the WebRTC data channel. There is no
-	///     SRTP negotiation here (no protection profile extension, no key export): this stack
-	///     terminates at the DTLS record layer and SCTP rides the plain application-data stream
-	///     from there.
+	///     Server side of the DTLS handshake used to secure the WebRTC data channel. SCTP rides the
+	///     plain application-data stream, so no SRTP key export is ever performed, but RFC 8827 still
+	///     requires a spec-compliant WebRTC peer to see the RFC 5764 <c>use_srtp</c> extension on
+	///     every DTLS handshake regardless of whether the session carries any RTP: a peer that
+	///     enforces this (confirmed against SIPSorcery's DTLS stack, which raises a fatal
+	///     <c>internal_error</c> alert and aborts the handshake the instant a ServerHello omits it)
+	///     will otherwise refuse to complete. <see cref="ProcessClientExtensions" /> echoes back
+	///     whichever single profile the client offered, purely as this formality; no protection
+	///     profile is ever used to derive a key.
 	/// </summary>
 	internal sealed class DtlsHandshakeServer : DefaultTlsServer
 	{
@@ -70,6 +75,8 @@ namespace MiNET.Net.Rtc
 
 		private readonly RtcCertificate _localCertificate;
 		private readonly string _expectedRemoteFingerprint;
+
+		private int? _selectedSrtpProfile;
 
 		public DtlsHandshakeServer(RtcCertificate localCertificate, string expectedRemoteFingerprint)
 			: base(new BcTlsCrypto())
@@ -120,6 +127,31 @@ namespace MiNET.Net.Rtc
 			DtlsFingerprint.Verify(clientCertificate, _expectedRemoteFingerprint);
 		}
 
+		/// <summary>
+		///     Records whichever single SRTP protection profile the client offered, if any, so
+		///     <see cref="GetServerExtensions" /> can echo exactly one back. Absent entirely from a
+		///     peer that never proposed <c>use_srtp</c> (e.g. another MiNET session), which correctly
+		///     leaves it out of the ServerHello too rather than volunteering an extension nobody asked
+		///     for.
+		/// </summary>
+		public override void ProcessClientExtensions(IDictionary<int, byte[]> clientExtensions)
+		{
+			base.ProcessClientExtensions(clientExtensions);
+			UseSrtpData offered = TlsSrtpUtilities.GetUseSrtpExtension(clientExtensions);
+			_selectedSrtpProfile = offered?.ProtectionProfiles is {Length: > 0} profiles ? profiles[0] : null;
+		}
+
+		public override IDictionary<int, byte[]> GetServerExtensions()
+		{
+			IDictionary<int, byte[]> extensions = base.GetServerExtensions();
+			if (_selectedSrtpProfile.HasValue)
+			{
+				extensions = TlsExtensionsUtilities.EnsureExtensionsInitialised(extensions);
+				TlsSrtpUtilities.AddUseSrtpExtension(extensions, new UseSrtpData(new[] {_selectedSrtpProfile.Value}, Array.Empty<byte>()));
+			}
+			return extensions;
+		}
+
 		protected override TlsCredentialedSigner GetECDsaSignerCredentials()
 		{
 			SignatureAndHashAlgorithm signatureAndHashAlgorithm = SelectSignatureAndHashAlgorithm(m_context.SecurityParameters.ClientSigAlgs);
@@ -144,8 +176,11 @@ namespace MiNET.Net.Rtc
 	}
 
 	/// <summary>
-	///     Client side of the DTLS handshake, with the same absence of SRTP negotiation as
-	///     <see cref="DtlsHandshakeServer" />.
+	///     Client side of the DTLS handshake. Always offers the RFC 5764 <c>use_srtp</c> extension
+	///     for the same reason <see cref="DtlsHandshakeServer" /> echoes it back: a spec-compliant
+	///     WebRTC server (SIPSorcery confirmed) requires it on the ClientHello and aborts the
+	///     handshake with a fatal alert otherwise, even though this stack never derives an SRTP key
+	///     from whatever profile the server answers with.
 	/// </summary>
 	internal sealed class DtlsHandshakeClient : DefaultTlsClient
 	{
@@ -190,6 +225,13 @@ namespace MiNET.Net.Rtc
 		public override TlsAuthentication GetAuthentication()
 		{
 			return new ClientAuthentication(m_context, _localCertificate, _expectedRemoteFingerprint);
+		}
+
+		public override IDictionary<int, byte[]> GetClientExtensions()
+		{
+			IDictionary<int, byte[]> extensions = TlsExtensionsUtilities.EnsureExtensionsInitialised(base.GetClientExtensions());
+			TlsSrtpUtilities.AddUseSrtpExtension(extensions, new UseSrtpData(new[] {SrtpProtectionProfile.SRTP_AES128_CM_HMAC_SHA1_80}, Array.Empty<byte>()));
+			return extensions;
 		}
 
 		private sealed class ClientAuthentication : TlsAuthentication
