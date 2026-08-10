@@ -63,7 +63,10 @@ namespace MiNET.Console
 			}
 
 			var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
-			XmlConfigurator.Configure(logRepository, new FileInfo(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "log4net.xml")));
+			// Watch the deployed log4net.xml so log levels can be changed while the server runs,
+			// e.g. dropping to INFO during load tests (per-packet TRACE serializes on the appender
+			// lock) and back to VERBOSE for protocol work, without a restart.
+			XmlConfigurator.ConfigureAndWatch(logRepository, new FileInfo(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "log4net.xml")));
 
 			Log.Info(MiNetServer.MiNET);
 			System.Console.WriteLine(MiNetServer.MiNET);

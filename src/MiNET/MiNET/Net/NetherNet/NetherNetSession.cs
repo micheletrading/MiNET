@@ -58,8 +58,26 @@ namespace MiNET.Net.NetherNet
 
 		private int _closed;
 		private int _sawUnreliableTraffic;
+		private int _hasReceived;
+		private long _lastReceiveTicks = Environment.TickCount64;
 
 		public ICustomMessageHandler CustomMessageHandler { get; set; }
+
+		/// <summary>How long ago the last bytes arrived from this client, for the listener's
+		/// inactivity sweep. A live client is never silent: PlayerAuthInput alone is one per tick.
+		/// Before any bytes have arrived this counts from session creation.</summary>
+		public long MillisSinceLastReceive => Environment.TickCount64 - Volatile.Read(ref _lastReceiveTicks);
+
+		/// <summary>Whether the client has ever sent application data. Separates a session still
+		/// connecting (judged on the longer connection-phase timeout) from one that went silent
+		/// in-game.</summary>
+		public bool HasReceived => _hasReceived != 0;
+
+		/// <summary>Fires once when the session closes, however it closes, so the listener can drop
+		/// it from its session table.</summary>
+		public Action<NetherNetSession> OnClosed { get; set; }
+
+		public bool IsClosed => _closed != 0;
 
 		public string Username { get; set; }
 
@@ -112,12 +130,33 @@ namespace MiNET.Net.NetherNet
 			{
 				Log.Warn($"NetherNet client {networkId} opened no unreliable channel");
 			}
+
+			// The onclose above only ever fires for closes this side initiates: SIPSorcery has no
+			// SCTP stream reset, so a remote's channel close arrives as nothing at all. Connection
+			// state is the transport's own liveness signal; the listener's inactivity sweep is the
+			// backstop for peers that vanish without one. Note that "disconnected" is NOT fatal:
+			// it means missed STUN checks and may recover (under load-test squeeze it regularly
+			// does); killing on it cost ~465 sessions in one 1000-bot run. The sweep decides.
+			_peerConnection.onconnectionstatechange += state =>
+			{
+				if (state is RTCPeerConnectionState.closed or RTCPeerConnectionState.failed)
+				{
+					Disconnect($"Connection {state}", false);
+				}
+				else if (state == RTCPeerConnectionState.disconnected)
+				{
+					Log.Info($"NetherNet connection for {Username ?? NetworkId} reports disconnected; waiting for recovery or the inactivity sweep");
+				}
+			};
 		}
 
 		private void OnDataChannelMessage(NetherNetSegmentReassembler reassembler, byte[] data, bool reliableChannel)
 		{
 			try
 			{
+				_hasReceived = 1;
+				Volatile.Write(ref _lastReceiveTicks, Environment.TickCount64);
+
 				if (!reliableChannel && Interlocked.Exchange(ref _sawUnreliableTraffic, 1) == 0)
 				{
 					// Nobody has documented what the client actually sends here, and there is reason to
@@ -274,6 +313,8 @@ namespace MiNET.Net.NetherNet
 			}
 
 			Log.Info($"NetherNet session closed for {Username ?? NetworkId}");
+
+			OnClosed?.Invoke(this);
 		}
 	}
 }

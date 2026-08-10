@@ -58,6 +58,28 @@ namespace MiNET.Net
 		public bool CompressionEnabled { get; set; }
 		public ushort CompressionThreshold { get; set; } = 1;
 
+		/// <summary>
+		///     Packet ids to skip without decoding when they arrive in a batch. Set by the emulator
+		///     client for payloads a bot has no use for (SubChunk block data); null for everyone else.
+		/// </summary>
+		public HashSet<int> DropPacketIds { get; set; }
+
+		/// <summary>
+		///     When set, incoming batches are dropped whole: no decrypt, no decompress, no decode.
+		///     A spawned emulator bot flips this on, because past spawn it only receives and ACKs,
+		///     and the ACK happens below this layer at the RakNet receive. RakNet-level control
+		///     (DisconnectionNotification) is unaffected, so the bot still notices being dropped.
+		/// </summary>
+		public bool IgnoreIncoming { get; set; }
+
+		private long _lastIncomingTicks = Environment.TickCount64;
+
+		/// <summary>
+		///     How long ago the last batch arrived, counted even for batches IgnoreIncoming drops.
+		///     Lets an emulator bot wait out the post-spawn chunk flood before it starts walking.
+		/// </summary>
+		public long MillisSinceLastIncoming => Environment.TickCount64 - Volatile.Read(ref _lastIncomingTicks);
+
 		protected BedrockMessageHandlerBase(INetworkHandler session)
 		{
 			_session = session;
@@ -160,8 +182,16 @@ namespace MiNET.Net
 		{
 			if (message == null) throw new NullReferenceException();
 
+			Volatile.Write(ref _lastIncomingTicks, Environment.TickCount64);
+
 			if (message is McpeWrapper wrapper)
 			{
+				if (IgnoreIncoming)
+				{
+					wrapper.PutPool();
+					return;
+				}
+
 				var messages = new List<Packet>();
 
 				// Get bytes to process
@@ -225,6 +255,18 @@ namespace MiNET.Net
 							long pos = s.Position;
 							ReadOnlyMemory<byte> internalBuffer = s.GetBuffer().AsMemory((int) s.Position, (int) len);
 							int id = VarInt.ReadInt32(s);
+
+							// Frames are length-prefixed, so a packet can be skipped without decoding it.
+							// The emulator fleet drops SubChunk responses here: decoding one materializes
+							// a byte array per subchunk entry, which at fleet scale is the bulk of the
+							// bot process's allocation, and a bot has no use for block data. The server
+							// still does its full send-side work.
+							if (DropPacketIds != null && DropPacketIds.Contains(id))
+							{
+								s.Position = pos + len;
+								continue;
+							}
+
 							// Dumped BEFORE decoding, so a frame that throws is still on disk. Those are
 							// the ones worth having: a packet we cannot parse is the one that changed.
 							if (PacketDumpDir != null)

@@ -25,6 +25,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -64,6 +65,16 @@ namespace MiNET.Net.NetherNet
 		private readonly IPEndPoint _endPoint;
 		private TcpListener _listener;
 		private CancellationTokenSource _cancellation;
+		private PortRange _portRange;
+		private Timer _inactivityTimer;
+
+		// Same knob as RakSession's, so the two transports evict a silent client on the same clock.
+		private readonly int _inactivityTimeout = Config.GetProperty("InactivityTimeout", 8500);
+
+		// A client that has connected but not yet spoken gets longer: 8.5s here turns a slow join
+		// into a failed one, and a session that never speaks is only holding a port, not a slot in
+		// anyone's game. Matches the 30s spawn budget the emulator itself allows a join.
+		private readonly int _connectingTimeout = Config.GetProperty("NetherNetConnectingTimeout", 30000);
 
 		/// <summary>Live sessions by the client's NetworkID.</summary>
 		public ConcurrentDictionary<string, NetherNetSession> Sessions { get; } = new();
@@ -92,6 +103,13 @@ namespace MiNET.Net.NetherNet
 
 		public void Start()
 		{
+			// SIPSorcery's ICE liveness defaults (8s to "disconnected", 16s to the terminal
+			// "failed", on missed 3s STUN checks) are tuned for a browser call. A loaded game
+			// server misses checks without being dead, and the inactivity sweep owns real death
+			// detection here, so ICE gets far more patience. Process-wide statics, config-tunable.
+			RtpIceChannel.DISCONNECTED_TIMEOUT_PERIOD = Config.GetProperty("NetherNet.IceDisconnectedTimeout", 60);
+			RtpIceChannel.FAILED_TIMEOUT_PERIOD = Config.GetProperty("NetherNet.IceFailedTimeout", 120);
+
 			_cancellation = new CancellationTokenSource();
 
 			// Dual stack when no specific address was asked for, which is what BDS does: one IPv6
@@ -110,6 +128,16 @@ namespace MiNET.Net.NetherNet
 
 			_listener.Start();
 
+			// One PortRange for the listener's lifetime. SIPSorcery walks it from an internal cursor
+			// and gives up after 25 bind attempts, so a fresh instance per connection re-walks the
+			// same occupied ports from the start of the range and caps the server at 25 sessions no
+			// matter how wide the range is.
+			_portRange = PortMapping.RangeStart.HasValue
+				? new PortRange(PortMapping.RangeStart.Value, PortMapping.RangeEnd.Value)
+				: null;
+
+			_inactivityTimer = new Timer(_ => SweepInactiveSessions(), null, 2500, 2500);
+
 			Log.Info($"NetherNet signaling listening on tcp {_listener.LocalEndpoint} (dual stack: {_listener.Server.DualMode})");
 
 			_ = Task.Run(() => AcceptLoop(_cancellation.Token));
@@ -119,9 +147,41 @@ namespace MiNET.Net.NetherNet
 		{
 			_cancellation?.Cancel();
 			_listener?.Stop();
+			_inactivityTimer?.Dispose();
+			_inactivityTimer = null;
 
 			foreach (NetherNetSession session in Sessions.Values) session.Close();
 			Sessions.Clear();
+		}
+
+		/// <summary>
+		///     The backstop that actually notices a vanished client. SCTP surfaces no remote close and
+		///     ICE state can sit in connected forever, but a live client is never silent, so silence
+		///     past the timeout is the one signal that always arrives. Closing the session is also what
+		///     returns its gameplay UDP port to the range.
+		/// </summary>
+		private void SweepInactiveSessions()
+		{
+			foreach (NetherNetSession session in Sessions.Values)
+			{
+				// A session that closed before OnClosed was wired up would otherwise sit here forever.
+				if (session.IsClosed)
+				{
+					Sessions.TryRemove(new KeyValuePair<string, NetherNetSession>(session.NetworkId, session));
+					continue;
+				}
+
+				// Connecting means "until login completes", not "until the first byte": a client
+				// stuck fetching its auth token has typically already sent RequestNetworkSettings,
+				// and judging it on the in-game clock cuts it off mid-recovery.
+				bool loggedIn = session.Username != null;
+				int timeout = loggedIn ? _inactivityTimeout : _connectingTimeout;
+				if (session.MillisSinceLastReceive <= timeout) continue;
+
+				string phase = loggedIn ? "" : session.HasReceived ? " (pre-login)" : " (never spoke)";
+				Log.Warn($"NetherNet session for {session.Username ?? session.NetworkId} timed out, no traffic for {timeout}ms{phase}");
+				session.Disconnect("Network timeout", false);
+			}
 		}
 
 		private async Task AcceptLoop(CancellationToken cancellationToken)
@@ -188,7 +248,7 @@ namespace MiNET.Net.NetherNet
 					}
 
 					string networkId = route.Groups["networkId"].Value;
-					string answer = await Negotiate(networkId, body);
+					string answer = await Negotiate(networkId, body, IsLoopbackPeer(client));
 
 					await Respond(stream, 200, "application/sdp", answer);
 				}
@@ -224,6 +284,28 @@ namespace MiNET.Net.NetherNet
 			return true;
 		}
 
+		/// <summary>
+		///     Whether the signaling connection came from this machine. Same mapped-address
+		///     normalization as elsewhere: a dual stack listener reports a v4 loopback peer as
+		///     ::ffff:127.0.0.1. Note that a LAN client dialing the public name arrives hairpinned
+		///     with the router's address, so it is correctly NOT loopback.
+		/// </summary>
+		private static bool IsLoopbackPeer(TcpClient client)
+		{
+			try
+			{
+				if (client.Client?.RemoteEndPoint is not IPEndPoint remote) return false;
+
+				IPAddress address = remote.Address;
+				if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+				return IPAddress.IsLoopback(address);
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
 		/// <summary>A disposed or reset socket throws on RemoteEndPoint, which must not hide the log line.</summary>
 		private static string SafePeer(TcpClient client)
 		{
@@ -237,17 +319,16 @@ namespace MiNET.Net.NetherNet
 			}
 		}
 
-		private async Task<string> Negotiate(string networkId, string offerSdp)
+		private async Task<string> Negotiate(string networkId, string offerSdp, bool loopbackPeer)
 		{
 			// No STUN or TURN: we publish our own addresses and the client dials them, which is what
 			// a directly reachable server needs and what the real client expects on this path.
 			// Pinning the range is what makes the gameplay path forwardable: the default is an
 			// ephemeral port, and you cannot open a hole in a firewall for a port you cannot predict.
-			var portRange = PortMapping.RangeStart.HasValue
-				? new PortRange(PortMapping.RangeStart.Value, PortMapping.RangeEnd.Value)
-				: null;
-
-			var peerConnection = new RTCPeerConnection(new RTCConfiguration {iceServers = null}, 0, portRange);
+			// A loopback peer (the emulator fleet) needs none of that: it gets an OS-ephemeral port,
+			// which never contends and never exhausts, and leaves the whole pinned range to peers
+			// that actually dial through the firewall.
+			var peerConnection = new RTCPeerConnection(new RTCConfiguration {iceServers = null}, 0, loopbackPeer ? null : _portRange);
 
 			var reliable = new TaskCompletionSource<RTCDataChannel>(TaskCreationOptions.RunContinuationsAsynchronously);
 			RTCDataChannel unreliable = null;
@@ -304,8 +385,10 @@ namespace MiNET.Net.NetherNet
 			// a=identity refuses the connection outright.
 			// Rewrite candidates before signing: the assertion covers the fingerprints, not the
 			// candidates, but the client must receive one coherent answer and the addresses it dials
-			// have to be the mapped ones.
-			string answerSdp = PortMapping.Apply(peerConnection.localDescription.sdp.ToString());
+			// have to be the mapped ones. Except for a loopback peer: its ephemeral port has no
+			// mapping, and rewriting would hand it public addresses whose ports are not forwarded.
+			string answerSdp = peerConnection.localDescription.sdp.ToString();
+			if (!loopbackPeer) answerSdp = PortMapping.Apply(answerSdp);
 
 			return NetherNetIdentityAssertion.AddServerAssertionTo(
 				answerSdp, ServerIdentity.Key, ServerIdentity.Domain, ServerIdentity.Issuer);
@@ -315,8 +398,18 @@ namespace MiNET.Net.NetherNet
 		{
 			IPEndPoint remote = peerConnection.AudioDestinationEndPoint ?? new IPEndPoint(IPAddress.Any, 0);
 
+			// A returning client reuses its NetworkID, so an entry here is a ghost of a dead
+			// connection. Close it rather than overwrite it: overwritten, it would no longer be
+			// swept and its gameplay port would be held until restart.
+			if (Sessions.TryRemove(networkId, out NetherNetSession stale))
+			{
+				Log.Warn($"NetherNet session for {networkId} replaced by a new connection, closing the old one");
+				stale.Close();
+			}
+
 			var session = new NetherNetSession(peerConnection, reliable, unreliable, remote, networkId);
 			session.CustomMessageHandler = CustomMessageHandlerFactory?.Invoke(session) ?? new DefaultMessageHandler();
+			session.OnClosed = closed => Sessions.TryRemove(new KeyValuePair<string, NetherNetSession>(closed.NetworkId, closed));
 
 			Sessions[networkId] = session;
 

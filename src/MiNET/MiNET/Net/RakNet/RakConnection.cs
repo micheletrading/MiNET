@@ -404,22 +404,19 @@ namespace MiNET.Net.RakNet
 
 			if (ConnectionInfo.IsEmulator)
 			{
-				if (_tickerHighPrecisionTimer != null)
-				{
-					HighPrecisionTimer timer = _tickerHighPrecisionTimer;
-					_tickerHighPrecisionTimer = null;
-					timer?.Dispose();
-				}
-
-				var datagramSequenceNumber = new Int24(receivedBytes.Span.Slice(1, 3));
-
+				// ACK inline, before any decode or ordering work. The server measures its RTO
+				// against this, and an emulator fleet whose ACKs queue behind chunk decode on a
+				// shared pool drives the server into a retransmission spiral (measured: ~100% of
+				// output resent at 151 bots). The sequence number is read straight off the raw
+				// header so the ACK cost is independent of what the datagram contains. The
+				// datagram is then processed normally below: emulator mode makes it easier on
+				// the server, it does not make the client less of a client.
 				var acks = Acks.CreateObject();
-				acks.acks.Add(datagramSequenceNumber);
-				byte[] data = acks.Encode();
+				acks.acks.Add(new Int24(receivedBytes.Span.Slice(1, 3)));
+				byte[] ackData = acks.Encode();
+				acks.PutPool();
 
-				SendData(data, clientEndpoint);
-
-				return;
+				SendData(ackData, clientEndpoint);
 			}
 
 			var datagram = Datagram.CreateObject();
@@ -438,7 +435,7 @@ namespace MiNET.Net.RakNet
 				return;
 			}
 
-			EnqueueAck(rakSession, datagram.Header.DatagramSequenceNumber);
+			if (!ConnectionInfo.IsEmulator) EnqueueAck(rakSession, datagram.Header.DatagramSequenceNumber);
 
 			if (Log.IsVerboseEnabled()) Log.Verbose($"Receive datagram #{datagram.Header.DatagramSequenceNumber} for {_endpoint}");
 
@@ -551,6 +548,16 @@ namespace MiNET.Net.RakNet
 
 		private void HandleAck(RakSession session, Ack ack, ConnectionInfo connectionInfo)
 		{
+			// Nothing was tracked, so there is nothing to remove and no RTT worth calculating.
+			// With an emulator fleet ACKing per datagram this path runs tens of thousands of
+			// times per second, so it exits before touching the queue.
+			if (session.ResendsDisabled)
+			{
+				session.ResendCount = 0;
+				session.WaitForAck = false;
+				return;
+			}
+
 			var queue = session.WaitingForAckQueue;
 
 			foreach ((int start, int end) range in ack.ranges)
@@ -580,6 +587,9 @@ namespace MiNET.Net.RakNet
 
 		internal void HandleNak(RakSession session, Nak nak, ConnectionInfo connectionInfo)
 		{
+			// An untracked datagram cannot be retransmitted; see HandleAck.
+			if (session.ResendsDisabled) return;
+
 			var queue = session.WaitingForAckQueue;
 
 			foreach (Tuple<int, int> range in nak.ranges)
@@ -761,7 +771,7 @@ namespace MiNET.Net.RakNet
 
 			datagram.Timer.Restart();
 
-			if (!ConnectionInfo.DisableAck && !ConnectionInfo.IsEmulator && !session.WaitingForAckQueue.TryAdd(datagram.Header.DatagramSequenceNumber.IntValue(), datagram))
+			if (!ConnectionInfo.DisableAck && !ConnectionInfo.IsEmulator && !session.ResendsDisabled && !session.WaitingForAckQueue.TryAdd(datagram.Header.DatagramSequenceNumber.IntValue(), datagram))
 			{
 				Log.Warn($"Datagram sequence unexpectedly existed in the ACK/NAK queue already {datagram.Header.DatagramSequenceNumber.IntValue()}");
 				datagram.PutPool();

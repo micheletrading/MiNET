@@ -3672,7 +3672,10 @@ namespace MiNET
 				generatorType = (LevelSettings.GeneratorType) Level.GeneratorType,
 				gameType = (LevelSettings.GameType) GameMode,
 				gameDifficulty = (LevelSettings.GameDifficulty) Level.Difficulty,
-				defaultSpawnBlockPosition = new BlockCoordinates((int) SpawnPosition.X, (int) (SpawnPosition.Y + Height), (int) SpawnPosition.Z),
+				// The LEVEL spawn, not this player's: SpawnPosition is per-player and plugins
+				// (Plotter) persist it, so it is wherever this player last was. Vanilla puts the
+				// world's fixed spawn block here.
+				defaultSpawnBlockPosition = new BlockCoordinates((int) Level.SpawnPoint.X, (int) Level.SpawnPoint.Y, (int) Level.SpawnPoint.Z),
 				achievementsDisabled = Level.AchievementsDisabled,
 				dayCycleStopTime = (int) Level.WorldTime,
 				educationEditionOffer = PlayerInfo.Edition == 1 ? LevelSettings.EducationEditionOffer.Restofworld : LevelSettings.EducationEditionOffer.None,

@@ -107,6 +107,14 @@ namespace MiNET.Net.RakNet
 		public long InactivityTimeout { get; }
 		public int ResendThreshold { get; }
 
+		/// <summary>
+		///     Loopback delivery does not lose datagrams, so a same-machine peer (the ServiceKiller
+		///     fleet) gets no retransmission tracking. Under emulator load the 100ms RTO floor
+		///     otherwise turns the join burst into a retransmission spiral that ends with ~100% of
+		///     output being resends. A real client is never loopback and keeps full reliability.
+		/// </summary>
+		public bool ResendsDisabled { get; }
+
 		public ConcurrentDictionary<int, SplitPartPacket[]> Splits { get; } = new ConcurrentDictionary<int, SplitPartPacket[]>();
 		public ConcurrentQueue<int> OutgoingAckQueue { get; } = new ConcurrentQueue<int>();
 		public ConcurrentDictionary<int, Datagram> WaitingForAckQueue { get; } = new ConcurrentDictionary<int, Datagram>();
@@ -124,6 +132,12 @@ namespace MiNET.Net.RakNet
 
 			InactivityTimeout = Config.GetProperty("InactivityTimeout", 8500);
 			ResendThreshold = Config.GetProperty("ResendThreshold", 10);
+
+			// Same mapped-address normalization as RakOfflineHandler.IsThisMachine: a dual stack
+			// socket reports a v4 loopback peer as ::ffff:127.0.0.1.
+			IPAddress address = endPoint.Address;
+			if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+			ResendsDisabled = IPAddress.IsLoopback(address);
 
 			_cancellationToken = new CancellationTokenSource();
 			//_tickerHighPrecisionTimer = new HighPrecisionTimer(10, SendTick, true);
@@ -224,7 +238,7 @@ namespace MiNET.Net.RakNet
 		{
 			try
 			{
-				while (!_cancellationToken.IsCancellationRequested && !ConnectionInfo.IsEmulator)
+				while (!_cancellationToken.IsCancellationRequested)
 				{
 					if (_orderingBufferQueue.TryPeek(out KeyValuePair<int, Packet> pair))
 					{

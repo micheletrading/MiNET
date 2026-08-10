@@ -32,6 +32,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
+using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using SIPSorcery.Net;
 
@@ -60,6 +61,12 @@ namespace MiNET.Net.NetherNet
 		public static async Task<NetherNetSession> ConnectAsync(string host, int port, string networkId = null, CancellationToken cancellationToken = default,
 			XboxIdentity identity = null, string issuerDomain = "authorization.franchise.minecraft-services.net")
 		{
+			// Same ICE patience as the listener sets, for the same reason: a loaded emulator
+			// process misses STUN checks without being dead. Process-wide statics; setting them
+			// here covers client-only processes (ServiceKiller, MiNET.Client).
+			RtpIceChannel.DISCONNECTED_TIMEOUT_PERIOD = Config.GetProperty("NetherNet.IceDisconnectedTimeout", 60);
+			RtpIceChannel.FAILED_TIMEOUT_PERIOD = Config.GetProperty("NetherNet.IceFailedTimeout", 120);
+
 			networkId ??= NewNetworkId();
 
 			string baseUrl = $"http://{host}:{port}";
