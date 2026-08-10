@@ -44,18 +44,18 @@ namespace MiNET.Net.Rtc
 	///     done, immediately pumps it through <see cref="DtlsTransport.Receive(Span{byte}, int)" /> and
 	///     drains any records it bundled via <see cref="DtlsTransport.ReceivePending(Span{byte}, DtlsRecordCallback)" />,
 	///     all inline on the caller's thread. No background thread ever exists after the handshake.
-	///     Invariant: <see cref="_gate" /> serializes every access to <see cref="_dtlsTransport" /> and
-	///     <see cref="_receiveScratch" /> between <see cref="FeedDatagram" />'s drain section and
-	///     <see cref="Dispose" />, so a concurrent teardown from another thread can never return the
-	///     scratch buffer to the pool (or close the transport) while a drain still holds a span over
-	///     it. A <c>lock</c> is a .NET Monitor, which is reentrant on the thread that already owns it,
-	///     so this alone does not stop a subscriber calling <see cref="Dispose" /> synchronously from
-	///     inside <see cref="OnDecrypted" /> while <see cref="FeedDatagram" /> is still on the stack
-	///     holding the gate: <see cref="_draining" /> tracks that case (touched only while holding
-	///     <see cref="_gate" />, so it needs no synchronization of its own) so a reentrant
-	///     <see cref="Dispose" /> defers the scratch buffer's return to <see cref="FeedDatagram" />'s
-	///     own unwind instead of freeing it out from under the drain loop still running further up the
-	///     same call stack.
+	///     Invariant: <see cref="_gate" /> serializes every access to <see cref="_dtlsTransport" />,
+	///     <see cref="_receiveScratch" />, and <see cref="_directFeedBuffer" /> between
+	///     <see cref="FeedDatagram" />'s drain section and <see cref="Dispose" />, so a concurrent
+	///     teardown from another thread can never return either buffer to the pool (or close the
+	///     transport) while a drain still holds a span over one. A <c>lock</c> is a .NET Monitor, which
+	///     is reentrant on the thread that already owns it, so this alone does not stop a subscriber
+	///     calling <see cref="Dispose" /> synchronously from inside <see cref="OnDecrypted" /> while
+	///     <see cref="FeedDatagram" /> is still on the stack holding the gate: <see cref="_draining" />
+	///     tracks that case (touched only while holding <see cref="_gate" />, so it needs no
+	///     synchronization of its own) so a reentrant <see cref="Dispose" /> defers both buffers'
+	///     return to <see cref="FeedDatagram" />'s own unwind instead of freeing them out from under
+	///     the drain loop still running further up the same call stack.
 	/// </summary>
 	public sealed class DtlsSession : IDisposable
 	{
@@ -68,16 +68,32 @@ namespace MiNET.Net.Rtc
 
 		public delegate void DecryptedHandler(ReadOnlySpan<byte> payload);
 
+		/// <summary>
+		///     Round-4 Finding A: takes the outgoing datagram as a span, not a <see cref="ReadOnlyMemory{T}" />,
+		///     since the whole call chain from BouncyCastle's <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" />
+		///     down to <see cref="UdpMux.Send" /> is synchronous. A <see cref="ReadOnlyMemory{T}" />
+		///     parameter existed only so <see cref="SendToWire" /> could hand it a heap reference after
+		///     the call returned; nothing here ever does that, so the intermediate ArrayPool lease that
+		///     type forced (rent, copy the span into it, hand out the memory, return the lease) was pure
+		///     overhead: one full copy and one pool round trip per outgoing datagram, for no reason.
+		/// </summary>
+		public delegate void WireSender(ReadOnlySpan<byte> datagram);
+
 		public event DecryptedHandler OnDecrypted;
 
 		private readonly RtcCertificate _localCertificate;
 		private readonly string _expectedRemoteFingerprint;
 		private readonly bool _isServer;
-		private readonly Action<ReadOnlyMemory<byte>> _sendToWire;
+		private readonly WireSender _sendToWire;
 		private readonly Channel<(byte[] Leased, int Length)> _inbound = Channel.CreateUnbounded<(byte[] Leased, int Length)>();
 		private readonly byte[] _receiveScratch = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
 		private readonly DatagramTransportAdapter _transportAdapter;
 		private readonly object _gate = new object();
+
+		// Round-4 Finding B: a persistent (allocated once, never per-call), reused staging buffer for
+		// FeedDatagram's no-backlog fast path. See FeedDatagram and TryReadNow for the full mechanism.
+		private readonly byte[] _directFeedBuffer = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
+		private int _directFeedLength = -1;
 
 		private DtlsTransport _dtlsTransport;
 		private volatile bool _handshakeDone;
@@ -90,7 +106,7 @@ namespace MiNET.Net.Rtc
 		private bool _draining;
 		private bool _deferredScratchReturn;
 
-		public DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, Action<ReadOnlyMemory<byte>> sendToWire)
+		public DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, WireSender sendToWire)
 		{
 			_localCertificate = localCertificate;
 			_expectedRemoteFingerprint = expectedRemoteFingerprint;
@@ -114,10 +130,40 @@ namespace MiNET.Net.Rtc
 		///     <see cref="_receiveScratch" /> to the pool until this method's own <c>finally</c> below,
 		///     after the drain loop (further up this same call stack) has stopped touching it (round-2
 		///     Item 1: the lock alone is reentrant on this thread and does not by itself prevent that).
+		///     <para>
+		///     Round-4 Finding B: the steady-state case is a datagram that is about to be consumed
+		///     inline, on this exact call, by <see cref="DrainPending" />'s very first
+		///     <see cref="DtlsTransport.Receive(Span{byte}, int)" /> a few instructions from now, with
+		///     nothing else backlogged. Leasing it from <see cref="ArrayPool{T}" /> and round-tripping it
+		///     through <see cref="_inbound" /> just to read it straight back out again bought nothing in
+		///     that case. When the handshake is done, no drain from this same thread is already running
+		///     (<see cref="_draining" />; a <em>different</em> thread cannot be draining at all, since
+		///     drains only ever run under <see cref="_gate" />), the channel is empty, and the datagram
+		///     fits <see cref="_directFeedBuffer" />, this copies straight into that persistent buffer
+		///     (allocated once, at construction, never per-call) instead and lets
+		///     <see cref="TryReadNow" /> pick it up first. <see cref="_directFeedLength" /> is the only
+		///     state that says the slot is live; it is cleared by <see cref="TryReadNow" /> the instant
+		///     it copies the bytes into BouncyCastle's own buffer (synchronously, nested inside this same
+		///     call, well before this method returns: traced through <see cref="DrainPending" />'s single
+		///     <c>Receive</c> call down to <see cref="DatagramTransportAdapter.Receive(Span{byte}, int)" />),
+		///     and <see cref="DrainUnderGate" />'s own <c>finally</c> clears it unconditionally besides,
+		///     so the slot can never outlive this call on any path, including one that never reaches
+		///     <see cref="TryReadNow" /> at all. Anything that does not fit this fast path (mid-handshake,
+		///     an existing backlog, a reentrant drain, or a datagram too large for the staging buffer)
+		///     falls through to the unchanged lease-and-<see cref="_inbound" /> path below.
+		///     </para>
 		/// </summary>
 		public void FeedDatagram(ReadOnlySpan<byte> datagram)
 		{
 			if (Volatile.Read(ref _disposed) != 0) return;
+
+			if (_handshakeDone && !_draining && _inbound.Reader.Count == 0 && datagram.Length <= _directFeedBuffer.Length)
+			{
+				datagram.CopyTo(_directFeedBuffer);
+				_directFeedLength = datagram.Length;
+				DrainUnderGate();
+				return;
+			}
 
 			byte[] leased = ArrayPool<byte>.Shared.Rent(datagram.Length);
 			datagram.CopyTo(leased);
@@ -130,9 +176,23 @@ namespace MiNET.Net.Rtc
 
 			if (!_handshakeDone) return;
 
+			DrainUnderGate();
+		}
+
+		/// <summary>
+		///     The locked drain section shared by both of <see cref="FeedDatagram" />'s paths (the
+		///     round-4 direct-feed fast path and the pre-existing lease-and-<see cref="_inbound" /> path).
+		///     See <see cref="FeedDatagram" />'s own doc comment for the invariants this preserves.
+		/// </summary>
+		private void DrainUnderGate()
+		{
 			lock (_gate)
 			{
-				if (Volatile.Read(ref _disposed) != 0) return;
+				if (Volatile.Read(ref _disposed) != 0)
+				{
+					_directFeedLength = -1;
+					return;
+				}
 
 				_draining = true;
 				try
@@ -145,10 +205,12 @@ namespace MiNET.Net.Rtc
 				finally
 				{
 					_draining = false;
+					_directFeedLength = -1;
 					if (_deferredScratchReturn)
 					{
 						_deferredScratchReturn = false;
 						ArrayPool<byte>.Shared.Return(_receiveScratch);
+						ArrayPool<byte>.Shared.Return(_directFeedBuffer);
 					}
 				}
 			}
@@ -337,8 +399,24 @@ namespace MiNET.Net.Rtc
 			return NoDataOrThrow();
 		}
 
+		/// <summary>
+		///     Round-4 Finding B: checks <see cref="FeedDatagram" />'s direct-feed slot first. It is
+		///     only ever live for the duration of one <see cref="FeedDatagram" /> call (see that
+		///     method's doc comment), so consuming and clearing it here, the instant it is used, is what
+		///     makes that guarantee hold: BouncyCastle has the bytes copied into its own buffer
+		///     (<paramref name="buffer" />, owned by the caller further up this same synchronous call
+		///     chain) before this method returns, so nothing outside this call ever observes the slot.
+		/// </summary>
 		private bool TryReadNow(Span<byte> buffer, out int length)
 		{
+			if (_directFeedLength >= 0)
+			{
+				length = Math.Min(_directFeedLength, buffer.Length);
+				_directFeedBuffer.AsSpan(0, length).CopyTo(buffer);
+				_directFeedLength = -1;
+				return true;
+			}
+
 			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
 			{
 				length = 0;
@@ -369,18 +447,15 @@ namespace MiNET.Net.Rtc
 			return -1;
 		}
 
+		/// <summary>
+		///     Round-4 Finding A: passes BouncyCastle's span straight through to <see cref="_sendToWire" />.
+		///     The whole call chain, from <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" /> down to
+		///     <see cref="UdpMux.Send" />, is synchronous, so there was never a reason to lease a copy
+		///     just to hand out a <see cref="ReadOnlyMemory{T}" /> nobody kept past the call.
+		/// </summary>
 		private void SendToWire(ReadOnlySpan<byte> buffer)
 		{
-			byte[] rented = ArrayPool<byte>.Shared.Rent(buffer.Length);
-			try
-			{
-				buffer.CopyTo(rented);
-				_sendToWire(rented.AsMemory(0, buffer.Length));
-			}
-			finally
-			{
-				ArrayPool<byte>.Shared.Return(rented);
-			}
+			_sendToWire(buffer);
 		}
 
 		/// <summary>
@@ -413,6 +488,8 @@ namespace MiNET.Net.Rtc
 		///     once this call returns control to it. In that case the buffer is not returned here;
 		///     <see cref="_deferredScratchReturn" /> is set instead, and <see cref="FeedDatagram" />'s
 		///     own <c>finally</c> performs the return once the drain has actually stopped.
+		///     <see cref="_directFeedBuffer" /> (round-4 Finding B) shares <see cref="_receiveScratch" />'s
+		///     lifetime exactly, so it is returned, or deferred, alongside it on both branches.
 		/// </summary>
 		public void Dispose()
 		{
@@ -436,6 +513,7 @@ namespace MiNET.Net.Rtc
 				else
 				{
 					ArrayPool<byte>.Shared.Return(_receiveScratch);
+					ArrayPool<byte>.Shared.Return(_directFeedBuffer);
 				}
 			}
 		}

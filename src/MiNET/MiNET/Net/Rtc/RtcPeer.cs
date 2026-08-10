@@ -227,9 +227,9 @@ namespace MiNET.Net.Rtc
 			_dtls = dtls;
 		}
 
-		private void SendToWire(ReadOnlyMemory<byte> datagram)
+		private void SendToWire(ReadOnlySpan<byte> datagram)
 		{
-			_mux.Send(_ice.RemoteEndPoint, datagram.Span);
+			_mux.Send(_ice.RemoteEndPoint, datagram);
 		}
 
 		private void OnIceNominated(IPEndPoint endpoint)

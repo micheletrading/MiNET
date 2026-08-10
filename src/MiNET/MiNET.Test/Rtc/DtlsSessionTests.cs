@@ -51,8 +51,8 @@ namespace MiNET.Test.Rtc
 
 			// Loopback wiring without ICE or sockets: each session's sendToWire feeds the other.
 			DtlsSession server = null, client = null;
-			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes.Span));
-			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes.Span));
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
 
 			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
 			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
@@ -73,8 +73,8 @@ namespace MiNET.Test.Rtc
 			var imposter = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
-			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, true, bytes => client.FeedDatagram(bytes.Span));
-			client = new DtlsSession(clientCert, imposter.FingerprintSha256, false, bytes => server.FeedDatagram(bytes.Span));
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, imposter.FingerprintSha256, false, bytes => server.FeedDatagram(bytes));
 
 			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
 			Assert.IsFalse(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
@@ -96,11 +96,11 @@ namespace MiNET.Test.Rtc
 
 			DtlsSession server = null, client = null;
 			byte[] lastClientToServer = null;
-			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes.Span));
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
 			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
 			{
 				lastClientToServer = bytes.ToArray();
-				server.FeedDatagram(bytes.Span);
+				server.FeedDatagram(bytes);
 			});
 
 			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
@@ -166,8 +166,8 @@ namespace MiNET.Test.Rtc
 			var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
-			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes.Span));
-			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes.Span));
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
 
 			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
 			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
