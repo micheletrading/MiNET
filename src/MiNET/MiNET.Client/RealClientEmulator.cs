@@ -99,26 +99,24 @@ namespace MiNET.Client
 				if (i == 160) flags |= AuthInputFlags.StopSprinting;
 
 				var input = McpePlayerAuthInput.CreateObject();
-				input.Pitch = pitch;
-				input.Yaw = yaw;
-				input.HeadYaw = headYaw;
-				input.Position = position;
-				input.MoveVector = moveVector;
-				input.InputFlags = flags;
-				input.SneakCurrentRaw = false;
-				input.InputMode = McpePlayerAuthInput.PlayerInputMode.Mouse;
-				input.PlayMode = McpePlayerAuthInput.PlayerPlayMode.Normal;
-				input.InteractionModel = McpePlayerAuthInput.PlayerInteractionModel.Touch;
-				input.InteractRotation = new Vector2(pitch, yaw);
-				input.Tick = tick++;
-				input.Delta = position - lastPosition;
-				input.AnalogMoveVector = moveVector;
-				input.CameraOrientation = new Vector3(pitch, yaw, 0);
-				input.RawMoveVector = moveVector;
+				input.playerRotation = new Vector2(pitch, yaw);
+				input.playerHeadRotation = headYaw;
+				input.position = position;
+				input.moveVector = moveVector;
+				input.inputData = flags;
+				input.inputMode = McpePlayerAuthInput.InputMode.Mouse;
+				input.playMode = McpePlayerAuthInput.ClientPlayMode.Normal;
+				input.newInteractionModel = McpePlayerAuthInput.NewInteractionModel.Touch;
+				input.interactRotation = new Vector2(pitch, yaw);
+				input.clientTick = tick++;
+				input.posDelta = position - lastPosition;
+				input.analogMoveVector = moveVector;
+				input.cameraOrientation = new Vector3(pitch, yaw, 0);
+				input.rawMoveVector = moveVector;
 				// Since 2168 block breaking rides inside auth input (a standalone PlayerAction
 				// StartBreak gets the session kicked for exploiting by BDS's anticheat).
-				if (i == 21) input.BlockActions = new List<McpePlayerAuthInput.PlayerBlockAction> {new McpePlayerAuthInput.PlayerBlockAction {ActionType = 0, X = spawnBlock.X, Y = spawnBlock.Y, Z = spawnBlock.Z, Face = (int) BlockFace.Up}};
-				if (i == 30) input.BlockActions = new List<McpePlayerAuthInput.PlayerBlockAction> {new McpePlayerAuthInput.PlayerBlockAction {ActionType = 1, X = spawnBlock.X, Y = spawnBlock.Y, Z = spawnBlock.Z, Face = (int) BlockFace.Up}};
+				if (i == 21) input.playerBlockActions = new List<PlayerBlockActionData> {new PlayerBlockActionData {playerActionType = (PlayerBlockActionData.PlayerActionType) 0, position = spawnBlock, facing = (int) BlockFace.Up}};
+				if (i == 30) input.playerBlockActions = new List<PlayerBlockActionData> {new PlayerBlockActionData {playerActionType = (PlayerBlockActionData.PlayerActionType) 1, position = spawnBlock, facing = (int) BlockFace.Up}};
 
 				client.SendPacket(input);
 

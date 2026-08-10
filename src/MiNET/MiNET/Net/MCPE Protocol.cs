@@ -6599,50 +6599,6 @@ namespace MiNET.Net
 
 	}
 
-	public partial class McpePlayerAuthInput : Packet<McpePlayerAuthInput>
-	{
-
-
-		public McpePlayerAuthInput()
-		{
-			Id = 0x90;
-			IsMcpe = true;
-		}
-
-		protected override void EncodePacket()
-		{
-			base.EncodePacket();
-
-			BeforeEncode();
-
-
-			AfterEncode();
-		}
-
-		partial void BeforeEncode();
-		partial void AfterEncode();
-
-		protected override void DecodePacket()
-		{
-			base.DecodePacket();
-
-			BeforeDecode();
-
-
-			AfterDecode();
-		}
-
-		partial void BeforeDecode();
-		partial void AfterDecode();
-
-		protected override void ResetPacket()
-		{
-			base.ResetPacket();
-
-		}
-
-	}
-
 	public partial class McpePlayerEnchantOptions : Packet<McpePlayerEnchantOptions>
 	{
 

@@ -673,6 +673,90 @@
 					"name": "storageItem"
 				}
 			}
+		},
+		"PlayerAuthInputPacket": {
+			"fields": {
+				"Input Data": {
+					"optional": true,
+					"type": {
+						"csType": "AuthInputFlags",
+						"write": "WriteAuthInputFlags({0});",
+						"read": "{0} = ReadAuthInputFlags();"
+					},
+					"reason": "The pressed flags are a varint count of ordinals as zigzag varints behind a presence bool, not an array of li32 enum values, so the codec is ours. AuthInputFlags is that enum, including the 65th ordinal that does not fit a 64-bit mask; naming a csType is what keeps it, since a field type override suppresses the inline one."
+				},
+				"New Interaction Model": {
+					"type": {
+						"write": "WriteUnsignedVarInt((uint) {0});",
+						"read": "{0} = ReadUnsignedVarInt();"
+					},
+					"reason": "Unsigned varint, not zigzag (PMMP VarInt::readUnsignedInt). The schema says int32 without saying how it travels, and the values are small and non-negative, so the two disagree from 1 upward."
+				},
+				"Item Use Transaction": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Item Stack Request": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Player Block Actions": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Vehicle Rotation": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Client Predicted Vehicle": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				}
+			}
+		},
+		"PlayerBlockActionData": {
+			"fields": {
+				"Position": {
+					"presentWhen": {
+						"field": "playerActionType",
+						"in": [
+							0,
+							1,
+							18,
+							26,
+							27
+						]
+					},
+					"reason": "Only the destroy actions carry a position and a facing: start, abort, crack, predict and continue. Stop-break and every other action is the type alone, and reading them regardless takes the bytes of whatever follows the list."
+				},
+				"Facing": {
+					"presentWhen": {
+						"field": "playerActionType",
+						"in": [
+							0,
+							1,
+							18,
+							26,
+							27
+						]
+					},
+					"reason": "Rides with Position."
+				}
+			}
+		},
+		"PackedItemUseLegacyInventoryTransaction": {
+			"fields": {
+				"Legacy Set Item Slots": {
+					"presentWhen": {
+						"field": "legacyRequestId",
+						"notIn": [
+							0
+						]
+					},
+					"reason": "The changed-slot list rides only on a non-zero legacy request id, and that is its only gate. The schema marks it optional, which puts a presence bool on the wire the client does not send.",
+					"optional": false
+				}
+			}
 		}
 	}
 }

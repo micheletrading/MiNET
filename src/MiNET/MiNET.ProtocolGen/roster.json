@@ -1,5 +1,5 @@
 ﻿{
-	"_comment": "The Cereal packet roster: packets whose bodies are generated from the Mojang schemas (MiNET.BlockGen/ProtocolDocs/json) instead of MCPE Protocol.xml. A packet is added here in the release where Mojang migrates it to Cereal (see the changelog in the ProtocolDocs submodule), and its pdu is removed from the XML at the same time. The schemas carry field names, order (x-ordinal-index), types and optionality; this file carries the wire facts they do not: our packet id and direction flags.",
+	"_comment": "The Cereal packet roster: packets whose bodies are generated from the BDS JSON schemas instead of MCPE Protocol.xml. A packet is added here in the release where Mojang migrates it to Cereal (see the changelog in github.com/Mojang/bedrock-protocol-docs), and its pdu is removed from the XML at the same time. The schemas carry field names, order (x-ordinal-index), types and optionality; this file carries the wire facts they do not: our packet id and direction flags.",
 	"packets": [
 		{
 			"name": "MCPE_ADD_ENTITY",
@@ -144,6 +144,14 @@
 			"client": true,
 			"server": false,
 			"schema": "PhotoTransferPacket"
+		},
+		{
+			"name": "MCPE_PLAYER_AUTH_INPUT",
+			"id": "0x90",
+			"online": false,
+			"client": true,
+			"server": false,
+			"schema": "PlayerAuthInputPacket"
 		},
 		{
 			"name": "MCPE_PLAYER_LIST",

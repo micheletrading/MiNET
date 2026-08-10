@@ -31,10 +31,15 @@ namespace MiNET.ProtocolGen;
 ///     Writes MiNET's protocol registry (handler interfaces, dispatcher, packet factory) and the
 ///     Cereal packet classes. Two generated paths feed the same compiled result: the T4 template
 ///     still emits the packet classes that live in MCPE Protocol.xml, while this tool emits the
-///     packets Mojang has migrated to Cereal serialization, generated from the schema submodule
-///     (MiNET.BlockGen/ProtocolDocs/json). The registry covers both sides, so the compiled shapes
-///     are identical to what the single T4 path produced before. Over time packets leave the XML
-///     for the roster, until the T4 path is empty and this tool owns the whole protocol.
+///     packets Mojang has migrated to Cereal serialization, generated from the JSON schemas BDS
+///     writes about itself. The registry covers both sides, so the compiled shapes are identical to
+///     what the single T4 path produced before. Over time packets leave the XML for the roster,
+///     until the T4 path is empty and this tool owns the whole protocol.
+///     <para>
+///         Schemas come from a local BDS of the version in MCPE Protocol.xml, which writes them
+///         itself when started with a test_config.json of {"generate_documentation":true}. The path
+///         is passed in; the schemas are not committed.
+///     </para>
 ///     Same rule as MiNET.BlockGen: no reference to MiNET itself, so the tool can always run even
 ///     when its own previous output does not compile.
 /// </summary>
@@ -45,17 +50,25 @@ public static class Program
 		string repoRoot = args.Length > 0 ? args[0] : FindRepoRoot();
 		string netDir = Path.Combine(repoRoot, "src", "MiNET", "MiNET", "Net");
 		string xmlPath = Path.Combine(netDir, "MCPE Protocol.xml");
-		string schemaDir = Path.Combine(repoRoot, "src", "MiNET", "MiNET.BlockGen", "ProtocolDocs", "json");
 		string genDir = Path.Combine(repoRoot, "src", "MiNET", "MiNET.ProtocolGen");
+
+		// The schema folder of a local BDS of the version we target: <bds>/docs/json_schemas/protocol.
+		string schemaDir = args.Length > 1 ? args[1] : Environment.GetEnvironmentVariable("MINET_SCHEMA_DIR");
 
 		if (!File.Exists(xmlPath))
 		{
 			Console.Error.WriteLine($"Protocol XML not found: {xmlPath}");
 			return 1;
 		}
+		if (string.IsNullOrWhiteSpace(schemaDir))
+		{
+			Console.Error.WriteLine("No schema directory given. Pass it as the second argument or set MINET_SCHEMA_DIR.");
+			Console.Error.WriteLine(@"Use <bds>\docs\json_schemas\protocol from a BDS matching MCPE Protocol.xml.");
+			return 1;
+		}
 		if (!Directory.Exists(schemaDir))
 		{
-			Console.Error.WriteLine($"Schema directory not found (submodule not initialized?): {schemaDir}");
+			Console.Error.WriteLine($"Schema directory not found: {schemaDir}");
 			return 1;
 		}
 

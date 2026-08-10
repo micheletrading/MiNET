@@ -2485,12 +2485,12 @@ namespace MiNET
 
 			var newPosition = new PlayerLocation
 			{
-				X = message.Position.X,
-				Y = message.Position.Y - 1.62f,
-				Z = message.Position.Z,
-				Pitch = message.Pitch,
-				Yaw = message.Yaw,
-				HeadYaw = message.HeadYaw
+				X = message.position.X,
+				Y = message.position.Y - 1.62f,
+				Z = message.position.Z,
+				Pitch = message.playerRotation.X,
+				Yaw = message.playerRotation.Y,
+				HeadYaw = message.playerHeadRotation
 			};
 
 			double distanceTo = Vector3.Distance(KnownPosition.ToVector3(), newPosition.ToVector3());
@@ -2498,7 +2498,7 @@ namespace MiNET
 
 			// The input flags carry collision state directly; vertical collision while not
 			// jumping is standing on ground.
-			IsOnGround = (message.InputFlags & AuthInputFlags.VerticalCollision) != 0;
+			IsOnGround = (message.inputData & AuthInputFlags.VerticalCollision) != 0;
 
 			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(newPosition.X, 0, newPosition.Z)));
 
@@ -2514,7 +2514,7 @@ namespace MiNET
 			// start/stop sprint/sneak/glide packets are gone in 1.26). Route them to the same
 			// behaviors; without this the server keeps broadcasting stale entity state against
 			// the client's prediction and sprint/sneak stutter and cancel.
-			AuthInputFlags flags = message.InputFlags;
+			AuthInputFlags flags = message.inputData;
 			if ((flags & (AuthInputFlags.StartSprinting | AuthInputFlags.StopSprinting | AuthInputFlags.StartSneaking | AuthInputFlags.StopSneaking | AuthInputFlags.StartGliding | AuthInputFlags.StopGliding)) != 0)
 			{
 				if ((flags & AuthInputFlags.StartSprinting) != 0) SetSprinting(true);
@@ -2545,20 +2545,32 @@ namespace MiNET
 				BroadcastSetEntityData();
 			}
 
-			if (message.ItemStackRequest != null)
+			// Placing and using a block arrives here on a server-authoritative client, folded into the
+			// movement tick, and NOT as its own McpeInventoryTransaction: the client sends one or the
+			// other, never both. Same transaction, same handler, so a right-click reaches a chest the
+			// same way whichever packet carried it.
+			if (message.itemUseTransaction?.itemUseTransaction != null)
 			{
-				HandleSingleItemStackRequest(message.ItemStackRequest);
+				HandleItemUseTransaction(message.itemUseTransaction.itemUseTransaction);
 			}
 
-			if (message.BlockActions != null)
+			if (message.itemStackRequest != null)
+			{
+				HandleSingleItemStackRequest(message.itemStackRequest);
+			}
+
+			if (message.playerBlockActions != null)
 			{
 				// Server-authoritative block breaking (StartGame flag): break progress and the
 				// actual destroy arrive as auth-input block actions instead of the old
 				// PlayerAction/InventoryTransaction path.
-				foreach (McpePlayerAuthInput.PlayerBlockAction action in message.BlockActions)
+				foreach (PlayerBlockActionData action in message.playerBlockActions)
 				{
-					var coordinates = new BlockCoordinates(action.X, action.Y, action.Z);
-					switch (action.ActionType)
+					BlockCoordinates coordinates = action.position;
+
+					// PMMP's PlayerAction numbers, not the generated PlayerActionType enum: that is the
+					// standalone PlayerAction packet's list under the same name.
+					switch ((int) action.playerActionType)
 					{
 						case 0: // start_break
 						{
@@ -2597,13 +2609,13 @@ namespace MiNET
 							McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
 							breakEvent.eventId = 2014;
 							breakEvent.position = coordinates;
-							breakEvent.data = ((int) target.GetRuntimeId()) | ((byte) (action.Face << 24));
+							breakEvent.data = ((int) target.GetRuntimeId()) | ((byte) (action.facing << 24));
 							Level.RelayBroadcast(breakEvent);
 							break;
 						}
 						case 26: // predict_break: the client predicted the destroy; perform it
 						{
-							Level.BreakBlock(this, coordinates, (BlockFace) action.Face);
+							Level.BreakBlock(this, coordinates, (BlockFace) action.facing);
 							break;
 						}
 					}
@@ -3495,7 +3507,7 @@ namespace MiNET
 		/// <param name="message">The message.</param>
 		public virtual void HandleMcpeInteract(McpeInteract message)
 		{
-			//Log.Info($"Interact. Target={message.targetRuntimeEntityId} Action={message.actionId} Position={message.Position}");
+			//Log.Info($"Interact. Target={message.targetRuntimeEntityId} Action={message.actionId} Position={message.position}");
 			Entity target = null;
 			long runtimeEntityId = message.targetRuntimeEntityId;
 			if (runtimeEntityId == EntityManager.EntityIdSelf)

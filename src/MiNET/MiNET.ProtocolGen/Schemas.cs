@@ -123,6 +123,16 @@ public class Overrides
 					if (o["enum"] != null) p.FieldEnums[f.Name] = ((JArray) o["enum"]).Select(v => (string) v).ToList();
 					if (o["optional"] != null) p.FieldOptional[f.Name] = (bool) o["optional"];
 					if (o["presenceBytes"] != null) p.FieldPresenceBytes[f.Name] = (int) o["presenceBytes"];
+					if (o["presentWhen"] != null)
+					{
+						var when = (JObject) o["presentWhen"];
+						p.FieldPresentWhen[f.Name] = new FieldCondition
+						{
+							Field = (string) when["field"],
+							Values = ((JArray) (when["in"] ?? when["notIn"])).Select(v => (int) v).ToList(),
+							Negated = when["notIn"] != null
+						};
+					}
 					if (o["variantPayloadGate"] != null) p.FieldVariantPayloadGate[f.Name] = (bool) o["variantPayloadGate"];
 					if (o["variantConstIsByte"] != null) p.FieldVariantConstIsByte[f.Name] = (bool) o["variantConstIsByte"];
 					if (o["type"] != null)
@@ -168,6 +178,9 @@ public class PacketOverride
 	///     either is false. The schema says only "optional", so the count comes from here.
 	/// </summary>
 	public Dictionary<string, int> FieldPresenceBytes = new();
+
+	/// <summary>Wire field name -> the condition under which the field is on the wire at all.</summary>
+	public Dictionary<string, FieldCondition> FieldPresentWhen = new();
 
 	/// <summary>Wire field name -> the variant's payload carries its own presence byte after the tag.</summary>
 	public Dictionary<string, bool> FieldVariantPayloadGate = new();
@@ -259,6 +272,9 @@ public class CerealField
 	///     single oneOf, so the wire is presence, tag, presence, payload where the schema shows only
 	///     a required variant.
 	/// </summary>
+	/// <summary>Set when the field is conditional on another field's value.</summary>
+	public FieldCondition PresentWhen;
+
 	public bool VariantPayloadGate;
 
 	/// <summary>
@@ -293,6 +309,17 @@ public class CerealField
 }
 
 /// <summary>A oneOf tagged variant: an abstract base class and one struct per option, tag = declaration index.</summary>
+/// <summary>A field that is only on the wire for certain values of a field before it. The schema has
+/// no way to say this, and reading such a field unconditionally takes the bytes of whatever follows.</summary>
+public class FieldCondition
+{
+	public string Field;
+	public List<int> Values = new();
+
+	/// <summary>The field is present for every value EXCEPT the ones listed.</summary>
+	public bool Negated;
+}
+
 public class CerealVariant
 {
 	public string BaseName;
@@ -412,13 +439,14 @@ public class CerealPacket
 				Ordinal = (int) ((JObject) prop.Value)["x-ordinal-index"],
 				Optional = optional,
 				PresenceBytes = presenceBytes < 1 ? 1 : presenceBytes,
+				PresentWhen = packetOverride != null && packetOverride.FieldPresentWhen.TryGetValue(prop.Name, out FieldCondition when) ? when : null,
 				VariantPayloadGate = packetOverride != null && packetOverride.FieldVariantPayloadGate.TryGetValue(prop.Name, out bool gate) && gate,
 				VariantConstIsByte = packetOverride != null && packetOverride.FieldVariantConstIsByte.TryGetValue(prop.Name, out bool cb) && cb,
 			};
 
 			TypeMapping forced = null;
 			packetOverride?.FieldTypes.TryGetValue(prop.Name, out forced);
-			if (forced != null)
+			if (forced?.CsType != null)
 			{
 				field.Kind = FieldKind.Plain;
 				field.Type = forced;
@@ -426,6 +454,19 @@ public class CerealPacket
 			else
 			{
 				ResolveType(owner, field, (JObject) prop.Value, schemas, overrides, structs);
+
+				// An override with a read and a write but no csType corrects how the field travels
+				// while keeping the type the schema resolved, which is the only way to fix the codec
+				// of a field whose type is an inline enum: naming a csType suppresses the enum.
+				if (forced != null && field.Type != null)
+				{
+					field.Type = new TypeMapping
+					{
+						CsType = field.Type.CsType,
+						Write = forced.Write ?? field.Type.Write,
+						Read = forced.Read ?? field.Type.Read
+					};
+				}
 			}
 
 			if (field.Enum != null && packetOverride != null && packetOverride.FieldEnums.TryGetValue(prop.Name, out List<string> enumValues))

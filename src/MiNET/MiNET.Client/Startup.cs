@@ -28,6 +28,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -35,6 +36,8 @@ using System.Threading.Tasks;
 using log4net;
 using log4net.Config;
 using MiNET.Blocks;
+using MiNET.Items;
+using MiNET.Net;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.Vectors;
@@ -125,6 +128,72 @@ namespace MiNET.Client
 
 				Log.Warn($"Inspect {coordinates}: runtimeId={runtimeId} block={block?.Name ?? "(null)"} blockEntity={hasBlockEntity}");
 			}
+		}
+
+		/// <summary>Right-clicks a block the way a server-authoritative client does: the use-item
+		/// transaction folded into PlayerAuthInput, not a standalone McpeInventoryTransaction. This is
+		/// the only way to exercise that path without a real client.</summary>
+		private static void InteractWithBlock(MiNetClient client, string spec)
+		{
+			string[] parts = spec.Split(',');
+			var target = new BlockCoordinates(int.Parse(parts[0]), int.Parse(parts[1]), int.Parse(parts[2]));
+
+			// Stand next to it, looking at it.
+			var position = new Vector3(target.X + 0.5f, target.Y + 1, target.Z + 2.5f);
+			client.CurrentLocation = new PlayerLocation(position, 0, 0, 20);
+
+			Log.Warn($"Interact: standing at {position}, right-clicking {target}");
+
+			Vector3 previous = position;
+			for (int i = 0; i < 80; i++)
+			{
+				var input = McpePlayerAuthInput.CreateObject();
+				input.playerRotation = new Vector2(20, 0);
+				input.playerHeadRotation = 0;
+				input.position = position;
+				input.moveVector = Vector2.Zero;
+				input.inputData = 0;
+				input.inputMode = McpePlayerAuthInput.InputMode.Mouse;
+				input.playMode = McpePlayerAuthInput.ClientPlayMode.Normal;
+				input.newInteractionModel = McpePlayerAuthInput.NewInteractionModel.Touch;
+				input.interactRotation = new Vector2(20, 0);
+				input.clientTick = i;
+				input.posDelta = position - previous;
+				input.analogMoveVector = Vector2.Zero;
+				input.cameraOrientation = new Vector3(20, 0, 0);
+				input.rawMoveVector = Vector2.Zero;
+
+				// Give the server time to send the chunks first, then click once.
+				if (i == 60)
+				{
+					input.itemUseTransaction = new PackedItemUseLegacyInventoryTransaction
+					{
+						itemUseTransaction = new ItemUseInventoryTransaction
+						{
+							actionType = ItemUseInventoryTransaction.ItemUseActionType.Place,
+							triggerType = ItemUseInventoryTransaction.ItemUseTriggerType.PlayerInput,
+							position = target,
+							face = (byte) BlockFace.Up,
+							slot = 0,
+							item = new ItemAir(),
+							fromPosition = position,
+							clickPosition = new Vector3(0.5f, 1.0f, 0.5f),
+							targetBlockId = 0,
+							clientInteractPrediction = ItemUseInventoryTransaction.ItemUsePredictedResult.Success,
+							clientCooldownState = ItemUseInventoryTransaction.ItemUseClientCooldownState.Off
+						}
+					};
+
+					Log.Warn($"Interact: sending the use-item transaction inside auth input for {target}");
+				}
+
+				client.SendPacket(input);
+				Thread.Sleep(50);
+			}
+
+			Log.Warn("Interact: sent, waiting for the server to answer");
+			Thread.Sleep(5000);
+			Log.Warn("Interact: done");
 		}
 
 		static void Main(string[] args)
@@ -253,6 +322,13 @@ namespace MiNET.Client
 			if (!string.IsNullOrWhiteSpace(inspect))
 			{
 				InspectBlocks(client, inspect);
+			}
+
+			// MINET_INTERACT="x,y,z" right-clicks that block through the auth-input path.
+			string interact = Environment.GetEnvironmentVariable("MINET_INTERACT");
+			if (!string.IsNullOrWhiteSpace(interact))
+			{
+				InteractWithBlock(client, interact);
 			}
 
 			Action<Task, PlayerLocation> doMoveTo = BotHelpers.DoMoveTo(client);
