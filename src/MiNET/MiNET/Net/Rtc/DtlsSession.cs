@@ -100,6 +100,12 @@ namespace MiNET.Net.Rtc
 		private readonly DatagramTransportAdapter _transportAdapter;
 		private readonly object _gate = new object();
 
+		// Deliberately separate from _gate, which the receive path holds across OnDecrypted:
+		// serializing SendApplicationData on _gate would block application writes behind whatever
+		// a subscriber does inside OnDecrypted. This lock only ever needs to exclude concurrent
+		// callers of SendApplicationData itself from each other.
+		private readonly object _sendGate = new object();
+
 		// Round-4 Finding B: a persistent (allocated once, never per-call), reused staging buffer for
 		// FeedDatagram's no-backlog fast path. See FeedDatagram and TryReadNow for the full mechanism.
 		private readonly byte[] _directFeedBuffer = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
@@ -338,9 +344,21 @@ namespace MiNET.Net.Rtc
 			return new DtlsClientProtocol().Connect(client, _transportAdapter);
 		}
 
+		/// <summary>
+		///     Thread-safe: stage 2 has at least three concurrent senders (SACKs from inside
+		///     <see cref="OnDecrypted" /> on the receive thread, RTO retransmits on a tick thread,
+		///     and application writes), and BouncyCastle's <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" />
+		///     walks record-layer sequence state that is not documented safe for concurrent callers.
+		///     Serialized on <see cref="_sendGate" />, a lock of its own rather than <see cref="_gate" />,
+		///     which the receive path holds across <see cref="OnDecrypted" />: sharing it here would
+		///     serialize every send behind whatever a subscriber does in that callback.
+		/// </summary>
 		public void SendApplicationData(ReadOnlySpan<byte> payload)
 		{
-			_dtlsTransport?.Send(payload);
+			lock (_sendGate)
+			{
+				_dtlsTransport?.Send(payload);
+			}
 		}
 
 		/// <summary>

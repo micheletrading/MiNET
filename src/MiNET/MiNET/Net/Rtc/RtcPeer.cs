@@ -66,6 +66,9 @@ namespace MiNET.Net.Rtc
 
 		private DtlsSession _dtls;
 		private int _disposed;
+		private volatile bool _transportWasUp;
+		private int _transportClosedRaised;
+		private int _noRemoteEndPointWarned;
 
 		public string LocalUfrag => _localUfrag;
 
@@ -84,6 +87,15 @@ namespace MiNET.Net.Rtc
 		public bool RemapCandidatesForSameMachine { get; set; }
 
 		public event DtlsSession.DecryptedHandler OnDecrypted;
+
+		/// <summary>
+		///     Raised at most once, when the transport is lost AFTER a handshake that already
+		///     succeeded: the 30 s ICE consent-freshness timeout firing <see cref="IceSession.OnFailed" />
+		///     is the only source today. It is not raised for a handshake that never came up in the
+		///     first place, that failure is already observed through <see cref="WaitForTransportAsync" />
+		///     resolving <see langword="false" />. Stage 3 tears down the game session on this event.
+		/// </summary>
+		public event Action OnTransportClosed;
 
 		private RtcPeer(UdpMux mux, RtcCertificate certificate, IceSession ice, bool isAnswerer, string localUfrag, string localPassword)
 		{
@@ -220,16 +232,43 @@ namespace MiNET.Net.Rtc
 			return IPAddress.IsLoopback(localAddress) ? new IPEndPoint(localAddress, candidate.Port) : candidate;
 		}
 
+		/// <summary>
+		///     Throws if a DTLS session already exists: a second <see cref="AcceptOffer" />/
+		///     <see cref="AcceptAnswer" /> call would otherwise overwrite <see cref="_dtls" /> without
+		///     disposing the previous one, leaking a live BouncyCastle session and its pooled buffers.
+		///     Renegotiation is out of scope for this stage.
+		/// </summary>
 		private void CreateDtlsSession(string remoteFingerprint, bool isServer)
 		{
+			if (_dtls != null) throw new InvalidOperationException("already negotiated");
+
 			var dtls = new DtlsSession(_certificate, remoteFingerprint, isServer, SendToWire);
 			dtls.OnDecrypted += payload => OnDecrypted?.Invoke(payload);
 			_dtls = dtls;
 		}
 
+		/// <summary>
+		///     Guards against a null <see cref="IceSession.RemoteEndPoint" />: BouncyCastle can call
+		///     back into this before ICE has nominated a pair (e.g. a DTLS retransmit scheduled off a
+		///     timer), and <see cref="UdpMux.Send" /> would otherwise pass <see langword="null" /> into
+		///     <see cref="System.Collections.Concurrent.ConcurrentDictionary{TKey,TValue}.TryGetValue" />,
+		///     which throws. Dropped datagrams are logged once, not per datagram, to avoid flooding the
+		///     log on a hot outgoing path.
+		/// </summary>
 		private void SendToWire(ReadOnlySpan<byte> datagram)
 		{
-			_mux.Send(_ice.RemoteEndPoint, datagram);
+			IPEndPoint remote = _ice.RemoteEndPoint;
+			if (remote == null)
+			{
+				if (Interlocked.Exchange(ref _noRemoteEndPointWarned, 1) == 0)
+				{
+					Log.Warn("Dropped outgoing datagram: no nominated remote endpoint yet.");
+				}
+
+				return;
+			}
+
+			_mux.Send(remote, datagram);
 		}
 
 		private void OnIceNominated(IPEndPoint endpoint)
@@ -250,12 +289,18 @@ namespace MiNET.Net.Rtc
 				Log.Warn($"DTLS handshake threw ({(_isAnswerer ? "answerer" : "offerer")}).", ex);
 			}
 
+			if (succeeded) _transportWasUp = true;
 			_transportReady.TrySetResult(succeeded);
 		}
 
 		private void OnIceFailed()
 		{
 			_transportReady.TrySetResult(false);
+
+			if (_transportWasUp && Interlocked.Exchange(ref _transportClosedRaised, 1) == 0)
+			{
+				OnTransportClosed?.Invoke();
+			}
 		}
 
 		/// <summary>

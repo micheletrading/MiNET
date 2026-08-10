@@ -67,7 +67,8 @@ namespace MiNET.Net.Rtc
 		private HighPrecisionTimer _timer;
 		private long _droppedDatagrams;
 		private long _dispatchFailures;
-		private bool _disposed;
+		private int _started;
+		private int _disposed;
 
 		public IPEndPoint LocalEndPoint { get; }
 
@@ -99,8 +100,15 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
+		/// <summary>
+		///     Not idempotent by design: a second call would spawn a second receive loop on the same
+		///     socket and orphan the first tick timer, so it throws rather than allowing that, since a
+		///     repeated call is a caller bug, not a runtime condition to tolerate.
+		/// </summary>
 		public void Start()
 		{
+			if (Interlocked.Exchange(ref _started, 1) != 0) throw new InvalidOperationException("UdpMux.Start already called.");
+
 			_ = ReceiveLoopAsync();
 			_timer = new HighPrecisionTimer(TickIntervalMs, _ => OnTick?.Invoke());
 		}
@@ -293,8 +301,7 @@ namespace MiNET.Net.Rtc
 
 		public void Dispose()
 		{
-			if (_disposed) return;
-			_disposed = true;
+			if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
 			_cancellation.Cancel();
 			_timer?.Dispose();

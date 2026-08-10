@@ -78,5 +78,21 @@ namespace MiNET.Test.Rtc
 		{
 			Assert.ThrowsExactly<FormatException>(() => RtcSessionDescription.Parse("v=0\r\ns=-\r\n"));
 		}
+
+		[TestMethod]
+		public void MdnsCandidate_IsSkipped_ValidCandidateStillParses()
+		{
+			string sdp = "v=0\r\n" +
+					"a=ice-ufrag:abcd\r\n" +
+					"a=ice-pwd:0123456789abcdef012345\r\n" +
+					"a=fingerprint:sha-256 AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99\r\n" +
+					"a=candidate:1 1 udp 2130706431 abc123.local 12345 typ host generation 0\r\n" +
+					"a=candidate:2 1 udp 2130706430 192.168.1.5 19132 typ host generation 0\r\n";
+
+			RtcSessionDescription parsed = RtcSessionDescription.Parse(sdp);
+			Assert.AreEqual(1, parsed.Candidates.Count);
+			Assert.AreEqual(IPAddress.Parse("192.168.1.5"), parsed.Candidates[0].Address);
+			Assert.AreEqual(19132, parsed.Candidates[0].Port);
+		}
 	}
 }

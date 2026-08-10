@@ -85,9 +85,10 @@ namespace MiNET.Net.Rtc
 				else if (line.StartsWith("a=candidate:", StringComparison.Ordinal))
 				{
 					string[] parts = line.Substring("a=candidate:".Length).Split(' ');
-					if (parts.Length >= 6 && int.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out int port))
+					if (parts.Length >= 6 && IPAddress.TryParse(parts[4], out IPAddress address)
+							&& int.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out int port))
 					{
-						candidates.Add(new IPEndPoint(IPAddress.Parse(parts[4]), port));
+						candidates.Add(new IPEndPoint(address, port));
 					}
 				}
 			}
