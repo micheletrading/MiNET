@@ -44,6 +44,17 @@ namespace MiNET.Net.Rtc
 	///     A fully built outbound SCTP packet, ready for the wire (or the loopback wiring a test uses
 	///     instead of one). Matches <see cref="DtlsSession.SendApplicationData" />'s signature, so
 	///     Task 7 wires this delegate straight to it.
+	///     <para>
+	///     Leaf contract: <see cref="SctpAssociation" /> calls this delegate while holding its own
+	///     internal gate (Task 5's retransmit machinery wants sends interleaved with state under that
+	///     lock). The delegate must therefore behave like <see cref="DtlsSession.SendApplicationData" />
+	///     does: take only its own leaf-level lock (<c>_sendGate</c>), never call back into this
+	///     association, and never block on anything that could itself be waiting on this association.
+	///     A delegate that violates this can deadlock the association against itself from a different
+	///     thread; the codebase's synchronous loopback tests do call back into the peer association
+	///     from inside this delegate, which only works because a .NET <c>lock</c> is reentrant for the
+	///     calling thread, not because the contract is optional.
+	///     </para>
 	/// </summary>
 	public delegate void PacketSender(ReadOnlySpan<byte> packet);
 
@@ -57,6 +68,12 @@ namespace MiNET.Net.Rtc
 	///     (INIT/COOKIE-ECHO retransmit backoff) rides <see cref="OnTick" />, called by the owner
 	///     (<see cref="UdpMux.OnTick" /> in Task 7's wiring) on a different thread than
 	///     <see cref="OnPacketReceived" />, so both are guarded by <see cref="_gate" />.
+	///     <see cref="OnEstablished" /> and <see cref="OnAborted" /> are always raised after
+	///     <see cref="_gate" /> is released (<see cref="IceSession.Nominate" />/<c>Fail</c>'s pattern
+	///     one file over), so a subscriber is free to call back into this association, or into anything
+	///     else that might itself be waiting on <see cref="_gate" />, without risking a cross-thread
+	///     deadlock. <see cref="PacketSender" /> is the one delegate still called under the lock; see its
+	///     own doc comment for the leaf contract that makes that safe.
 	/// </summary>
 	public class SctpAssociation
 	{
@@ -186,6 +203,8 @@ namespace MiNET.Net.Rtc
 		{
 			if (!_isClient) return;
 
+			string abortReason = null;
+
 			lock (_gate)
 			{
 				if (_state != SctpState.CookieWait && _state != SctpState.CookieEchoed) return;
@@ -197,18 +216,24 @@ namespace MiNET.Net.Rtc
 				{
 					SctpState abandonedState = _state;
 					_state = SctpState.Aborted;
-					Log.Warn($"SCTP handshake abandoned in {abandonedState} after {MaxAttempts} attempts.");
-					OnAborted?.Invoke($"SCTP handshake abandoned in {abandonedState} after {MaxAttempts} attempts.");
-					return;
+					abortReason = $"SCTP handshake abandoned in {abandonedState} after {MaxAttempts} attempts.";
+					Log.Warn(abortReason);
 				}
+				else
+				{
+					_attemptCount++;
+					_rtoMillis = Math.Clamp(_rtoMillis * 2, RtoMinMillis, RtoMaxMillis);
+					_lastSentAtTicks = now;
 
-				_attemptCount++;
-				_rtoMillis = Math.Clamp(_rtoMillis * 2, RtoMinMillis, RtoMaxMillis);
-				_lastSentAtTicks = now;
-
-				if (_state == SctpState.CookieWait) SendInitPacket();
-				else SendCookieEchoPacket();
+					if (_state == SctpState.CookieWait) SendInitPacket();
+					else SendCookieEchoPacket();
+				}
 			}
+
+			// Raised outside _gate: IceSession.Nominate/Fail's pattern, so a subscriber (Task 7's
+			// RtcPeer) can safely call back into this association, or anything else, from a different
+			// thread than the one that just released the lock.
+			if (abortReason != null) OnAborted?.Invoke(abortReason);
 		}
 
 		/// <summary>
@@ -235,31 +260,40 @@ namespace MiNET.Net.Rtc
 
 			(byte type, byte _, ReadOnlySpan<byte> value) = enumerator.Current;
 
+			bool becameEstablished;
 			lock (_gate)
 			{
 				switch (type)
 				{
 					case SctpChunkType.Init:
 						HandleInit(value, verificationTag);
+						becameEstablished = false;
 						break;
 
 					case SctpChunkType.InitAck:
 						HandleInitAck(value, verificationTag);
+						becameEstablished = false;
 						break;
 
 					case SctpChunkType.CookieEcho:
-						HandleCookieEcho(value, verificationTag);
+						becameEstablished = HandleCookieEcho(value, verificationTag);
 						break;
 
 					case CookieAckChunkType:
-						HandleCookieAck(verificationTag);
+						becameEstablished = HandleCookieAck(verificationTag);
 						break;
 
 					default:
 						CountIgnored();
+						becameEstablished = false;
 						break;
 				}
 			}
+
+			// Raised outside _gate: see the class remarks and PacketSender's doc comment. Any send
+			// that belongs to the same transition (COOKIE-ACK, above) already happened inside the lock,
+			// so it is still strictly ordered before this fires.
+			if (becameEstablished) OnEstablished?.Invoke();
 		}
 
 		/// <summary>
@@ -342,27 +376,29 @@ namespace MiNET.Net.Rtc
 		///     Server role, called under <see cref="_gate" />: the only place association state actually
 		///     materializes. A duplicate, already-established COOKIE-ECHO (the client retransmitting
 		///     because our COOKIE-ACK was lost) is answered again without re-firing <see cref="OnEstablished" />.
+		///     Returns true when this call is the one that transitions to <see cref="SctpState.Established" />;
+		///     the caller raises <see cref="OnEstablished" /> itself, after releasing <see cref="_gate" />.
 		/// </summary>
-		private void HandleCookieEcho(ReadOnlySpan<byte> value, uint verificationTag)
+		private bool HandleCookieEcho(ReadOnlySpan<byte> value, uint verificationTag)
 		{
 			if (_isClient)
 			{
 				CountIgnored();
-				return;
+				return false;
 			}
 
 			if (!TryValidateCookie(value, Environment.TickCount64, out uint peerInitiateTag, out uint ourTag, out uint peerArwnd,
 					out ushort peerOutboundStreams, out ushort peerInboundStreams, out uint peerInitialTsn, out uint ourInitialTsn))
 			{
 				CountIgnored();
-				return;
+				return false;
 			}
 
 			// RFC 4960 5.1: the COOKIE-ECHO packet carries Tag_B, the tag the cookie says we chose.
 			if (verificationTag != ourTag)
 			{
 				CountIgnored();
-				return;
+				return false;
 			}
 
 			bool alreadyEstablished = _state == SctpState.Established && _localTag == ourTag && _peerTag == peerInitiateTag;
@@ -378,22 +414,28 @@ namespace MiNET.Net.Rtc
 				_peerInboundStreams = peerInboundStreams;
 			}
 
+			// Sent before OnEstablished fires (the caller raises it only after this method returns and
+			// _gate is released), so the wire order is preserved: COOKIE-ACK still goes out before the
+			// established callback ever runs.
 			SendCookieAckPacket();
 
-			if (!alreadyEstablished)
-			{
-				_state = SctpState.Established;
-				OnEstablished?.Invoke();
-			}
+			if (alreadyEstablished) return false;
+
+			_state = SctpState.Established;
+			return true;
 		}
 
-		/// <summary>Client role, called under <see cref="_gate" />.</summary>
-		private void HandleCookieAck(uint verificationTag)
+		/// <summary>
+		///     Client role, called under <see cref="_gate" />. Returns true when this call is the one that
+		///     transitions to <see cref="SctpState.Established" />; the caller raises
+		///     <see cref="OnEstablished" /> itself, after releasing <see cref="_gate" />.
+		/// </summary>
+		private bool HandleCookieAck(uint verificationTag)
 		{
 			if (!_isClient)
 			{
 				CountIgnored();
-				return;
+				return false;
 			}
 
 			if (_state != SctpState.CookieEchoed)
@@ -401,18 +443,18 @@ namespace MiNET.Net.Rtc
 				// A duplicate COOKIE-ACK (our own retransmitted COOKIE-ECHO drew a second reply) is
 				// harmless once already established; anything else at this point is unexpected.
 				if (_state != SctpState.Established || verificationTag != _localTag) CountIgnored();
-				return;
+				return false;
 			}
 
 			// RFC 4960 5.1: the COOKIE-ACK packet carries Tag_A, our own tag.
 			if (verificationTag != _localTag)
 			{
 				CountIgnored();
-				return;
+				return false;
 			}
 
 			_state = SctpState.Established;
-			OnEstablished?.Invoke();
+			return true;
 		}
 
 		private void ResetRetransmitState()
