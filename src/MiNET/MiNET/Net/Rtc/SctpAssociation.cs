@@ -24,7 +24,9 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using log4net;
@@ -59,6 +61,16 @@ namespace MiNET.Net.Rtc
 	public delegate void PacketSender(ReadOnlySpan<byte> packet);
 
 	/// <summary>
+	///     One complete, reassembled application message. <see cref="SctpAssociation.OnMessage" />'s
+	///     established contract (stage 1's <see cref="PacketSender" /> doc comment set the precedent):
+	///     <paramref name="message" /> is valid only for the duration of the callback. It either borrows
+	///     directly from the incoming datagram (a single-chunk message delivered with zero copy) or from
+	///     a leased buffer the association returns the instant the callback returns; either way, holding
+	///     onto the span past the call is a use-after-free.
+	/// </summary>
+	public delegate void SctpMessageHandler(ushort streamId, uint ppid, ReadOnlySpan<byte> message);
+
+	/// <summary>
 	///     RFC 4960 the four-way handshake only (INIT / INIT-ACK / COOKIE-ECHO / COOKIE-ACK); Tasks 4-6
 	///     grow this class with DATA/SACK, retransmission, and stream management. The server side never
 	///     commits an association's tags, TSNs, or stream counts to memory before a COOKIE-ECHO validates:
@@ -88,6 +100,11 @@ namespace MiNET.Net.Rtc
 		private const long RtoMinMillis = 200;
 		private const long RtoMaxMillis = 10000;
 		private const int MaxAttempts = 5;
+
+		// RFC 4960 6.2 SACK policy: a SACK goes out on the second packet carrying DATA, or 200ms after
+		// the first unacked one, whichever comes first (plus the immediate triggers HandleData/MaybeSendSack
+		// check for separately).
+		private const long SackDelayMillis = 200;
 
 		// RFC 4960 3.2 defines COOKIE-ACK as chunk type 11, empty value. SctpChunks.cs has no struct
 		// for it (there is nothing to parse or write beyond the shared 4-byte chunk header), so it is
@@ -137,10 +154,18 @@ namespace MiNET.Net.Rtc
 
 		private long _ignoredPacketCount;
 
+		private readonly SctpReceiveBuffer _receiveBuffer;
+		private int _dataPacketsSinceSack;
+		private bool _sackTimerArmed;
+		private long _sackTimerArmedAtTicks;
+
 		public SctpState State => _state;
 
 		public event Action OnEstablished;
 		public event Action<string> OnAborted;
+
+		/// <summary>Raised inline from <see cref="OnPacketReceived" />, outside <see cref="_gate" />, once per complete reassembled message.</summary>
+		public event SctpMessageHandler OnMessage;
 
 		/// <summary>
 		///     Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many inbound
@@ -174,6 +199,28 @@ namespace MiNET.Net.Rtc
 			_sctpPort = sctpPort;
 			_arwndBudget = arwndBudget;
 			_sendPacket = sendPacket;
+			_receiveBuffer = new SctpReceiveBuffer(arwndBudget);
+		}
+
+		/// <summary>Test visibility only: budget minus buffered bytes, what the next outgoing SACK would carry as a_rwnd.</summary>
+		internal uint CurrentArwnd
+		{
+			get
+			{
+				lock (_gate) return _receiveBuffer.CurrentArwnd;
+			}
+		}
+
+		/// <summary>Test visibility only: how many DATA chunks were dropped for arriving when the byte budget was already spent.</summary>
+		internal long DataDroppedByBudgetCount => _receiveBuffer.DroppedByBudgetCount;
+
+		/// <summary>Test visibility only: the receive-side cumulative TSN ack point (highest TSN received with nothing missing before it).</summary>
+		internal uint CumulativeTsnAck
+		{
+			get
+			{
+				lock (_gate) return _receiveBuffer.CumulativeTsnAck;
+			}
 		}
 
 		/// <summary>
@@ -201,32 +248,41 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		public void OnTick()
 		{
-			if (!_isClient) return;
-
 			string abortReason = null;
 
 			lock (_gate)
 			{
-				if (_state != SctpState.CookieWait && _state != SctpState.CookieEchoed) return;
-
-				long now = Environment.TickCount64;
-				if (now - _lastSentAtTicks < _rtoMillis) return;
-
-				if (_attemptCount >= MaxAttempts)
+				if (_isClient && (_state == SctpState.CookieWait || _state == SctpState.CookieEchoed))
 				{
-					SctpState abandonedState = _state;
-					_state = SctpState.Aborted;
-					abortReason = $"SCTP handshake abandoned in {abandonedState} after {MaxAttempts} attempts.";
-					Log.Warn(abortReason);
+					long now = Environment.TickCount64;
+					if (now - _lastSentAtTicks >= _rtoMillis)
+					{
+						if (_attemptCount >= MaxAttempts)
+						{
+							SctpState abandonedState = _state;
+							_state = SctpState.Aborted;
+							abortReason = $"SCTP handshake abandoned in {abandonedState} after {MaxAttempts} attempts.";
+							Log.Warn(abortReason);
+						}
+						else
+						{
+							_attemptCount++;
+							_rtoMillis = Math.Clamp(_rtoMillis * 2, RtoMinMillis, RtoMaxMillis);
+							_lastSentAtTicks = now;
+
+							if (_state == SctpState.CookieWait) SendInitPacket();
+							else SendCookieEchoPacket();
+						}
+					}
 				}
-				else
-				{
-					_attemptCount++;
-					_rtoMillis = Math.Clamp(_rtoMillis * 2, RtoMinMillis, RtoMaxMillis);
-					_lastSentAtTicks = now;
 
-					if (_state == SctpState.CookieWait) SendInitPacket();
-					else SendCookieEchoPacket();
+				// The 200ms SACK fallback (RFC 4960 6.2): role-agnostic, unlike the handshake retransmit
+				// above, since either side of an established association can be sitting on unacked DATA.
+				if (_sackTimerArmed && Environment.TickCount64 - _sackTimerArmedAtTicks >= SackDelayMillis)
+				{
+					SendSackPacket();
+					_dataPacketsSinceSack = 0;
+					_sackTimerArmed = false;
 				}
 			}
 
@@ -237,11 +293,13 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Validates the common header (bounds, checksum) and the first chunk before dispatching by
-		///     chunk type. Never throws on hostile input: a bad checksum, an empty or malformed chunk list,
-		///     an unrecognised chunk type, a wrong verification tag, or an invalid cookie all fall through
-		///     to a dropped-and-counted packet rather than an exception, per this codebase's hot-path rule
-		///     for the mux receive thread.
+		///     Validates the common header (bounds, checksum), then walks every chunk in the packet and
+		///     dispatches each by type: SCTP routinely bundles more than one chunk per packet (a DATA
+		///     chunk riding alongside a SACK is normal), so this cannot stop at the first one. Never
+		///     throws on hostile input: a bad checksum, an empty or malformed chunk list, an unrecognised
+		///     chunk type, a wrong verification tag, or an invalid cookie all fall through to a
+		///     dropped-and-counted packet (or chunk) rather than an exception, per this codebase's
+		///     hot-path rule for the mux receive thread.
 		/// </summary>
 		public void OnPacketReceived(ReadOnlySpan<byte> packet)
 		{
@@ -252,48 +310,174 @@ namespace MiNET.Net.Rtc
 			}
 
 			SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(packet);
-			if (!enumerator.MoveNext())
+			bool anyChunk = false;
+			bool packetHadData = false;
+			bool immediateSackRequested = false;
+
+			while (enumerator.MoveNext())
+			{
+				anyChunk = true;
+				(byte type, byte flags, ReadOnlySpan<byte> value) = enumerator.Current;
+
+				bool becameEstablished = false;
+				bool hasZeroCopyDelivery = false;
+				ushort zcStreamId = 0;
+				uint zcPpid = 0;
+				ReadOnlySpan<byte> zcPayload = default;
+
+				lock (_gate)
+				{
+					switch (type)
+					{
+						case SctpChunkType.Init:
+							HandleInit(value, verificationTag);
+							break;
+
+						case SctpChunkType.InitAck:
+							HandleInitAck(value, verificationTag);
+							break;
+
+						case SctpChunkType.CookieEcho:
+							becameEstablished = HandleCookieEcho(value, verificationTag);
+							break;
+
+						case CookieAckChunkType:
+							becameEstablished = HandleCookieAck(verificationTag);
+							break;
+
+						case SctpChunkType.Data:
+							packetHadData = true;
+							hasZeroCopyDelivery = HandleData(flags, value, out zcStreamId, out zcPpid, out zcPayload, out bool chunkWantsImmediateSack);
+							if (chunkWantsImmediateSack) immediateSackRequested = true;
+							break;
+
+						case SctpChunkType.Sack:
+							// Acks our own outbound DATA; Task 5 owns retransmission and has nothing to
+							// react to yet, so a bundled SACK from the peer is not acted on here. Not an
+							// unrecognised chunk, so it does not count against IgnoredPacketCount.
+							break;
+
+						default:
+							CountIgnored();
+							break;
+					}
+				}
+
+				// Raised/delivered outside _gate: see the class remarks and PacketSender's doc comment.
+				// zcPayload borrows directly from `value`, itself a slice of `packet`, which is still on
+				// this method's stack for the whole call, so the span stays valid here.
+				if (becameEstablished) OnEstablished?.Invoke();
+				if (hasZeroCopyDelivery) OnMessage?.Invoke(zcStreamId, zcPpid, zcPayload);
+
+				DeliverLeasedMessages();
+			}
+
+			if (!anyChunk)
 			{
 				CountIgnored();
 				return;
 			}
 
-			(byte type, byte _, ReadOnlySpan<byte> value) = enumerator.Current;
-
-			bool becameEstablished;
-			lock (_gate)
+			if (packetHadData)
 			{
-				switch (type)
+				lock (_gate)
 				{
-					case SctpChunkType.Init:
-						HandleInit(value, verificationTag);
-						becameEstablished = false;
-						break;
-
-					case SctpChunkType.InitAck:
-						HandleInitAck(value, verificationTag);
-						becameEstablished = false;
-						break;
-
-					case SctpChunkType.CookieEcho:
-						becameEstablished = HandleCookieEcho(value, verificationTag);
-						break;
-
-					case CookieAckChunkType:
-						becameEstablished = HandleCookieAck(verificationTag);
-						break;
-
-					default:
-						CountIgnored();
-						becameEstablished = false;
-						break;
+					MaybeSendSack(immediateSackRequested);
 				}
 			}
+		}
 
-			// Raised outside _gate: see the class remarks and PacketSender's doc comment. Any send
-			// that belongs to the same transition (COOKIE-ACK, above) already happened inside the lock,
-			// so it is still strictly ordered before this fires.
-			if (becameEstablished) OnEstablished?.Invoke();
+		/// <summary>
+		///     Server or client role, called under <see cref="_gate" />: decodes one DATA chunk and hands
+		///     it to <see cref="_receiveBuffer" />. Returns true when the chunk alone is a complete,
+		///     immediately deliverable message (unordered, or exactly the next due ordered message on its
+		///     stream): <paramref name="zcPayload" /> then borrows straight from <paramref name="value" />,
+		///     the zero-copy path the task brief requires. Any other completed delivery (a reassembled
+		///     fragment run, or an ordered message a cascade unblocked) lands in
+		///     <see cref="SctpReceiveBuffer.Deliveries" /> instead, which the caller drains once outside
+		///     the lock regardless of this method's return value. DATA received before
+		///     <see cref="SctpState.Established" /> is dropped and counted, never buffered.
+		/// </summary>
+		private bool HandleData(byte flags, ReadOnlySpan<byte> value, out ushort streamId, out uint ppid, out ReadOnlySpan<byte> zcPayload, out bool immediateSackRequested)
+		{
+			streamId = 0;
+			ppid = 0;
+			zcPayload = default;
+			immediateSackRequested = false;
+
+			if (!DataChunkHeader.TryParse(flags, value, out DataChunkHeader header, out ReadOnlySpan<byte> payload))
+			{
+				CountIgnored();
+				return false;
+			}
+
+			if (header.ImmediateSack) immediateSackRequested = true;
+
+			if (_state != SctpState.Established)
+			{
+				CountIgnored();
+				return false;
+			}
+
+			bool zeroCopy = _receiveBuffer.Receive(header, payload);
+			if (zeroCopy)
+			{
+				streamId = header.StreamId;
+				ppid = header.Ppid;
+				zcPayload = payload;
+			}
+
+			return zeroCopy;
+		}
+
+		/// <summary>
+		///     Drains <see cref="SctpReceiveBuffer.Deliveries" /> (fragment-reassembly completions and any
+		///     ordered messages a cascade unblocked), called once per chunk processed regardless of chunk
+		///     type: the list is empty except right after a DATA chunk that completed one or more
+		///     messages. Raised the same way <see cref="OnEstablished" /> is, outside <see cref="_gate" />.
+		///     Each delivery's buffer came from <see cref="ArrayPool{T}.Shared" /> and is returned
+		///     immediately once its callback returns.
+		/// </summary>
+		private void DeliverLeasedMessages()
+		{
+			List<SctpReceiveBuffer.LeasedDelivery> deliveries = _receiveBuffer.Deliveries;
+			for (int i = 0; i < deliveries.Count; i++)
+			{
+				SctpReceiveBuffer.LeasedDelivery delivery = deliveries[i];
+				OnMessage?.Invoke(delivery.StreamId, delivery.Ppid, delivery.Buffer.AsSpan(0, delivery.Length));
+				ArrayPool<byte>.Shared.Return(delivery.Buffer);
+			}
+
+			deliveries.Clear();
+		}
+
+		/// <summary>
+		///     RFC 4960 6.2 SACK policy, called under <see cref="_gate" /> once per received packet that
+		///     carried at least one DATA chunk: sends immediately when <paramref name="immediateSackRequested" />
+		///     (the I-flag was set on some DATA chunk in the packet) or a gap is outstanding; otherwise
+		///     every second such packet, with the 200ms fallback armed here and enforced by <see cref="OnTick" />.
+		/// </summary>
+		private void MaybeSendSack(bool immediateSackRequested)
+		{
+			bool sendNow = immediateSackRequested || _receiveBuffer.HasGap;
+
+			if (!sendNow)
+			{
+				_dataPacketsSinceSack++;
+				sendNow = _dataPacketsSinceSack >= 2;
+			}
+
+			if (sendNow)
+			{
+				SendSackPacket();
+				_dataPacketsSinceSack = 0;
+				_sackTimerArmed = false;
+			}
+			else if (!_sackTimerArmed)
+			{
+				_sackTimerArmed = true;
+				_sackTimerArmedAtTicks = Environment.TickCount64;
+			}
 		}
 
 		/// <summary>
@@ -421,6 +605,10 @@ namespace MiNET.Net.Rtc
 
 			if (alreadyEstablished) return false;
 
+			_receiveBuffer.Reset(peerInitialTsn);
+			_dataPacketsSinceSack = 0;
+			_sackTimerArmed = false;
+
 			_state = SctpState.Established;
 			return true;
 		}
@@ -453,6 +641,10 @@ namespace MiNET.Net.Rtc
 				return false;
 			}
 
+			_receiveBuffer.Reset(_peerInitialTsn);
+			_dataPacketsSinceSack = 0;
+			_sackTimerArmed = false;
+
 			_state = SctpState.Established;
 			return true;
 		}
@@ -482,6 +674,25 @@ namespace MiNET.Net.Rtc
 			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
 			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
 			n += cookieEcho.WriteTo(buffer.Slice(n));
+			SctpPacket.FinishChecksum(buffer.Slice(0, n));
+			_sendPacket(buffer.Slice(0, n));
+		}
+
+		/// <summary>Called under <see cref="_gate" /> by <see cref="MaybeSendSack" /> and <see cref="OnTick" />'s 200ms fallback.</summary>
+		private void SendSackPacket()
+		{
+			Span<SackChunk.GapBlock> gapBlocks = stackalloc SackChunk.GapBlock[SackChunk.MaxGapBlocks];
+			int gapCount = _receiveBuffer.BuildGapBlocks(gapBlocks);
+
+			Span<uint> duplicateTsns = stackalloc uint[SackChunk.MaxDuplicateTsns];
+			int duplicateCount = _receiveBuffer.DrainDuplicateTsns(duplicateTsns);
+
+			var sack = new SackChunk(_receiveBuffer.CumulativeTsnAck, _receiveBuffer.CurrentArwnd,
+				gapBlocks.Slice(0, gapCount).ToArray(), duplicateTsns.Slice(0, duplicateCount).ToArray());
+
+			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
+			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
+			n += sack.WriteTo(buffer.Slice(n));
 			SctpPacket.FinishChecksum(buffer.Slice(0, n));
 			_sendPacket(buffer.Slice(0, n));
 		}
