@@ -166,27 +166,39 @@ namespace MiNET.Net.Rtc
 		///     already running), and the registration is removed again once this call returns so a
 		///     later cancellation of the same token has no effect on the now-established session.
 		///     <para>
-		///     Round-2 Item 3: <see cref="RequestClose" /> firing (cancellation, or a concurrent
-		///     <see cref="Dispose" />) at the exact instant Accept/Connect was already returning
-		///     successfully is a real, if low-probability, race: the <c>await</c> below can complete
-		///     with a valid transport even though <see cref="_closed" /> is now true. Handing back
+		///     Round-2 Item 3 / round-3 (ordering): <see cref="RequestClose" /> firing (cancellation,
+		///     or a concurrent <see cref="Dispose" />) at the exact instant Accept/Connect was already
+		///     returning successfully is a real, if low-probability, race: the <c>await</c> below can
+		///     complete with a valid transport even though a concurrent <see cref="RequestClose" /> call
+		///     is about to set, or is in the middle of setting, <see cref="_closed" />. Handing back
 		///     <see langword="true" /> in that case would leave a "successful" session whose
 		///     <see cref="FeedDatagram" /> writes into an already-completed channel forever, silently
-		///     going nowhere. The check immediately after the <c>await</c> catches this and reports
-		///     failure instead; the transport is closed directly since it was never stored into
-		///     <see cref="_dtlsTransport" />; the residual window between BouncyCastle's internal
-		///     success and this check being observed cannot be forced deterministically, so it is not
-		///     covered by a test (see the fix report).
+		///     going nowhere. Reading <see cref="_closed" /> right after the <c>await</c> is not enough
+		///     by itself: with the registration still live (a plain <c>using</c>, disposed only as the
+		///     method unwinds), that read can still race a <see cref="RequestClose" /> call running
+		///     concurrently on the token's callback thread. The fix is the explicit
+		///     <c>registration.Dispose()</c> calls below, placed BEFORE the <see cref="_closed" /> read
+		///     on every path: <see cref="CancellationTokenRegistration.Dispose" /> is documented to
+		///     block until any in-flight callback has fully completed, and after it returns no callback
+		///     can start later either, so by the time <see cref="_closed" /> is read, <see cref="RequestClose" />
+		///     has either already run to completion or can never run at all — the read is deterministic,
+		///     not a race. The transport is closed directly since it was never stored into
+		///     <see cref="_dtlsTransport" />.
 		///     </para>
 		/// </summary>
 		public async Task<bool> DoHandshakeAsync(CancellationToken cancellationToken)
 		{
-			using CancellationTokenRegistration registration = cancellationToken.CanBeCanceled
+			CancellationTokenRegistration registration = cancellationToken.CanBeCanceled
 				? cancellationToken.Register(RequestClose)
 				: default;
 			try
 			{
 				DtlsTransport transport = await Task.Run(RunHandshake, cancellationToken).ConfigureAwait(false);
+
+				// Disposing here, before reading _closed, is load-bearing: it blocks until a
+				// concurrently-running RequestClose (from this same registration) has fully finished,
+				// and guarantees none can start afterward, so the read below can no longer race it.
+				registration.Dispose();
 
 				if (_closed)
 				{
@@ -204,6 +216,7 @@ namespace MiNET.Net.Rtc
 			}
 			catch (Exception ex)
 			{
+				registration.Dispose();
 				Log.Debug($"DTLS handshake failed ({(_isServer ? "server" : "client")}).", ex);
 				return false;
 			}
