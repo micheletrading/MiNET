@@ -25,6 +25,7 @@
 
 using System;
 using System.Buffers;
+using System.IO;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -43,6 +44,10 @@ namespace MiNET.Net.Rtc
 	///     done, immediately pumps it through <see cref="DtlsTransport.Receive(Span{byte}, int)" /> and
 	///     drains any records it bundled via <see cref="DtlsTransport.ReceivePending(Span{byte}, DtlsRecordCallback)" />,
 	///     all inline on the caller's thread. No background thread ever exists after the handshake.
+	///     Invariant: <see cref="_gate" /> serializes every access to <see cref="_dtlsTransport" /> and
+	///     <see cref="_receiveScratch" /> between <see cref="FeedDatagram" />'s drain section and
+	///     <see cref="Dispose" />, so a concurrent teardown can never return the scratch buffer to the
+	///     pool (or close the transport) while a drain still holds a span over it.
 	/// </summary>
 	public sealed class DtlsSession : IDisposable
 	{
@@ -64,9 +69,11 @@ namespace MiNET.Net.Rtc
 		private readonly Channel<(byte[] Leased, int Length)> _inbound = Channel.CreateUnbounded<(byte[] Leased, int Length)>();
 		private readonly byte[] _receiveScratch = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
 		private readonly DatagramTransportAdapter _transportAdapter;
+		private readonly object _gate = new object();
 
 		private DtlsTransport _dtlsTransport;
 		private volatile bool _handshakeDone;
+		private volatile bool _closed;
 		private int _disposed;
 
 		public DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, Action<ReadOnlyMemory<byte>> sendToWire)
@@ -82,7 +89,12 @@ namespace MiNET.Net.Rtc
 		///     Feeds one raw datagram demuxed as DTLS by <see cref="IceSession.OnDtlsDatagram" />.
 		///     Before the handshake completes this only queues the datagram for the blocking
 		///     <see cref="Task.Run" /> handshake thread to pick up. Afterwards it also drains it
-		///     immediately, inline, on the calling thread.
+		///     immediately, inline, on the calling thread, under <see cref="_gate" /> so a concurrent
+		///     <see cref="Dispose" /> can never free <see cref="_receiveScratch" /> out from under it
+		///     (Finding 3: the disposed check alone is check-then-act, not a real exclusion). A
+		///     <see cref="DtlsSessionClosedException" /> raised by the drain (Dispose or a cancelled
+		///     handshake closed the session while this call was in flight) is swallowed here: it is an
+		///     expected race during teardown, not a caller-visible failure.
 		/// </summary>
 		public void FeedDatagram(ReadOnlySpan<byte> datagram)
 		{
@@ -97,17 +109,39 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			if (_handshakeDone) DrainPending();
+			if (!_handshakeDone) return;
+
+			lock (_gate)
+			{
+				if (Volatile.Read(ref _disposed) != 0) return;
+
+				try
+				{
+					DrainPending();
+				}
+				catch (DtlsSessionClosedException)
+				{
+				}
+			}
 		}
 
 		/// <summary>
 		///     Runs BouncyCastle's blocking handshake protocol on a pool thread; this is the one
 		///     place this session ever blocks a thread. Resolves false, rather than throwing, on any
 		///     handshake failure, including a fingerprint mismatch raised from the server or client
-		///     certificate callbacks in <see cref="DtlsHandshakeServer" />/<see cref="DtlsHandshakeClient" />.
+		///     certificate callbacks in <see cref="DtlsHandshakeServer" />/<see cref="DtlsHandshakeClient" />,
+		///     or <paramref name="cancellationToken" /> being cancelled. The token only gates this one
+		///     call: <see cref="RequestClose" /> unblocks a handshake in-flight the same way
+		///     <see cref="Dispose" /> does (Finding 2: the token alone only prevents starting
+		///     <see cref="Task.Run" />, it does nothing once BouncyCastle's blocking Accept/Connect is
+		///     already running), and the registration is removed again once this call returns so a
+		///     later cancellation of the same token has no effect on the now-established session.
 		/// </summary>
 		public async Task<bool> DoHandshakeAsync(CancellationToken cancellationToken)
 		{
+			using CancellationTokenRegistration registration = cancellationToken.CanBeCanceled
+				? cancellationToken.Register(RequestClose)
+				: default;
 			try
 			{
 				_dtlsTransport = await Task.Run(RunHandshake, cancellationToken).ConfigureAwait(false);
@@ -140,28 +174,34 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     One receive-plus-drain cycle per queued raw datagram: <see cref="DtlsTransport.Receive" />
-		///     pulls the next queued datagram (non-blocking here, since it is already sitting in
-		///     <see cref="_inbound" />) and decodes its first record; <see cref="DtlsTransport.ReceivePending" />
+		///     pulls the next queued datagram and decodes its first record; <see cref="DtlsTransport.ReceivePending" />
 		///     then drains any further records BouncyCastle bundled from that same datagram without
 		///     touching the queue again. The outer loop repeats for any datagram left queued from a
 		///     previous call, so the session self-heals rather than falling behind.
+		///     <para>
+		///     The 1 passed to <c>Receive</c> is load-bearing, not a rounding choice (Finding 1).
+		///     BouncyCastle's own <c>Timeout.ForWaitMillis</c> treats 0 as "no deadline" (returns
+		///     null), and <c>Timeout.GetWaitMillis(null, ...)</c> always returns 0, so
+		///     <c>DtlsRecordLayer.Receive(buf, 0)</c> never builds a real deadline. If it discards a
+		///     record (wrong epoch, bad MAC, replay, retransmitted Finished per RFC 9146) it retries
+		///     internally against that same always-0, never-expiring wait and, once the queue is
+		///     genuinely empty, spins at CPU speed on this thread forever (verified against BC 2.7.0's
+		///     <c>DtlsRecordLayer.cs</c> and <c>Timeout.cs</c> source directly, not inferred). A
+		///     waitMillis of 1 makes <c>Timeout.ForWaitMillis</c> build a real, non-null deadline, so
+		///     BouncyCastle's retry loop provably re-checks a real elapsed-time computation each pass
+		///     and exits once that ~1 ms has genuinely elapsed; <see cref="ReceiveFromQueue" /> honours
+		///     it by actually blocking up to that long (via the same <see cref="CancellationTokenSource" />
+		///     already used for the handshake), so the wait is a bounded yield, not a busy spin.
+		///     </para>
 		/// </summary>
 		private void DrainPending()
 		{
 			DtlsTransport transport = _dtlsTransport;
 			if (transport == null) return;
 
-			// BouncyCastle's own Timeout.ForWaitMillis treats 0 the same way
-			// AbstractTlsPeer.GetHandshakeTimeoutMillis' default 0 is treated: "no deadline", not
-			// "don't wait". Receive(buf, 0) on a queue that is genuinely empty therefore never
-			// returns -1, it spins retrying forever. The guard below only ever calls it when
-			// _inbound.Reader.Count confirms a raw datagram is actually queued, so it always finds
-			// data on the first attempt; ReceivePending (which never touches the queue, only
-			// BouncyCastle's own already-parsed record buffer) is what may legitimately return
-			// nothing, hence the plain non-blocking drain there.
 			do
 			{
-				int n = transport.Receive(_receiveScratch.AsSpan(), 0);
+				int n = transport.Receive(_receiveScratch.AsSpan(), 1);
 				while (n > 0)
 				{
 					OnDecrypted?.Invoke(_receiveScratch.AsSpan(0, n));
@@ -171,11 +211,12 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     BouncyCastle calls this with waitMillis == 0 exactly once per <see cref="FeedDatagram" />
-		///     drain, to collect the datagram it just queued without ever waiting; that path skips the
-		///     <see cref="CancellationTokenSource" /> entirely so steady-state receive costs no timer.
-		///     A positive waitMillis only happens on the blocking <see cref="Task.Run" /> handshake
-		///     thread, waiting out BouncyCastle's retransmission schedule.
+		///     Serves both the blocking handshake thread (positive waitMillis, BouncyCastle's own
+		///     retransmission schedule) and <see cref="DrainPending" />'s post-handshake drain (always
+		///     1, never 0; see that method's doc comment). Every "nothing available" exit funnels
+		///     through <see cref="NoDataOrThrow" /> so a session closed mid-wait
+		///     (<see cref="RequestClose" />) aborts the caller instead of returning an ordinary -1 for
+		///     it to retry.
 		/// </summary>
 		private int ReceiveFromQueue(Span<byte> buffer, int waitMillis)
 		{
@@ -190,16 +231,16 @@ namespace MiNET.Net.Rtc
 				}
 				catch (OperationCanceledException)
 				{
-					return -1;
+					return NoDataOrThrow();
 				}
 			}
 
-			return canRead ? TryDeliverOne(buffer) : -1;
+			return canRead ? TryDeliverOne(buffer) : NoDataOrThrow();
 		}
 
 		private int TryDeliverOne(Span<byte> buffer)
 		{
-			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item)) return -1;
+			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item)) return NoDataOrThrow();
 
 			try
 			{
@@ -211,6 +252,18 @@ namespace MiNET.Net.Rtc
 			{
 				ArrayPool<byte>.Shared.Return(item.Leased);
 			}
+		}
+
+		/// <summary>
+		///     Finding 2/3's shared exit: a plain "nothing queued right now" is a normal -1 BouncyCastle
+		///     is expected to retry on its own schedule, but once <see cref="RequestClose" /> has fired
+		///     (<see cref="Dispose" />, or a cancelled <see cref="DoHandshakeAsync" />) the same "nothing
+		///     queued" moment must abort immediately instead, since nothing will ever arrive again.
+		/// </summary>
+		private int NoDataOrThrow()
+		{
+			if (_closed) throw new DtlsSessionClosedException();
+			return -1;
 		}
 
 		private void SendToWire(ReadOnlySpan<byte> buffer)
@@ -228,24 +281,61 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Completes the inbound channel so a handshake blocked in <see cref="ReceiveFromQueue" />
-		///     unblocks with -1 rather than hanging, closes the BouncyCastle transport if the
-		///     handshake reached that far, and returns every still-queued lease to the pool.
+		///     Shared unblock signal for <see cref="Dispose" /> and a cancelled <see cref="DoHandshakeAsync" />
+		///     (Finding 2): marks the session closed and completes the inbound channel's writer, so any
+		///     in-flight or future <see cref="ReceiveFromQueue" /> call that finds no datagram raises
+		///     <see cref="DtlsSessionClosedException" /> through <see cref="NoDataOrThrow" /> instead of
+		///     returning an ordinary -1 for BouncyCastle to retry on its own schedule. Idempotent:
+		///     completing an already-completed channel writer is a harmless no-op.
+		/// </summary>
+		private void RequestClose()
+		{
+			_closed = true;
+			_inbound.Writer.TryComplete();
+		}
+
+		/// <summary>
+		///     Marks the session closed (<see cref="RequestClose" />), unblocking a handshake still
+		///     running on the <see cref="Task.Run" /> thread, then, under <see cref="_gate" />, closes
+		///     the BouncyCastle transport if the handshake reached that far and returns every
+		///     still-queued lease to the pool. The gate excludes a concurrently running
+		///     <see cref="FeedDatagram" /> drain (Finding 3): either the drain finishes and releases the
+		///     gate before this section runs, or this section runs first and the drain's own disposed
+		///     check, repeated inside its own gate acquisition, bails out before touching the now-freed
+		///     <see cref="_receiveScratch" />.
 		/// </summary>
 		public void Dispose()
 		{
 			if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-			_inbound.Writer.TryComplete();
+			RequestClose();
 
-			_dtlsTransport?.Close();
-
-			while (_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
+			lock (_gate)
 			{
-				ArrayPool<byte>.Shared.Return(item.Leased);
-			}
+				_dtlsTransport?.Close();
 
-			ArrayPool<byte>.Shared.Return(_receiveScratch);
+				while (_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
+				{
+					ArrayPool<byte>.Shared.Return(item.Leased);
+				}
+
+				ArrayPool<byte>.Shared.Return(_receiveScratch);
+			}
+		}
+
+		/// <summary>
+		///     Thrown by <see cref="NoDataOrThrow" /> once the session has been closed
+		///     (<see cref="RequestClose" />) and no datagram is available. Deriving from
+		///     <see cref="IOException" /> is deliberate, verified against BC 2.7.0 source: BouncyCastle's
+		///     <c>DtlsTransport.Receive</c> catch ladder rethrows an <see cref="IOException" /> as-is
+		///     after failing the record layer, so this propagates out of Accept/Connect unwrapped,
+		///     unlike a <see cref="TlsTimeoutException" /> (silently absorbed by
+		///     <c>DtlsRecordLayer.ReceiveDatagram</c>'s own catch, one layer further down, and
+		///     indistinguishable there from an ordinary retry) or any other exception type (wrapped into
+		///     an opaque <see cref="TlsFatalAlert" />).
+		/// </summary>
+		private sealed class DtlsSessionClosedException : IOException
+		{
 		}
 
 		/// <summary>

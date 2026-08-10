@@ -78,5 +78,74 @@ namespace MiNET.Test.Rtc
 			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
 			Assert.IsFalse(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
 		}
+
+		/// <summary>
+		///     Regression for Finding 1 (drain livelock): replaying an already-seen ciphertext datagram
+		///     makes BouncyCastle's DTLS anti-replay window discard it on the server, forcing
+		///     DtlsRecordLayer.Receive to retry internally with nothing left queued. Before the fix
+		///     (DrainPending handing BouncyCastle a waitMillis of 0, which BouncyCastle treats as "no
+		///     deadline") that retry spun the caller's thread forever. FeedDatagram must now return
+		///     promptly, and the session must still carry legitimate application data afterward.
+		/// </summary>
+		[TestMethod]
+		public async Task ReplayedRecord_IsDiscarded_WithoutLivelock_AndSessionKeepsWorking()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			byte[] lastClientToServer = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes.Span));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				lastClientToServer = bytes.ToArray();
+				server.FeedDatagram(bytes.Span);
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			var firstReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => firstReceived.TrySetResult(payload.ToArray());
+			client.SendApplicationData(new byte[] {9, 9, 9});
+			CollectionAssert.AreEqual(new byte[] {9, 9, 9}, await firstReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+			Assert.IsNotNull(lastClientToServer, "expected to have captured the wire datagram carrying the application data");
+
+			byte[] replay = lastClientToServer;
+			await Task.Run(() => server.FeedDatagram(replay)).WaitAsync(TimeSpan.FromSeconds(2));
+
+			var secondReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => secondReceived.TrySetResult(payload.ToArray());
+			client.SendApplicationData(new byte[] {4, 5, 6});
+			CollectionAssert.AreEqual(new byte[] {4, 5, 6}, await secondReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     Regression for Finding 2 (decorative cancellation): the CancellationToken passed to
+		///     DoHandshakeAsync used to only gate starting the Task.Run, doing nothing once BouncyCastle's
+		///     blocking Accept/Connect was already running. Against a peer that never answers, cancelling
+		///     must now resolve the handshake false well before the 10 s internal handshake timeout.
+		/// </summary>
+		[TestMethod]
+		public async Task Cancelling_TheHandshake_ResolvesFalse_WellBeforeTheHandshakeTimeout()
+		{
+			var clientCert = RtcCertificate.CreateSelfSigned();
+			var serverCert = RtcCertificate.CreateSelfSigned();
+
+			// Nobody on the other end: sendToWire goes nowhere, so Connect() just keeps retransmitting
+			// ClientHello until either cancellation or its own 10 s handshake timeout.
+			using var client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, _ => { });
+
+			using var cts = new CancellationTokenSource();
+			Task<bool> handshake = client.DoHandshakeAsync(cts.Token);
+			cts.CancelAfter(TimeSpan.FromMilliseconds(300));
+
+			Assert.IsFalse(await handshake.WaitAsync(TimeSpan.FromSeconds(3)));
+		}
 	}
 }
