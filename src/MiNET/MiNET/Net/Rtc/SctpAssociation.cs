@@ -118,11 +118,10 @@ namespace MiNET.Net.Rtc
 		private const int FragmentThreshold = 1024;
 
 		// The send-side queue budget (bytes of payload resident - queued plus in-flight, not yet
-		// cumulatively acked - across the whole association): generous relative to the 128 KB congestion
-		// window cap (SctpSendQueue.CwndCap) so a healthy peer under ordinary jitter never has a
-		// fully-reliable Send blocked on it, but still bounded so a stalled or hostile peer cannot grow
-		// this association's memory without limit. Documented in the task report; callers needing a
-		// different budget pass their own value.
+		// cumulatively acked - across the whole association): the cap on how many bytes a stalled or
+		// slow peer can pin in one association's send queue, and therefore this association's
+		// worst-case resident memory. A send that would push the queue past this budget is refused
+		// (SctpSendQueue.HasRoomFor); callers needing a different budget pass their own value.
 		private const uint DefaultSendQueueBudgetBytes = 4_194_304;
 
 		// An inbound FORWARD-TSN's pair count is already implicitly bounded by SctpPacket.MaxSize (about
@@ -298,9 +297,8 @@ namespace MiNET.Net.Rtc
 		///     timeout deterministically (advance a fake clock, call <see cref="OnTick" />) instead of
 		///     paying real wall-clock delay up to <c>RtoMaxMillis</c> (10s) per retransmit round. Defaults
 		///     to the real clock; only tests (via the assembly's InternalsVisibleTo) ever replace it. The
-		///     existing handshake retransmit logic above intentionally still reads
-		///     <see cref="Environment.TickCount64" /> directly - it predates this seam and is out of this
-		///     task's scope, so it is left alone rather than switched over incidentally.
+		///     handshake retransmit logic above still reads <see cref="Environment.TickCount64" />
+		///     directly, not through this seam.
 		/// </summary>
 		internal Func<long> ClockNowMillis = () => Environment.TickCount64;
 
@@ -651,8 +649,7 @@ namespace MiNET.Net.Rtc
 		///     <see cref="HandleInit" />, <see cref="HandleInitAck" />, <see cref="HandleCookieEcho" />,
 		///     <see cref="HandleCookieAck" />). RFC 4960 8.5.1's special T-bit acceptance rule (an ABORT or
 		///     SHUTDOWN-COMPLETE whose tag echoes the PEER's own, rather than ours, is also acceptable) is
-		///     not implemented by this gate - out of this task's scope, see <see cref="HandleAbort" />'s own
-		///     remarks.
+		///     not implemented by this gate; see <see cref="HandleAbort" />'s own remarks.
 		///     </para>
 		/// </summary>
 		public void OnPacketReceived(ReadOnlyMemory<byte> packet)
@@ -752,7 +749,7 @@ namespace MiNET.Net.Rtc
 							// Never sent by this association (it never initiates a graceful shutdown), so
 							// one arriving is either a stray retransmit of our own SHUTDOWN-ACK's peer reply
 							// after we already tore down, or hostile - either way, dropped and counted like
-							// any other post-teardown packet, per the task brief.
+							// any other post-teardown packet.
 							CountIgnored();
 							break;
 
@@ -970,8 +967,8 @@ namespace MiNET.Net.Rtc
 		///     <see cref="SctpState.Aborted" /> alike, so it also guards this idempotency check itself). RFC
 		///     4960 8.5.1's special verification-tag acceptance rule for ABORT and SHUTDOWN-COMPLETE (accept
 		///     if the T bit is set and the tag echoes the PEER's own tag instead of ours, in addition to the
-		///     ordinary exact-match case the packet-level gate enforces) is deliberately NOT implemented -
-		///     out of this task's scope, not something the gate weakens or works around.
+		///     ordinary exact-match case the packet-level gate enforces) is deliberately not implemented:
+		///     the gate enforces only the exact-match case.
 		/// </summary>
 		private string HandleAbort()
 		{
@@ -987,8 +984,8 @@ namespace MiNET.Net.Rtc
 		/// <summary>
 		///     Server or client role, called under <see cref="_gate" />: an inbound SHUTDOWN answers with
 		///     SHUTDOWN-ACK, then tears down exactly like <see cref="HandleAbort" /> does. The chunk's own
-		///     Cumulative TSN Ack value is never read - no retransmission-aware graceful shutdown is in scope
-		///     here (see the task report), only tearing down on receipt - so any content there, garbage or
+		///     Cumulative TSN Ack value is never read: this handler tears down on receipt rather than
+		///     running a retransmission-aware graceful shutdown, so any content there, garbage or
 		///     otherwise, is tolerated without being parsed. Idempotent the same way <see cref="HandleAbort" />
 		///     is: a SHUTDOWN arriving after teardown is dropped and counted instead of answered again.
 		/// </summary>
@@ -1074,9 +1071,10 @@ namespace MiNET.Net.Rtc
 		///     <see cref="OnTick" />'s T3-rtx branch: packs every chunk <see cref="_sendQueue" /> currently
 		///     has ready (never yet sent, or marked for retransmission) into as many <see cref="SctpPacket.MaxSize" />
 		///     packets as the send window allows, oldest TSN first. A pending delayed SACK
-		///     (<see cref="_sackTimerArmed" />) bundles into the very first packet of the flush, if any -
-		///     "a pending SACK bundles with outgoing DATA" is this task's job, a standalone one with no data
-		///     to ride along is still <see cref="SendSackPacket" />'s and <see cref="MaybeSendSack" />'s.
+		///     (<see cref="_sackTimerArmed" />) bundles into the very first packet of the flush, if any:
+		///     this method is what bundles a pending SACK with outgoing DATA, while a standalone SACK
+		///     with no data to ride along is still <see cref="SendSackPacket" />'s and
+		///     <see cref="MaybeSendSack" />'s job.
 		///     <para>
 		///     Guarded by <see cref="_flushing" /> against the reentrancy this codebase's synchronous
 		///     loopback wiring produces: sending a packet here can synchronously walk all the way into the
@@ -1705,7 +1703,7 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     The testable seam for cookie age (documented in the task report): the same factory the
+		///     The testable seam for cookie age: the same factory the
 		///     server uses to answer a real INIT, exposed internally so a test can fabricate an otherwise
 		///     valid, correctly signed cookie whose embedded timestamp is already older than
 		///     <see cref="CookieMaxAgeMillis" />. Validation always runs against the real clock

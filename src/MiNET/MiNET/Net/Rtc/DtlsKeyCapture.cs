@@ -25,6 +25,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using Org.BouncyCastle.Tls;
 using Org.BouncyCastle.Tls.Crypto;
 using Org.BouncyCastle.Tls.Crypto.Impl;
@@ -54,6 +55,22 @@ namespace MiNET.Net.Rtc
 			ClientWriteIv = clientWriteIv;
 			ServerWriteIv = serverWriteIv;
 			CipherSuite = cipherSuite;
+		}
+
+		/// <summary>
+		///     Zeroes every key/IV array this instance owns. Called only from <see cref="DtlsSession.Dispose" />,
+		///     after <see cref="DtlsRecordCrypto" /> has itself been disposed: that class holds the two IV
+		///     arrays here as its live send/receive salts for as long as it runs (never a copy - see its
+		///     constructor), so zeroing them any earlier would corrupt every record it is still able to
+		///     encrypt or decrypt. The array instances themselves are unaffected and every property here
+		///     keeps returning them; only their contents change.
+		/// </summary>
+		internal void Zero()
+		{
+			CryptographicOperations.ZeroMemory(ClientWriteKey);
+			CryptographicOperations.ZeroMemory(ServerWriteKey);
+			CryptographicOperations.ZeroMemory(ClientWriteIv);
+			CryptographicOperations.ZeroMemory(ServerWriteIv);
 		}
 	}
 
@@ -97,13 +114,22 @@ namespace MiNET.Net.Rtc
 			};
 
 			byte[] keyBlock = TlsImplUtilities.CalculateKeyBlock(cryptoParams, 2 * keyLength + 2 * 4);
-
-			return new CapturedDtlsKeys(
-				clientWriteKey: keyBlock.AsSpan(0, keyLength).ToArray(),
-				serverWriteKey: keyBlock.AsSpan(keyLength, keyLength).ToArray(),
-				clientWriteIv: keyBlock.AsSpan(2 * keyLength, 4).ToArray(),
-				serverWriteIv: keyBlock.AsSpan(2 * keyLength + 4, 4).ToArray(),
-				cipherSuite: cryptoParams.SecurityParameters.CipherSuite);
+			try
+			{
+				return new CapturedDtlsKeys(
+					clientWriteKey: keyBlock.AsSpan(0, keyLength).ToArray(),
+					serverWriteKey: keyBlock.AsSpan(keyLength, keyLength).ToArray(),
+					clientWriteIv: keyBlock.AsSpan(2 * keyLength, 4).ToArray(),
+					serverWriteIv: keyBlock.AsSpan(2 * keyLength + 4, 4).ToArray(),
+					cipherSuite: cryptoParams.SecurityParameters.CipherSuite);
+			}
+			finally
+			{
+				// Every per-direction array above is its own copy (ToArray()); this intermediate is a
+				// second copy of the same key material with nothing else ever reading it again, so it is
+				// zeroed here rather than left for the GC to collect still holding plaintext key bytes.
+				CryptographicOperations.ZeroMemory(keyBlock);
+			}
 		}
 	}
 }

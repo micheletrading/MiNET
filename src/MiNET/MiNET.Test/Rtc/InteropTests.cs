@@ -216,8 +216,8 @@ namespace MiNET.Test.Rtc
 			ourUnreliable.Send(unreliableFromUs, asString: false);
 			CollectionAssert.AreEqual(unreliableFromUs, (await theyGotUnreliable).Data);
 
-			// Watch item 3 (heartbeats): idle the association for a few seconds, then prove it is still
-			// alive with one more round trip - not a heartbeat round trip itself. SIPSorcery 10.0.13 never
+			// Idle the association for a few seconds, then prove it is still alive with one more round
+			// trip - not a heartbeat round trip itself. SIPSorcery 10.0.13 never
 			// originates an SCTP HEARTBEAT (confirmed by reading its source: RTCSctpTransport/SctpAssociation
 			// wire nothing to a timer, and SctpTransport.RequestHeartbeat/ChangeHeartbeat are unused stub
 			// primitives), so there is no heartbeat traffic for this oracle to exercise on our
@@ -229,28 +229,27 @@ namespace MiNET.Test.Rtc
 			theirReliable.send(afterIdle, 0, afterIdle.Length);
 			CollectionAssert.AreEqual(afterIdle, (await weGotAfterIdle).Data);
 
-			// Watch item 1 (spec-strict close_notify): SIPSorcery's close() on an already-connected
-			// transport sends a DTLS close_notify ahead of its own SCTP-level graceful shutdown finishing
-			// over the same channel. RFC 5246 7.2.1 requires us to end the DTLS connection in both
-			// directions immediately on receiving it, which means never processing whatever SIPSorcery
-			// sends afterward on this transport - including its SCTP SHUTDOWN-COMPLETE, so this side's
-			// SctpAssociation does not, and is not expected to, reach SctpState.Aborted here; DTLS closure
-			// is the terminal event this watch item now proves, not an SCTP-level handshake. Bounded by
-			// the same WaitUntilAsync timeout pattern used for SIPSorcery's other quirks elsewhere in this
-			// file, in case dropping its final chunk leaves something in its own close() path waiting.
-			long ignoredBeforeClose = ourServer.AssociationIgnoredPacketCount;
+			// SIPSorcery's close() on an already-connected transport sends a DTLS close_notify ahead of
+			// its own SCTP-level graceful shutdown finishing over the same channel. RFC 5246 7.2.1
+			// requires us to end the DTLS connection in both directions immediately on receiving it, which
+			// means never processing whatever SIPSorcery sends afterward on this transport - including its
+			// SCTP SHUTDOWN-COMPLETE, so this side's SctpAssociation does not, and is not expected to,
+			// reach SctpState.Aborted here; DTLS closure is the terminal event this proves, not an
+			// SCTP-level handshake. Bounded by the same WaitUntilAsync timeout pattern used for
+			// SIPSorcery's other quirks elsewhere in this file, in case dropping its final chunk leaves
+			// something in its own close() path waiting.
 			theirClient.close();
 			Assert.IsTrue(await WaitUntilAsync(() => ourServer.DtlsSessionClosed, TimeSpan.FromSeconds(10)),
 				"our DTLS session never closed after SIPSorcery's close_notify");
 
-			// The old watch item's successor: SctpState.Aborted is no longer reachable by design (the
-			// SHUTDOWN-COMPLETE that would drive it there is dropped once DTLS closes), so what this
-			// proves instead is that the association left parked underneath a closed DTLS session -
-			// typically Established, never torn down - neither spins nor misbehaves on whatever SIPSorcery
-			// sends into the void afterward. AssociationIgnoredPacketCount is cumulative for the whole
-			// test, so the comparison is against the count captured just before close(), not zero.
-			await Task.Delay(TimeSpan.FromSeconds(1));
-			Assert.AreEqual(ignoredBeforeClose, ourServer.AssociationIgnoredPacketCount, "expected the association to neither spin nor misbehave once DTLS closed underneath it");
+			// SctpState.Aborted is no longer reachable once DTLS has closed: the SHUTDOWN-COMPLETE that
+			// would drive it there is dropped along with everything else the instant FeedDatagram's own
+			// _closed guard fires, which also means nothing SIPSorcery sends into the void after close()
+			// can ever move AssociationIgnoredPacketCount - an assertion resting on that alone could never
+			// fail for the reason it names. Driving the association directly with a packet carrying the
+			// wrong verification tag proves its own drop-and-count path still works, independently of
+			// whatever DTLS does or does not deliver to it.
+			AssertAssociationDropsAndCountsAWrongTagPacket(ourServer);
 		}
 
 		// Exit criterion 2: we dial SIPSorcery. Our client is the offerer.
@@ -349,23 +348,47 @@ namespace MiNET.Test.Rtc
 			theirUnreliable.send(unreliableToUs, 0, unreliableToUs.Length);
 			CollectionAssert.AreEqual(unreliableToUs, (await weGotUnreliable).Data);
 
-			// Watch item 3: see the identical comment in the other direction's test - SIPSorcery never
-			// originates a heartbeat in either role, so this idle-then-roundtrip is liveness evidence, not
-			// a heartbeat round trip.
+			// See the identical comment in the other direction's test - SIPSorcery never originates a
+			// heartbeat in either role, so this idle-then-roundtrip is liveness evidence, not a heartbeat
+			// round trip.
 			await Task.Delay(TimeSpan.FromSeconds(3));
 			Task<(byte[] Data, SIPSorcery.Net.DataChannelPayloadProtocols Protocol)> theyGotAfterIdle = ReceiveNextAsync(theirReliable, TimeSpan.FromSeconds(10));
 			byte[] afterIdle = {42};
 			ourReliable.Send(afterIdle, asString: false);
 			CollectionAssert.AreEqual(afterIdle, (await theyGotAfterIdle).Data);
 
-			// Watch item 1: see the identical comment in the other direction's test.
-			long ignoredBeforeClose = ourClient.AssociationIgnoredPacketCount;
+			// See the identical comment in the other direction's test.
 			theirServer.close();
 			Assert.IsTrue(await WaitUntilAsync(() => ourClient.DtlsSessionClosed, TimeSpan.FromSeconds(10)),
 				"our DTLS session never closed after SIPSorcery's close_notify");
 
-			await Task.Delay(TimeSpan.FromSeconds(1));
-			Assert.AreEqual(ignoredBeforeClose, ourClient.AssociationIgnoredPacketCount, "expected the association to neither spin nor misbehave once DTLS closed underneath it");
+			AssertAssociationDropsAndCountsAWrongTagPacket(ourClient);
+		}
+
+		/// <summary>
+		///     Drives <paramref name="peer" />'s underlying association directly with a packet carrying
+		///     the wrong verification tag - a real drop-and-count case per
+		///     <see cref="SctpAssociation.OnPacketReceived" />'s own remarks - and asserts
+		///     <see cref="SctpAssociation.IgnoredPacketCount" /> moves by exactly one. Exists because
+		///     <see cref="DtlsSession.FeedDatagram" />'s own <c>_closed</c> early return means nothing a
+		///     peer sends after DTLS closure can ever reach the association, so
+		///     <see cref="RtcPeer.AssociationIgnoredPacketCount" /> alone can never fail for "the
+		///     association ignores post-close traffic": this proves the association's own counting path
+		///     independently of whatever DTLS does or does not deliver to it.
+		/// </summary>
+		private static void AssertAssociationDropsAndCountsAWrongTagPacket(RtcPeer peer)
+		{
+			SctpAssociation association = peer.Association;
+			long before = association.IgnoredPacketCount;
+
+			uint wrongTag = unchecked(association.LocalVerificationTag + 1);
+			byte[] packet = new byte[12];
+			int n = SctpPacket.WriteHeader(packet, 5000, 5000, wrongTag);
+			SctpPacket.FinishChecksum(packet.AsSpan(0, n));
+
+			association.OnPacketReceived(packet.AsMemory(0, n));
+
+			Assert.AreEqual(before + 1, association.IgnoredPacketCount, "expected a packet carrying the wrong verification tag to be dropped and counted");
 		}
 	}
 }

@@ -208,7 +208,7 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     Leases a copy of <paramref name="payload" /> (the caller's span is transient; this copy is
-		///     the one the zero-alloc contract accepts, per the task brief) and appends a new chunk at the
+		///     the one the zero-alloc contract accepts) and appends a new chunk at the
 		///     tail, never yet transmitted.
 		/// </summary>
 		public void Enqueue(uint tsn, ushort streamId, ushort streamSeq, uint ppid, bool unordered, bool begin, bool end, ReadOnlySpan<byte> payload, int maxRetransmits)
@@ -356,10 +356,8 @@ namespace MiNET.Net.Rtc
 		///     earliest-only variant here.
 		///     </para>
 		///     <para>
-		///     Halving cwnd (rather than RFC 4960 7.2.3's harsher "cwnd = 1 MTU on a T3 timeout") is not an
-		///     oversight: it is what the task brief for this send path specified verbatim ("halve on
-		///     retransmit timeout"), a deliberate, plan-recorded simplification over strict RFC congestion
-		///     control, not a bug to reconcile here.
+		///     Halving cwnd (rather than RFC 4960 7.2.3's harsher "cwnd = 1 MTU on a T3 timeout") is a
+		///     deliberate simplification over strict RFC congestion control, not a bug to reconcile here.
 		///     </para>
 		/// </summary>
 		public void HandleTimeout(long nowMillis)
@@ -691,7 +689,7 @@ namespace MiNET.Net.Rtc
 
 			public int Length;
 
-			/// <summary>Negative means fully reliable (never abandoned); the task brief's <c>maxRetransmits &lt; 0</c> contract.</summary>
+			/// <summary>Negative means fully reliable (never abandoned): the <c>maxRetransmits &lt; 0</c> contract.</summary>
 			public int MaxRetransmits;
 
 			public int RetransmitCount;

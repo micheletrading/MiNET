@@ -142,8 +142,8 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     The strong cross-check: a real BouncyCastle handshake (Task 1's wired-pair pump,
-		///     <see cref="DtlsSession" />) hands out a real captured key block, then bytes cross the
+		///     The strong cross-check: a real BouncyCastle handshake (the wired-pair pump built from two
+		///     loopback-wired <see cref="DtlsSession" /> instances) hands out a real captured key block, then bytes cross the
 		///     BouncyCastle/native boundary in both directions. Direction one feeds a
 		///     <see cref="DtlsRecordCrypto" />-encrypted record straight into the peer's still-alive
 		///     BouncyCastle <c>DtlsTransport</c> via <see cref="DtlsSession.FeedDatagram" />; direction
@@ -458,6 +458,28 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(-1, client.EncryptRecord(ApplicationData, payload, wire));
 			// Exhaustion is permanent: a second attempt must still fail, never wrap back to 0.
 			Assert.AreEqual(-1, client.EncryptRecord(ApplicationData, payload, wire));
+		}
+
+		/// <summary>
+		///     The accept side of the boundary above: one sequence short of exhaustion still succeeds,
+		///     and only the record after that hits it. An off-by-one that rejected one sequence early
+		///     would fail this test without ever touching the exhaustion point itself.
+		/// </summary>
+		[TestMethod]
+		public void EncryptRecord_OneBeforeSequenceExhaustion_Succeeds_ThenNextReturnsMinusOne()
+		{
+			CapturedDtlsKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false);
+			client.SetSendSequenceForTesting((1UL << 48) - 2);
+
+			byte[] payload = {1, 2, 3};
+			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
+
+			int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
+			Assert.AreNotEqual(-1, wireLength, "expected the last non-exhausted sequence to still encrypt successfully");
+			Assert.AreEqual((1UL << 48) - 2, ReadSequence(wire.Slice(0, wireLength)));
+
+			Assert.AreEqual(-1, client.EncryptRecord(ApplicationData, payload, wire), "expected the very next record to hit sequence exhaustion");
 		}
 
 		[TestMethod]

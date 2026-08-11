@@ -88,6 +88,9 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only: how many inbound packets the underlying association has dropped and counted, for whatever reason - see <see cref="SctpAssociation.IgnoredPacketCount" />.</summary>
 		internal long AssociationIgnoredPacketCount => _association?.IgnoredPacketCount ?? 0;
 
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the underlying association, or <see langword="null" /> before <see cref="BuildSctpAssociation" /> has run. Lets a test drive <see cref="SctpAssociation.OnPacketReceived" /> directly, independently of whatever DTLS does or does not deliver to it, to prove the association's own drop-and-count behavior on its own terms.</summary>
+		internal SctpAssociation Association => _association;
+
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): whether the underlying <see cref="DtlsSession" /> has closed, by either a local <see cref="DtlsSession.Dispose" /> or an inbound close_notify/fatal alert - see <see cref="DtlsSession.IsClosed" />. <see langword="false" /> before <see cref="CreateDtlsSession" /> has run. Exists for interop tests proving a peer's close_notify tore this side's DTLS session down per RFC 5246 7.2.1, independently of whatever the SCTP association above it observes (a dropped post-close datagram means it may never reach <see cref="SctpState.Aborted" /> at all).</summary>
 		internal bool DtlsSessionClosed => _dtls?.IsClosed ?? false;
 
@@ -122,7 +125,7 @@ namespace MiNET.Net.Rtc
 		///     succeeded: the 30 s ICE consent-freshness timeout firing <see cref="IceSession.OnFailed" />
 		///     is the only source today. It is not raised for a handshake that never came up in the
 		///     first place, that failure is already observed through <see cref="WaitForTransportAsync" />
-		///     resolving <see langword="false" />. Stage 3 tears down the game session on this event.
+		///     resolving <see langword="false" />.
 		/// </summary>
 		public event Action OnTransportClosed;
 

@@ -182,5 +182,31 @@ namespace MiNET.Test.Rtc
 
 			Assert.ThrowsExactly<InvalidOperationException>(() => peer.CreateDataChannel("TooEarly"));
 		}
+
+		/// <summary>
+		///     <see cref="RtcPeer.SendApplicationData" /> is public, and its own size ceiling is only ever
+		///     enforced one layer down, in <see cref="DtlsSession.SendApplicationData" />: this proves the
+		///     public path actually reaches that guard and fails clearly - naming the limit in the message,
+		///     never a corrupted record - rather than silently truncating or throwing something opaque.
+		///     Every internal <see cref="SctpAssociation" /> send path already builds into an
+		///     <see cref="SctpPacket.MaxSize" /> buffer, so this call shape (a payload larger than that)
+		///     never happens from inside this codebase; only a misbehaving caller of the public API reaches it.
+		/// </summary>
+		[TestMethod]
+		public async Task SendApplicationData_PayloadLargerThanTheSctpPacketCeiling_ThrowsNamingTheLimit()
+		{
+			using var offererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			using var answererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			offererMux.Start();
+			answererMux.Start();
+
+			(RtcPeer client, RtcPeer server) = await ConnectAsync(offererMux, answererMux);
+			using var clientDisposable = client;
+			using var serverDisposable = server;
+
+			byte[] oversized = new byte[DtlsSession.MaxSendPayloadLength + 1];
+			ArgumentOutOfRangeException ex = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => client.SendApplicationData(oversized));
+			StringAssert.Contains(ex.Message, DtlsSession.MaxSendPayloadLength.ToString());
+		}
 	}
 }
