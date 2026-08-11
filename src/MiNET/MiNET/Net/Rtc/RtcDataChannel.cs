@@ -250,6 +250,21 @@ namespace MiNET.Net.Rtc
 		// this counter only ever steps by 2 from its role's own starting id.
 		private ushort _nextStreamId;
 
+		// Task 7: CreateChannel can now genuinely race SctpAssociation reaching Established - riding a
+		// real (if loopback) UdpMux/DTLS transport, an application can call it the instant RtcPeer's
+		// transport is ready, well before the SCTP four-way handshake that same readiness kicks off has
+		// actually finished. Sending DATA_CHANNEL_OPEN before Established would just be dropped
+		// (SctpAssociation.Send returns false pre-Established, and this class never inspects that return
+		// value), silently stranding the channel forever. _pendingOpens holds the already-built OPEN
+		// bytes for exactly that window; _established mirrors _association.State under this class's own
+		// _gate (rather than CreateChannel reading _association.State directly) so the two possible
+		// orderings between a CreateChannel call and the association's own OnEstablished firing are both
+		// race-free: whichever of CreateChannel's or OnAssociationEstablished's own critical section
+		// (both under _gate) runs first is authoritative, with no gap in between where an enqueue could
+		// be missed by an OnEstablished that already ran.
+		private readonly List<(ushort StreamId, byte[] OpenBytes)> _pendingOpens = new();
+		private bool _established;
+
 		private long _ignoredMessageCount;
 
 		/// <summary>Raised outside <see cref="_gate" />, once per inbound OPEN accepted: the reply ACK has already been sent by the time this fires (see <see cref="HandleOpen" />), and the channel is already <see cref="RtcDataChannel.IsOpen" />.</summary>
@@ -266,6 +281,19 @@ namespace MiNET.Net.Rtc
 			_nextStreamId = isClient ? (ushort) 0 : (ushort) 1;
 
 			_association.OnMessage += OnAssociationMessage;
+			_association.OnEstablished += OnAssociationEstablished;
+
+			// SctpAssociation.OnEstablished fires at most once, ever, and does not replay past
+			// invocations to a subscriber that registers after the fact - a real case, not just this
+			// class's own synchronous-loopback tests: a caller can pass in an association that already
+			// reached Established before constructing this manager at all (Task 7's RtcPeer builds both
+			// together, but nothing enforces that ordering on this constructor's own contract). No lock
+			// is needed for this read: nothing outside this constructor holds a reference to `this` yet
+			// to race CreateChannel against it, and State is a plain volatile read, so an interleaving
+			// with OnEstablished firing on another thread right around this line is still race-free -
+			// either this check or the live event catches the transition, and if both do, the second is
+			// a harmless no-op (OnAssociationEstablished's own drain finds an empty queue).
+			if (_association.State == SctpState.Established) _established = true;
 		}
 
 		/// <summary>
@@ -276,28 +304,95 @@ namespace MiNET.Net.Rtc
 		///     it opens once the peer's ACK arrives (see <see cref="HandleAck" />), which in a synchronous
 		///     loopback wiring - this task's tests, and NetherNet's own same-process topology in stage 2 -
 		///     already happened by the time this call returns.
+		///     <para>
+		///     Task 7 (single-lock fix): the stream-id claim and the channel's dictionary registration
+		///     used to be two separate <c>lock (_gate)</c> statements. Every real call path into this
+		///     class was, and still is, single-threaded per association on the receive side (driven
+		///     synchronously off <see cref="SctpAssociation.OnPacketReceived" />), but Task 7 gives
+		///     <see cref="CreateChannel" /> itself a second, genuinely concurrent caller: an application
+		///     thread, via <see cref="RtcPeer.CreateDataChannel" />, running independently of the mux
+		///     receive thread and the tick thread. Two separate critical sections left a window - between
+		///     claiming <paramref name="label" />'s stream id and registering the channel object under it
+		///     - during which <see cref="OnAssociationMessage" /> would find no channel for a stream id
+		///     this side had already claimed but not yet published; combining both into one critical
+		///     section below closes it, matching the flush/enqueue decision two paragraphs down, which
+		///     needs the same treatment for the same reason (see <see cref="OnAssociationEstablished" />'s
+		///     own remarks).
+		///     </para>
+		///     <para>
+		///     If <see cref="_association" /> is not yet <see cref="SctpState.Established" /> when this
+		///     is called - a real possibility once this rides an actual (if loopback) transport rather
+		///     than the synchronous wiring this class's own tests use, since an application can call this
+		///     the instant <see cref="RtcPeer" />'s transport is ready, before the SCTP handshake that
+		///     readiness just kicked off has finished - the built OPEN bytes are queued instead of sent,
+		///     and flushed once <see cref="OnAssociationEstablished" /> fires. The channel object and its
+		///     stream id are still handed back immediately either way: nothing about a caller's own use of
+		///     the returned <see cref="RtcDataChannel" /> depends on the OPEN having actually reached the
+		///     peer yet.
+		///     </para>
 		/// </summary>
 		public RtcDataChannel CreateChannel(string label, bool ordered, int maxRetransmits)
 		{
 			byte[] labelBytes = Encoding.UTF8.GetBytes(label);
 
+			RtcDataChannel channel;
 			ushort streamId;
 			lock (_gate)
 			{
 				streamId = _nextStreamId;
 				_nextStreamId = unchecked((ushort) (_nextStreamId + 2));
-			}
 
-			var channel = new RtcDataChannel(_association, streamId, label, ordered, maxRetransmits);
-			lock (_gate) _channelsByStreamId[streamId] = channel;
+				channel = new RtcDataChannel(_association, streamId, label, ordered, maxRetransmits);
+				_channelsByStreamId[streamId] = channel;
+			}
 
 			(byte channelType, uint reliabilityParameter) = ToChannelType(ordered, maxRetransmits);
 
 			Span<byte> buffer = stackalloc byte[OpenHeaderLength + labelBytes.Length];
 			int written = WriteOpen(buffer, channelType, priority: 0, reliabilityParameter, labelBytes);
-			_association.Send(streamId, DcepPpid, buffer.Slice(0, written), unordered: false, maxRetransmits: -1);
+
+			bool sendNow;
+			lock (_gate)
+			{
+				sendNow = _established;
+				if (!sendNow) _pendingOpens.Add((streamId, buffer.Slice(0, written).ToArray()));
+			}
+
+			if (sendNow) _association.Send(streamId, DcepPpid, buffer.Slice(0, written), unordered: false, maxRetransmits: -1);
 
 			return channel;
+		}
+
+		/// <summary>
+		///     Raised outside <see cref="SctpAssociation._gate" /> the instant <see cref="_association" />
+		///     reaches <see cref="SctpState.Established" /> (fires at most once per association's
+		///     lifetime). Flushes every OPEN <see cref="CreateChannel" /> had to queue because it ran
+		///     ahead of that moment, in the order those calls happened. See <see cref="CreateChannel" />'s
+		///     own remarks for why the established-check-then-maybe-enqueue and this method's own
+		///     established-flip-then-drain both need to run under this class's <see cref="_gate" /> as one
+		///     atomic step each: that, not <see cref="SctpAssociation" />'s own internal locking, is what
+		///     guarantees neither ordering between the two calls can lose a queued OPEN.
+		/// </summary>
+		private void OnAssociationEstablished()
+		{
+			List<(ushort StreamId, byte[] OpenBytes)> pending = null;
+			lock (_gate)
+			{
+				_established = true;
+				if (_pendingOpens.Count > 0)
+				{
+					pending = new List<(ushort, byte[])>(_pendingOpens);
+					_pendingOpens.Clear();
+				}
+			}
+
+			if (pending == null) return;
+
+			for (int i = 0; i < pending.Count; i++)
+			{
+				(ushort streamId, byte[] openBytes) = pending[i];
+				_association.Send(streamId, DcepPpid, openBytes, unordered: false, maxRetransmits: -1);
+			}
 		}
 
 		/// <summary>Dispatches every inbound message on <see cref="_association" />: DCEP control traffic (PPID 50) to <see cref="HandleDcep" />, everything else to whichever channel owns that stream id. A message for a stream id with no registered channel - stale, or a peer bug - is dropped and counted (was silent before this fix round; see <see cref="IgnoredMessageCount" />'s own remarks for why that hid a real bug), never dispatched.</summary>
@@ -360,6 +455,19 @@ namespace MiNET.Net.Rtc
 		///     network, not hostile) is counted but still re-ACKed: idempotent and RFC-friendly, but the
 		///     existing channel object - and whatever the application already subscribed to it - is never
 		///     rebuilt or silently swapped out, and <see cref="OnDataChannel" /> never fires twice for it.
+		///     <para>
+		///     Task 7 (single-lock fix): the duplicate-stream check and the new channel's registration
+		///     used to be two separate <c>lock (_gate)</c> statements (flagged in the task-6 report as a
+		///     TOCTOU believed unreachable only because every call into this class was, at the time,
+		///     single-threaded per association). That belief no longer holds once <see cref="CreateChannel" />
+		///     gets a genuinely concurrent caller (Task 7's application thread, via
+		///     <see cref="RtcPeer.CreateDataChannel" />) - not because two inbound OPENs for the same
+		///     stream id can now race each other (they still can't: every call into this method is still
+		///     driven synchronously, one datagram at a time, off <see cref="SctpAssociation.OnPacketReceived" />),
+		///     but because this method's own lookup-or-register step and <see cref="CreateChannel" />'s
+		///     claim-and-register step now touch the same dictionary from what could be two different
+		///     threads. Combined into one critical section below so there is no window between them.
+		///     </para>
 		/// </summary>
 		private void HandleOpen(ushort streamId, ReadOnlySpan<byte> bytes)
 		{
@@ -375,24 +483,46 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			RtcDataChannel existing;
-			lock (_gate) _channelsByStreamId.TryGetValue(streamId, out existing);
-			if (existing != null)
+			// Parsed before the lock: TryFromChannelType and the UTF-8 decode are pure and only need
+			// bytes.Length/labelBytes, which are stable for this whole synchronous call - no reason to
+			// hold _gate across them.
+			bool typeSupported = TryFromChannelType(channelType, reliabilityParameter, out bool ordered, out int maxRetransmits);
+			string label = typeSupported ? Encoding.UTF8.GetString(labelBytes) : null;
+
+			RtcDataChannel channel;
+			bool isNewChannel;
+			lock (_gate)
+			{
+				if (_channelsByStreamId.TryGetValue(streamId, out RtcDataChannel existing))
+				{
+					channel = existing;
+					isNewChannel = false;
+				}
+				else if (!typeSupported)
+				{
+					channel = null;
+					isNewChannel = false;
+				}
+				else
+				{
+					channel = new RtcDataChannel(_association, streamId, label, ordered, maxRetransmits);
+					_channelsByStreamId[streamId] = channel;
+					isNewChannel = true;
+				}
+			}
+
+			if (channel == null)
+			{
+				CountIgnored();
+				return;
+			}
+
+			if (!isNewChannel)
 			{
 				CountIgnored();
 				SendAck(streamId);
 				return;
 			}
-
-			if (!TryFromChannelType(channelType, reliabilityParameter, out bool ordered, out int maxRetransmits))
-			{
-				CountIgnored();
-				return;
-			}
-
-			string label = Encoding.UTF8.GetString(labelBytes);
-			var channel = new RtcDataChannel(_association, streamId, label, ordered, maxRetransmits);
-			lock (_gate) _channelsByStreamId[streamId] = channel;
 
 			SendAck(streamId);
 			channel.RaiseOpen();

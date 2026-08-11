@@ -48,14 +48,21 @@ namespace MiNET.Net.Rtc
 	///     <see cref="_receiveScratch" />, and <see cref="_directFeedBuffer" /> between
 	///     <see cref="FeedDatagram" />'s drain section and <see cref="Dispose" />, so a concurrent
 	///     teardown from another thread can never return either buffer to the pool (or close the
-	///     transport) while a drain still holds a span over one. A <c>lock</c> is a .NET Monitor, which
-	///     is reentrant on the thread that already owns it, so this alone does not stop a subscriber
-	///     calling <see cref="Dispose" /> synchronously from inside <see cref="OnDecrypted" /> while
-	///     <see cref="FeedDatagram" /> is still on the stack holding the gate: <see cref="_draining" />
-	///     tracks that case (touched only while holding <see cref="_gate" />, so it needs no
-	///     synchronization of its own) so a reentrant <see cref="Dispose" /> defers both buffers'
-	///     return to <see cref="FeedDatagram" />'s own unwind instead of freeing them out from under
-	///     the drain loop still running further up the same call stack.
+	///     transport) while a drain still holds a span over one - EXCEPT for the one deliberate window
+	///     <see cref="DrainPending" /> opens around each <see cref="OnDecrypted" /> call (stage 2's
+	///     "OnDecrypted lift": the gate is explicitly released for that one call and reacquired right
+	///     after, so a subscriber's own work never runs while blocking a concurrent
+	///     <see cref="FeedDatagram" /> or <see cref="SendApplicationData" /> caller).
+	///     <see cref="_draining" /> is what keeps the buffer-lifetime half of this invariant true across
+	///     that window regardless: set <see langword="true" /> before the window ever opens and not
+	///     cleared until the drain loop has fully stopped, so a <see cref="Dispose" /> that reaches
+	///     <see cref="_gate" /> during the window - reentrant on this same thread (a subscriber calling
+	///     <see cref="Dispose" /> synchronously from inside <see cref="OnDecrypted" />) or genuinely
+	///     concurrent on another thread (only possible now that the gate is not held for the callback's
+	///     whole duration) - always observes <see cref="_draining" /> true and defers both buffers'
+	///     return to <see cref="FeedDatagram" />'s own unwind instead of freeing them out from under the
+	///     drain loop still running further up the call stack (or, in the concurrent case, on another
+	///     thread entirely). See <see cref="DrainPending" />'s own remarks for the mechanics.
 	///     Threading: <see cref="FeedDatagram" /> itself is safe to call concurrently from multiple
 	///     threads (round 5), even though nothing in today's topology actually does so, a single
 	///     receive loop per <see cref="UdpMux" /> feeding one datagram at a time. Every datagram passed
@@ -240,6 +247,17 @@ namespace MiNET.Net.Rtc
 					return;
 				}
 
+				// Round-6 (OnDecrypted lift): a drain already in progress on another thread releases
+				// _gate for the duration of each OnDecrypted call (see DrainPending), so this call can
+				// reach here concurrently with one already under way. Starting a second, overlapping
+				// DrainPending here would call BouncyCastle's Receive/ReceivePending, and write
+				// _receiveScratch, from two threads at once - exactly the corruption round 5 already
+				// fixed for FeedDatagram's direct-feed path, reopened at this different call site by the
+				// gate no longer being held for the callback's whole duration. The datagram this call
+				// just enqueued onto _inbound is not lost: the in-progress drain's own outer loop
+				// re-checks _inbound.Reader.Count after every record it finishes and will pick it up.
+				if (_draining) return;
+
 				DrainLocked();
 			}
 		}
@@ -358,11 +376,24 @@ namespace MiNET.Net.Rtc
 		///     and application writes), and BouncyCastle's <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" />
 		///     walks record-layer sequence state that is not documented safe for concurrent callers.
 		///     Serialized on <see cref="_sendGate" />, a lock of its own rather than <see cref="_gate" />,
-		///     which the receive path holds across <see cref="OnDecrypted" />: sharing it here would
-		///     serialize every send behind whatever a subscriber does in that callback.
+		///     which the receive path no longer holds across <see cref="OnDecrypted" /> at all (see this
+		///     class's own Invariant remarks): sharing <see cref="_gate" /> here would still have
+		///     serialized every send behind whatever a subscriber does in that callback.
+		///     <para>
+		///     Throws <see cref="InvalidOperationException" /> before the handshake has completed, rather
+		///     than silently doing nothing: a caller sending before <see cref="_handshakeDone" /> (stage 2's
+		///     <see cref="SctpAssociation" /> handing this straight to its constructor as <c>sendPacket</c>)
+		///     would otherwise have its opening SCTP INIT dropped on the floor with no diagnostic at all,
+		///     an undiagnosable hang rather than a fixable bug. <see cref="_handshakeDone" /> is set only
+		///     after <see cref="_dtlsTransport" /> is assigned in <see cref="DoHandshakeAsync" />, and both
+		///     writes happen in that order on one thread with <see cref="_handshakeDone" /> volatile, so a
+		///     caller observing it true here is guaranteed to see a non-null <see cref="_dtlsTransport" />.
+		///     </para>
 		/// </summary>
 		public void SendApplicationData(ReadOnlySpan<byte> payload)
 		{
+			if (!_handshakeDone) throw new InvalidOperationException("DtlsSession.SendApplicationData called before the handshake completed.");
+
 			lock (_sendGate)
 			{
 				_dtlsTransport?.Send(payload);
@@ -390,6 +421,30 @@ namespace MiNET.Net.Rtc
 		///     it by actually blocking up to that long (via the same <see cref="CancellationTokenSource" />
 		///     already used for the handshake), so the wait is a bounded yield, not a busy spin.
 		///     </para>
+		///     <para>
+		///     Round-6 (stage 2, OnDecrypted lift): must be called, and always returns, with
+		///     <see cref="_gate" /> held exactly once (its callers, <see cref="DrainLocked" />'s two call
+		///     sites, both already hold it via an enclosing <c>lock</c>). Inside the inner <c>while</c>,
+		///     the gate is released for the exact duration of the <see cref="OnDecrypted" /> call and
+		///     reacquired immediately after, via explicit <see cref="Monitor.Exit(object)" />/
+		///     <see cref="Monitor.Enter(object)" /> rather than a nested <c>lock</c>: a plain .NET
+		///     <c>lock</c> is reentrant, so nesting one here would keep the gate held across the callback
+		///     exactly as before, defeating the point of this change. This is what lets a slow subscriber
+		///     (stage 2's <see cref="SctpAssociation.OnPacketReceived" />) run without blocking a
+		///     concurrent <see cref="FeedDatagram" /> call on another thread, and what stops a SACK a
+		///     handler sends synchronously in response (<see cref="DtlsSession.SendApplicationData" />,
+		///     <see cref="_sendGate" />) from ever nesting under this gate. The reentrancy and
+		///     deferred-scratch-return invariants this method's callers document still hold across the
+		///     released window: <see cref="_draining" /> is set <see langword="true" /> by
+		///     <see cref="DrainLocked" /> before this method is ever entered, and is not cleared until its
+		///     <c>finally</c> after this method returns, so any <see cref="Dispose" /> that manages to run
+		///     during the window - reentrant on this same thread (a subscriber calling
+		///     <see cref="Dispose" /> synchronously), or genuinely concurrent on another thread (newly
+		///     possible now that the gate is not held throughout) - observes <see cref="_draining" /> true
+		///     under its own <c>lock (_gate)</c> and defers returning <see cref="_receiveScratch" />/
+		///     <see cref="_directFeedBuffer" /> to this method's own unwind exactly as before, rather than
+		///     freeing either out from under the still-in-flight call.
+		///     </para>
 		/// </summary>
 		private void DrainPending()
 		{
@@ -401,14 +456,23 @@ namespace MiNET.Net.Rtc
 				int n = transport.Receive(_receiveScratch.AsSpan(), 1);
 				while (n > 0)
 				{
-					OnDecrypted?.Invoke(_receiveScratch.AsMemory(0, n));
+					int length = n;
+					Monitor.Exit(_gate);
+					try
+					{
+						OnDecrypted?.Invoke(_receiveScratch.AsMemory(0, length));
+					}
+					finally
+					{
+						Monitor.Enter(_gate);
+					}
 
-					// Round-2 Item 1: a subscriber may have called Dispose() from inside that
-					// invocation. Dispose is reentrant-safe on this thread (see the class doc
-					// comment's Invariant paragraph) and, when it runs while _draining is true,
-					// closes the transport and defers the scratch buffer's return rather than
-					// freeing it immediately, but it still closes the transport right away, so
-					// this loop must not call anything on it again once disposal has happened.
+					// Round-2 Item 1 (and, since the gate is no longer held across the call above,
+					// round-6's genuinely concurrent case too): a subscriber may have called Dispose()
+					// from inside that invocation, or a concurrent Dispose on another thread may have
+					// run while the gate was released. Either way Dispose is safe here (see this
+					// method's own Round-6 remarks): it closes the transport right away, so this loop
+					// must not call anything on it again once disposal has happened.
 					if (Volatile.Read(ref _disposed) != 0) return;
 
 					n = transport.ReceivePending(_receiveScratch.AsSpan(), null);

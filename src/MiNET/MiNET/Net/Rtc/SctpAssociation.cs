@@ -365,6 +365,36 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
+		///     Public, deliberate teardown entry point (Task 7: <see cref="RtcPeer.Dispose" /> calls this
+		///     so the association's own send/receive leases are released on the same path an inbound
+		///     ABORT/SHUTDOWN already uses, rather than just being abandoned to the GC). Sends a
+		///     best-effort ABORT to the peer - only when <see cref="SctpState.Established" />, since
+		///     nothing before that point has a peer verification tag worth addressing a packet to, or any
+		///     peer-side state worth notifying about (the stateless-cookie design in this class's own
+		///     remarks means the peer commits nothing until COOKIE-ECHO validates) - then runs the exact
+		///     same <see cref="Teardown" /> path <see cref="HandleAbort" />/<see cref="HandleShutdown" />
+		///     already use. Idempotent, the same way those are: a second call once already
+		///     <see cref="SctpState.Aborted" /> is a no-op, not a second ABORT on the wire or a second
+		///     <see cref="OnAborted" /> firing.
+		/// </summary>
+		public void Abort(string reason = "Local abort.")
+		{
+			string teardownReason;
+			lock (_gate)
+			{
+				if (_state == SctpState.Aborted) return;
+
+				if (_state == SctpState.Established) SendAbortPacket();
+
+				teardownReason = Teardown(reason);
+			}
+
+			// Raised outside _gate: see the class remarks and OnTick's identical pattern for its own
+			// abortReason.
+			OnAborted?.Invoke(teardownReason);
+		}
+
+		/// <summary>
 		///     Queues <paramref name="message" /> for delivery on <paramref name="streamId" />, fragmenting
 		///     it above <see cref="FragmentThreshold" /> bytes into consecutive-TSN, one-streamSeq B/middle/E
 		///     chunks, and flushes whatever the current send window (<c>min(peer a_rwnd, cwnd)</c>) allows
@@ -1306,6 +1336,18 @@ namespace MiNET.Net.Rtc
 			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
 			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
 			n += SctpChunkCodec.FinishChunk(buffer.Slice(n), ShutdownAckChunkType, 0, 0);
+			SctpPacket.FinishChecksum(buffer.Slice(0, n));
+			_sendPacket(buffer.Slice(0, n));
+		}
+
+		/// <summary>Called under <see cref="_gate" /> from <see cref="Abort" />: ABORT (RFC 4960 3.2, type 6), no error-cause TLVs - this side never has anything more specific than "the owner tore this down" to report.</summary>
+		private void SendAbortPacket()
+		{
+			var abort = new AbortChunk(ReadOnlySpan<byte>.Empty);
+
+			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
+			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
+			n += abort.WriteTo(buffer.Slice(n));
 			SctpPacket.FinishChecksum(buffer.Slice(0, n));
 			_sendPacket(buffer.Slice(0, n));
 		}
