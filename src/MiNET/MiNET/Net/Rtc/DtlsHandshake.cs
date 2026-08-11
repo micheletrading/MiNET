@@ -78,8 +78,8 @@ namespace MiNET.Net.Rtc
 
 		private int? _selectedSrtpProfile;
 
-		public DtlsHandshakeServer(RtcCertificate localCertificate, string expectedRemoteFingerprint)
-			: base(new BcTlsCrypto())
+		public DtlsHandshakeServer(CapturingTlsCrypto crypto, RtcCertificate localCertificate, string expectedRemoteFingerprint)
+			: base(crypto)
 		{
 			_localCertificate = localCertificate;
 			_expectedRemoteFingerprint = expectedRemoteFingerprint;
@@ -191,8 +191,8 @@ namespace MiNET.Net.Rtc
 		private readonly RtcCertificate _localCertificate;
 		private readonly string _expectedRemoteFingerprint;
 
-		public DtlsHandshakeClient(RtcCertificate localCertificate, string expectedRemoteFingerprint)
-			: base(new BcTlsCrypto())
+		public DtlsHandshakeClient(CapturingTlsCrypto crypto, RtcCertificate localCertificate, string expectedRemoteFingerprint)
+			: base(crypto)
 		{
 			_localCertificate = localCertificate;
 			_expectedRemoteFingerprint = expectedRemoteFingerprint;

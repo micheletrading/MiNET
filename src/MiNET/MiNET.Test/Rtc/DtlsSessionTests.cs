@@ -28,6 +28,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,6 +67,99 @@ namespace MiNET.Test.Rtc
 			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
 			client.SendApplicationData(new byte[] {1, 2, 3, 4});
 			CollectionAssert.AreEqual(new byte[] {1, 2, 3, 4}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+		}
+
+		/// <summary>
+		///     Pins the ground truth the native record layer is built against: the key block
+		///     <see cref="CapturingTlsCrypto" /> captures out of the handshake must be the actual
+		///     material BouncyCastle used to protect a real record, not merely present. Both sides
+		///     derive the same key block from the same master secret, so the two captures must agree
+		///     field for field; and a manual AES-GCM decrypt of one wire datagram BouncyCastle itself
+		///     encrypted, built entirely from the Wire facts (record header, explicit nonce, AAD) and
+		///     the captured client write key/salt, must recover the exact plaintext that was sent.
+		/// </summary>
+		[TestMethod]
+		public async Task Handshake_CapturesTheKeyBlock_AndItDecryptsARealBcRecord()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			byte[] lastClientToServer = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				lastClientToServer = bytes.ToArray();
+				server.FeedDatagram(bytes);
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			CapturedDtlsKeys clientSideKeys = client.CapturedKeys;
+			CapturedDtlsKeys serverSideKeys = server.CapturedKeys;
+			Assert.IsNotNull(clientSideKeys, "expected the client-role handshake to have captured a key block");
+			Assert.IsNotNull(serverSideKeys, "expected the server-role handshake to have captured a key block");
+
+			Assert.IsTrue(clientSideKeys.ClientWriteKey.Length == 16 || clientSideKeys.ClientWriteKey.Length == 32, "key length must match one of the two negotiated AES-GCM suites");
+			Assert.AreEqual(clientSideKeys.ClientWriteKey.Length, clientSideKeys.ServerWriteKey.Length);
+			Assert.AreEqual(4, clientSideKeys.ClientWriteIv.Length);
+			Assert.AreEqual(4, clientSideKeys.ServerWriteIv.Length);
+
+			CollectionAssert.AreEqual(clientSideKeys.ClientWriteKey, serverSideKeys.ClientWriteKey, "both sides derive the same key block from the same master secret");
+			CollectionAssert.AreEqual(clientSideKeys.ServerWriteKey, serverSideKeys.ServerWriteKey);
+			CollectionAssert.AreEqual(clientSideKeys.ClientWriteIv, serverSideKeys.ClientWriteIv);
+			CollectionAssert.AreEqual(clientSideKeys.ServerWriteIv, serverSideKeys.ServerWriteIv);
+			Assert.AreEqual(clientSideKeys.CipherSuite, serverSideKeys.CipherSuite);
+
+			byte[] plaintext = {10, 20, 30, 40, 50};
+			client.SendApplicationData(plaintext);
+			Assert.IsNotNull(lastClientToServer, "expected to have captured the wire datagram BouncyCastle encrypted");
+
+			byte[] recovered = ManuallyDecryptOneAeadRecord(lastClientToServer, clientSideKeys.ClientWriteIv, clientSideKeys.ClientWriteKey);
+			CollectionAssert.AreEqual(plaintext, recovered);
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     Decodes exactly one DTLS 1.2 AEAD record per the plan's Wire facts: header
+		///     type(1)|version(2)|epoch(2)|sequence(6)|length(2), fragment
+		///     explicit_nonce(8)|ciphertext|tag(16), GCM nonce = salt(4) + explicit_nonce(8), AAD =
+		///     epoch(2)|sequence(6)|type(1)|version(2)|plaintext_length(2). The explicit nonce is read
+		///     off the wire, never reconstructed from the header, per the same Wire facts.
+		/// </summary>
+		private static byte[] ManuallyDecryptOneAeadRecord(byte[] record, byte[] writeIvSalt, byte[] writeKey)
+		{
+			byte contentType = record[0];
+			Assert.AreEqual(0xFE, record[1], "DTLS 1.2 record version high byte");
+			Assert.AreEqual(0xFD, record[2], "DTLS 1.2 record version low byte");
+
+			int fragmentLength = (record[11] << 8) | record[12];
+			ReadOnlySpan<byte> fragment = record.AsSpan(13, fragmentLength);
+			ReadOnlySpan<byte> explicitNonce = fragment.Slice(0, 8);
+			ReadOnlySpan<byte> ciphertext = fragment.Slice(8, fragment.Length - 8 - 16);
+			ReadOnlySpan<byte> tag = fragment.Slice(fragment.Length - 16, 16);
+
+			Span<byte> nonce = stackalloc byte[12];
+			writeIvSalt.CopyTo(nonce);
+			explicitNonce.CopyTo(nonce.Slice(4));
+
+			Span<byte> aad = stackalloc byte[13];
+			record.AsSpan(3, 8).CopyTo(aad); // epoch(2) + sequence(6), straight off the record header
+			aad[8] = contentType;
+			aad[9] = record[1];
+			aad[10] = record[2];
+			aad[11] = (byte) (ciphertext.Length >> 8);
+			aad[12] = (byte) ciphertext.Length;
+
+			byte[] plaintext = new byte[ciphertext.Length];
+			using var aesGcm = new AesGcm(writeKey, 16);
+			aesGcm.Decrypt(nonce, ciphertext, tag, plaintext, aad);
+			return plaintext;
 		}
 
 		[TestMethod]

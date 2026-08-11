@@ -126,9 +126,20 @@ namespace MiNET.Net.Rtc
 		private int _directFeedLength = -1;
 
 		private DtlsTransport _dtlsTransport;
+		private CapturingTlsCrypto _capturingCrypto;
 		private volatile bool _handshakeDone;
 		private volatile bool _closed;
 		private int _disposed;
+
+		/// <summary>
+		///     The epoch-1 key block <see cref="CapturingTlsCrypto" /> captured out of this handshake.
+		///     Null until <see cref="RunHandshake" /> has run and BouncyCastle has actually created its
+		///     cipher (the point in the handshake where the key block first exists), which happens
+		///     strictly before <see cref="DoHandshakeAsync" /> can observe the handshake task as
+		///     complete, so a caller that has awaited a successful <see cref="DoHandshakeAsync" /> always
+		///     sees a non-null value here.
+		/// </summary>
+		internal CapturedDtlsKeys CapturedKeys => _capturingCrypto?.Captured;
 
 		// Both touched only while holding _gate (see the class doc comment's Invariant paragraph),
 		// so neither needs volatile or Interlocked: _gate's acquire/release already provides the
@@ -357,13 +368,15 @@ namespace MiNET.Net.Rtc
 
 		private DtlsTransport RunHandshake()
 		{
+			_capturingCrypto = new CapturingTlsCrypto();
+
 			if (_isServer)
 			{
-				var server = new DtlsHandshakeServer(_localCertificate, _expectedRemoteFingerprint);
+				var server = new DtlsHandshakeServer(_capturingCrypto, _localCertificate, _expectedRemoteFingerprint);
 				return new DtlsServerProtocol().Accept(server, _transportAdapter);
 			}
 
-			var client = new DtlsHandshakeClient(_localCertificate, _expectedRemoteFingerprint);
+			var client = new DtlsHandshakeClient(_capturingCrypto, _localCertificate, _expectedRemoteFingerprint);
 			return new DtlsClientProtocol().Connect(client, _transportAdapter);
 		}
 
