@@ -24,6 +24,9 @@
 #endregion
 
 using System;
+using System.Buffers.Binary;
+using System.Runtime.Intrinsics.Arm;
+using System.Runtime.Intrinsics.X86;
 
 namespace MiNET.Net.Rtc
 {
@@ -59,8 +62,81 @@ namespace MiNET.Net.Rtc
 		///     Folds another span into a running (not yet finalized) CRC state, so a caller can
 		///     compute a checksum across non-contiguous segments (e.g. a header copy plus the rest
 		///     of the original buffer) without concatenating them into one allocation first.
+		///     The SSE4.2 and ARM CRC32C instructions consume and produce the same reflected
+		///     accumulator as the table method, so the running state is identical bit-for-bit
+		///     regardless of which path advanced it; segments can freely mix paths call to call.
 		/// </summary>
 		internal static uint Continue(uint crc, ReadOnlySpan<byte> data)
+		{
+			if (Sse42.X64.IsSupported) return ContinueSse42X64(crc, data);
+			if (Sse42.IsSupported) return ContinueSse42(crc, data);
+			if (Crc32.Arm64.IsSupported) return ContinueArm64(crc, data);
+			if (Crc32.IsSupported) return ContinueArm32(crc, data);
+			return ContinueTable(crc, data);
+		}
+
+		// Eight bytes per CRC32 instruction on the 64-bit accumulator; the final 0-7 bytes that
+		// do not fill a ulong fall through to the byte-wise form, one instruction per leftover byte.
+		private static uint ContinueSse42X64(uint crc, ReadOnlySpan<byte> data)
+		{
+			ulong acc = crc;
+			while (data.Length >= 8)
+			{
+				acc = Sse42.X64.Crc32(acc, BinaryPrimitives.ReadUInt64LittleEndian(data));
+				data = data.Slice(8);
+			}
+			crc = (uint) acc;
+			foreach (byte b in data)
+			{
+				crc = Sse42.Crc32(crc, b);
+			}
+			return crc;
+		}
+
+		// Four bytes per CRC32 instruction where the 64-bit accumulator form is unavailable (32-bit
+		// process); the final 0-3 bytes fall through to the byte-wise form.
+		private static uint ContinueSse42(uint crc, ReadOnlySpan<byte> data)
+		{
+			while (data.Length >= 4)
+			{
+				crc = Sse42.Crc32(crc, BinaryPrimitives.ReadUInt32LittleEndian(data));
+				data = data.Slice(4);
+			}
+			foreach (byte b in data)
+			{
+				crc = Sse42.Crc32(crc, b);
+			}
+			return crc;
+		}
+
+		// Eight bytes per CRC32C instruction on aarch64; the final 0-7 bytes fall through to the
+		// byte-wise form.
+		private static uint ContinueArm64(uint crc, ReadOnlySpan<byte> data)
+		{
+			while (data.Length >= 8)
+			{
+				crc = Crc32.Arm64.ComputeCrc32C(crc, BinaryPrimitives.ReadUInt64LittleEndian(data));
+				data = data.Slice(8);
+			}
+			foreach (byte b in data)
+			{
+				crc = Crc32.ComputeCrc32C(crc, b);
+			}
+			return crc;
+		}
+
+		// 32-bit ARM has no wide accumulator form; every byte goes through one CRC32C instruction.
+		private static uint ContinueArm32(uint crc, ReadOnlySpan<byte> data)
+		{
+			foreach (byte b in data)
+			{
+				crc = Crc32.ComputeCrc32C(crc, b);
+			}
+			return crc;
+		}
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the table path, callable directly so a test can assert it agrees with whichever path <see cref="Continue" /> dispatches to on the machine actually running the test.</summary>
+		internal static uint ContinueTable(uint crc, ReadOnlySpan<byte> data)
 		{
 			foreach (byte b in data)
 			{
