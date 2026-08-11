@@ -73,16 +73,32 @@ namespace MiNET.Net.Rtc
 		// peer would retransmit forever with no exception ever thrown. Bound it.
 		private const int HandshakeTimeoutMillis = 10000;
 
+		// Internal, not private: DtlsHandshakeClient's own default (below) reuses this same array
+		// rather than keeping a second copy of the suite list in sync by hand.
+		internal static readonly int[] DefaultCipherSuites =
+		{
+			CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+		};
+
 		private readonly RtcCertificate _localCertificate;
 		private readonly string _expectedRemoteFingerprint;
+		private readonly int[] _cipherSuites;
 
 		private int? _selectedSrtpProfile;
 
-		public DtlsHandshakeServer(CapturingTlsCrypto crypto, RtcCertificate localCertificate, string expectedRemoteFingerprint)
+		/// <summary>
+		///     <paramref name="cipherSuites" /> is internal test-only surface (assembly's
+		///     InternalsVisibleTo to MiNETTests): production callers always leave it null, which offers
+		///     both suites this stack negotiates; a test can narrow it to force one, e.g. to prove the
+		///     native record layer against BouncyCastle under AES-256-GCM specifically.
+		/// </summary>
+		public DtlsHandshakeServer(CapturingTlsCrypto crypto, RtcCertificate localCertificate, string expectedRemoteFingerprint, int[] cipherSuites = null)
 			: base(crypto)
 		{
 			_localCertificate = localCertificate;
 			_expectedRemoteFingerprint = expectedRemoteFingerprint;
+			_cipherSuites = cipherSuites ?? DefaultCipherSuites;
 		}
 
 		public override bool RequiresExtendedMasterSecret()
@@ -102,11 +118,7 @@ namespace MiNET.Net.Rtc
 
 		protected override int[] GetSupportedCipherSuites()
 		{
-			return new[]
-			{
-				CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-			};
+			return _cipherSuites;
 		}
 
 		public override CertificateRequest GetCertificateRequest()
@@ -190,12 +202,15 @@ namespace MiNET.Net.Rtc
 
 		private readonly RtcCertificate _localCertificate;
 		private readonly string _expectedRemoteFingerprint;
+		private readonly int[] _cipherSuites;
 
-		public DtlsHandshakeClient(CapturingTlsCrypto crypto, RtcCertificate localCertificate, string expectedRemoteFingerprint)
+		/// <summary>See <see cref="DtlsHandshakeServer(CapturingTlsCrypto,RtcCertificate,string,int[])" />'s remarks on <paramref name="cipherSuites" />: the same internal test-only narrowing knob, mirrored on this role.</summary>
+		public DtlsHandshakeClient(CapturingTlsCrypto crypto, RtcCertificate localCertificate, string expectedRemoteFingerprint, int[] cipherSuites = null)
 			: base(crypto)
 		{
 			_localCertificate = localCertificate;
 			_expectedRemoteFingerprint = expectedRemoteFingerprint;
+			_cipherSuites = cipherSuites ?? DtlsHandshakeServer.DefaultCipherSuites;
 		}
 
 		public override bool RequiresExtendedMasterSecret()
@@ -215,11 +230,7 @@ namespace MiNET.Net.Rtc
 
 		protected override int[] GetSupportedCipherSuites()
 		{
-			return new[]
-			{
-				CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-			};
+			return _cipherSuites;
 		}
 
 		public override TlsAuthentication GetAuthentication()

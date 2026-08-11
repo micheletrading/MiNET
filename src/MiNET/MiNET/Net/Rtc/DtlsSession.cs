@@ -109,6 +109,7 @@ namespace MiNET.Net.Rtc
 		private readonly string _expectedRemoteFingerprint;
 		private readonly bool _isServer;
 		private readonly WireSender _sendToWire;
+		private readonly int[] _cipherSuites;
 		private readonly Channel<(byte[] Leased, int Length)> _inbound = Channel.CreateUnbounded<(byte[] Leased, int Length)>();
 		private readonly byte[] _receiveScratch = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
 		private readonly DatagramTransportAdapter _transportAdapter;
@@ -148,11 +149,24 @@ namespace MiNET.Net.Rtc
 		private bool _deferredScratchReturn;
 
 		public DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, WireSender sendToWire)
+			: this(localCertificate, expectedRemoteFingerprint, isServer, sendToWire, cipherSuites: null)
+		{
+		}
+
+		/// <summary>
+		///     Test visibility only (assembly's InternalsVisibleTo to MiNETTests):
+		///     <paramref name="cipherSuites" /> narrows what <see cref="DtlsHandshakeServer" />/
+		///     <see cref="DtlsHandshakeClient" /> offer, letting a test force one specific suite (e.g.
+		///     AES-256-GCM) to prove the native record layer against both key lengths this stack
+		///     negotiates. The public constructor above always passes null, which offers both.
+		/// </summary>
+		internal DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, WireSender sendToWire, int[] cipherSuites)
 		{
 			_localCertificate = localCertificate;
 			_expectedRemoteFingerprint = expectedRemoteFingerprint;
 			_isServer = isServer;
 			_sendToWire = sendToWire;
+			_cipherSuites = cipherSuites;
 			_transportAdapter = new DatagramTransportAdapter(this);
 		}
 
@@ -372,11 +386,11 @@ namespace MiNET.Net.Rtc
 
 			if (_isServer)
 			{
-				var server = new DtlsHandshakeServer(_capturingCrypto, _localCertificate, _expectedRemoteFingerprint);
+				var server = new DtlsHandshakeServer(_capturingCrypto, _localCertificate, _expectedRemoteFingerprint, _cipherSuites);
 				return new DtlsServerProtocol().Accept(server, _transportAdapter);
 			}
 
-			var client = new DtlsHandshakeClient(_capturingCrypto, _localCertificate, _expectedRemoteFingerprint);
+			var client = new DtlsHandshakeClient(_capturingCrypto, _localCertificate, _expectedRemoteFingerprint, _cipherSuites);
 			return new DtlsClientProtocol().Connect(client, _transportAdapter);
 		}
 
