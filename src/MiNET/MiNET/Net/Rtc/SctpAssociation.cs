@@ -1075,13 +1075,27 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     Server role, called under <see cref="_gate" />. Answers every well-formed INIT with a fresh
-		///     INIT-ACK regardless of <see cref="_state" />: the server commits nothing to memory here (see
-		///     class remarks), so there is no "already in progress" state to protect against a retransmitted
-		///     or duplicated INIT, only a fresh cookie each time.
+		///     INIT-ACK regardless of <see cref="_state" />, EXCEPT <see cref="SctpState.Aborted" />: the
+		///     server commits nothing to memory here for any state before that (see class remarks), so
+		///     there is no "already in progress" state to protect against a retransmitted or duplicated
+		///     INIT, only a fresh cookie each time. <see cref="SctpState.Aborted" /> is different: this
+		///     object maps 1:1 to one <see cref="RtcPeer" />'s single-use transport for its whole life, so
+		///     once torn down it must never answer anything again - a fresh INIT arriving after that point
+		///     (a genuinely new connection attempt on the same tag/ports, or hostile replay) gets no reply,
+		///     matching "once Aborted, no handler may transition state or send" (fix-round: a resurrection
+		///     hazard found and closed for <see cref="HandleCookieEcho" /> first; audited onto every other
+		///     handshake handler, this one included, since a stateless server-side handler is exactly the
+		///     kind of code most likely to be an overlooked exception to that rule).
 		/// </summary>
 		private void HandleInit(ReadOnlySpan<byte> value, uint verificationTag)
 		{
 			if (_isClient)
+			{
+				CountIgnored();
+				return;
+			}
+
+			if (_state == SctpState.Aborted)
 			{
 				CountIgnored();
 				return;
@@ -1155,10 +1169,38 @@ namespace MiNET.Net.Rtc
 		///     because our COOKIE-ACK was lost) is answered again without re-firing <see cref="OnEstablished" />.
 		///     Returns true when this call is the one that transitions to <see cref="SctpState.Established" />;
 		///     the caller raises <see cref="OnEstablished" /> itself, after releasing <see cref="_gate" />.
+		///     <para>
+		///     Fix round (resurrection hazard): <see cref="_localTag" /> is never invalidated by
+		///     <see cref="Teardown" />, and a signed cookie stays HMAC-valid for <see cref="CookieMaxAgeMillis" />
+		///     (60s) regardless of what has happened to this association since it was minted, so a
+		///     network-level retransmit of the client's own, still-perfectly-valid original COOKIE-ECHO can
+		///     arrive well after this side has already torn down (a local <see cref="Abort" />, or an
+		///     inbound ABORT/SHUTDOWN). Before this fix, <c>alreadyEstablished</c> below was computed only
+		///     from <c>_state == Established</c>, which is false once <see cref="SctpState.Aborted" />, so
+		///     the "not already established" branch ran again: overwriting the tags TryValidateCookie just
+		///     re-derived (harmless, since they are the SAME values by construction) but also calling
+		///     <see cref="SctpReceiveBuffer.Reset" />/<see cref="SctpSendQueue.Reset" /> (wiping
+		///     <see cref="Teardown" />'s own cleanup) and flipping <see cref="_state" /> back to
+		///     <see cref="SctpState.Established" />, resending COOKIE-ACK and re-firing
+		///     <see cref="OnEstablished" /> a second time on an association <see cref="RtcPeer.Dispose" />
+		///     already considers dead. The explicit <see cref="SctpState.Aborted" /> check below closes
+		///     this the same way <see cref="HandleCookieAck" /> already closed it on the client side (its
+		///     own <c>_state != CookieEchoed</c> guard already excludes <see cref="SctpState.Aborted" />
+		///     implicitly, which is why it needed no equivalent fix): once Aborted, this handler now
+		///     ignores-and-counts unconditionally, before even validating the cookie, so nothing about a
+		///     replayed COOKIE-ECHO - correct tag or not, still-valid cookie or not - can ever resurrect a
+		///     torn-down association.
+		///     </para>
 		/// </summary>
 		private bool HandleCookieEcho(ReadOnlySpan<byte> value, uint verificationTag)
 		{
 			if (_isClient)
+			{
+				CountIgnored();
+				return false;
+			}
+
+			if (_state == SctpState.Aborted)
 			{
 				CountIgnored();
 				return false;

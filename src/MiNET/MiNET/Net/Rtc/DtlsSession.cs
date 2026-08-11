@@ -389,6 +389,40 @@ namespace MiNET.Net.Rtc
 		///     writes happen in that order on one thread with <see cref="_handshakeDone" /> volatile, so a
 		///     caller observing it true here is guaranteed to see a non-null <see cref="_dtlsTransport" />.
 		///     </para>
+		///     <para>
+		///     Fix round, Critical finding 1(c): silently drops, rather than throwing, once
+		///     <see cref="_disposed" /> is set - deliberately the opposite of the pre-handshake case above.
+		///     The two are different in kind: sending before the handshake completes is a caller bug (there
+		///     was never anything to race, the caller simply called this too early), while a send racing
+		///     <see cref="Dispose" /> is a benign, EXPECTED race inherent to this class's teardown design -
+		///     an application thread and a concurrent (or reentrant) <see cref="Dispose" /> call are both
+		///     first-class, documented callers elsewhere in this class (see the class remarks' Invariant
+		///     paragraph), so throwing here would turn an ordinary shutdown race into a caller-visible
+		///     exception for code that did nothing wrong. Before this fix there was no guard at all: this
+		///     method could call straight into a <see cref="DtlsTransport" /> that <see cref="Dispose" />
+		///     was concurrently closing on another thread, since <see cref="_sendGate" /> and
+		///     <see cref="_gate" /> (which <see cref="Dispose" /> used, and still uses, for the rest of its
+		///     own teardown) are deliberately disjoint locks - confirmed a real, not just theoretical, gap:
+		///     a regression test proved BouncyCastle's <c>Send</c> still reached the wire after <c>Close</c>
+		///     had already run, rather than throwing or no-op'ing on its own.
+		///     </para>
+		///     <para>
+		///     The guard and <see cref="Dispose" />'s own <c>_dtlsTransport.Close()</c> call are
+		///     synchronized on <see cref="_sendGate" /> itself (chosen over a second, separate flag-only
+		///     scheme: <see cref="_disposed" /> already exists and is set atomically, first thing, in
+		///     <see cref="Dispose" />, before anything else - reusing it needs no new field). Lock-order
+		///     proof: both the disposed check below and <see cref="Dispose" />'s <c>_dtlsTransport.Close()</c>
+		///     call now run inside a <c>lock (_sendGate)</c> critical section (<see cref="Dispose" />
+		///     nests it inside its own pre-existing <c>lock (_gate)</c>, an order never used in reverse
+		///     anywhere in this class, so this introduces no new lock-order cycle), so whichever of the two
+		///     reaches <see cref="_sendGate" /> first runs to completion before the other can start: if this
+		///     method wins, <c>Send</c> fully finishes before <see cref="Dispose" /> can even call
+		///     <c>Close</c>; if <see cref="Dispose" /> wins, <see cref="_disposed" /> is already 1 (its
+		///     <c>Interlocked.Exchange</c> at the very top of <see cref="Dispose" /> strictly precedes the
+		///     <see cref="_sendGate" /> section) by the time this method's check ever runs, so <c>Send</c>
+		///     is never even attempted. Either way, <c>Send</c> and <c>Close</c> can never execute
+		///     concurrently on <see cref="_dtlsTransport" />.
+		///     </para>
 		/// </summary>
 		public void SendApplicationData(ReadOnlySpan<byte> payload)
 		{
@@ -396,6 +430,8 @@ namespace MiNET.Net.Rtc
 
 			lock (_sendGate)
 			{
+				if (Volatile.Read(ref _disposed) != 0) return;
+
 				_dtlsTransport?.Send(payload);
 			}
 		}
@@ -622,6 +658,17 @@ namespace MiNET.Net.Rtc
 		///     own <c>finally</c> performs the return once the drain has actually stopped.
 		///     <see cref="_directFeedBuffer" /> (round-4 Finding B) shares <see cref="_receiveScratch" />'s
 		///     lifetime exactly, so it is returned, or deferred, alongside it on both branches.
+		///     <para>
+		///     Fix round, Critical finding 1(c): <c>_dtlsTransport.Close()</c> now runs inside a nested
+		///     <c>lock (_sendGate)</c>, the same lock <see cref="SendApplicationData" /> takes around its
+		///     own disposed check and <c>Send</c> call - see that method's own remarks for the full
+		///     lock-order proof. Nested inside the pre-existing <c>lock (_gate)</c> here (an order,
+		///     <see cref="_gate" /> then <see cref="_sendGate" />, never used in reverse anywhere in this
+		///     class), so this adds no new lock-order cycle: <see cref="SendApplicationData" /> only ever
+		///     takes <see cref="_sendGate" /> alone, never <see cref="_gate" />, so it cannot be waiting on
+		///     this method to release <see cref="_gate" /> while this method waits on it for
+		///     <see cref="_sendGate" />.
+		///     </para>
 		/// </summary>
 		public void Dispose()
 		{
@@ -631,7 +678,10 @@ namespace MiNET.Net.Rtc
 
 			lock (_gate)
 			{
-				_dtlsTransport?.Close();
+				lock (_sendGate)
+				{
+					_dtlsTransport?.Close();
+				}
 
 				while (_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
 				{

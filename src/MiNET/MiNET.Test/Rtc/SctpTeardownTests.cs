@@ -25,6 +25,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Net.Rtc;
 
@@ -218,6 +219,123 @@ namespace MiNET.Test.Rtc
 			server.OnPacketReceived(BuildShutdownCompletePacket(server.LocalVerificationTag));
 			Assert.AreEqual(ignoredBefore + 1, server.IgnoredPacketCount);
 			Assert.AreEqual(1, abortedCount);
+		}
+
+		/// <summary>
+		///     Fix round, Critical finding 1: <see cref="SctpAssociation.Teardown" /> never invalidates
+		///     <see cref="SctpAssociation.LocalVerificationTag" />, and a signed cookie stays valid for up
+		///     to 60s regardless of what has happened to the association since it was minted, so a
+		///     network-level retransmit of the client's own, still-perfectly-signed original COOKIE-ECHO -
+		///     carrying the correct tag - can arrive well after this side has already torn down. Before the
+		///     fix, <c>HandleCookieEcho</c> computed "already established" only from
+		///     <see cref="SctpState.Established" />, so this replay resurrected the association: reset the
+		///     send/receive buffers <see cref="SctpAssociation.Abort" /> had just released, flipped state
+		///     back to Established, resent COOKIE-ACK, and re-fired <see cref="SctpAssociation.OnEstablished" />
+		///     a second time on an association its owner already considers dead.
+		/// </summary>
+		[TestMethod]
+		public void RetransmittedCookieEcho_AfterAbort_DoesNotResurrectTheAssociation()
+		{
+			SctpAssociation server = null;
+			SctpAssociation client = null;
+			var clientSent = new List<byte[]>();
+			var serverSent = new List<byte[]>();
+
+			client = new SctpAssociation(true, Port, ArwndBudget, p =>
+			{
+				clientSent.Add(p.ToArray());
+				server.OnPacketReceived(p.ToArray());
+			});
+			server = new SctpAssociation(false, Port, ArwndBudget, p =>
+			{
+				serverSent.Add(p.ToArray());
+				client.OnPacketReceived(p.ToArray());
+			});
+
+			int establishedCount = 0;
+			server.OnEstablished += () => establishedCount++;
+
+			client.Start();
+			Assert.AreEqual(SctpState.Established, client.State);
+			Assert.AreEqual(SctpState.Established, server.State);
+			Assert.AreEqual(1, establishedCount);
+
+			// The client's own COOKIE-ECHO from the real handshake above, captured so it can be replayed
+			// verbatim - a genuine network-level retransmit, not a hand-forged packet.
+			byte[] cookieEchoPacket = clientSent.Single(p => ContainsChunkType(p, SctpChunkType.CookieEcho));
+
+			server.Abort();
+			Assert.AreEqual(SctpState.Aborted, server.State);
+
+			serverSent.Clear();
+			long ignoredBefore = server.IgnoredPacketCount;
+
+			server.OnPacketReceived(cookieEchoPacket);
+
+			Assert.AreEqual(SctpState.Aborted, server.State, "a replayed COOKIE-ECHO must not resurrect an aborted association");
+			Assert.AreEqual(1, establishedCount, "OnEstablished must not fire a second time");
+			Assert.AreEqual(0, serverSent.Count, "no COOKIE-ACK, or anything else, must be sent once aborted");
+			Assert.AreEqual(ignoredBefore + 1, server.IgnoredPacketCount);
+		}
+
+		/// <summary>
+		///     Fix round, Critical finding 1's audit: <c>HandleInit</c> answered every well-formed INIT
+		///     with a fresh INIT-ACK regardless of state, by design, for every state except
+		///     <see cref="SctpState.Aborted" /> - which it never checked. Deliberately aborts a server
+		///     association that never validated a COOKIE-ECHO (<see cref="SctpAssociation.LocalVerificationTag" />
+		///     is therefore still its default, 0), not an already-established one: an INIT's own
+		///     packet-level verification tag is always 0 per RFC 4960 5.1, so against an
+		///     already-established-then-aborted server (nonzero tag) the pre-existing packet-level
+		///     wrong-tag gate in <c>OnPacketReceived</c> already drops it before <c>HandleInit</c> is ever
+		///     reached, which would make this test pass for the wrong reason regardless of whether
+		///     <c>HandleInit</c>'s own check exists. With <see cref="SctpAssociation.LocalVerificationTag" />
+		///     still 0, that gate does not fire (0 != 0 is false), so the packet does reach
+		///     <c>HandleInit</c>, and only its own check can stop it - a real, reachable path: any server
+		///     association aborted before its handshake ever completed (an inbound ABORT/SHUTDOWN, or a
+		///     local <see cref="SctpAssociation.Abort" />, arriving before a COOKIE-ECHO ever validated).
+		/// </summary>
+		[TestMethod]
+		public void Init_AfterAbortBeforeEverEstablishing_IsIgnoredAndCounted_NoInitAckSent()
+		{
+			var serverSent = new List<byte[]>();
+			var server = new SctpAssociation(false, Port, ArwndBudget, p => serverSent.Add(p.ToArray()));
+
+			server.Abort();
+			Assert.AreEqual(SctpState.Aborted, server.State);
+			Assert.AreEqual((uint) 0, server.LocalVerificationTag, "precondition: never having validated a cookie, the tag is still its default");
+			long ignoredBefore = server.IgnoredPacketCount;
+
+			var freshInit = new InitChunk(RandomTag(), ArwndBudget, ushort.MaxValue, ushort.MaxValue, RandomTag(), forwardTsnSupported: true);
+			byte[] packetArray = new byte[SctpPacket.MaxSize];
+			Span<byte> packet = packetArray;
+			int n = SctpPacket.WriteHeader(packet, Port, Port, 0); // RFC 4960 5.1: tag 0 on the packet carrying INIT
+			n += freshInit.WriteTo(packet.Slice(n));
+			SctpPacket.FinishChecksum(packet.Slice(0, n));
+
+			server.OnPacketReceived(packetArray.AsMemory(0, n));
+
+			Assert.AreEqual(SctpState.Aborted, server.State);
+			Assert.AreEqual(0, serverSent.Count, "no INIT-ACK must be sent once aborted, even when the packet-level tag gate does not itself catch it");
+			Assert.AreEqual(ignoredBefore + 1, server.IgnoredPacketCount);
+		}
+
+		private static uint RandomTag()
+		{
+			Span<byte> bytes = stackalloc byte[4];
+			System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+			return System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes);
+		}
+
+		private static bool ContainsChunkType(byte[] packet, byte chunkType)
+		{
+			SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(packet);
+			while (enumerator.MoveNext())
+			{
+				(byte type, byte _, ReadOnlySpan<byte> _) = enumerator.Current;
+				if (type == chunkType) return true;
+			}
+
+			return false;
 		}
 	}
 }

@@ -206,6 +206,53 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
+		///     Fix round, Critical finding 1(c): a caller racing an application send against
+		///     <see cref="DtlsSession.Dispose" /> is a benign, expected race this class's teardown design
+		///     tolerates (unlike the pre-handshake case above, a caller bug, which throws) - but before
+		///     this fix, <see cref="DtlsSession.SendApplicationData" /> had no disposed guard at all, so it
+		///     called straight into a <see cref="Org.BouncyCastle.Tls.DtlsTransport" /> that
+		///     <see cref="DtlsSession.Dispose" /> could be concurrently <c>Close()</c>-ing on another
+		///     thread (<c>_sendGate</c> and <c>_gate</c> were, and remain, disjoint locks). Must not throw,
+		///     must not touch the transport, once disposed.
+		/// </summary>
+		[TestMethod]
+		public async Task SendApplicationData_AfterDispose_IsSilentlyDropped_DoesNotThrow()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			bool clientDisposed = false;
+			bool clientSentAnythingAfterDispose = false;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				if (clientDisposed) clientSentAnythingAfterDispose = true;
+				server.FeedDatagram(bytes);
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			client.Dispose();
+			clientDisposed = true;
+
+			// Must not throw (silently dropped, exactly like the already-covered "no delivery after
+			// Dispose" case above, just exercised directly against the disposed side's own send path
+			// rather than the peer's receive path) AND must never reach the wire: a guard that only
+			// swallowed an exception from a still-attempted send would not be enough, since that send is
+			// the exact thing racing DtlsSession.Dispose's own _dtlsTransport.Close() on another thread in
+			// the real bug this fixes.
+			client.SendApplicationData(new byte[] {1, 2, 3});
+
+			Assert.IsFalse(clientSentAnythingAfterDispose, "SendApplicationData must not touch the transport at all once disposed");
+
+			server.Dispose();
+		}
+
+		/// <summary>
 		///     Regression for round 5 (concurrent FeedDatagram): before the fix, the direct-feed fast
 		///     path's guard check, its copy into the shared staging buffer, and the length flag it set
 		///     all ran outside the lock, so two threads could both pass the empty-channel guard and race
