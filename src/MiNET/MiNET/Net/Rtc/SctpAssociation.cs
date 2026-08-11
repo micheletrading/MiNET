@@ -201,6 +201,31 @@ namespace MiNET.Net.Rtc
 		private ushort _peerInboundStreams;
 		private byte[] _cookie;
 
+		/// <summary>
+		///     Fix-round (Critical, Task 8 review): set by <see cref="HandleInit" /> every time this side
+		///     answers a peer's INIT with an INIT-ACK, <see langword="null" /> until the first one.
+		///     Deliberately NOT protocol state: this class stays a stateless INIT responder exactly as the
+		///     class remarks describe (nothing commits until a COOKIE-ECHO validates), and this field never
+		///     influences what this side accepts or rejects on the wire - it only suppresses THIS side's
+		///     own <see cref="Start" /> for as long as the cookie just handed out could still be echoed
+		///     back (<see cref="CookieMaxAgeMillis" />, the same window <see cref="TryValidateCookie" />
+		///     itself enforces).
+		///     <para>
+		///     Without this, a corruption was reachable with no adversary involved: a peer sends INIT, this
+		///     side answers INIT-ACK and (correctly, by design) commits nothing - <see cref="_state" /> stays
+		///     <see cref="SctpState.Closed" />. If this side's OWN application then calls
+		///     <see cref="RtcChannelManager.CreateChannel" /> before the peer's COOKIE-ECHO arrives,
+		///     <see cref="Start" />'s <see cref="SctpState.Closed" /> check alone could not tell a genuinely
+		///     idle association from one with a responder handshake already in flight, so it would flip
+		///     <see cref="_isClient" /> and mint a competing INIT of its own - and the peer's still-valid,
+		///     still-in-flight COOKIE-ECHO would then hit <see cref="HandleCookieEcho" />'s <c>_isClient</c>
+		///     gate and be dropped on every retransmit, corrupting a handshake that had nothing wrong with
+		///     it. A stale hint is harmless (an expired one just costs <see cref="Start" /> one extra check
+		///     before it initiates normally), so this is never cleared early - only read against the clock.
+		///     </para>
+		/// </summary>
+		private long? _lastRespondedInitAtTicks;
+
 		// Handshake retransmit state: armed only while this side is itself waiting on a reply to
 		// something it sent (CookieWait/CookieEchoed, see OnTick), which after Task 8 is no longer
 		// exclusively the DTLS-client-designated side - see Start()'s own remarks. Reset to a fresh RTO
@@ -368,10 +393,14 @@ namespace MiNET.Net.Rtc
 		///     Sends the opening INIT and arms the retransmit timer, claiming the SCTP-initiator role for
 		///     this side (<see cref="_isClient" />, independent of whatever DTLS-role designation this
 		///     instance was constructed with - see that field's own remarks). Idempotent: a no-op once
-		///     <see cref="_state" /> has already left <see cref="SctpState.Closed" />, by any means -
-		///     already self-initiated by an earlier call, or already answering the peer's own INIT via
-		///     <see cref="HandleInit" /> - so every caller can call this unconditionally and "maybe" rather
-		///     than needing to know which.
+		///     <see cref="_state" /> has already left <see cref="SctpState.Closed" /> by self-initiating
+		///     earlier, and ALSO a no-op while a responder handshake this side answered is still possibly
+		///     in flight (<see cref="_lastRespondedInitAtTicks" /> - <see cref="HandleInit" /> deliberately
+		///     never changes <see cref="_state" /> when answering as a stateless responder, so that state
+		///     alone cannot distinguish "genuinely idle" from "already offered a cookie to a peer whose
+		///     COOKIE-ECHO just has not arrived yet" - see that field's own remarks for the corruption this
+		///     closes). Either way, every caller can call this unconditionally and "maybe" rather than
+		///     needing to know which.
 		///     <para>
 		///     Task 7 had exactly one caller (<see cref="RtcPeer.RunHandshakeAsync" />, gated on
 		///     <c>_dtlsIsClient</c>): RFC 8841 does not mandate who initiates, but NetherNet has the DTLS
@@ -387,7 +416,10 @@ namespace MiNET.Net.Rtc
 		///     what lets <see cref="RtcChannelManager.CreateChannel" /> now also call it - unconditionally,
 		///     the moment local demand exists and nothing has started yet - as a second, demand-driven
 		///     trigger alongside the original DTLS-client eagerness, without either caller needing to
-		///     coordinate with or even know about the other.
+		///     coordinate with or even know about the other. The remaining case that leaves - both sides
+		///     genuinely self-initiating with nothing received yet from the other - is not blocked here at
+		///     all: see <see cref="HandleInit" />/<see cref="HandleCookieEcho" />'s own remarks for how that
+		///     collision converges instead of deadlocking.
 		///     </para>
 		/// </summary>
 		public void Start()
@@ -395,6 +427,8 @@ namespace MiNET.Net.Rtc
 			lock (_gate)
 			{
 				if (_state != SctpState.Closed) return;
+
+				if (_lastRespondedInitAtTicks is long respondedAt && Environment.TickCount64 - respondedAt < CookieMaxAgeMillis) return;
 
 				_isClient = true;
 				_localTag = RandomUInt32();
@@ -1125,32 +1159,74 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Server role, called under <see cref="_gate" />. Answers every well-formed INIT with a fresh
-		///     INIT-ACK regardless of <see cref="_state" />, EXCEPT <see cref="SctpState.Aborted" />: the
-		///     server commits nothing to memory here for any state before that (see class remarks), so
-		///     there is no "already in progress" state to protect against a retransmitted or duplicated
-		///     INIT, only a fresh cookie each time. <see cref="SctpState.Aborted" /> is different: this
-		///     object maps 1:1 to one <see cref="RtcPeer" />'s single-use transport for its whole life, so
-		///     once torn down it must never answer anything again - a fresh INIT arriving after that point
-		///     (a genuinely new connection attempt on the same tag/ports, or hostile replay) gets no reply,
+		///     Called under <see cref="_gate" />. Answers every well-formed INIT with a fresh INIT-ACK
+		///     regardless of <see cref="_state" />, EXCEPT <see cref="SctpState.Aborted" />: the responder
+		///     path commits nothing to memory here for any state before that (see class remarks), so there
+		///     is no "already in progress" state to protect against a retransmitted or duplicated INIT,
+		///     only a fresh cookie each time. <see cref="SctpState.Aborted" /> is different: this object
+		///     maps 1:1 to one <see cref="RtcPeer" />'s single-use transport for its whole life, so once
+		///     torn down it must never answer anything again - a fresh INIT arriving after that point (a
+		///     genuinely new connection attempt on the same tag/ports, or hostile replay) gets no reply,
 		///     matching "once Aborted, no handler may transition state or send" (fix-round: a resurrection
 		///     hazard found and closed for <see cref="HandleCookieEcho" /> first; audited onto every other
-		///     handshake handler, this one included, since a stateless server-side handler is exactly the
+		///     handshake handler, this one included, since a stateless responder handler is exactly the
 		///     kind of code most likely to be an overlooked exception to that rule).
+		///     <para>
+		///     Fix-round (Critical, Task 8 review): a self-initiated instance is not unconditionally
+		///     excluded from answering an INIT the way it was before this round. RFC 4960 5.2.1's
+		///     simultaneous-INIT collision - both sides start before receiving anything from the other -
+		///     lands exactly here: an INIT arriving while this side is itself in
+		///     <see cref="SctpState.CookieWait" /> (already sent its own, still awaiting the reply) is the
+		///     peer's own INIT crossing ours in flight, not hostile or stale, and answering it is what lets
+		///     both sides converge instead of each dropping the other's opening chunk and retrying to
+		///     exhaustion. This is the convergent subset of 5.2.1 this stack implements, not the fuller
+		///     duplicate-association tie-break RFC 4960 5.2.2-5.2.4 describe for a restart after one side
+		///     already reached <see cref="SctpState.Established" /> or <see cref="SctpState.CookieEchoed" />
+		///     - those remain dropped-and-counted exactly as before. The collision answer reuses this
+		///     side's OWN EXISTING tag and initial TSN (never a fresh pair) per RFC 4960 5.2.1's own rule:
+		///     the peer must be able to recognize the reply as completing the SAME identity it already has
+		///     half of, and <see cref="_state" /> is deliberately left at <see cref="SctpState.CookieWait" />
+		///     rather than touched here - this side's own outstanding INIT/COOKIE-ECHO round trip
+		///     (<see cref="HandleInitAck" />/<see cref="HandleCookieAck" />) is left to run its course and
+		///     either completes or quietly finds itself already <see cref="SctpState.Established" /> once
+		///     the peer's own COOKIE-ECHO reaches <see cref="HandleCookieEcho" /> instead (see that
+		///     method's own remarks for its matching half of this convergence).
+		///     </para>
+		///     <para>
+		///     Deliberately gated on <see cref="_state" /> alone, never <see cref="_isClient" />: a first
+		///     attempt at this fix read <c>_isClient</c> here and broke on its own test, because
+		///     <c>_isClient</c> can be <see langword="true" /> from construction (the DTLS-role designation
+		///     a caller passes in) long before <see cref="Start" /> itself ever runs - a real shape once
+		///     <see cref="Start" /> stopped being called unconditionally for every DTLS-client-designated
+		///     instance (see that method's own remarks): a peer's association can sit at
+		///     <see cref="SctpState.Closed" /> with <c>_isClient</c> already true from birth, having still
+		///     never actually chosen a tag or TSN. <see cref="_state" /> has no such ambiguity - only
+		///     <see cref="Start" /> ever sets <see cref="SctpState.CookieWait" />, and it does so atomically
+		///     with everything a collision answer needs (<see cref="_localTag" />, <see cref="_localInitialTsn" />)
+		///     already validly chosen - so it alone is what "has this instance genuinely self-initiated"
+		///     actually means here.
+		///     </para>
 		/// </summary>
 		private void HandleInit(ReadOnlySpan<byte> value, uint verificationTag)
 		{
-			if (_isClient)
-			{
-				CountIgnored();
-				return;
-			}
-
 			if (_state == SctpState.Aborted)
 			{
 				CountIgnored();
 				return;
 			}
+
+			if (_state == SctpState.CookieEchoed || _state == SctpState.Established)
+			{
+				// Already progressed this side's own self-initiated handshake past the point an incoming
+				// INIT can converge with (RFC 4960 5.2.2-5.2.4's fuller duplicate-association tie-break,
+				// out of scope - see this method's own remarks). Only reachable by an instance that itself
+				// already called Start (nothing else ever reaches these two states), so this never touches
+				// a pure responder.
+				CountIgnored();
+				return;
+			}
+
+			bool isCollision = _state == SctpState.CookieWait;
 
 			// RFC 4960 5.1: the packet carrying an INIT chunk MUST set the verification tag to 0.
 			if (verificationTag != 0)
@@ -1165,8 +1241,10 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			uint ourTag = RandomUInt32();
-			uint ourInitialTsn = RandomUInt32();
+			// Collision: reuse our own existing identity (RFC 4960 5.2.1). Otherwise: the ordinary
+			// stateless-responder path, a fresh identity per INIT answered.
+			uint ourTag = isCollision ? _localTag : RandomUInt32();
+			uint ourInitialTsn = isCollision ? _localInitialTsn : RandomUInt32();
 			ushort outboundStreams = Math.Min(StreamCount, init.InboundStreams);
 			ushort inboundStreams = Math.Min(StreamCount, init.OutboundStreams);
 
@@ -1178,6 +1256,8 @@ namespace MiNET.Net.Rtc
 			n += initAck.WriteTo(buffer.Slice(n));
 			SctpPacket.FinishChecksum(buffer.Slice(0, n));
 			_sendPacket(buffer.Slice(0, n));
+
+			_lastRespondedInitAtTicks = Environment.TickCount64;
 		}
 
 		/// <summary>Client role, called under <see cref="_gate" />: answers an INIT-ACK with COOKIE-ECHO.</summary>
@@ -1242,15 +1322,27 @@ namespace MiNET.Net.Rtc
 		///     replayed COOKIE-ECHO - correct tag or not, still-valid cookie or not - can ever resurrect a
 		///     torn-down association.
 		///     </para>
+		///     <para>
+		///     Fix-round (Critical, Task 8 review): a self-initiated instance is no longer unconditionally
+		///     excluded here either, matching <see cref="HandleInit" />'s own collision-convergence half.
+		///     When both sides start before receiving anything from each other (see that method's own
+		///     remarks), each answers the other's INIT with its own EXISTING identity, so the COOKIE-ECHO
+		///     this side eventually gets back is the peer choosing to complete THIS side's offered
+		///     identity's mirror - legitimate, not the "only servers receive COOKIE-ECHO" case the old
+		///     unconditional guard assumed. No extra state check is needed to allow it: unlike
+		///     <see cref="HandleInit" />, this handler already ran (before this fix-round, and still) with
+		///     no gate here beyond <see cref="SctpState.Aborted" /> for the ordinary responder path,
+		///     because <see cref="TryValidateCookie" /> - a valid, still-fresh, correctly-HMAC-signed
+		///     cookie this exact instance minted - is already the real legitimacy check; a self-initiated
+		///     instance reaching this method with a valid cookie for its own identity is no different in
+		///     kind. (Gated on <see cref="_state" />, deliberately not <see cref="_isClient" />, for the
+		///     exact reason <see cref="HandleInit" />'s own remarks give: the former is always accurate,
+		///     the latter can be <see langword="true" /> from construction long before anything has
+		///     actually been sent.)
+		///     </para>
 		/// </summary>
 		private bool HandleCookieEcho(ReadOnlySpan<byte> value, uint verificationTag)
 		{
-			if (_isClient)
-			{
-				CountIgnored();
-				return false;
-			}
-
 			if (_state == SctpState.Aborted)
 			{
 				CountIgnored();
