@@ -232,8 +232,12 @@ namespace MiNET.Net.Rtc.FastDtls
 			int n = HandshakeMessages.WriteClientHello(body, _localRandom, ReadOnlySpan<byte>.Empty, MaxFragmentEpoch0);
 			_bufferedFirstClientHelloSeq = SendHandshakeMessage(HandshakeType.ClientHello, body.Slice(0, n), appendTranscript: false);
 			_bufferedFirstClientHello = body.Slice(0, n).ToArray();
-			EndFlight();
+
+			// Set before EndFlight, not after: EndFlight's transmit can synchronously, reentrantly
+			// deliver the peer's reply (a host whose transmit callback is not itself asynchronous),
+			// and that reply must land in a state that actually expects it.
 			_state = State.ClientAwaitServerFirst;
+			EndFlight();
 		}
 
 		/// <summary>Re-sends the current flight, rebuilt at the current rung with fresh record sequence numbers.</summary>
@@ -527,8 +531,10 @@ namespace MiNET.Net.Rtc.FastDtls
 			SendHandshakeMessage(HandshakeType.CertificateVerify, buffer.Slice(0, n));
 
 			SendChangeCipherSpecAndFinished(client: true);
-			EndFlight();
+
+			// Set before EndFlight: see Start's identical remark.
 			_state = State.ClientAwaitChangeCipherSpec;
+			EndFlight();
 		}
 
 		// ---- server side ----
@@ -588,8 +594,10 @@ namespace MiNET.Net.Rtc.FastDtls
 			SendHandshakeMessage(HandshakeType.CertificateRequest, buffer.Slice(0, written));
 
 			SendHandshakeMessage(HandshakeType.ServerHelloDone, ReadOnlySpan<byte>.Empty);
-			EndFlight();
+
+			// Set before EndFlight: see Start's identical remark.
 			_state = State.ServerAwaitCertificate;
+			EndFlight();
 		}
 
 		private void OnClientKeyExchange(ushort messageSeq, ReadOnlySpan<byte> body)
@@ -627,8 +635,10 @@ namespace MiNET.Net.Rtc.FastDtls
 		{
 			BeginFlight();
 			SendChangeCipherSpecAndFinished(client: false);
-			EndFlight();
+
+			// Set before EndFlight: see Start's identical remark.
 			_state = State.Complete;
+			EndFlight();
 		}
 
 		// ---- shared ----

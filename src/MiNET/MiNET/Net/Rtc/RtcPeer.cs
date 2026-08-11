@@ -269,7 +269,7 @@ namespace MiNET.Net.Rtc
 		/// <summary>
 		///     Throws if a DTLS session already exists: a second <see cref="AcceptOffer" />/
 		///     <see cref="AcceptAnswer" /> call would otherwise overwrite <see cref="_dtls" /> without
-		///     disposing the previous one, leaking a live BouncyCastle session and its pooled buffers.
+		///     disposing the previous one, leaking its handshake engine, certificate, and pooled buffers.
 		///     There is no renegotiation path in this class.
 		///     <para>
 		///     Also builds the SCTP association and subscribes
@@ -295,9 +295,10 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     <see cref="DtlsSession._handshakeDone" />
-		///     flips to <see langword="true" /> inside <see cref="DtlsSession.DoHandshakeAsync" />, on
-		///     whatever thread that method's own <see cref="Task.Run(Action)" /> continuation happens to
-		///     resume on - a moment this class does not control the exact scheduling of. Subscribing
+		///     flips to <see langword="true" /> synchronously, on whatever thread happens to be inside
+		///     <see cref="DtlsSession.FeedDatagram" /> (or <see cref="DtlsSession.DoHandshakeAsync" />
+		///     itself, on a fully reentrant peer topology) when the handshake engine completes - a moment
+		///     this class does not control the exact scheduling of. Subscribing
 		///     <see cref="_association" /> to <see cref="DtlsSession.OnDecrypted" /> only after also
 		///     observing that same handshake success would be a logically later point in program order,
 		///     but not a HAPPENS-BEFORE guarantee against a datagram already queued on the mux
@@ -355,11 +356,12 @@ namespace MiNET.Net.Rtc
 			{
 				try
 				{
+					_dtls.OnTick();
 					_association.OnTick();
 				}
 				catch (Exception ex)
 				{
-					Log.Error("SctpAssociation.OnTick threw; this peer's tick is skipped, the mux keeps serving every other peer.", ex);
+					Log.Error("DtlsSession.OnTick or SctpAssociation.OnTick threw; this peer's tick is skipped, the mux keeps serving every other peer.", ex);
 				}
 			};
 			_mux.OnTick += _associationTick;
@@ -393,9 +395,10 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Guards against a null <see cref="IceSession.RemoteEndPoint" />: BouncyCastle can call
-		///     back into this before ICE has nominated a pair (e.g. a DTLS retransmit scheduled off a
-		///     timer), and <see cref="UdpMux.Send" /> would otherwise pass <see langword="null" /> into
+		///     Guards against a null <see cref="IceSession.RemoteEndPoint" />: the DTLS handshake engine
+		///     can call back into this before ICE has nominated a pair (its own first flight, or a
+		///     retransmit driven off <see cref="DtlsSession.OnTick" />), and <see cref="UdpMux.Send" />
+		///     would otherwise pass <see langword="null" /> into
 		///     <see cref="System.Collections.Concurrent.ConcurrentDictionary{TKey,TValue}.TryGetValue" />,
 		///     which throws. Dropped datagrams are logged once, not per datagram, to avoid flooding the
 		///     log on a hot outgoing path.

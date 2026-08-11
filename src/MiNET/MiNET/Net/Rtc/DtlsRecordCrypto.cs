@@ -27,6 +27,7 @@ using System;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Threading;
+using MiNET.Net.Rtc.FastDtls;
 
 namespace MiNET.Net.Rtc
 {
@@ -61,19 +62,6 @@ namespace MiNET.Net.Rtc
 		private const int ReplayWindowSize = 64;
 		private const ulong MaxSequence = (1UL << 48) - 1;
 
-		/// <summary>
-		///     Every instance is built from a <see cref="CapturedDtlsKeys" />, which only exists after a
-		///     completed BouncyCastle handshake, and that handshake has by definition already sent its
-		///     Finished message (plus one retransmission per lost final flight) under epoch 1, consuming
-		///     the low send sequence numbers before this class ever protects a byte. Starting fresh at 0
-		///     would repeat one of those (epoch, sequence) pairs: a GCM nonce reused on the wire, and a
-		///     guaranteed replay-window drop at the peer, which cannot distinguish an authentic collision
-		///     from ordinary datagram loss. Defaulting the constructor to this headroom, rather than
-		///     leaning on a caller to seed it correctly, means there is no sequence to get wrong: every
-		///     instance is safe to send from the moment it exists.
-		/// </summary>
-		internal const ulong SendSequenceHandshakeHeadroom = 1000;
-
 		/// <summary>Header(13) + explicit nonce(8) + tag(16): every byte an encrypted record carries beyond its plaintext.</summary>
 		public const int RecordOverhead = HeaderLength + ExplicitNonceLength + TagLength;
 
@@ -96,22 +84,52 @@ namespace MiNET.Net.Rtc
 		public long MalformedRecords => Interlocked.Read(ref _malformedRecords);
 
 		/// <summary>
-		///     Builds both directions' ciphers from one captured key block. <paramref name="isServer" />
+		///     The next send sequence this instance will hand out. The handshake engine and this record
+		///     layer protect records under the same AES-GCM key (the engine's own Finished flight, and
+		///     any retransmission of it, share epoch 1 with everything sent here), so the host must seed
+		///     both from a single, forward-only source of truth to keep every (epoch, sequence) pair
+		///     unique on the wire; see <see cref="SeedSendSequenceForward" /> and the constructor.
+		/// </summary>
+		internal ulong NextSendSequence => _sendSequence;
+
+		/// <summary>
+		///     Builds both directions' ciphers from one negotiated key block. <paramref name="isServer" />
 		///     picks which of the two roles' key/salt pairs is ours to send with; the other role's pair
 		///     is the peer's, used to receive, per the wire convention that a client always sends with
-		///     <see cref="CapturedDtlsKeys.ClientWriteKey" />/<see cref="CapturedDtlsKeys.ClientWriteIv" />
-		///     and a server always sends with the server pair. The send sequence starts at
-		///     <see cref="SendSequenceHandshakeHeadroom" />, not 0; see that constant's remarks.
+		///     <see cref="DtlsNegotiatedKeys.ClientWriteKey" />/<see cref="DtlsNegotiatedKeys.ClientWriteSalt" />
+		///     and a server always sends with the server pair. <paramref name="sendSequenceSeed" /> is the
+		///     exact starting send sequence, not a default: the handshake engine that negotiated
+		///     <paramref name="keys" /> has already sent its own Finished flight (and any retransmission
+		///     of it) under epoch 1 on the very same key, so starting fresh at 0 here would repeat one of
+		///     those (epoch, sequence) pairs, a GCM nonce reused on the wire. The caller is the one place
+		///     that knows the engine's own next sequence
+		///     (<see cref="MiNET.Net.Rtc.FastDtls.DtlsEngine.NextEpoch1SendSequence" />) and must pass it
+		///     verbatim. The salt arrays are copied, not retained by reference: the caller zeroes the
+		///     negotiated key material immediately after this constructor returns, so this instance must
+		///     hold its own copy to keep encrypting afterward.
 		/// </summary>
-		public DtlsRecordCrypto(CapturedDtlsKeys keys, bool isServer)
+		public DtlsRecordCrypto(DtlsNegotiatedKeys keys, bool isServer, ulong sendSequenceSeed)
 		{
 			byte[] sendKey = isServer ? keys.ServerWriteKey : keys.ClientWriteKey;
 			byte[] receiveKey = isServer ? keys.ClientWriteKey : keys.ServerWriteKey;
-			_sendSalt = isServer ? keys.ServerWriteIv : keys.ClientWriteIv;
-			_receiveSalt = isServer ? keys.ClientWriteIv : keys.ServerWriteIv;
+			_sendSalt = (byte[]) (isServer ? keys.ServerWriteSalt : keys.ClientWriteSalt).Clone();
+			_receiveSalt = (byte[]) (isServer ? keys.ClientWriteSalt : keys.ServerWriteSalt).Clone();
 			_sendCipher = new AesGcm(sendKey, TagLength);
 			_receiveCipher = new AesGcm(receiveKey, TagLength);
-			_sendSequence = SendSequenceHandshakeHeadroom;
+			_sendSequence = sendSequenceSeed;
+		}
+
+		/// <summary>
+		///     Forward-only, mirroring <see cref="MiNET.Net.Rtc.FastDtls.DtlsEngine.SeedEpoch1SendSequence" />:
+		///     moves this instance's send sequence to <paramref name="next" /> only when that is ahead.
+		///     The host calls this after a post-handshake handshake-engine retransmission
+		///     (<see cref="MiNET.Net.Rtc.FastDtls.DtlsEngine.Retransmit" />) consumed further sequences
+		///     under the same key, so this instance's own next send never collides with one the
+		///     retransmission already used.
+		/// </summary>
+		internal void SeedSendSequenceForward(ulong next)
+		{
+			if (next > _sendSequence) _sendSequence = next;
 		}
 
 		/// <summary>
@@ -336,6 +354,11 @@ namespace MiNET.Net.Rtc
 		{
 			_sendCipher.Dispose();
 			_receiveCipher.Dispose();
+
+			// Own copies (see the constructor's remarks), so nobody else zeroes these; the ciphers
+			// above hold their own key schedules internally and are zeroed by their own Dispose.
+			CryptographicOperations.ZeroMemory(_sendSalt);
+			CryptographicOperations.ZeroMemory(_receiveSalt);
 		}
 	}
 }

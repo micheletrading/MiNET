@@ -24,11 +24,9 @@
 #endregion
 
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Net.Rtc;
-using Org.BouncyCastle.Tls;
+using MiNET.Net.Rtc.FastDtls;
 
 namespace MiNET.Test.Rtc
 {
@@ -37,32 +35,34 @@ namespace MiNET.Test.Rtc
 	{
 		private const byte ApplicationData = 23;
 
+		// An arbitrary, distinctly-non-zero starting sequence for tests that are not themselves about
+		// the seeding contract: proves nothing here is silently relying on the old built-in headroom
+		// default, which the constructor no longer has (see the seeding-contract tests below).
+		private const ulong ArbitrarySeed = 12345;
+
 		/// <summary>Fixed, deterministic key material: <see cref="DtlsRecordCrypto" /> is pure spans in/out and does not care where its keys came from, so most of this class exercises it against synthetic vectors rather than paying for a real handshake.</summary>
-		private static CapturedDtlsKeys CreateTestKeys(int keyLength = 16)
+		private static DtlsNegotiatedKeys CreateTestKeys()
 		{
-			var clientKey = new byte[keyLength];
-			var serverKey = new byte[keyLength];
-			var clientIv = new byte[4];
-			var serverIv = new byte[4];
-			for (int i = 0; i < keyLength; i++)
+			var keys = new DtlsNegotiatedKeys();
+			for (int i = 0; i < keys.ClientWriteKey.Length; i++)
 			{
-				clientKey[i] = (byte) (i + 1);
-				serverKey[i] = (byte) (i + 101);
+				keys.ClientWriteKey[i] = (byte) (i + 1);
+				keys.ServerWriteKey[i] = (byte) (i + 101);
 			}
 			for (int i = 0; i < 4; i++)
 			{
-				clientIv[i] = (byte) (i + 201);
-				serverIv[i] = (byte) (i + 211);
+				keys.ClientWriteSalt[i] = (byte) (i + 201);
+				keys.ServerWriteSalt[i] = (byte) (i + 211);
 			}
-			return new CapturedDtlsKeys(clientKey, serverKey, clientIv, serverIv, cipherSuite: 0);
+			return keys;
 		}
 
 		[TestMethod]
 		public void EncryptRecord_ThenTryDecryptRecord_RoundTripsAcrossRoles_SequenceIncrementsPerRecord()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
-			using var server = new DtlsRecordCrypto(keys, isServer: true);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
+			using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 
 			Span<byte> wire = stackalloc byte[5 + DtlsRecordCrypto.RecordOverhead];
 			Span<byte> plaintext = stackalloc byte[5];
@@ -72,7 +72,7 @@ namespace MiNET.Test.Rtc
 				int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
 
 				Assert.AreNotEqual(-1, wireLength);
-				Assert.AreEqual(DtlsRecordCrypto.SendSequenceHandshakeHeadroom + (ulong) i, ReadSequence(wire));
+				Assert.AreEqual(ArbitrarySeed + (ulong) i, ReadSequence(wire));
 
 				bool ok = server.TryDecryptRecord(wire.Slice(0, wireLength), plaintext, out byte contentType, out int length);
 
@@ -84,50 +84,86 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Pins the constructor's own default shut as the one place that matters: nothing outside
-		///     this class has to remember to seed the send sequence away from 0 for a real
-		///     <see cref="CapturedDtlsKeys" /> instance to be safe to send from immediately. A caller
-		///     that forgot would repeat one of the (epoch, sequence) pairs BouncyCastle's Finished flight
-		///     already used on the wire.
+		///     The exact-seed contract this constructor now has, replacing the old built-in headroom
+		///     default: whatever sequence the caller passes is exactly the sequence the first encrypted
+		///     record carries, with no implicit offset applied on top of it. The handshake engine and
+		///     this record layer protect records under the same key, so the caller (<see cref="DtlsSession" />)
+		///     is the one place that knows where the engine's own send sequence actually left off; a
+		///     built-in default here could no longer be trusted to be clear of it.
 		/// </summary>
 		[TestMethod]
-		public void EncryptRecord_FreshInstance_StartsAtTheHandshakeHeadroomSequence_NotZero()
+		public void Constructor_ExactSeed_FirstEncryptedRecordCarriesThatExactSequence()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			const ulong seed = 987654;
+			using var client = new DtlsRecordCrypto(keys, isServer: false, seed);
 
 			byte[] payload = {1, 2, 3};
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
 			int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
 
 			Assert.AreNotEqual(-1, wireLength);
-			Assert.AreEqual(DtlsRecordCrypto.SendSequenceHandshakeHeadroom, ReadSequence(wire), "a fresh instance must start above the low epoch-1 sequences BouncyCastle's Finished flight consumes, with no caller action required");
+			Assert.AreEqual(seed, ReadSequence(wire), "expected the first record to carry exactly the seed passed to the constructor");
+
+			int secondWireLength = client.EncryptRecord(ApplicationData, payload, wire);
+			Assert.AreNotEqual(-1, secondWireLength);
+			Assert.AreEqual(seed + 1, ReadSequence(wire), "expected the second record to carry the seed plus one");
+		}
+
+		/// <summary>
+		///     <see cref="DtlsRecordCrypto.SeedSendSequenceForward" /> mirrors
+		///     <see cref="DtlsEngine.SeedEpoch1SendSequence" />: it is the one-directional half of the
+		///     single-owner invariant that keeps a post-handshake handshake-engine retransmission and this
+		///     record layer from ever emitting the same (epoch, sequence) pair twice under their shared
+		///     key (see <see cref="DtlsSession.HandleEpochZeroRecordLocked" />). Seeding backward, to a
+		///     value at or behind the current sequence, must be a no-op: only forward motion is ever safe.
+		/// </summary>
+		[TestMethod]
+		public void SeedSendSequenceForward_MovesOnlyForward()
+		{
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, sendSequenceSeed: 100);
+
+			client.SeedSendSequenceForward(50); // behind the current sequence: must be ignored
+			Assert.AreEqual(100UL, client.NextSendSequence);
+
+			client.SeedSendSequenceForward(100); // exactly at the current sequence: must be ignored
+			Assert.AreEqual(100UL, client.NextSendSequence);
+
+			client.SeedSendSequenceForward(500); // ahead: must move
+			Assert.AreEqual(500UL, client.NextSendSequence);
+
+			byte[] payload = {1, 2, 3};
+			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
+			int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
+			Assert.AreNotEqual(-1, wireLength);
+			Assert.AreEqual(500UL, ReadSequence(wire), "expected the next encrypted record to carry the seeded-forward sequence");
 		}
 
 		[TestMethod]
 		public void EncryptRecord_DestinationTooSmall_ReturnsMinusOne_WithoutAdvancingSequence()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
 
 			byte[] payload = {1, 2, 3, 4};
 			Span<byte> tooSmall = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead - 1];
 			Assert.AreEqual(-1, client.EncryptRecord(ApplicationData, payload, tooSmall));
 
-			// The sequence must not have moved: a record encrypted right after must still be the
-			// fresh instance's starting sequence, not one past it.
+			// The sequence must not have moved: a record encrypted right after must still carry the
+			// original seed, not one past it.
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
 			int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
 			Assert.AreNotEqual(-1, wireLength);
-			Assert.AreEqual(DtlsRecordCrypto.SendSequenceHandshakeHeadroom, ReadSequence(wire));
+			Assert.AreEqual(ArbitrarySeed, ReadSequence(wire));
 		}
 
 		[TestMethod]
 		public void TryDecryptRecord_DestinationTooSmall_ReturnsFalse_MalformedRecordsCounted()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
-			using var server = new DtlsRecordCrypto(keys, isServer: true);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
+			using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 
 			byte[] payload = {1, 2, 3, 4, 5, 6, 7, 8};
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
@@ -141,103 +177,11 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(before + 1, server.MalformedRecords);
 		}
 
-		/// <summary>
-		///     The strong cross-check: a real BouncyCastle handshake (the wired-pair pump built from two
-		///     loopback-wired <see cref="DtlsSession" /> instances) hands out a real captured key block, then bytes cross the
-		///     BouncyCastle/native boundary in both directions. Direction one feeds a
-		///     <see cref="DtlsRecordCrypto" />-encrypted record straight into the peer's still-alive
-		///     BouncyCastle <c>DtlsTransport</c> via <see cref="DtlsSession.FeedDatagram" />; direction
-		///     two decrypts a real BouncyCastle-encrypted wire datagram with <see cref="DtlsRecordCrypto" />.
-		///     Run once under each of the two cipher suites this stack negotiates, the AES-256 run forcing
-		///     the suite by narrowing what both handshake roles offer (the sanctioned test-only knob on
-		///     <see cref="DtlsHandshakeServer" />/<see cref="DtlsHandshakeClient" />), so both the 16-byte
-		///     and 32-byte key paths are proven against real BouncyCastle output, not just against our own
-		///     encoder.
-		/// </summary>
-		[TestMethod]
-		public async Task Interop_Aes128Gcm_BothDirections()
-		{
-			await RunInteropCrossCheck(null);
-		}
-
-		[TestMethod]
-		public async Task Interop_Aes256Gcm_BothDirections()
-		{
-			int[] aes256Only = {CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384};
-			await RunInteropCrossCheck(aes256Only);
-		}
-
-		private static async Task RunInteropCrossCheck(int[] cipherSuites)
-		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
-
-			DtlsSession server = null, client = null;
-			byte[] lastClientToServer = null;
-			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes), cipherSuites);
-			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
-			{
-				lastClientToServer = bytes.ToArray();
-				server.FeedDatagram(bytes);
-			}, cipherSuites);
-
-			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
-			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
-			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
-			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
-
-			CapturedDtlsKeys clientKeys = client.CapturedKeys;
-			CapturedDtlsKeys serverKeys = server.CapturedKeys;
-			if (cipherSuites != null)
-			{
-				Assert.AreEqual(cipherSuites[0], clientKeys.CipherSuite, "expected the forced suite to have actually been negotiated");
-			}
-
-			// Direction 1: DtlsRecordCrypto encrypts (client role), BouncyCastle's still-alive transport
-			// on the server side decrypts it via the session's ordinary FeedDatagram path. BouncyCastle
-			// sends the handshake's own Finished message under epoch 1 too (post-CCS), so the server's
-			// epoch-1 receive window has already advanced past a few low sequence numbers by the time
-			// the handshake completes; a fresh instance starting at sequence 0 would collide with one
-			// BouncyCastle already consumed and be silently dropped as a replay/bad MAC. The
-			// constructor's own default (DtlsRecordCrypto.SendSequenceHandshakeHeadroom) already starts
-			// well clear of anything the handshake itself could plausibly have used, so nothing here
-			// needs to seed it explicitly.
-			using (var ourClientCrypto = new DtlsRecordCrypto(clientKeys, isServer: false))
-			{
-				byte[] payload1 = {10, 20, 30, 40, 50};
-				Span<byte> wire1 = stackalloc byte[payload1.Length + DtlsRecordCrypto.RecordOverhead];
-				int wire1Length = ourClientCrypto.EncryptRecord(ApplicationData, payload1, wire1);
-				Assert.AreNotEqual(-1, wire1Length);
-
-				var received1 = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-				server.OnDecrypted += p => received1.TrySetResult(p.ToArray());
-				server.FeedDatagram(wire1.Slice(0, wire1Length));
-				CollectionAssert.AreEqual(payload1, await received1.Task.WaitAsync(TimeSpan.FromSeconds(5)));
-			}
-
-			// Direction 2: BouncyCastle encrypts (client role, via the session's ordinary
-			// SendApplicationData), DtlsRecordCrypto decrypts the captured wire bytes independently.
-			byte[] payload2 = {60, 70, 80, 90};
-			client.SendApplicationData(payload2);
-			Assert.IsNotNull(lastClientToServer, "expected to have captured the wire datagram BouncyCastle encrypted");
-
-			using var ourServerCrypto = new DtlsRecordCrypto(serverKeys, isServer: true);
-			Span<byte> plaintext2 = stackalloc byte[payload2.Length];
-			bool ok = ourServerCrypto.TryDecryptRecord(lastClientToServer, plaintext2, out byte contentType, out int length2);
-
-			Assert.IsTrue(ok, "expected DtlsRecordCrypto to decrypt a genuine BouncyCastle-produced record");
-			Assert.AreEqual(ApplicationData, contentType);
-			CollectionAssert.AreEqual(payload2, plaintext2.Slice(0, length2).ToArray());
-
-			server.Dispose();
-			client.Dispose();
-		}
-
 		private static void AssertTamperRejectedThenCleanRecordStillDecrypts(int tamperByteIndex)
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
-			using var server = new DtlsRecordCrypto(keys, isServer: true);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
+			using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 
 			byte[] payload = {1, 2, 3, 4, 5, 6, 7, 8};
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
@@ -287,9 +231,9 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void TryDecryptRecord_DuplicateRecord_SecondIsRejected_ReplayDropsCounted()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
-			using var server = new DtlsRecordCrypto(keys, isServer: true);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
+			using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 
 			byte[] payload = {1, 2, 3, 4};
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
@@ -309,9 +253,9 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void TryDecryptRecord_OutOfOrderWithinWindow_IsAdmitted()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
-			using var server = new DtlsRecordCrypto(keys, isServer: true);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
+			using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 
 			const int count = 5;
 			var records = new byte[count][];
@@ -335,9 +279,9 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void TryDecryptRecord_SequenceSixtyFourOrMoreBehindHighest_Rejects_ReplayDropsCounted()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
-			using var server = new DtlsRecordCrypto(keys, isServer: true);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
+			using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 
 			byte[] payload = {1, 2, 3, 4};
 			Span<byte> firstWire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
@@ -365,8 +309,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void TryReadRecordHeader_ValidRecord_ReturnsFieldsAndTrue()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
 
 			byte[] payload = {1, 2, 3};
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
@@ -391,8 +335,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void TryDecryptRecord_MalformedInputs_NeverThrow_MalformedRecordsCounted()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
 
 			byte[] payload = {1, 2, 3, 4, 5, 6, 7, 8};
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
@@ -404,7 +348,7 @@ namespace MiNET.Test.Rtc
 			// Every truncation length of a valid record must be rejected without throwing.
 			for (int truncateTo = 0; truncateTo < validRecord.Length; truncateTo++)
 			{
-				using var server = new DtlsRecordCrypto(keys, isServer: true);
+				using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 				long before = server.MalformedRecords;
 				bool ok = server.TryDecryptRecord(validRecord.AsSpan(0, truncateTo), plaintext, out _, out _);
 
@@ -414,7 +358,7 @@ namespace MiNET.Test.Rtc
 
 			// Epoch 2 instead of 1.
 			{
-				using var server = new DtlsRecordCrypto(keys, isServer: true);
+				using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 				byte[] wrongEpoch = (byte[]) validRecord.Clone();
 				wrongEpoch[4] = 2;
 				long before = server.MalformedRecords;
@@ -424,7 +368,7 @@ namespace MiNET.Test.Rtc
 
 			// Wrong record version.
 			{
-				using var server = new DtlsRecordCrypto(keys, isServer: true);
+				using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 				byte[] wrongVersion = (byte[]) validRecord.Clone();
 				wrongVersion[1] = 0x03;
 				wrongVersion[2] = 0x03;
@@ -435,7 +379,7 @@ namespace MiNET.Test.Rtc
 
 			// Declared length past the end of the buffer, header otherwise intact.
 			{
-				using var server = new DtlsRecordCrypto(keys, isServer: true);
+				using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 				byte[] lengthPastEnd = (byte[]) validRecord.Clone();
 				lengthPastEnd[11] = 0xFF;
 				lengthPastEnd[12] = 0xFF;
@@ -448,8 +392,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void EncryptRecord_AtSequenceExhaustion_ReturnsMinusOne()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
 			client.SetSendSequenceForTesting((1UL << 48) - 1);
 
 			byte[] payload = {1, 2, 3};
@@ -468,8 +412,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void EncryptRecord_OneBeforeSequenceExhaustion_Succeeds_ThenNextReturnsMinusOne()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
 			client.SetSendSequenceForTesting((1UL << 48) - 2);
 
 			byte[] payload = {1, 2, 3};
@@ -485,9 +429,9 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void EncryptThenDecrypt_TenThousandRecords_AllocatesNothingAfterWarmup()
 		{
-			CapturedDtlsKeys keys = CreateTestKeys();
-			using var client = new DtlsRecordCrypto(keys, isServer: false);
-			using var server = new DtlsRecordCrypto(keys, isServer: true);
+			DtlsNegotiatedKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false, ArbitrarySeed);
+			using var server = new DtlsRecordCrypto(keys, isServer: true, ArbitrarySeed);
 
 			Span<byte> payload = stackalloc byte[8];
 			for (int i = 0; i < payload.Length; i++) payload[i] = (byte) i;
