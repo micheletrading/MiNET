@@ -97,9 +97,9 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     No event on either side reports "the peer's SCTP association tore down cleanly" (see the
-		///     task report: <see cref="RtcPeer" /> never forwards <see cref="SctpAssociation.OnAborted" />
-		///     anywhere), so a post-close teardown check has nothing to await and has to poll instead.
+		///     No event on either side reports "the peer's SCTP association tore down cleanly":
+		///     <see cref="RtcPeer" /> never forwards <see cref="SctpAssociation.OnAborted" /> anywhere, so
+		///     a post-close teardown check has nothing to await and has to poll instead.
 		///     Bounded by <paramref name="timeout" />, short interval, not this test's primary
 		///     synchronization mechanism (that is still the TaskCompletionSource waits everywhere else in
 		///     this file) - only a way to observe a state transition nothing else exposes as an event.
@@ -238,9 +238,19 @@ namespace MiNET.Test.Rtc
 			// is the terminal event this watch item now proves, not an SCTP-level handshake. Bounded by
 			// the same WaitUntilAsync timeout pattern used for SIPSorcery's other quirks elsewhere in this
 			// file, in case dropping its final chunk leaves something in its own close() path waiting.
+			long ignoredBeforeClose = ourServer.AssociationIgnoredPacketCount;
 			theirClient.close();
 			Assert.IsTrue(await WaitUntilAsync(() => ourServer.DtlsSessionClosed, TimeSpan.FromSeconds(10)),
 				"our DTLS session never closed after SIPSorcery's close_notify");
+
+			// The old watch item's successor: SctpState.Aborted is no longer reachable by design (the
+			// SHUTDOWN-COMPLETE that would drive it there is dropped once DTLS closes), so what this
+			// proves instead is that the association left parked underneath a closed DTLS session -
+			// typically Established, never torn down - neither spins nor misbehaves on whatever SIPSorcery
+			// sends into the void afterward. AssociationIgnoredPacketCount is cumulative for the whole
+			// test, so the comparison is against the count captured just before close(), not zero.
+			await Task.Delay(TimeSpan.FromSeconds(1));
+			Assert.AreEqual(ignoredBeforeClose, ourServer.AssociationIgnoredPacketCount, "expected the association to neither spin nor misbehave once DTLS closed underneath it");
 		}
 
 		// Exit criterion 2: we dial SIPSorcery. Our client is the offerer.
@@ -349,9 +359,13 @@ namespace MiNET.Test.Rtc
 			CollectionAssert.AreEqual(afterIdle, (await theyGotAfterIdle).Data);
 
 			// Watch item 1: see the identical comment in the other direction's test.
+			long ignoredBeforeClose = ourClient.AssociationIgnoredPacketCount;
 			theirServer.close();
 			Assert.IsTrue(await WaitUntilAsync(() => ourClient.DtlsSessionClosed, TimeSpan.FromSeconds(10)),
 				"our DTLS session never closed after SIPSorcery's close_notify");
+
+			await Task.Delay(TimeSpan.FromSeconds(1));
+			Assert.AreEqual(ignoredBeforeClose, ourClient.AssociationIgnoredPacketCount, "expected the association to neither spin nor misbehave once DTLS closed underneath it");
 		}
 	}
 }

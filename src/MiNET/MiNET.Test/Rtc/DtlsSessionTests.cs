@@ -438,11 +438,10 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     The point of the whole native-record-layer switch-over: once the handshake is done,
-		///     BouncyCastle never touches another byte of application data on either side. Both sessions
-		///     switched, so this exercises the native path on both ends at once, in both directions, well
-		///     past the 64-wide replay window and the low sequence numbers BouncyCastle's own Finished
-		///     flight already used.
+		///     Once the handshake is done, BouncyCastle never touches another byte of application data on
+		///     either side. Both sessions exercise the native path at once, in both directions, well past
+		///     the 64-wide replay window and the low sequence numbers BouncyCastle's own Finished flight
+		///     used.
 		/// </summary>
 		[TestMethod]
 		public async Task NativeRecordLayer_ExchangesOneThousandDatagramsEachWay_AllDeliveredIntact()
@@ -494,13 +493,26 @@ namespace MiNET.Test.Rtc
 		/// <summary>
 		///     A retransmitted final flight bundles CCS at epoch 0 with Finished at epoch 1 in one
 		///     datagram, and BouncyCastle owns that retransmission logic entirely; splitting the datagram
-		///     per record would break it. This captures a genuinely epoch-0 raw datagram straight out of
-		///     a live handshake (the first flight, the ClientHello, always predates any ChangeCipherSpec)
-		///     and replays it at the server after the handshake has completed, simulating the peer
-		///     retransmitting a flight it believes was lost. The native record layer must recognise the
-		///     epoch-0 record and route the whole datagram to the retained BouncyCastle transport instead
-		///     of attempting - and failing - to decrypt it itself, and the session must keep working
-		///     normally afterward.
+		///     per record would break it. This captures the last epoch-0 raw datagram of a live handshake
+		///     (the client's own ChangeCipherSpec, immediately preceding its epoch-1 Finished - the
+		///     closest this harness's synchronous, one-record-per-datagram pump gets to a real final-flight
+		///     shape) and replays it at the server after the handshake has completed, simulating the peer
+		///     retransmitting a flight it believes was lost.
+		///     <para>
+		///     The routing decision is what is under test, not BouncyCastle's own reaction to it: an
+		///     established <see cref="Org.BouncyCastle.Tls.DtlsTransport" /> does not answer a stray
+		///     handshake-phase record with anything on the wire once <c>Accept</c>/<c>Connect</c> has
+		///     already returned (verified empirically - every server-sent datagram was captured across
+		///     this exact re-feed and there were none), so "the BC route was taken" is proven by what does
+		///     NOT happen: none of <see cref="DtlsRecordCrypto" />'s three counters move (the native layer
+		///     never even attempted to decrypt it) and <see cref="DtlsSession.DroppedRecords" /> does not
+		///     move either (a deleted routing decision would fall through to native processing instead,
+		///     where content type 22 at epoch 0 hits the "anything else" branch and counts as dropped -
+		///     the one counter the previous version of this test left unchecked). The trailing send/receive
+		///     round trip is the other half: it proves the session, and specifically the retained
+		///     BouncyCastle transport this datagram was actually handed to, is still fully functional
+		///     afterward, not merely that nothing crashed.
+		///     </para>
 		/// </summary>
 		[TestMethod]
 		public async Task FeedDatagram_PostHandshakeEpochZeroRecord_RoutesToBcTransport_NativeCountersStayZero()
@@ -523,22 +535,24 @@ namespace MiNET.Test.Rtc
 			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
 
 			Assert.IsTrue(clientToServerDatagrams.Count > 0, "expected to have captured at least one client->server handshake datagram");
-			byte[] earlyEpochZeroDatagram = clientToServerDatagrams[0];
-			Assert.IsTrue(DtlsRecordCrypto.TryReadRecordHeader(earlyEpochZeroDatagram, out _, out int epoch, out _) && epoch == 0, "expected the very first client->server datagram (the ClientHello flight) to be epoch 0");
+			byte[] finalFlightDatagram = clientToServerDatagrams.Last(d => DtlsRecordCrypto.TryReadRecordHeader(d, out _, out int e, out _) && e == 0);
 
 			long malformedBefore = server.RecordCrypto.MalformedRecords;
 			long decryptFailuresBefore = server.RecordCrypto.DecryptFailures;
 			long replayDropsBefore = server.RecordCrypto.ReplayDrops;
+			long droppedRecordsBefore = server.DroppedRecords;
 
 			// Simulate the peer retransmitting a flight it believes was lost, well after the handshake
 			// has actually completed on both sides.
-			server.FeedDatagram(earlyEpochZeroDatagram);
+			server.FeedDatagram(finalFlightDatagram);
 
 			Assert.AreEqual(malformedBefore, server.RecordCrypto.MalformedRecords, "the native record layer must never even attempt to decrypt an epoch-0 record; routing it to BC must not count as malformed");
 			Assert.AreEqual(decryptFailuresBefore, server.RecordCrypto.DecryptFailures);
 			Assert.AreEqual(replayDropsBefore, server.RecordCrypto.ReplayDrops);
+			Assert.AreEqual(droppedRecordsBefore, server.DroppedRecords, "a deleted epoch-0 routing decision would fall through to native processing and count this as a dropped record; it must not move");
 
-			// The session must still be fully functional afterward.
+			// The session, and specifically the BouncyCastle transport this datagram was actually handed
+			// to, must still be fully functional afterward.
 			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
 			client.SendApplicationData(new byte[] {1, 2, 3});
@@ -742,21 +756,25 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     RFC 5246 7.2.1 applies to local-initiated closure too: <see cref="DtlsSession.Dispose" />
-		///     emits a close_notify of its own before closing the transport, so a spec-strict peer accepts
-		///     our goodbye instead of dropping it as a replay of BC's stale Finished-flight sequence.
+		///     RFC 5246 7.2.1 requires nothing further on the wire once a close_notify has gone out: this
+		///     asserts on every datagram the server sends across teardown, not just the last one, because
+		///     two real leaks hide behind "the last datagram looked right" - BouncyCastle's own
+		///     <c>_dtlsTransport.Close()</c> generates and sends a second alert of its own, on its stalled
+		///     epoch-1 sequence, and it would otherwise be the true last datagram observed here.
+		///     <see cref="DtlsSession.Dispose" /> emits exactly one close_notify, ours, at the native
+		///     record layer's live sequence, and nothing else ever reaches the wire once it has.
 		/// </summary>
 		[TestMethod]
-		public async Task Dispose_SendsACloseNotify_BeforeClosingTheTransport()
+		public async Task Dispose_EmitsExactlyOneCloseNotify_NothingElseAfterIt()
 		{
 			var serverCert = RtcCertificate.CreateSelfSigned();
 			var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
-			byte[] lastServerToClient = null;
+			var sentByServer = new List<byte[]>();
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes =>
 			{
-				lastServerToClient = bytes.ToArray();
+				sentByServer.Add(bytes.ToArray());
 				client.FeedDatagram(bytes);
 			});
 			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
@@ -766,19 +784,92 @@ namespace MiNET.Test.Rtc
 			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
 			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
 
+			sentByServer.Clear(); // only datagrams from teardown onward matter here.
 			server.Dispose();
 
-			Assert.IsNotNull(lastServerToClient, "expected Dispose to have sent a close_notify");
-
-			using var verifier = new DtlsRecordCrypto(client.CapturedKeys, isServer: false);
-			Span<byte> plaintext = stackalloc byte[2];
-			bool decrypted = verifier.TryDecryptRecord(lastServerToClient, plaintext, out byte contentType, out int length);
-			Assert.IsTrue(decrypted, "expected Dispose's close_notify to decrypt cleanly with the real key block");
-			Assert.AreEqual(21, contentType, "expected an alert record");
-			Assert.AreEqual(2, length);
-			Assert.AreEqual(0, plaintext[1], "expected description close_notify(0)");
+			AssertExactlyOneLiveCloseNotify(sentByServer, client.CapturedKeys);
 
 			client.Dispose();
+		}
+
+		/// <summary>
+		///     The other order F1 covers: a peer's close_notify already closed this side (sending our own
+		///     response in the process, per RFC 5246 7.2.1) before <see cref="DtlsSession.Dispose" /> is
+		///     ever called on it. Without a send-once guard, <see cref="DtlsSession.Dispose" /> would try
+		///     to say goodbye a second time - <see cref="RequestClose" /> having already run inside the
+		///     close_notify handler means a plain <see cref="DtlsSession._closed" /> check at the top of
+		///     <see cref="DtlsSession.Dispose" /> could not tell the two cases apart, which is why the
+		///     guard lives on the send itself, not on whether the session was already closed.
+		/// </summary>
+		[TestMethod]
+		public async Task InboundCloseNotify_ThenDispose_EmitsExactlyOneCloseNotifyTotal()
+		{
+			const byte AlertContentType = 21;
+			const byte AlertLevelWarning = 1;
+			const byte AlertDescriptionCloseNotify = 0;
+
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			var sentByServer = new List<byte[]>();
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes =>
+			{
+				sentByServer.Add(bytes.ToArray());
+				client.FeedDatagram(bytes);
+			});
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			sentByServer.Clear();
+
+			using (var forger = new DtlsRecordCrypto(client.CapturedKeys, isServer: false))
+			{
+				forger.SetSendSequenceForTesting(1);
+				Span<byte> wire = stackalloc byte[2 + DtlsRecordCrypto.RecordOverhead];
+				int wireLength = forger.EncryptRecord(AlertContentType, new byte[] {AlertLevelWarning, AlertDescriptionCloseNotify}, wire);
+				Assert.AreNotEqual(-1, wireLength);
+				server.FeedDatagram(wire.Slice(0, wireLength));
+			}
+
+			Assert.IsTrue(server.IsClosed, "expected the inbound close_notify to have closed the server session already");
+
+			// The leak this guards against: a caller disposing a session some other event already closed.
+			server.Dispose();
+
+			AssertExactlyOneLiveCloseNotify(sentByServer, client.CapturedKeys);
+
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     Shared by both F1 tests: every datagram captured must be exactly one record, a close_notify,
+		///     riding the native layer's live sequence (never BouncyCastle's stale one), and there must be
+		///     exactly one such datagram total.
+		/// </summary>
+		private static void AssertExactlyOneLiveCloseNotify(List<byte[]> sentDatagrams, CapturedDtlsKeys peerKeys)
+		{
+			const byte AlertContentType = 21;
+
+			Assert.AreEqual(1, sentDatagrams.Count, "expected exactly one datagram total: our close_notify, and nothing else - not a second native attempt, not BouncyCastle's own stale-sequence alert");
+
+			byte[] onlyDatagram = sentDatagrams[0];
+			Assert.AreEqual(AlertContentType, onlyDatagram[0], "expected an alert record");
+
+			ulong sequence = ReadSequence(onlyDatagram);
+			Assert.IsTrue(sequence >= DtlsRecordCrypto.SendSequenceHandshakeHeadroom, $"expected the live native sequence ({DtlsRecordCrypto.SendSequenceHandshakeHeadroom}+), never BouncyCastle's stale one; got {sequence}");
+
+			using var verifier = new DtlsRecordCrypto(peerKeys, isServer: false);
+			Span<byte> plaintext = stackalloc byte[2];
+			bool decrypted = verifier.TryDecryptRecord(onlyDatagram, plaintext, out byte contentType, out int length);
+			Assert.IsTrue(decrypted, "expected the close_notify to decrypt cleanly with the real key block");
+			Assert.AreEqual(AlertContentType, contentType);
+			Assert.AreEqual(2, length);
+			Assert.AreEqual(0, plaintext[1], "expected description close_notify(0)");
 		}
 
 		private static ulong ReadSequence(ReadOnlySpan<byte> record)
@@ -861,10 +952,9 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     This is the point of the whole plan: with BouncyCastle out of the post-handshake path
-		///     entirely, the roughly 5000 bytes/datagram allocation floor the BC-backed pipeline carried
-		///     collapses to zero. Both sessions' native record layers, both directions, 10k datagrams
-		///     each way, well past JIT/AesGcm warmup.
+		///     With BouncyCastle out of the post-handshake path entirely, this must allocate nothing on
+		///     our side. Both sessions' native record layers, both directions, 10k datagrams each way,
+		///     well past JIT/AesGcm warmup.
 		/// </summary>
 		[TestMethod]
 		public async Task NativeRecordLayer_TenThousandDatagramsBothDirections_AllocatesNothingOnOurSide()

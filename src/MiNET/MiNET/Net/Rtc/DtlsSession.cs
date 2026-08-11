@@ -46,8 +46,8 @@ namespace MiNET.Net.Rtc
 	///     never sees another byte of it. The one exception is a post-handshake datagram carrying an
 	///     epoch-0 record (a peer retransmitting a final handshake flight it believes was lost), which
 	///     is queued and drained through <see cref="DtlsTransport.Receive(Span{byte}, int)" /> /
-	///     <see cref="DtlsTransport.ReceivePending(Span{byte}, DtlsRecordCallback)" /> exactly as before
-	///     BouncyCastle owns flight retransmission and mixing per-record handling would break it. No
+	///     <see cref="DtlsTransport.ReceivePending(Span{byte}, DtlsRecordCallback)" />: BouncyCastle owns
+	///     flight retransmission, and mixing per-record handling into that would break it. No
 	///     background thread ever exists after the handshake.
 	///     Invariant: <see cref="_gate" /> serializes every access to <see cref="_dtlsTransport" />,
 	///     <see cref="_recordCrypto" />, <see cref="_receiveScratch" />, and <see cref="_directFeedBuffer" />
@@ -139,6 +139,17 @@ namespace MiNET.Net.Rtc
 		private int _disposed;
 		private long _droppedRecords;
 
+		// Touched only under _gate, by DrainOneBcDatagramLocked and TryReadNow, both only ever reachable
+		// from the single thread inside the current drain: true for the exact duration of one
+		// DrainOneBcDatagramLocked call, so TryReadNow refuses to fall through past an empty direct-feed
+		// slot into _inbound while it is set. See DrainOneBcDatagramLocked's own remarks for why.
+		private bool _bcOneShotOnly;
+
+		// Touched only under _sendGate (see TrySendCloseNotifyLocked's own remarks), by both of that
+		// method's call sites: guards the whole session, not one call, against ever putting a second
+		// close_notify on the wire.
+		private bool _closeNotifySent;
+
 		// DTLS 1.2 content types (RFC 6347 4.1) this session dispatches on post-handshake; every other
 		// value at epoch 1 is drop-and-count without ever being handed to _recordCrypto.
 		private const byte ContentTypeAlert = 21;
@@ -150,6 +161,11 @@ namespace MiNET.Net.Rtc
 		private const byte AlertLevelWarning = 1;
 		private const byte AlertLevelFatal = 2;
 		private const byte AlertDescriptionCloseNotify = 0;
+
+		// Every legitimate SendApplicationData payload rides inside one SCTP packet, which
+		// SctpAssociation already caps at SctpPacket.MaxSize: this is a caller-bug ceiling, not a size a
+		// real send would ever approach, checked before the stackalloc below is ever sized from it.
+		private const int MaxSendPayloadLength = SctpPacket.MaxSize;
 
 		/// <summary>
 		///     The epoch-1 key block <see cref="CapturingTlsCrypto" /> captured out of this handshake.
@@ -209,8 +225,8 @@ namespace MiNET.Net.Rtc
 		///     <see cref="ProcessApplicationDatagramLocked" />, or the unchanged BouncyCastle route for a
 		///     datagram carrying an epoch-0 record (a peer retransmitting a final handshake flight) - is
 		///     decided per datagram inside <see cref="DrainQueueLocked" />, not here: this method only
-		///     ever decides inline-versus-queued, exactly as it always has, so both content types share
-		///     one single-flight drain rather than needing two independently-synchronized ones (see
+		///     ever decides inline-versus-queued, so both content types share one single-flight drain
+		///     rather than needing two independently-synchronized ones (see
 		///     <see cref="DrainQueueLocked" />'s own remarks for why that single-flight property matters).
 		///     A <see cref="DtlsSessionClosedException" /> raised by the drain (Dispose or a cancelled
 		///     handshake closed the session while this call was in flight) is swallowed here: it is an
@@ -401,6 +417,7 @@ namespace MiNET.Net.Rtc
 						}
 
 						RequestClose();
+						ReclaimAbandonedLeasesLocked();
 						return;
 					}
 
@@ -409,6 +426,7 @@ namespace MiNET.Net.Rtc
 					if (level == AlertLevelFatal)
 					{
 						RequestClose();
+						ReclaimAbandonedLeasesLocked();
 						return;
 					}
 
@@ -654,9 +672,7 @@ namespace MiNET.Net.Rtc
 		///     <see cref="_sendGate" /> and <see cref="_gate" /> (which <see cref="Dispose" /> uses for the
 		///     rest of its own teardown) are deliberately disjoint locks: <see cref="System.Security.Cryptography.AesGcm" />,
 		///     which <see cref="DtlsRecordCrypto" /> disposes, is not documented safe against a concurrent
-		///     encrypt call on the instance being disposed, the same class of race a regression test
-		///     already caught against BouncyCastle's own transport before the switch to a native record
-		///     layer.
+		///     encrypt call on the instance being disposed.
 		///     </para>
 		///     <para>
 		///     The disposed guard and <see cref="Dispose" />'s own <c>_recordCrypto?.Dispose()</c> /
@@ -665,9 +681,14 @@ namespace MiNET.Net.Rtc
 		///     and is set atomically, first thing, in <see cref="Dispose" />, before anything else -
 		///     reusing it needs no new field). Lock-order proof: both the disposed check below and
 		///     <see cref="Dispose" />'s teardown calls run inside a <c>lock (_sendGate)</c> critical
-		///     section (<see cref="Dispose" /> nests it inside its own pre-existing <c>lock (_gate)</c>,
-		///     an order never used in reverse anywhere in this class, so this introduces no new lock-order
-		///     cycle), so whichever of the two reaches <see cref="_sendGate" /> first runs to completion
+		///     section. Two call sites nest that <c>lock (_sendGate)</c> inside an already-held
+		///     <c>lock (_gate)</c> - <see cref="Dispose" /> inside its own, and
+		///     <see cref="ProcessApplicationDatagramLocked" />'s close_notify branch inside the one
+		///     <see cref="FeedDatagram" />/<see cref="DrainUnderGate" /> already holds around the whole
+		///     drain - and nothing in this class ever takes <see cref="_sendGate" /> first and then waits
+		///     on <see cref="_gate" />, so the order is never reversed and neither nesting site introduces
+		///     a lock-order cycle. Whichever of this method or one of those two reaches
+		///     <see cref="_sendGate" /> first runs to completion
 		///     before the other can start: if this method wins, the encrypt-and-send fully finishes before
 		///     <see cref="Dispose" /> can even call <c>Dispose</c>/<c>Close</c>; if <see cref="Dispose" />
 		///     wins, <see cref="_disposed" /> is already 1 (its <c>Interlocked.Exchange</c> at the very top
@@ -680,6 +701,7 @@ namespace MiNET.Net.Rtc
 		public void SendApplicationData(ReadOnlySpan<byte> payload)
 		{
 			if (!_handshakeDone) throw new InvalidOperationException("DtlsSession.SendApplicationData called before the handshake completed.");
+			if (payload.Length > MaxSendPayloadLength) throw new ArgumentOutOfRangeException(nameof(payload), payload.Length, $"DtlsSession.SendApplicationData payload exceeds the {MaxSendPayloadLength}-byte SCTP packet ceiling.");
 
 			lock (_sendGate)
 			{
@@ -705,29 +727,47 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Emits one close_notify record (level warning, description 0) through the native record
-		///     layer's own live send sequence - never through BouncyCastle, whose sequence stalled at
-		///     wherever its Finished flight left off and would be dropped as a replay by any peer whose
+		///     Emits at most one close_notify record (level warning, description 0) through the native
+		///     record layer's own live send sequence - never through BouncyCastle, whose sequence stalled
+		///     at wherever its Finished flight left off and would be dropped as a replay by any peer whose
 		///     window our own application data has since advanced. Called both when this side initiates
 		///     closure (<see cref="Dispose" />) and when it answers a peer's close_notify
 		///     (<see cref="ProcessApplicationDatagramLocked" />), per RFC 5246 7.2.1's requirement that a
-		///     close_notify recipient send one back before closing. Must be called only while holding
-		///     <see cref="_sendGate" />. A no-op, silently, in either direction this can legitimately fail:
-		///     <see cref="_recordCrypto" /> is still null (the handshake never completed, so there was
-		///     never anything to say goodbye over), or <see cref="DtlsRecordCrypto.EncryptRecord" />
-		///     returns -1 (the 48-bit send sequence is exhausted). Neither caller treats that as a reason
-		///     to skip its own teardown: this is best effort, not a precondition of closing.
+		///     close_notify recipient send one back before closing; either caller may run first, and
+		///     whichever does is the only one that ever reaches the wire - <see cref="_closeNotifySent" />
+		///     is set the instant a send is attempted, before the encrypt even runs, so an inbound
+		///     close_notify's own response and a later <see cref="Dispose" /> on that same now-closed
+		///     session never both put a record out: RFC 5246 7.2.1 requires nothing further on the wire
+		///     once a close_notify has gone out, and a second one is exactly that. Must be called only
+		///     while holding <see cref="_sendGate" />, which is also what <see cref="_closeNotifySent" />
+		///     relies on for its own thread safety - both call sites already hold it. A no-op, silently,
+		///     in every direction this can legitimately fail: already sent, <see cref="_recordCrypto" />
+		///     still null (the handshake never completed, so there was never anything to say goodbye
+		///     over), <see cref="DtlsRecordCrypto.EncryptRecord" /> returning -1 (the 48-bit send sequence
+		///     is exhausted), or <see cref="WireSender" /> throwing (the peer's socket is gone; a prior
+		///     ICMP port-unreachable can surface as a <see cref="System.Net.Sockets.SocketException" /> on
+		///     the very next send). Every caller treats all of those as expected, not a reason to skip its
+		///     own teardown, so the throwing case is swallowed here rather than left to unwind into
+		///     <see cref="Dispose" /> or the receive path and skip whatever runs after it.
 		/// </summary>
 		private void TrySendCloseNotifyLocked()
 		{
-			if (_recordCrypto == null) return;
+			if (_closeNotifySent || _recordCrypto == null) return;
+			_closeNotifySent = true;
 
 			Span<byte> body = stackalloc byte[2] {AlertLevelWarning, AlertDescriptionCloseNotify};
 			Span<byte> wire = stackalloc byte[body.Length + DtlsRecordCrypto.RecordOverhead];
 			int length = _recordCrypto.EncryptRecord(ContentTypeAlert, body, wire);
 			if (length == -1) return;
 
-			_sendToWire(wire.Slice(0, length));
+			try
+			{
+				_sendToWire(wire.Slice(0, length));
+			}
+			catch (Exception ex)
+			{
+				Log.Debug($"Failed to send the closing close_notify ({(_isServer ? "server" : "client")}).", ex);
+			}
 		}
 
 		/// <summary>
@@ -737,9 +777,18 @@ namespace MiNET.Net.Rtc
 		///     first record; <see cref="DtlsTransport.ReceivePending" /> then drains any further records
 		///     BouncyCastle bundled from that same datagram without touching the queue again. Does not
 		///     itself loop over further queued datagrams - <see cref="DrainQueueLocked" /> is the single
-		///     loop that does that now, across both this method and <see cref="ProcessApplicationDatagramLocked" />,
+		///     loop that does, across both this method and <see cref="ProcessApplicationDatagramLocked" />,
 		///     so that only one of the two is ever pulling from the queue or writing
-		///     <see cref="_receiveScratch" /> at a time.
+		///     <see cref="_receiveScratch" /> at a time. <see cref="_bcOneShotOnly" /> brackets the whole
+		///     call for a related reason: BouncyCastle discarding this record internally (wrong epoch, bad
+		///     MAC, a duplicate it already has state for) makes its own <c>Receive</c> retry against
+		///     <see cref="TryReadNow" /> again before ever returning to us, and without the guard that
+		///     retry would fall through past the now-empty direct-feed slot straight into
+		///     <see cref="_inbound" />, pulling out whatever <see cref="DrainQueueLocked" /> queued up next
+		///     - which <see cref="DrainQueueLocked" /> has not routed yet and may not even be epoch 0.
+		///     With the guard, that retry instead reports nothing available and BouncyCastle's bounded
+		///     wait (see below) simply expires, exactly as if the queue really were empty; the item
+		///     <see cref="DrainQueueLocked" />'s own next iteration was going to route stays untouched.
 		///     <para>
 		///     The 1 passed to <c>Receive</c> is load-bearing, not a rounding choice.
 		///     BouncyCastle's own <c>Timeout.ForWaitMillis</c> treats 0 as "no deadline" (returns
@@ -790,28 +839,36 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			int n = transport.Receive(_receiveScratch.AsSpan(), 1);
-			while (n > 0)
+			_bcOneShotOnly = true;
+			try
 			{
-				int length = n;
-				Monitor.Exit(_gate);
-				try
+				int n = transport.Receive(_receiveScratch.AsSpan(), 1);
+				while (n > 0)
 				{
-					OnDecrypted?.Invoke(_receiveScratch.AsMemory(0, length));
-				}
-				finally
-				{
-					Monitor.Enter(_gate);
-				}
+					int length = n;
+					Monitor.Exit(_gate);
+					try
+					{
+						OnDecrypted?.Invoke(_receiveScratch.AsMemory(0, length));
+					}
+					finally
+					{
+						Monitor.Enter(_gate);
+					}
 
-				// Since the gate is released across the call above, a subscriber may have called
-				// Dispose() from inside that invocation, or a concurrent Dispose on another thread
-				// may have run while the gate was released. Either way Dispose is safe here (see
-				// this method's own doc comment): it closes the transport right away, so this loop
-				// must not call anything on it again once disposal has happened.
-				if (Volatile.Read(ref _disposed) != 0) return;
+					// Since the gate is released across the call above, a subscriber may have called
+					// Dispose() from inside that invocation, or a concurrent Dispose on another thread
+					// may have run while the gate was released. Either way Dispose is safe here (see
+					// this method's own doc comment): it closes the transport right away, so this loop
+					// must not call anything on it again once disposal has happened.
+					if (Volatile.Read(ref _disposed) != 0) return;
 
-				n = transport.ReceivePending(_receiveScratch.AsSpan(), null);
+					n = transport.ReceivePending(_receiveScratch.AsSpan(), null);
+				}
+			}
+			finally
+			{
+				_bcOneShotOnly = false;
 			}
 		}
 
@@ -873,6 +930,14 @@ namespace MiNET.Net.Rtc
 		///     makes that guarantee hold: BouncyCastle has the bytes copied into its own buffer
 		///     (<paramref name="buffer" />, owned by the caller further up this same synchronous call
 		///     chain) before this method returns, so nothing outside this call ever observes the slot.
+		///     <see cref="DrainQueueLocked" /> calls this with <see cref="_directFeedBuffer" /> itself as
+		///     <paramref name="buffer" />, so the direct-feed branch below copies that buffer onto itself;
+		///     deliberate and safe (<see cref="Span{T}.CopyTo(Span{T})" /> is a <c>memmove</c> and the
+		///     source and destination ranges are identical), reusing the buffer as generic staging space
+		///     for the raw, still-undecrypted bytes rather than adding a second one. While
+		///     <see cref="_bcOneShotOnly" /> is set, an empty direct-feed slot is reported as nothing
+		///     available rather than falling through to <see cref="_inbound" /> - see
+		///     <see cref="DrainOneBcDatagramLocked" />'s own remarks for why.
 		/// </summary>
 		private bool TryReadNow(Span<byte> buffer, out int length)
 		{
@@ -882,6 +947,12 @@ namespace MiNET.Net.Rtc
 				_directFeedBuffer.AsSpan(0, length).CopyTo(buffer);
 				_directFeedLength = -1;
 				return true;
+			}
+
+			if (_bcOneShotOnly)
+			{
+				length = 0;
+				return false;
 			}
 
 			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
@@ -915,18 +986,28 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Passes BouncyCastle's span straight through to <see cref="_sendToWire" />.
-		///     The whole call chain, from <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" /> down to
-		///     <see cref="UdpMux.Send" />, is synchronous, so there is no reason to lease a copy
-		///     just to hand out a <see cref="ReadOnlyMemory{T}" /> nobody keeps past the call.
+		///     BouncyCastle's own write path, reached only from <see cref="DatagramTransportAdapter.Send(ReadOnlySpan{byte})" />
+		///     - our own sends (<see cref="SendApplicationData" />, <see cref="TrySendCloseNotifyLocked" />)
+		///     call <see cref="_sendToWire" /> directly and never come through here. Drops the datagram
+		///     once <see cref="_closed" /> is set instead of passing it through: RFC 5246 7.2.1 requires
+		///     nothing further on the wire once a close_notify has gone out in either direction, and
+		///     BouncyCastle's own <c>Close()</c> (called from <see cref="Dispose" /> right after our native
+		///     close_notify) generates and sends one more alert of its own, on its stalled epoch-1
+		///     sequence, that this call chain is the only place able to catch. The whole call chain, from
+		///     <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" /> down to <see cref="UdpMux.Send" />, is
+		///     synchronous, so there is no reason to lease a copy just to hand out a
+		///     <see cref="ReadOnlyMemory{T}" /> nobody keeps past the call.
 		/// </summary>
 		private void SendToWire(ReadOnlySpan<byte> buffer)
 		{
+			if (_closed) return;
+
 			_sendToWire(buffer);
 		}
 
 		/// <summary>
-		///     Shared unblock signal for <see cref="Dispose" /> and a cancelled <see cref="DoHandshakeAsync" />:
+		///     Shared unblock signal for <see cref="Dispose" />, a cancelled <see cref="DoHandshakeAsync" />,
+		///     and <see cref="ProcessApplicationDatagramLocked" />'s close_notify/fatal-alert branches:
 		///     marks the session closed and completes the inbound channel's writer, so any
 		///     in-flight or future <see cref="ReceiveFromQueue" /> call that finds no datagram raises
 		///     <see cref="DtlsSessionClosedException" /> through <see cref="NoDataOrThrow" /> instead of
@@ -937,6 +1018,24 @@ namespace MiNET.Net.Rtc
 		{
 			_closed = true;
 			_inbound.Writer.TryComplete();
+		}
+
+		/// <summary>
+		///     Returns every lease still queued in <see cref="_inbound" /> to the pool without processing
+		///     it. <see cref="Dispose" /> always reaches this eventually, but a session closed by an
+		///     inbound close_notify or fatal alert may never be disposed for a while (or at all, on a
+		///     short-lived test session), so calling this immediately after <see cref="RequestClose" /> on
+		///     that path is what actually reclaims those leases rather than leaving them pinned until
+		///     something else happens to dispose the session. Must be called only while holding
+		///     <see cref="_gate" /> - every call site already does, since <see cref="_inbound" /> is only
+		///     ever safe to drain destructively under it (see the class remarks' Invariant paragraph).
+		/// </summary>
+		private void ReclaimAbandonedLeasesLocked()
+		{
+			while (_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
+			{
+				ArrayPool<byte>.Shared.Return(item.Leased);
+			}
 		}
 
 		/// <summary>
@@ -965,7 +1064,9 @@ namespace MiNET.Net.Rtc
 		///     order (the close_notify needs <see cref="_recordCrypto" /> still alive), the same lock
 		///     <see cref="SendApplicationData" /> takes around its own disposed check and
 		///     encrypt-and-send call - see that method's own remarks for the full
-		///     lock-order proof. Nested inside the pre-existing <c>lock (_gate)</c> here (an order,
+		///     lock-order proof, which also covers <see cref="ProcessApplicationDatagramLocked" />'s own
+		///     <c>_gate</c>-then-<c>_sendGate</c> nesting for its close_notify response, the other site
+		///     besides this one. Nested inside the pre-existing <c>lock (_gate)</c> here (an order,
 		///     <see cref="_gate" /> then <see cref="_sendGate" />, never used in reverse anywhere in this
 		///     class), so this adds no new lock-order cycle: <see cref="SendApplicationData" /> only ever
 		///     takes <see cref="_sendGate" /> alone, never <see cref="_gate" />, so it cannot be waiting on
@@ -988,10 +1089,7 @@ namespace MiNET.Net.Rtc
 					_recordCrypto?.Dispose();
 				}
 
-				while (_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
-				{
-					ArrayPool<byte>.Shared.Return(item.Leased);
-				}
+				ReclaimAbandonedLeasesLocked();
 
 				if (_draining)
 				{
