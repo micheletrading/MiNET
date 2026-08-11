@@ -74,6 +74,7 @@ namespace MiNET.Net.Rtc
 		private int _remoteSctpPort = 5000;
 		private SctpAssociation _association;
 		private RtcChannelManager _channelManager;
+		private Action _associationTick;
 		private int _disposed;
 		private volatile bool _transportWasUp;
 		private int _transportClosedRaised;
@@ -337,7 +338,27 @@ namespace MiNET.Net.Rtc
 			_channelManager.OnDataChannel += channel => OnDataChannel?.Invoke(channel);
 
 			_dtls.OnDecrypted += _association.OnPacketReceived;
-			_mux.OnTick += _association.OnTick;
+
+			// UdpMux.OnTick (UdpMux.cs) is a bare multicast with no per-subscriber isolation, and
+			// HighPrecisionTimer's own catch around invoking it swallows silently - one association
+			// throwing out of OnTick aborts the whole invocation list for that tick, so every OTHER peer
+			// registered on the same mux misses its RTO/delayed-SACK/T3 timers too, with no log output at
+			// all. Wrapped here, at the subscription site - the one place that already knows which
+			// association a given tick belongs to, for a useful log message - rather than in UdpMux or
+			// HighPrecisionTimer themselves. The wrapped delegate is kept so Dispose can unsubscribe the
+			// SAME instance (unsubscribing _association.OnTick directly here would not remove it).
+			_associationTick = () =>
+			{
+				try
+				{
+					_association.OnTick();
+				}
+				catch (Exception ex)
+				{
+					Log.Error("SctpAssociation.OnTick threw; this peer's tick is skipped, the mux keeps serving every other peer.", ex);
+				}
+			};
+			_mux.OnTick += _associationTick;
 		}
 
 		/// <summary>
@@ -552,7 +573,7 @@ namespace MiNET.Net.Rtc
 				if (_dtls != null) _dtls.OnDecrypted -= _association.OnPacketReceived;
 
 				_association.Abort();
-				_mux.OnTick -= _association.OnTick;
+				_mux.OnTick -= _associationTick;
 			}
 
 			_ice.OnNominated -= OnIceNominated;
