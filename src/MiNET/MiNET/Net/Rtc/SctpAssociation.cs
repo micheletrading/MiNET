@@ -141,6 +141,16 @@ namespace MiNET.Net.Rtc
 		// handled here directly through the internal SctpChunkCodec both files already share.
 		private const byte CookieAckChunkType = 11;
 
+		// RFC 4960 3.2/9.2: SHUTDOWN (7, carries a Cumulative TSN Ack this association never reads -
+		// no retransmission-aware teardown is in scope here, only tearing down on receipt), SHUTDOWN-ACK
+		// (8, empty value, same "no dedicated codec struct" shape as COOKIE-ACK above), and
+		// SHUTDOWN-COMPLETE (14, empty value, never sent by this association since it never initiates a
+		// graceful shutdown itself - only answered here so an inbound one is dropped-and-counted rather
+		// than falling through to the unrecognised-type default).
+		private const byte ShutdownChunkType = 7;
+		private const byte ShutdownAckChunkType = 8;
+		private const byte ShutdownCompleteChunkType = 14;
+
 		// Cookie layout (RFC 4960 5.1.3's "stateless cookie" technique): a fixed 32-byte plaintext
 		// snapshot of everything the server would otherwise have to remember between INIT-ACK and
 		// COOKIE-ECHO, followed by a 32-byte HMAC-SHA256 over that snapshot. Peer initiate tag(4),
@@ -493,6 +503,7 @@ namespace MiNET.Net.Rtc
 				ushort zcStreamId = 0;
 				uint zcPpid = 0;
 				ReadOnlyMemory<byte> zcPayload = default;
+				string teardownReason = null;
 
 				lock (_gate)
 				{
@@ -530,6 +541,26 @@ namespace MiNET.Net.Rtc
 							packetHadData = HandleForwardTsn(value) || packetHadData;
 							break;
 
+						case SctpChunkType.Heartbeat:
+							HandleHeartbeat(value);
+							break;
+
+						case SctpChunkType.Abort:
+							teardownReason = HandleAbort();
+							break;
+
+						case ShutdownChunkType:
+							teardownReason = HandleShutdown();
+							break;
+
+						case ShutdownCompleteChunkType:
+							// Never sent by this association (it never initiates a graceful shutdown), so
+							// one arriving is either a stray retransmit of our own SHUTDOWN-ACK's peer reply
+							// after we already tore down, or hostile - either way, dropped and counted like
+							// any other post-teardown packet, per the task brief.
+							CountIgnored();
+							break;
+
 						default:
 							CountIgnored();
 							break;
@@ -540,6 +571,7 @@ namespace MiNET.Net.Rtc
 				// zcPayload is a slice of `packet`, which is still on this method's stack for the whole
 				// call, so the memory (and the single-segment sequence built over it) stays valid here.
 				if (becameEstablished) OnEstablished?.Invoke();
+				if (teardownReason != null) OnAborted?.Invoke(teardownReason);
 				if (hasZeroCopyDelivery)
 				{
 					var sequence = new ReadOnlySequence<byte>(zcPayload);
@@ -678,6 +710,102 @@ namespace MiNET.Net.Rtc
 
 			_receiveBuffer.AdvanceCumulative(chunk.NewCumulativeTsn, pairs);
 			return true;
+		}
+
+		/// <summary>
+		///     Server or client role, called under <see cref="_gate" />: RFC 4960 8.3 path-liveness probe,
+		///     answered only once <see cref="SctpState.Established" /> - one arriving during the handshake or
+		///     after teardown is dropped and counted, not answered. The Heartbeat Info parameter is echoed
+		///     back VERBATIM (opaque bytes, no interpretation): SIPSorcery, and any compliant peer, sends
+		///     these during interop and treats silence as path death. A malformed chunk (missing or
+		///     truncated TLV) is dropped and counted rather than answered - this codebase's hot-path law
+		///     (never throw on hostile input) applies here exactly as everywhere else on this receive path.
+		/// </summary>
+		private void HandleHeartbeat(ReadOnlySpan<byte> value)
+		{
+			if (_state != SctpState.Established)
+			{
+				CountIgnored();
+				return;
+			}
+
+			if (!HeartbeatChunk.TryParse(value, out HeartbeatChunk heartbeat))
+			{
+				CountIgnored();
+				return;
+			}
+
+			SendHeartbeatAckPacket(heartbeat.Info);
+		}
+
+		/// <summary>
+		///     Server or client role, called under <see cref="_gate" />: an inbound ABORT tears the
+		///     association down unconditionally - no cause taxonomy is read (<see cref="AbortChunk" />'s own
+		///     remarks: nothing here needs the cause data, so a garbage or empty value is tolerated without
+		///     even being parsed). Idempotent: an ABORT (or anything else) arriving after this association is
+		///     already <see cref="SctpState.Aborted" /> is dropped and counted instead, which is what keeps
+		///     <see cref="OnAborted" /> firing exactly once no matter how many teardown-triggering chunks
+		///     arrive. RFC 4960 8.5.1's special verification-tag acceptance rule for ABORT (accept if the T
+		///     bit is set and the tag echoes the peer's own, in addition to the ordinary exact-match case) is
+		///     deliberately NOT implemented here - the existing tag handling in this class stays exactly as
+		///     built (most chunk types here, including this one, do not check the packet's verification tag
+		///     against association state at all today; that is pre-existing and out of this task's scope,
+		///     not something introduced or weakened by this method).
+		/// </summary>
+		private string HandleAbort()
+		{
+			if (_state == SctpState.Aborted)
+			{
+				CountIgnored();
+				return null;
+			}
+
+			return Teardown("Peer sent ABORT.");
+		}
+
+		/// <summary>
+		///     Server or client role, called under <see cref="_gate" />: an inbound SHUTDOWN answers with
+		///     SHUTDOWN-ACK, then tears down exactly like <see cref="HandleAbort" /> does. The chunk's own
+		///     Cumulative TSN Ack value is never read - no retransmission-aware graceful shutdown is in scope
+		///     here (see the task report), only tearing down on receipt - so any content there, garbage or
+		///     otherwise, is tolerated without being parsed. Idempotent the same way <see cref="HandleAbort" />
+		///     is: a SHUTDOWN arriving after teardown is dropped and counted instead of answered again.
+		/// </summary>
+		private string HandleShutdown()
+		{
+			if (_state == SctpState.Aborted)
+			{
+				CountIgnored();
+				return null;
+			}
+
+			SendShutdownAckPacket();
+			return Teardown("Peer sent SHUTDOWN.");
+		}
+
+		/// <summary>
+		///     The common ABORT/SHUTDOWN teardown path, called under <see cref="_gate" /> only after the
+		///     caller has already confirmed <see cref="_state" /> is not yet <see cref="SctpState.Aborted" />
+		///     (so this never runs twice): flips the state, releases every outstanding send-queue lease
+		///     (<see cref="SctpSendQueue.ReleaseAll" />) so a mid-flight association does not leak its leased
+		///     buffers, and lets the receive buffer release its own parked state - reassembly fragments,
+		///     buffered out-of-turn ordered messages, the out-of-order TSN set - via
+		///     <see cref="SctpReceiveBuffer.Reset" />, reusing <see cref="_peerInitialTsn" /> since the exact
+		///     value no longer matters (this buffer will never process another chunk). Also disarms the
+		///     200ms delayed-SACK fallback (<see cref="_sackTimerArmed" />): that timer is not gated by
+		///     <see cref="_state" /> in <see cref="OnTick" />, so left armed it would otherwise fire a stray
+		///     SACK off a dead association. Returns <paramref name="reason" /> unchanged, for the caller to
+		///     raise <see cref="OnAborted" /> with once <see cref="_gate" /> is released (the established
+		///     outside-the-lock pattern; see the class remarks and <see cref="OnTick" />'s own
+		///     <c>abortReason</c> variable).
+		/// </summary>
+		private string Teardown(string reason)
+		{
+			_state = SctpState.Aborted;
+			_sendQueue.ReleaseAll();
+			_receiveBuffer.Reset(_peerInitialTsn);
+			_sackTimerArmed = false;
+			return reason;
 		}
 
 		/// <summary>
@@ -1119,6 +1247,33 @@ namespace MiNET.Net.Rtc
 			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
 			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
 			n += SctpChunkCodec.FinishChunk(buffer.Slice(n), CookieAckChunkType, 0, 0);
+			SctpPacket.FinishChecksum(buffer.Slice(0, n));
+			_sendPacket(buffer.Slice(0, n));
+		}
+
+		/// <summary>
+		///     Called under <see cref="_gate" /> from <see cref="HandleHeartbeat" />: <paramref name="info" />
+		///     is the peer's own Heartbeat Info parameter, echoed back verbatim per RFC 4960 8.3 - it is
+		///     still a slice of the packet <see cref="OnPacketReceived" /> is currently processing, valid for
+		///     this whole call chain, so no copy or retention is needed before it is written into the reply.
+		/// </summary>
+		private void SendHeartbeatAckPacket(ReadOnlySpan<byte> info)
+		{
+			var ack = new HeartbeatChunk(info, isAck: true);
+
+			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
+			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
+			n += ack.WriteTo(buffer.Slice(n));
+			SctpPacket.FinishChecksum(buffer.Slice(0, n));
+			_sendPacket(buffer.Slice(0, n));
+		}
+
+		/// <summary>Called under <see cref="_gate" /> from <see cref="HandleShutdown" />: SHUTDOWN-ACK (RFC 4960 3.2, type 8), empty value - the same generic-chunk-writer shape <see cref="SendCookieAckPacket" /> already uses for COOKIE-ACK, no dedicated codec struct needed.</summary>
+		private void SendShutdownAckPacket()
+		{
+			Span<byte> buffer = stackalloc byte[SctpPacket.MaxSize];
+			int n = SctpPacket.WriteHeader(buffer, _sctpPort, _sctpPort, _peerTag);
+			n += SctpChunkCodec.FinishChunk(buffer.Slice(n), ShutdownAckChunkType, 0, 0);
 			SctpPacket.FinishChecksum(buffer.Slice(0, n));
 			_sendPacket(buffer.Slice(0, n));
 		}

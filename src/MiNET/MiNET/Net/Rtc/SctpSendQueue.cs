@@ -139,8 +139,16 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only: SACKs dropped whole (RFC 4960 6.2.1) for acking a cumulative TSN older than the current ack point - a stale, reordered duplicate, distinct from an equal (no-advance) SACK, which is the normal duplicate-report shape fast retransmit depends on.</summary>
 		public long SacksDroppedStale => Interlocked.Read(ref _sacksDroppedStale);
 
-		/// <summary>(Re)arms the queue for a fresh association: releases anything still resident from a previous lifetime, then seeds TSN/cwnd/RTO state for the local Initial TSN just negotiated.</summary>
-		public void Reset(uint localInitialTsn)
+		/// <summary>
+		///     Releases every resident chunk's leased payload buffer and pooled node - the
+		///     <see cref="Enqueue" />/<see cref="OnSackReceived" />/<see cref="AbandonChunk" /> lease
+		///     lifecycle's fourth path, alongside ack, abandon, and <see cref="Reset" />: an association
+		///     torn down (ABORT/SHUTDOWN, <see cref="SctpAssociation" />'s teardown path) with outstanding
+		///     sends still resident. Unlike <see cref="Reset" />, this does not reseed TSN/cwnd/RTO state -
+		///     the caller is discarding this queue for good, not preparing it for a fresh handshake. Safe
+		///     to call on an already-empty queue (nothing to walk, so no double-return risk).
+		/// </summary>
+		public void ReleaseAll()
 		{
 			PendingChunk node = _head;
 			while (node != null)
@@ -154,6 +162,13 @@ namespace MiNET.Net.Rtc
 			_head = null;
 			_tail = null;
 			_queuedBytes = 0;
+			_timerArmed = false;
+		}
+
+		/// <summary>(Re)arms the queue for a fresh association: releases anything still resident from a previous lifetime (<see cref="ReleaseAll" />), then seeds TSN/cwnd/RTO state for the local Initial TSN just negotiated.</summary>
+		public void Reset(uint localInitialTsn)
+		{
+			ReleaseAll();
 
 			_cumulativeTsnAck = unchecked(localInitialTsn - 1);
 			_forwardTsnAdvertised = _cumulativeTsnAck;
