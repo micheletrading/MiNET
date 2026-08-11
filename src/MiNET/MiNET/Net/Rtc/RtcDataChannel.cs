@@ -358,7 +358,20 @@ namespace MiNET.Net.Rtc
 				if (!sendNow) _pendingOpens.Add((streamId, buffer.Slice(0, written).ToArray()));
 			}
 
-			if (sendNow) _association.Send(streamId, DcepPpid, buffer.Slice(0, written), unordered: false, maxRetransmits: -1);
+			if (sendNow)
+			{
+				_association.Send(streamId, DcepPpid, buffer.Slice(0, written), unordered: false, maxRetransmits: -1);
+			}
+			else
+			{
+				// Task 8: local demand for a channel is reason enough to try starting the handshake,
+				// regardless of which side RtcPeer's own DTLS-role-driven eagerness already tried on -
+				// see SctpAssociation.Start's own remarks for why a real interop peer makes this second
+				// trigger necessary rather than redundant. Unconditional and safe: Start is idempotent, a
+				// no-op once the association has already left SctpState.Closed by any means, including
+				// that same DTLS-role-driven eagerness winning the race first.
+				_association.Start();
+			}
 
 			return channel;
 		}

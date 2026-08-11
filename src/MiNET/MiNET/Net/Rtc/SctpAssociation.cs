@@ -151,6 +151,18 @@ namespace MiNET.Net.Rtc
 		private const byte ShutdownAckChunkType = 8;
 		private const byte ShutdownCompleteChunkType = 14;
 
+		// RFC 4960 3.2/3.3.10: ERROR (9), one or more error-cause TLVs this association never needs to
+		// read - Task 8's interop against a real peer observed a real, benign one (cause code 8,
+		// "Unrecognized Parameters", naming our RFC 3758 Forward-TSN-Supported INIT/INIT-ACK parameter,
+		// which that peer's implementation does not recognize): the parameter's own type value (0xC000)
+		// already encodes "skip and report, keep processing" in its top two bits, so the peer sending
+		// this ERROR is itself proof nothing
+		// more than dropped-and-counted is owed here, never a torn-down association. Given its own case
+		// (rather than falling through to the unrecognised-type default) purely so a real, expected chunk
+		// type is not miscounted as if it were hostile/malformed input, same reasoning as
+		// SHUTDOWN-COMPLETE above.
+		private const byte ErrorChunkType = 9;
+
 		// Cookie layout (RFC 4960 5.1.3's "stateless cookie" technique): a fixed 32-byte plaintext
 		// snapshot of everything the server would otherwise have to remember between INIT-ACK and
 		// COOKIE-ECHO, followed by a 32-byte HMAC-SHA256 over that snapshot. Peer initiate tag(4),
@@ -168,7 +180,11 @@ namespace MiNET.Net.Rtc
 		// only job is proving WE minted it a COOKIE-ECHO is echoing back, not authenticating a peer.
 		private static readonly byte[] CookieHmacKey = RandomNumberGenerator.GetBytes(32);
 
-		private readonly bool _isClient;
+		// Not readonly: starts as the DTLS-role-derived designation the constructor is given, but
+		// Start() (Task 8) can flip a false one to true the moment this side self-initiates the SCTP
+		// handshake on its own demand, rather than waiting on the DTLS-client side to do it. See
+		// Start()'s own remarks for why a real interop peer makes that flip necessary.
+		private bool _isClient;
 		private readonly ushort _sctpPort;
 		private readonly uint _arwndBudget;
 		private readonly PacketSender _sendPacket;
@@ -185,9 +201,11 @@ namespace MiNET.Net.Rtc
 		private ushort _peerInboundStreams;
 		private byte[] _cookie;
 
-		// Handshake retransmit state (client role only; the server never arms a timer, see the class
-		// remarks). Reset to a fresh RTO cycle whenever a new chunk starts waiting for a reply (INIT at
-		// Start, COOKIE-ECHO once the INIT-ACK arrives).
+		// Handshake retransmit state: armed only while this side is itself waiting on a reply to
+		// something it sent (CookieWait/CookieEchoed, see OnTick), which after Task 8 is no longer
+		// exclusively the DTLS-client-designated side - see Start()'s own remarks. Reset to a fresh RTO
+		// cycle whenever a new chunk starts waiting for a reply (INIT at Start, COOKIE-ECHO once the
+		// INIT-ACK arrives).
 		private int _attemptCount;
 		private long _rtoMillis;
 		private long _lastSentAtTicks;
@@ -347,15 +365,38 @@ namespace MiNET.Net.Rtc
 		internal long SacksDroppedStale => _sendQueue.SacksDroppedStale;
 
 		/// <summary>
-		///     Client role: sends the opening INIT and arms the retransmit timer. Server role: nothing to
-		///     do, it only ever reacts to <see cref="OnPacketReceived" />.
+		///     Sends the opening INIT and arms the retransmit timer, claiming the SCTP-initiator role for
+		///     this side (<see cref="_isClient" />, independent of whatever DTLS-role designation this
+		///     instance was constructed with - see that field's own remarks). Idempotent: a no-op once
+		///     <see cref="_state" /> has already left <see cref="SctpState.Closed" />, by any means -
+		///     already self-initiated by an earlier call, or already answering the peer's own INIT via
+		///     <see cref="HandleInit" /> - so every caller can call this unconditionally and "maybe" rather
+		///     than needing to know which.
+		///     <para>
+		///     Task 7 had exactly one caller (<see cref="RtcPeer.RunHandshakeAsync" />, gated on
+		///     <c>_dtlsIsClient</c>): RFC 8841 does not mandate who initiates, but NetherNet has the DTLS
+		///     client do it, so the codebase followed that as a convention baked into the caller, not this
+		///     method. Task 8's interop against a real WebRTC peer falsified the assumption that convention
+		///     is universal: that peer's own SCTP association only ever starts reactively, the moment its
+		///     OWN application asks for a data channel - never eagerly on DTLS connecting, regardless of
+		///     which side is the DTLS client. Paired with this side's own DTLS-client-only eagerness, the
+		///     result was a genuine deadlock: whenever the peer held the DTLS-client designation but never
+		///     created a channel of its own, neither side ever sent the opening INIT, and an association
+		///     this side had local demand for (<see cref="RtcChannelManager.CreateChannel" /> already had a
+		///     channel queued) sat in <see cref="SctpState.Closed" /> forever. This method's idempotency is
+		///     what lets <see cref="RtcChannelManager.CreateChannel" /> now also call it - unconditionally,
+		///     the moment local demand exists and nothing has started yet - as a second, demand-driven
+		///     trigger alongside the original DTLS-client eagerness, without either caller needing to
+		///     coordinate with or even know about the other.
+		///     </para>
 		/// </summary>
 		public void Start()
 		{
-			if (!_isClient) return;
-
 			lock (_gate)
 			{
+				if (_state != SctpState.Closed) return;
+
+				_isClient = true;
 				_localTag = RandomUInt32();
 				_localInitialTsn = RandomUInt32();
 				_state = SctpState.CookieWait;
@@ -439,9 +480,12 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Handshake retransmit backoff for the client role only: the server never owns a timer here,
-		///     see the class remarks. Runs on whatever thread the owner calls it from (a different one
-		///     than <see cref="OnPacketReceived" /> in the real mux wiring), so both share <see cref="_gate" />.
+		///     Handshake retransmit backoff, armed only while this side is itself waiting on a reply to
+		///     something it sent (<see cref="_isClient" /> - see <see cref="Start" />'s own remarks for why
+		///     that is no longer purely a fixed DTLS-role designation). A side that only ever answers the
+		///     peer's INIT, never sending its own, has nothing here to retransmit. Runs on whatever thread
+		///     the owner calls it from (a different one than <see cref="OnPacketReceived" /> in the real mux
+		///     wiring), so both share <see cref="_gate" />.
 		/// </summary>
 		public void OnTick()
 		{
@@ -618,6 +662,13 @@ namespace MiNET.Net.Rtc
 							// one arriving is either a stray retransmit of our own SHUTDOWN-ACK's peer reply
 							// after we already tore down, or hostile - either way, dropped and counted like
 							// any other post-teardown packet, per the task brief.
+							CountIgnored();
+							break;
+
+						case ErrorChunkType:
+							// See ErrorChunkType's own remarks: a real, benign chunk this association has no
+							// cause taxonomy for and nothing to do about, dropped and counted like any other
+							// chunk this class only ever observes, never acts on.
 							CountIgnored();
 							break;
 

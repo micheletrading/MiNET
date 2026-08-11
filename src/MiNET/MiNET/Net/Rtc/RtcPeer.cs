@@ -81,6 +81,12 @@ namespace MiNET.Net.Rtc
 
 		public string LocalUfrag => _localUfrag;
 
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the underlying association's current state, or <see langword="null" /> before <see cref="BuildSctpAssociation" /> has run. Exists for interop tests that need to prove a peer-initiated teardown actually reached <see cref="SctpState.Aborted" /> on this side, rather than assuming it did from the absence of an exception.</summary>
+		internal SctpState? AssociationState => _association?.State;
+
+		/// <summary>Test visibility only: how many inbound packets the underlying association has dropped and counted, for whatever reason - see <see cref="SctpAssociation.IgnoredPacketCount" />.</summary>
+		internal long AssociationIgnoredPacketCount => _association?.IgnoredPacketCount ?? 0;
+
 		/// <summary>
 		///     Off by default; exists only for same-machine test topologies where the peer's ICE
 		///     candidate gathering advertises a real interface address (its own loopback filtering
@@ -312,19 +318,53 @@ namespace MiNET.Net.Rtc
 		///     scheduled - which is the earliest <see cref="DtlsSession._handshakeDone" /> could ever
 		///     become true - is strictly after this subscription already exists. This is not a narrower
 		///     window: it is provably no window at all, by the offer/answer protocol's own call ordering,
-		///     not by a timing assumption. <see cref="SctpAssociation.Start" /> (client role) is still
-		///     deferred to <see cref="RunHandshakeAsync" />, since <see cref="DtlsSession.SendApplicationData" />
-		///     itself still correctly throws before the handshake actually completes.
+		///     not by a timing assumption. <see cref="RunHandshakeAsync" />'s own eager
+		///     <see cref="SctpAssociation.Start" /> call (DTLS-client role) still only ever runs after a
+		///     successful handshake, so it alone was never at risk here; Task 8 gives
+		///     <see cref="SctpAssociation.Start" /> a second caller with no such guarantee
+		///     (<see cref="RtcChannelManager.CreateChannel" />, which can race arbitrarily far ahead of the
+		///     handshake), which is exactly the gap <see cref="SendSctpPacket" /> now exists to close:
+		///     <see cref="DtlsSession.SendApplicationData" /> still correctly throws before the handshake
+		///     completes, so every send this association makes is routed through that one small wrapper
+		///     instead of the delegate directly, rather than trusting every future caller of
+		///     <see cref="SctpAssociation.Start" /> to independently know and honor this ordering.
 		///     </para>
 		/// </summary>
 		private void BuildSctpAssociation()
 		{
-			_association = new SctpAssociation(_dtlsIsClient, (ushort) _remoteSctpPort, SctpArwndBudget, _dtls.SendApplicationData);
+			_association = new SctpAssociation(_dtlsIsClient, (ushort) _remoteSctpPort, SctpArwndBudget, SendSctpPacket);
 			_channelManager = new RtcChannelManager(_association, _dtlsIsClient);
 			_channelManager.OnDataChannel += channel => OnDataChannel?.Invoke(channel);
 
 			_dtls.OnDecrypted += _association.OnPacketReceived;
 			_mux.OnTick += _association.OnTick;
+		}
+
+		/// <summary>
+		///     <see cref="SctpAssociation" />'s <see cref="PacketSender" />: everything it ever sends,
+		///     handshake or data plane, funnels through here to <see cref="DtlsSession.SendApplicationData" />.
+		///     Task 8: <see cref="RtcChannelManager.CreateChannel" />'s own demand-driven
+		///     <see cref="SctpAssociation.Start" /> call (see that method's remarks) can run before this
+		///     side's DTLS handshake has finished, which <see cref="DtlsSession.SendApplicationData" /> itself
+		///     still correctly rejects by throwing. Swallowed and logged here rather than propagated: the
+		///     caller is <see cref="SctpAssociation" />'s own internal send path, not application code with
+		///     anything useful to do about a mid-handshake send failing, and <see cref="SctpAssociation" />'s
+		///     own T1 retransmit (<see cref="SctpAssociation.OnTick" />) already retries a fixed interval
+		///     later - by which point, in every scenario this stack's own tests or NetherNet's real topology
+		///     produce, the handshake has finished. Still satisfies <see cref="PacketSender" />'s own leaf
+		///     contract: this wrapper takes no lock of its own beyond what <see cref="DtlsSession.SendApplicationData" />
+		///     already does, and never calls back into <see cref="_association" /> or blocks on anything.
+		/// </summary>
+		private void SendSctpPacket(ReadOnlySpan<byte> packet)
+		{
+			try
+			{
+				_dtls.SendApplicationData(packet);
+			}
+			catch (InvalidOperationException ex)
+			{
+				Log.Warn("Dropped an outgoing SCTP packet: DTLS handshake not done yet.", ex);
+			}
 		}
 
 		/// <summary>
