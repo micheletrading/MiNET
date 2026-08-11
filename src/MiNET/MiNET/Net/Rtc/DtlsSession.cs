@@ -148,7 +148,11 @@ namespace MiNET.Net.Rtc
 		// _handshakeDone write on that same thread) applies here too, so ProcessApplicationDatagramLocked
 		// reading it under _gate post-handshake can never race the handshake thread's own writes. Capped
 		// at MaxFinalFlightDatagrams, keeping the most recent on overflow: a real final flight is 2-3
-		// small records, so the cap is defensive only.
+		// small records, so the cap rarely matters for a genuine peer, but it is also the actual bound
+		// on what a bare, unauthenticated 13-byte epoch-0 header can elicit from this session - at most
+		// 16 cached datagrams per trigger, itself rate-limited to once a second
+		// (HandleEpochZeroRecordLocked), and reflected only back at the one address this session's
+		// WireSender targets, never anywhere attacker-chosen.
 		private readonly List<byte[]> _finalFlightCache = new List<byte[]>();
 		private const int MaxFinalFlightDatagrams = 16;
 
@@ -205,7 +209,7 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many times an epoch-0 record triggered a verbatim re-emit of <see cref="_finalFlightCache" />.</summary>
 		internal long ResendsPerformed => Interlocked.Read(ref _resendsPerformed);
 
-		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many epoch-0 records were dropped without a resend, either because <see cref="_finalFlightCache" /> was empty or the 1-second resend rate limit was still active.</summary>
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many epoch-0 records were dropped without a resend, because <see cref="_finalFlightCache" /> was empty, the 1-second resend rate limit was still active, a resend already answered this same datagram, or the session was already closed.</summary>
 		internal long EpochZeroRecordsDropped => Interlocked.Read(ref _epochZeroRecordsDropped);
 
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many datagrams <see cref="_finalFlightCache" /> currently holds. Zero for a client-role handshake (its last handshake event is a receive, not a send) and non-zero for a server-role one, once the handshake has completed.</summary>
@@ -459,9 +463,27 @@ namespace MiNET.Net.Rtc
 		///     when the cache is empty (this side is the DTLS client, or this side's own last flight was a
 		///     receive, not a send - see the class doc comment), when the 1-second rate limit
 		///     (<see cref="ResendRateLimitMillis" />, read through <see cref="ClockNowMillis" />) is still
-		///     active, or when <paramref name="resentThisDatagram" /> is already <see langword="true" />:
-		///     a resend already answered an earlier epoch-0 record in this same datagram, and answering
-		///     twice for one datagram buys the peer nothing further.
+		///     active, when <paramref name="resentThisDatagram" /> is already <see langword="true" />
+		///     (a resend already answered an earlier epoch-0 record in this same datagram, and answering
+		///     twice for one datagram buys the peer nothing further), or when <see cref="_closed" /> is
+		///     set: <see cref="RequestClose" /> (<see cref="Dispose" />, or a concurrent alert-driven
+		///     close) can flip it true from another thread without ever needing <see cref="_gate" />
+		///     itself, so a drain already inside this method can still observe it turn true out from
+		///     under it. Re-checked here, immediately before the resend would actually reach the wire,
+		///     for the same reason <see cref="SendApplicationData" /> and <see cref="SendToWire" /> both
+		///     check it at their own last possible moment: RFC 5246 7.2.1 requires nothing further on the
+		///     wire once closed, and a resent handshake flight is no exception.
+		///     <para>
+		///     Each cached datagram is sent inside its own <see langword="try" />/<see langword="catch" />,
+		///     the same shape <see cref="TrySendCloseNotifyLocked" /> already uses for the identical
+		///     failure (the peer's socket is gone; a prior ICMP port-unreachable can surface as a
+		///     <see cref="System.Net.Sockets.SocketException" /> on the very next send): a lost resend
+		///     datagram is droppable by nature, since a peer that never received the final flight the
+		///     first time simply asks again, so one failure must not stop the rest of the flight from
+		///     going out, abort the record walk still further up the call stack in
+		///     <see cref="ProcessApplicationDatagramLocked" />, or unwind out of
+		///     <see cref="FeedDatagram" /> entirely.
+		///     </para>
 		/// </summary>
 		private void HandleEpochZeroRecordLocked(ref bool resentThisDatagram)
 		{
@@ -478,11 +500,24 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
+			if (_closed)
+			{
+				Interlocked.Increment(ref _epochZeroRecordsDropped);
+				return;
+			}
+
 			_lastResendAtMillis = now;
 			resentThisDatagram = true;
 			foreach (byte[] flightDatagram in _finalFlightCache)
 			{
-				_sendToWire(flightDatagram);
+				try
+				{
+					_sendToWire(flightDatagram);
+				}
+				catch (Exception ex)
+				{
+					Log.Debug($"Failed to resend a cached final-flight datagram ({(_isServer ? "server" : "client")}).", ex);
+				}
 			}
 
 			Interlocked.Increment(ref _resendsPerformed);

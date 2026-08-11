@@ -188,9 +188,9 @@ namespace MiNET.Net.Rtc
 		// snapshot of everything the server would otherwise have to remember between INIT-ACK and
 		// COOKIE-ECHO, followed by a 32-byte HMAC-SHA256 over that snapshot. Peer initiate tag(4),
 		// our tag(4), peer a_rwnd(4), peer outbound/inbound streams(2+2), peer initial TSN(4), our own
-		// initial TSN(4, not in the plan's literal list but required for the same statelessness: our
-		// own InitialTsn is announced in the INIT-ACK we send, so it must survive the stateless gap
-		// exactly like every other value we would otherwise forget), timestamp(8).
+		// initial TSN(4, required for the same statelessness: our own InitialTsn is announced in the
+		// INIT-ACK we send, so it must survive the stateless gap exactly like every other value we
+		// would otherwise forget), timestamp(8).
 		private const int CookiePlainLength = 32;
 		private const int CookieHmacLength = 32;
 		internal const int CookieLength = CookiePlainLength + CookieHmacLength;

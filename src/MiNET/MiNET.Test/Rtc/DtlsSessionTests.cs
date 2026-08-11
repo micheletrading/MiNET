@@ -706,11 +706,12 @@ namespace MiNET.Test.Rtc
 
 		/// <summary>
 		///     An epoch-0 header (13 bytes) declaring a fragment length that consumes the rest of the
-		///     datagram as garbage, with nothing valid before or after it, is the junk-prefix attack shape
-		///     F1+F2 names: an unauthenticated header alone must never cost more than a rate-limited
-		///     resend, never throw, and never allocate once the rate limit is active. A fixed fake clock
-		///     (never advancing) makes every trigger past the first provably rate-limited, regardless of
-		///     how fast or slow the machine running this test is.
+		///     datagram as garbage, with nothing valid before or after it, is a junk-prefix attack shape:
+		///     the routing decision reads an unauthenticated header, so anyone able to reach this
+		///     session can prefix 13 junk bytes declaring epoch 0 to any datagram. That header alone must
+		///     never cost more than a rate-limited resend, never throw, and never allocate once the rate
+		///     limit is active. A fixed fake clock (never advancing) makes every trigger past the first
+		///     provably rate-limited, regardless of how fast or slow the machine running this test is.
 		/// </summary>
 		[TestMethod]
 		public async Task JunkPrefixDatagram_EpochZeroHeaderThenGarbage_HandledFully_AtMostOneResend_ZeroAllocationOnTheDropPath()
@@ -770,7 +771,7 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     The role asymmetry F1+F2's design names: a client-role handshake's last handshake event is
+		///     The role asymmetry: a client-role handshake's last handshake event is
 		///     a receive (the server's own Finished flight), so <see cref="DtlsSession.FinalFlightCacheCount" />
 		///     ends at zero, and empty is correct - a server that sent its final flight has, by
 		///     definition, already received ours. An epoch-0 record reaching a session with an empty cache

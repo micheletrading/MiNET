@@ -270,7 +270,7 @@ namespace MiNET.Net.Rtc
 		///     Throws if a DTLS session already exists: a second <see cref="AcceptOffer" />/
 		///     <see cref="AcceptAnswer" /> call would otherwise overwrite <see cref="_dtls" /> without
 		///     disposing the previous one, leaking a live BouncyCastle session and its pooled buffers.
-		///     Renegotiation is out of scope for this stage.
+		///     There is no renegotiation path in this class.
 		///     <para>
 		///     Also builds the SCTP association and subscribes
 		///     <see cref="_association" />'s <see cref="SctpAssociation.OnPacketReceived" /> to
