@@ -123,7 +123,7 @@ namespace MiNET.Net.Rtc
 		// fully-reliable Send blocked on it, but still bounded so a stalled or hostile peer cannot grow
 		// this association's memory without limit. Documented in the task report; callers needing a
 		// different budget pass their own value.
-		private const uint DefaultSendQueueBudgetBytes = 1_048_576;
+		private const uint DefaultSendQueueBudgetBytes = 4_194_304;
 
 		// An inbound FORWARD-TSN's pair count is already implicitly bounded by SctpPacket.MaxSize (about
 		// 290 pairs' worth fits at all), but HandleForwardTsn's stackalloc sizes stack space straight from
