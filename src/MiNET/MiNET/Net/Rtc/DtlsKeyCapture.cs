@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -35,17 +35,26 @@ namespace MiNET.Net.Rtc
 	/// <summary>
 	///     The epoch-1 DTLS key block for one handshake, sliced per RFC 5246 6.3 (no MAC keys: both
 	///     cipher suites this stack negotiates are AEAD). <see cref="ClientWriteIv" /> and
-	///     <see cref="ServerWriteIv" /> are the 4-byte GCM salts, not full 12-byte nonces. Every field
-	///     is written exactly once, by <see cref="CapturingTlsCrypto.CreateCipher" />, before an
-	///     instance is ever handed out, so it is immutable in practice for every reader downstream.
+	///     <see cref="ServerWriteIv" /> are the 4-byte GCM salts, not full 12-byte nonces. Every
+	///     property is get-only and set exactly once, in the constructor, so an instance cannot be
+	///     mutated after <see cref="CapturingTlsCrypto.CreateCipher" /> hands it out.
 	/// </summary>
 	internal sealed class CapturedDtlsKeys
 	{
-		public byte[] ClientWriteKey;
-		public byte[] ServerWriteKey;
-		public byte[] ClientWriteIv;
-		public byte[] ServerWriteIv;
-		public int CipherSuite;
+		public byte[] ClientWriteKey { get; }
+		public byte[] ServerWriteKey { get; }
+		public byte[] ClientWriteIv { get; }
+		public byte[] ServerWriteIv { get; }
+		public int CipherSuite { get; }
+
+		public CapturedDtlsKeys(byte[] clientWriteKey, byte[] serverWriteKey, byte[] clientWriteIv, byte[] serverWriteIv, int cipherSuite)
+		{
+			ClientWriteKey = clientWriteKey;
+			ServerWriteKey = serverWriteKey;
+			ClientWriteIv = clientWriteIv;
+			ServerWriteIv = serverWriteIv;
+			CipherSuite = cipherSuite;
+		}
 	}
 
 	/// <summary>
@@ -89,14 +98,12 @@ namespace MiNET.Net.Rtc
 
 			byte[] keyBlock = TlsImplUtilities.CalculateKeyBlock(cryptoParams, 2 * keyLength + 2 * 4);
 
-			return new CapturedDtlsKeys
-			{
-				ClientWriteKey = keyBlock.AsSpan(0, keyLength).ToArray(),
-				ServerWriteKey = keyBlock.AsSpan(keyLength, keyLength).ToArray(),
-				ClientWriteIv = keyBlock.AsSpan(2 * keyLength, 4).ToArray(),
-				ServerWriteIv = keyBlock.AsSpan(2 * keyLength + 4, 4).ToArray(),
-				CipherSuite = cryptoParams.SecurityParameters.CipherSuite
-			};
+			return new CapturedDtlsKeys(
+				clientWriteKey: keyBlock.AsSpan(0, keyLength).ToArray(),
+				serverWriteKey: keyBlock.AsSpan(keyLength, keyLength).ToArray(),
+				clientWriteIv: keyBlock.AsSpan(2 * keyLength, 4).ToArray(),
+				serverWriteIv: keyBlock.AsSpan(2 * keyLength + 4, 4).ToArray(),
+				cipherSuite: cryptoParams.SecurityParameters.CipherSuite);
 		}
 	}
 }

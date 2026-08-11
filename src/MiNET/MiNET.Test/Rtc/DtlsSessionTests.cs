@@ -70,13 +70,13 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Pins the ground truth the native record layer is built against: the key block
-		///     <see cref="CapturingTlsCrypto" /> captures out of the handshake must be the actual
-		///     material BouncyCastle used to protect a real record, not merely present. Both sides
-		///     derive the same key block from the same master secret, so the two captures must agree
-		///     field for field; and a manual AES-GCM decrypt of one wire datagram BouncyCastle itself
-		///     encrypted, built entirely from the Wire facts (record header, explicit nonce, AAD) and
-		///     the captured client write key/salt, must recover the exact plaintext that was sent.
+		///     Pins that the key block <see cref="CapturingTlsCrypto" /> captures out of the handshake
+		///     is the actual material BouncyCastle used to protect a real record, not merely present.
+		///     Both sides derive the same key block from the same master secret, so the two captures
+		///     must agree field for field; and a manual AES-GCM decrypt of one wire datagram
+		///     BouncyCastle itself encrypted, built entirely from the DTLS 1.2 record format (record
+		///     header, explicit nonce, AAD per RFC 5246/RFC 5288) and the captured client write
+		///     key/salt, must recover the exact plaintext that was sent.
 		/// </summary>
 		[TestMethod]
 		public async Task Handshake_CapturesTheKeyBlock_AndItDecryptsARealBcRecord()
@@ -126,11 +126,12 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Decodes exactly one DTLS 1.2 AEAD record per the plan's Wire facts: header
-		///     type(1)|version(2)|epoch(2)|sequence(6)|length(2), fragment
+		///     Decodes exactly one DTLS 1.2 AEAD record: header
+		///     type(1)|version(2)|epoch(2)|sequence(6)|length(2) (RFC 6347 4.1), fragment
 		///     explicit_nonce(8)|ciphertext|tag(16), GCM nonce = salt(4) + explicit_nonce(8), AAD =
-		///     epoch(2)|sequence(6)|type(1)|version(2)|plaintext_length(2). The explicit nonce is read
-		///     off the wire, never reconstructed from the header, per the same Wire facts.
+		///     epoch(2)|sequence(6)|type(1)|version(2)|plaintext_length(2) (RFC 5246 6.2.3.3, RFC 5288).
+		///     The explicit nonce is read off the wire, never reconstructed from the header: RFC 5288
+		///     requires a receiver to use the nonce as sent, not to recompute it.
 		/// </summary>
 		private static byte[] ManuallyDecryptOneAeadRecord(byte[] record, byte[] writeIvSalt, byte[] writeKey)
 		{
