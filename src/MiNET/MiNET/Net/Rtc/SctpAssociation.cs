@@ -300,6 +300,15 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
+		/// <summary>Test visibility only: the peer's most recently advertised receive window, as last accepted from a valid SACK (or the handshake).</summary>
+		internal uint PeerArwnd
+		{
+			get
+			{
+				lock (_gate) return _peerArwnd;
+			}
+		}
+
 		/// <summary>Test visibility only: current send-side RTO.</summary>
 		internal long SendRtoMillis
 		{
@@ -320,6 +329,12 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>Test visibility only: how many times T3-rtx actually fired.</summary>
 		internal long SendTimeoutCount => _sendQueue.TimeoutCount;
+
+		/// <summary>Test visibility only: SACKs dropped whole (RFC 4960 6.2.1) for acking a TSN newer than anything actually transmitted.</summary>
+		internal long SacksDroppedFutureCumAck => _sendQueue.SacksDroppedFutureCumAck;
+
+		/// <summary>Test visibility only: SACKs dropped whole (RFC 4960 6.2.1) for acking a cumulative TSN older than the current ack point.</summary>
+		internal long SacksDroppedStale => _sendQueue.SacksDroppedStale;
 
 		/// <summary>
 		///     Client role: sends the opening INIT and arms the retransmit timer. Server role: nothing to
@@ -597,7 +612,11 @@ namespace MiNET.Net.Rtc
 		///     Server or client role, called under <see cref="_gate" />: applies an inbound SACK to the send
 		///     side (<see cref="_sendQueue" />), refreshes the peer's advertised receive window, and follows
 		///     up with a FORWARD-TSN and/or an outbound flush if the SACK made either possible (fast
-		///     retransmit abandoning a chunk, or the window opening back up).
+		///     retransmit abandoning a chunk, or the window opening back up). A SACK <see cref="_sendQueue" />
+		///     rejects outright (RFC 4960 6.2.1: acking a TSN never transmitted, or older than the current
+		///     ack point) updates nothing at all here either - not even the advertised window - since a
+		///     rejected SACK is not trusted for anything it carries, not just the parts
+		///     <see cref="SctpSendQueue.OnSackReceived" /> itself acts on.
 		/// </summary>
 		private void HandleSack(ReadOnlySpan<byte> value)
 		{
@@ -613,8 +632,10 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
+			bool accepted = _sendQueue.OnSackReceived(sack.CumulativeTsnAck, sack.GapBlocks, ClockNowMillis());
+			if (!accepted) return;
+
 			_peerArwnd = sack.Arwnd;
-			_sendQueue.OnSackReceived(sack.CumulativeTsnAck, sack.GapBlocks, ClockNowMillis());
 
 			MaybeSendForwardTsn();
 			Flush();

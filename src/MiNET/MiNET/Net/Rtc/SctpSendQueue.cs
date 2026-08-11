@@ -87,6 +87,11 @@ namespace MiNET.Net.Rtc
 		private uint _cumulativeTsnAck;
 		private uint _forwardTsnAdvertised;
 
+		// The highest TSN actually put on the wire (set only in MarkTransmitted; a chunk merely queued,
+		// never sent, does not count). RFC 4960 6.2.1's SACK validation rules hang off this and off
+		// _cumulativeTsnAck directly, in OnSackReceived's own opening guards.
+		private uint _highestTransmittedTsn;
+
 		private uint _cwnd;
 		private long _rtoMillis;
 		private long _srttMillis = -1; // -1: no RTT sample taken yet (RFC 6298 2.2's "first measurement")
@@ -104,6 +109,8 @@ namespace MiNET.Net.Rtc
 		private long _abandonedCount;
 		private long _fastRetransmitCount;
 		private long _timeoutCount;
+		private long _sacksDroppedFutureCumAck;
+		private long _sacksDroppedStale;
 
 		public SctpSendQueue(uint queueBudgetBytes)
 		{
@@ -126,6 +133,12 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only: how many times T3-rtx actually fired (RTO elapsed with data still outstanding).</summary>
 		public long TimeoutCount => Interlocked.Read(ref _timeoutCount);
 
+		/// <summary>Test visibility only: SACKs dropped whole (RFC 4960 6.2.1) for acking a TSN newer than anything actually transmitted - hostile, corrupt, or misdelivered.</summary>
+		public long SacksDroppedFutureCumAck => Interlocked.Read(ref _sacksDroppedFutureCumAck);
+
+		/// <summary>Test visibility only: SACKs dropped whole (RFC 4960 6.2.1) for acking a cumulative TSN older than the current ack point - a stale, reordered duplicate, distinct from an equal (no-advance) SACK, which is the normal duplicate-report shape fast retransmit depends on.</summary>
+		public long SacksDroppedStale => Interlocked.Read(ref _sacksDroppedStale);
+
 		/// <summary>(Re)arms the queue for a fresh association: releases anything still resident from a previous lifetime, then seeds TSN/cwnd/RTO state for the local Initial TSN just negotiated.</summary>
 		public void Reset(uint localInitialTsn)
 		{
@@ -144,6 +157,7 @@ namespace MiNET.Net.Rtc
 
 			_cumulativeTsnAck = unchecked(localInitialTsn - 1);
 			_forwardTsnAdvertised = _cumulativeTsnAck;
+			_highestTransmittedTsn = _cumulativeTsnAck; // nothing sent yet: the same baseline _cumulativeTsnAck starts at
 
 			_cwnd = 4 * (uint) Mtu;
 			_rtoMillis = RtoInitialMillis;
@@ -257,6 +271,8 @@ namespace MiNET.Net.Rtc
 			chunk.SentAtTicks = nowMillis;
 			chunk.PendingRetransmit = false;
 
+			if (SctpTsn.IsNewer(chunk.Tsn, _highestTransmittedTsn)) _highestTransmittedTsn = chunk.Tsn;
+
 			if (!_timerArmed)
 			{
 				_timerArmed = true;
@@ -328,9 +344,45 @@ namespace MiNET.Net.Rtc
 		///     cumulative-stuck, gap-carrying SACKs in a row as a fast-retransmit signal for the chunk right
 		///     after the ack point. Restarts (or disarms, if nothing remains outstanding) T3-rtx whenever
 		///     the cumulative ack advances, per RFC 6298 5.3.
+		///     <para>
+		///     RFC 4960 6.2.1's two SACK validation rules gate all of the above, in order, before any of it
+		///     runs:
+		///     </para>
+		///     <para>
+		///     1. A <paramref name="sackCumulativeTsnAck" /> newer than <see cref="_highestTransmittedTsn" />
+		///     (a TSN this queue never actually put on the wire - a chunk merely queued does not count, see
+		///     <see cref="MarkTransmitted" />) is impossible from a well-behaved peer and is dropped whole,
+		///     before any processing: no cumulative advance, no gap marking, no rwnd update (the caller only
+		///     applies the SACK's advertised rwnd when this method reports the SACK was accepted), no
+		///     fast-retransmit counting. Accepting it would free chunks that were never sent and desync the
+		///     ack point into believing data was delivered that never left the machine.
+		///     </para>
+		///     <para>
+		///     2. A <paramref name="sackCumulativeTsnAck" /> older than the current <see cref="_cumulativeTsnAck" />
+		///     is a stale, reordered SACK and is likewise dropped whole (RFC 4960 6.2.1 discards
+		///     out-of-order SACKs outright): its gap reports must not feed the fast-retransmit duplicate
+		///     counter or mark chunks against a stale anchor, either of which could fire a spurious fast
+		///     retransmit. An EQUAL cumulative ack is not stale - it is the ordinary duplicate-report shape
+		///     fast retransmit depends on - and keeps flowing through rule 1's check and everything below.
+		///     </para>
+		///     Returns whether the SACK was accepted (processed at all), not whether the cumulative ack
+		///     specifically advanced - a stuck-cumulative duplicate report carrying gap blocks is accepted
+		///     and meaningful (it is what fast retransmit counts), just not an advance.
 		/// </summary>
 		public bool OnSackReceived(uint sackCumulativeTsnAck, ReadOnlySpan<SackChunk.GapBlock> gapBlocks, long nowMillis)
 		{
+			if (SctpTsn.IsNewer(sackCumulativeTsnAck, _highestTransmittedTsn))
+			{
+				Interlocked.Increment(ref _sacksDroppedFutureCumAck);
+				return false;
+			}
+
+			if (SctpTsn.IsNewer(_cumulativeTsnAck, sackCumulativeTsnAck))
+			{
+				Interlocked.Increment(ref _sacksDroppedStale);
+				return false;
+			}
+
 			bool advanced = SctpTsn.IsNewer(sackCumulativeTsnAck, _cumulativeTsnAck);
 
 			if (advanced)
@@ -399,7 +451,7 @@ namespace MiNET.Net.Rtc
 				}
 			}
 
-			return advanced;
+			return true;
 		}
 
 		private void ApplyRttSample(long rttSampleMillis)
