@@ -185,14 +185,15 @@ namespace MiNET.Net.Rtc
 
 	/// <summary>
 	///     DCEP (RFC 8832) negotiation and message dispatch for one <see cref="SctpAssociation" />. Built
-	///     as its own small class for this task rather than folded into <see cref="RtcPeer" />: the plan's
-	///     Task 7 is what actually owns an <see cref="SctpAssociation" /> end to end (association lifetime,
-	///     the loopback/mux wiring, teardown), and this task's brief explicitly keeps this task off
-	///     <see cref="RtcPeer" />. One instance wraps exactly one association and is directly testable
-	///     against it, which is how this task's own tests exercise it: two instances, one per side of a
-	///     synchronously-wired pair of associations, exactly like <see cref="SctpAssociationHandshakeTests" />
-	///     wires the associations themselves. Task 7 constructs one of these per established association and
-	///     forwards <see cref="OnDataChannel" /> to whatever surface it exposes upward.
+	///     as its own small class rather than folded into <see cref="RtcPeer" />:
+	///     <see cref="RtcPeer" /> is what actually owns an <see cref="SctpAssociation" /> end to end
+	///     (association lifetime, the loopback/mux wiring, teardown), and this class stays off
+	///     <see cref="RtcPeer" /> deliberately. One instance wraps exactly one association and is directly
+	///     testable against it, which is how this stack's own tests exercise it: two instances, one per
+	///     side of a synchronously-wired pair of associations, exactly like
+	///     <see cref="SctpAssociationHandshakeTests" />
+	///     wires the associations themselves. <see cref="RtcPeer" /> constructs one of these per established
+	///     association and forwards <see cref="OnDataChannel" /> to whatever surface it exposes upward.
 	///     <para>
 	///     The DCEP OPEN/ACK codec lives here as private statics (this class is the only one that ever
 	///     builds or parses that wire format; <see cref="RtcDataChannel" /> itself never touches DCEP,
@@ -250,7 +251,7 @@ namespace MiNET.Net.Rtc
 		// this counter only ever steps by 2 from its role's own starting id.
 		private ushort _nextStreamId;
 
-		// Task 7: CreateChannel can now genuinely race SctpAssociation reaching Established - riding a
+		// CreateChannel can genuinely race SctpAssociation reaching Established - riding a
 		// real (if loopback) UdpMux/DTLS transport, an application can call it the instant RtcPeer's
 		// transport is ready, well before the SCTP four-way handshake that same readiness kicks off has
 		// actually finished. Sending DATA_CHANNEL_OPEN before Established would just be dropped
@@ -270,10 +271,10 @@ namespace MiNET.Net.Rtc
 		/// <summary>Raised outside <see cref="_gate" />, once per inbound OPEN accepted: the reply ACK has already been sent by the time this fires (see <see cref="HandleOpen" />), and the channel is already <see cref="RtcDataChannel.IsOpen" />.</summary>
 		public event Action<RtcDataChannel> OnDataChannel;
 
-		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): every message this class drops rather than acting on - a malformed, truncated, wrong-parity, or unsupported-channel-type DCEP control message (<see cref="HandleDcep" />), a duplicate OPEN or a stray ACK for a stream already resolved one way or the other, and a data-plane message (non-DCEP PPID) addressed to a stream id with no registered channel (<see cref="OnAssociationMessage" />). Was DCEP-only ("IgnoredDcepMessageCount") until the fix round that added the last case - a silent, uncounted drop there is exactly what let the pre-ACK ordering race go unnoticed.</summary>
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): every message this class drops rather than acting on - a malformed, truncated, wrong-parity, or unsupported-channel-type DCEP control message (<see cref="HandleDcep" />), a duplicate OPEN or a stray ACK for a stream already resolved one way or the other, and a data-plane message (non-DCEP PPID) addressed to a stream id with no registered channel (<see cref="OnAssociationMessage" />).</summary>
 		internal long IgnoredMessageCount => Interlocked.Read(ref _ignoredMessageCount);
 
-		/// <summary><paramref name="isClient" /> is the DTLS role, not an application-level concept - <see cref="SctpAssociation" />'s own constructor takes the identical flag with the identical meaning (see Task 7's wiring), which is what fixes this side's stream id parity per RFC 8832 6.</summary>
+		/// <summary><paramref name="isClient" /> is the DTLS role, not an application-level concept - <see cref="SctpAssociation" />'s own constructor takes the identical flag with the identical meaning (see <see cref="RtcPeer" />'s wiring), which is what fixes this side's stream id parity per RFC 8832 6.</summary>
 		public RtcChannelManager(SctpAssociation association, bool isClient)
 		{
 			_association = association;
@@ -286,7 +287,7 @@ namespace MiNET.Net.Rtc
 			// SctpAssociation.OnEstablished fires at most once, ever, and does not replay past
 			// invocations to a subscriber that registers after the fact - a real case, not just this
 			// class's own synchronous-loopback tests: a caller can pass in an association that already
-			// reached Established before constructing this manager at all (Task 7's RtcPeer builds both
+			// reached Established before constructing this manager at all (RtcPeer builds both
 			// together, but nothing enforces that ordering on this constructor's own contract). No lock
 			// is needed for this read: nothing outside this constructor holds a reference to `this` yet
 			// to race CreateChannel against it, and State is a plain volatile read, so an interleaving
@@ -302,19 +303,19 @@ namespace MiNET.Net.Rtc
 		///     which describe the DATA plane this channel will carry, not the OPEN/ACK control messages
 		///     themselves), and returns the channel immediately, not yet <see cref="RtcDataChannel.IsOpen" />:
 		///     it opens once the peer's ACK arrives (see <see cref="HandleAck" />), which in a synchronous
-		///     loopback wiring - this task's tests, and NetherNet's own same-process topology in stage 2 -
+		///     loopback wiring - this stack's own tests, and NetherNet's own same-process topology -
 		///     already happened by the time this call returns.
 		///     <para>
-		///     Task 7 (single-lock fix): the stream-id claim and the channel's dictionary registration
-		///     used to be two separate <c>lock (_gate)</c> statements. Every real call path into this
-		///     class was, and still is, single-threaded per association on the receive side (driven
-		///     synchronously off <see cref="SctpAssociation.OnPacketReceived" />), but Task 7 gives
-		///     <see cref="CreateChannel" /> itself a second, genuinely concurrent caller: an application
+		///     The stream-id claim and the channel's dictionary registration
+		///     happen inside one critical section, not two. Every real call path into this
+		///     class is single-threaded per association on the receive side (driven
+		///     synchronously off <see cref="SctpAssociation.OnPacketReceived" />), but
+		///     <see cref="CreateChannel" /> itself has a second, genuinely concurrent caller: an application
 		///     thread, via <see cref="RtcPeer.CreateDataChannel" />, running independently of the mux
-		///     receive thread and the tick thread. Two separate critical sections left a window - between
-		///     claiming <paramref name="label" />'s stream id and registering the channel object under it
-		///     - during which <see cref="OnAssociationMessage" /> would find no channel for a stream id
-		///     this side had already claimed but not yet published; combining both into one critical
+		///     receive thread and the tick thread. Two separate critical sections would leave a window -
+		///     between claiming <paramref name="label" />'s stream id and registering the channel object
+		///     under it - during which <see cref="OnAssociationMessage" /> would find no channel for a
+		///     stream id this side had already claimed but not yet published; one critical
 		///     section below closes it, matching the flush/enqueue decision two paragraphs down, which
 		///     needs the same treatment for the same reason (see <see cref="OnAssociationEstablished" />'s
 		///     own remarks).
@@ -364,7 +365,7 @@ namespace MiNET.Net.Rtc
 			}
 			else
 			{
-				// Task 8: local demand for a channel is reason enough to try starting the handshake,
+				// Local demand for a channel is reason enough to try starting the handshake,
 				// regardless of which side RtcPeer's own DTLS-role-driven eagerness already tried on -
 				// see SctpAssociation.Start's own remarks for why a real interop peer makes this second
 				// trigger necessary rather than redundant. Unconditional and safe: Start is idempotent, a
@@ -408,7 +409,7 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
-		/// <summary>Dispatches every inbound message on <see cref="_association" />: DCEP control traffic (PPID 50) to <see cref="HandleDcep" />, everything else to whichever channel owns that stream id. A message for a stream id with no registered channel - stale, or a peer bug - is dropped and counted (was silent before this fix round; see <see cref="IgnoredMessageCount" />'s own remarks for why that hid a real bug), never dispatched.</summary>
+		/// <summary>Dispatches every inbound message on <see cref="_association" />: DCEP control traffic (PPID 50) to <see cref="HandleDcep" />, everything else to whichever channel owns that stream id. A message for a stream id with no registered channel - stale, or a peer bug - is dropped and counted, never dispatched.</summary>
 		private void OnAssociationMessage(ushort streamId, uint ppid, in ReadOnlySequence<byte> message)
 		{
 			if (ppid == DcepPpid)
@@ -469,17 +470,15 @@ namespace MiNET.Net.Rtc
 		///     existing channel object - and whatever the application already subscribed to it - is never
 		///     rebuilt or silently swapped out, and <see cref="OnDataChannel" /> never fires twice for it.
 		///     <para>
-		///     Task 7 (single-lock fix): the duplicate-stream check and the new channel's registration
-		///     used to be two separate <c>lock (_gate)</c> statements (flagged in the task-6 report as a
-		///     TOCTOU believed unreachable only because every call into this class was, at the time,
-		///     single-threaded per association). That belief no longer holds once <see cref="CreateChannel" />
-		///     gets a genuinely concurrent caller (Task 7's application thread, via
+		///     The duplicate-stream check and the new channel's registration
+		///     happen inside one critical section, not two: this method's own lookup-or-register step and
+		///     <see cref="CreateChannel" />'s claim-and-register step touch the same dictionary from what
+		///     could be two different threads, since <see cref="CreateChannel" />
+		///     has a genuinely concurrent caller (an application thread, via
 		///     <see cref="RtcPeer.CreateDataChannel" />) - not because two inbound OPENs for the same
-		///     stream id can now race each other (they still can't: every call into this method is still
-		///     driven synchronously, one datagram at a time, off <see cref="SctpAssociation.OnPacketReceived" />),
-		///     but because this method's own lookup-or-register step and <see cref="CreateChannel" />'s
-		///     claim-and-register step now touch the same dictionary from what could be two different
-		///     threads. Combined into one critical section below so there is no window between them.
+		///     stream id can race each other (they can't: every call into this method is
+		///     driven synchronously, one datagram at a time, off <see cref="SctpAssociation.OnPacketReceived" />).
+		///     Combined into one critical section below so there is no window between them.
 		///     </para>
 		/// </summary>
 		private void HandleOpen(ushort streamId, ReadOnlySpan<byte> bytes)

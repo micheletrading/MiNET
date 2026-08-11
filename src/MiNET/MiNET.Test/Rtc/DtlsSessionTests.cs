@@ -84,12 +84,12 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Regression for Finding 1 (drain livelock): replaying an already-seen ciphertext datagram
+		///     Replaying an already-seen ciphertext datagram
 		///     makes BouncyCastle's DTLS anti-replay window discard it on the server, forcing
-		///     DtlsRecordLayer.Receive to retry internally with nothing left queued. Before the fix
-		///     (DrainPending handing BouncyCastle a waitMillis of 0, which BouncyCastle treats as "no
-		///     deadline") that retry spun the caller's thread forever. FeedDatagram must now return
-		///     promptly, and the session must still carry legitimate application data afterward.
+		///     DtlsRecordLayer.Receive to retry internally with nothing left queued. A waitMillis of 0
+		///     (which BouncyCastle treats as "no deadline") would spin the caller's thread forever on
+		///     that retry; FeedDatagram must return
+		///     promptly instead, and the session must still carry legitimate application data afterward.
 		/// </summary>
 		[TestMethod]
 		public async Task ReplayedRecord_IsDiscarded_WithoutLivelock_AndSessionKeepsWorking()
@@ -130,10 +130,11 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Regression for Finding 2 (decorative cancellation): the CancellationToken passed to
-		///     DoHandshakeAsync used to only gate starting the Task.Run, doing nothing once BouncyCastle's
-		///     blocking Accept/Connect was already running. Against a peer that never answers, cancelling
-		///     must now resolve the handshake false well before the 10 s internal handshake timeout.
+		///     Pins that the CancellationToken passed to
+		///     DoHandshakeAsync unblocks a handshake already running inside BouncyCastle's blocking
+		///     Accept/Connect, not only gating the start of the Task.Run. Against a peer that never
+		///     answers, cancelling must resolve the handshake false well before the 10 s internal
+		///     handshake timeout.
 		/// </summary>
 		[TestMethod]
 		public async Task Cancelling_TheHandshake_ResolvesFalse_WellBeforeTheHandshakeTimeout()
@@ -153,12 +154,12 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Regression for round-2 Item 1 (reentrant Dispose defeats the gate invariant): the
-		///     realistic stage-2 pattern is tearing the session down as soon as an application-data
-		///     record signals an abort, i.e. calling Dispose synchronously from inside an
+		///     Tearing the session down as soon as an application-data
+		///     record signals an abort - calling Dispose synchronously from inside an
 		///     <see cref="DtlsSession.OnDecrypted" /> subscriber, which is still further up the same
-		///     call stack as FeedDatagram's drain loop (a Monitor lock is reentrant on the owning
-		///     thread, so the lock alone does not stop this). Before the fix, DrainPending's `while`
+		///     call stack as FeedDatagram's drain loop - is a realistic pattern (a Monitor lock is
+		///     reentrant on the owning thread, so the lock alone does not stop this). Without the
+		///     deferred-return guard, DrainPending's `while`
 		///     loop would call ReceivePending against the scratch buffer after Dispose had already
 		///     returned it to the pool.
 		/// </summary>
@@ -206,13 +207,13 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix round, Critical finding 1(c): a caller racing an application send against
+		///     A caller racing an application send against
 		///     <see cref="DtlsSession.Dispose" /> is a benign, expected race this class's teardown design
-		///     tolerates (unlike the pre-handshake case above, a caller bug, which throws) - but before
-		///     this fix, <see cref="DtlsSession.SendApplicationData" /> had no disposed guard at all, so it
-		///     called straight into a <see cref="Org.BouncyCastle.Tls.DtlsTransport" /> that
+		///     tolerates (unlike the pre-handshake case above, a caller bug, which throws). Without a
+		///     disposed guard, <see cref="DtlsSession.SendApplicationData" /> would call
+		///     straight into a <see cref="Org.BouncyCastle.Tls.DtlsTransport" /> that
 		///     <see cref="DtlsSession.Dispose" /> could be concurrently <c>Close()</c>-ing on another
-		///     thread (<c>_sendGate</c> and <c>_gate</c> were, and remain, disjoint locks). Must not throw,
+		///     thread (<c>_sendGate</c> and <c>_gate</c> are disjoint locks). Must not throw,
 		///     must not touch the transport, once disposed.
 		/// </summary>
 		[TestMethod]
@@ -253,11 +254,12 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Regression for round 5 (concurrent FeedDatagram): before the fix, the direct-feed fast
-		///     path's guard check, its copy into the shared staging buffer, and the length flag it set
-		///     all ran outside the lock, so two threads could both pass the empty-channel guard and race
-		///     to write the one shared buffer; the loser's datagram would be silently dropped or, worse,
-		///     the buffer's contents would be corrupted mid-copy. Two threads, synchronized with a
+		///     Pins concurrent <see cref="DtlsSession.FeedDatagram" /> safety: without the whole
+		///     decide-copy-drain sequence running inside the lock, the direct-feed fast
+		///     path's guard check, its copy into the shared staging buffer, and the length flag it sets
+		///     would all run outside the lock, so two threads could both pass the empty-channel guard and
+		///     race to write the one shared buffer; the loser's datagram would be silently dropped or,
+		///     worse, the buffer's contents would be corrupted mid-copy. Two threads, synchronized with a
 		///     <see cref="Barrier" /> to maximise actual overlap, each feed a disjoint half of a batch of
 		///     distinct, never-before-delivered wire datagrams (captured up front rather than replayed,
 		///     since a genuine replay is deliberately discarded by BouncyCastle's anti-replay window,

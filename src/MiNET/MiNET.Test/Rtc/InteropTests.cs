@@ -35,11 +35,11 @@ using MiNET.Net.Rtc;
 namespace MiNET.Test.Rtc
 {
 	/// <summary>
-	///     Task 8, the stage-2 exit gate: both interop directions extended past DTLS <c>connected</c>
+	///     Both interop directions extend past DTLS <c>connected</c>
 	///     into full DCEP negotiation and data-channel exchange against a real SIPSorcery peer (the
-	///     oracle stage 1 never had time to disagree with, since those tests closed within half a
-	///     second of connecting). SIPSorcery is allowed here only: production code under
-	///     <see cref="MiNET.Net.Rtc" /> and its comments never name it, per the task brief.
+	///     oracle earlier, DTLS-only tests never had time to disagree with, since those tests closed
+	///     within half a second of connecting). SIPSorcery is allowed here only: production code under
+	///     <see cref="MiNET.Net.Rtc" /> and its comments never name it.
 	/// </summary>
 	[TestClass]
 	public class InteropTests

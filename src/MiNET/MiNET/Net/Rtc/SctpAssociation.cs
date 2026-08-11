@@ -47,10 +47,10 @@ namespace MiNET.Net.Rtc
 	/// <summary>
 	///     A fully built outbound SCTP packet, ready for the wire (or the loopback wiring a test uses
 	///     instead of one). Matches <see cref="DtlsSession.SendApplicationData" />'s signature, so
-	///     Task 7 wires this delegate straight to it.
+	///     it is wired straight to it.
 	///     <para>
 	///     Leaf contract: <see cref="SctpAssociation" /> calls this delegate while holding its own
-	///     internal gate (Task 5's retransmit machinery wants sends interleaved with state under that
+	///     internal gate (the retransmit machinery wants sends interleaved with state under that
 	///     lock). The delegate must therefore behave like <see cref="DtlsSession.SendApplicationData" />
 	///     does: take only its own leaf-level lock (<c>_sendGate</c>), never call back into this
 	///     association, and never block on anything that could itself be waiting on this association.
@@ -64,8 +64,8 @@ namespace MiNET.Net.Rtc
 
 	/// <summary>
 	///     One complete, reassembled application message. <see cref="SctpAssociation.OnMessage" />'s
-	///     established contract (stage 1's <see cref="PacketSender" /> doc comment set the precedent):
-	///     <paramref name="message" /> is valid only for the duration of the callback. Round 4b: a
+	///     established contract (<see cref="PacketSender" />'s own doc comment sets the precedent):
+	///     <paramref name="message" /> is valid only for the duration of the callback. A
 	///     <see cref="ReadOnlySequence{T}" />, not a span - a span cannot represent a fragmented message
 	///     chained over more than one leased buffer without copying them together first, and Kestrel-style
 	///     pipelines pay that copy's cost on every fragmented message forever rather than once, up front,
@@ -80,14 +80,14 @@ namespace MiNET.Net.Rtc
 	public delegate void SctpMessageHandler(ushort streamId, uint ppid, in ReadOnlySequence<byte> message);
 
 	/// <summary>
-	///     RFC 4960 the four-way handshake only (INIT / INIT-ACK / COOKIE-ECHO / COOKIE-ACK); Tasks 4-6
-	///     grow this class with DATA/SACK, retransmission, and stream management. The server side never
+	///     RFC 4960: the four-way handshake (INIT / INIT-ACK / COOKIE-ECHO / COOKIE-ACK), DATA/SACK,
+	///     retransmission, and stream management. The server side never
 	///     commits an association's tags, TSNs, or stream counts to memory before a COOKIE-ECHO validates:
 	///     everything the server would otherwise have to remember is folded into the HMAC-signed state
 	///     cookie it hands back in the INIT-ACK and gets echoed verbatim in the COOKIE-ECHO, so a flood of
 	///     spoofed INITs costs nothing more than generating and forgetting a cookie. Every timed behaviour
 	///     (INIT/COOKIE-ECHO retransmit backoff) rides <see cref="OnTick" />, called by the owner
-	///     (<see cref="UdpMux.OnTick" /> in Task 7's wiring) on a different thread than
+	///     (<see cref="UdpMux.OnTick" /> in the association's wiring) on a different thread than
 	///     <see cref="OnPacketReceived" />, so both are guarded by <see cref="_gate" />.
 	///     <see cref="OnEstablished" /> and <see cref="OnAborted" /> are always raised after
 	///     <see cref="_gate" /> is released (<see cref="IceSession.Nominate" />/<c>Fail</c>'s pattern
@@ -101,8 +101,8 @@ namespace MiNET.Net.Rtc
 		private static readonly ILog Log = LogManager.GetLogger(typeof(SctpAssociation));
 
 		// RFC 8831 section 6.2 recommends an SCTP endpoint used for WebRTC data channels support at
-		// least 65535 streams in each direction; there is no per-caller configuration for this in
-		// stage 2, so both sides simply ask for the maximum.
+		// least 65535 streams in each direction; there is no per-caller configuration for this,
+		// so both sides simply ask for the maximum.
 		private const ushort StreamCount = 65535;
 
 		private const long RtoInitialMillis = 1000;
@@ -110,7 +110,7 @@ namespace MiNET.Net.Rtc
 		private const long RtoMaxMillis = 10000;
 		private const int MaxAttempts = 5;
 
-		// Task 5's send path. Messages at or under this size go out as a single DATA chunk; above it
+		// The send path. Messages at or under this size go out as a single DATA chunk; above it
 		// they split into pieces of exactly this size (the last one shorter). Deliberately well under
 		// the 1172-byte hard per-chunk ceiling (MaxSize 1200 - common header 12 - DATA header 16), so a
 		// full-size DATA chunk still leaves headroom for a bundled SACK (16 bytes plus up to 16 bytes of
@@ -174,7 +174,7 @@ namespace MiNET.Net.Rtc
 		private const byte ShutdownCompleteChunkType = 14;
 
 		// RFC 4960 3.2/3.3.10: ERROR (9), one or more error-cause TLVs this association never needs to
-		// read - Task 8's interop against a real peer observed a real, benign one (cause code 8,
+		// read - interop against a real peer has observed a real, benign one (cause code 8,
 		// "Unrecognized Parameters", naming our RFC 3758 Forward-TSN-Supported INIT/INIT-ACK parameter,
 		// which that peer's implementation does not recognize): the parameter's own type value (0xC000)
 		// already encodes "skip and report, keep processing" in its top two bits, so the peer sending
@@ -197,13 +197,13 @@ namespace MiNET.Net.Rtc
 		internal const int CookieLength = CookiePlainLength + CookieHmacLength;
 		private const long CookieMaxAgeMillis = 60_000;
 
-		// Static per process is acceptable for stage 2 (per the task brief): every SctpAssociation
+		// Static per process is acceptable here: every SctpAssociation
 		// instance signs and verifies cookies with the same key, which is fine since the cookie's
 		// only job is proving WE minted it a COOKIE-ECHO is echoing back, not authenticating a peer.
 		private static readonly byte[] CookieHmacKey = RandomNumberGenerator.GetBytes(32);
 
 		// Not readonly: starts as the DTLS-role-derived designation the constructor is given, but
-		// Start() (Task 8) can flip a false one to true the moment this side self-initiates the SCTP
+		// Start() can flip a false one to true the moment this side self-initiates the SCTP
 		// handshake on its own demand, rather than waiting on the DTLS-client side to do it. See
 		// Start()'s own remarks for why a real interop peer makes that flip necessary.
 		private bool _isClient;
@@ -224,7 +224,7 @@ namespace MiNET.Net.Rtc
 		private byte[] _cookie;
 
 		/// <summary>
-		///     Fix-round (Critical, Task 8 review): set by <see cref="HandleInit" /> every time this side
+		///     Set by <see cref="HandleInit" /> every time this side
 		///     answers a peer's INIT with an INIT-ACK, <see langword="null" /> until the first one.
 		///     Deliberately NOT protocol state: this class stays a stateless INIT responder exactly as the
 		///     class remarks describe (nothing commits until a COOKIE-ECHO validates), and this field never
@@ -249,7 +249,7 @@ namespace MiNET.Net.Rtc
 		private long? _lastRespondedInitAtTicks;
 
 		// Handshake retransmit state: armed only while this side is itself waiting on a reply to
-		// something it sent (CookieWait/CookieEchoed, see OnTick), which after Task 8 is no longer
+		// something it sent (CookieWait/CookieEchoed, see OnTick); this is not
 		// exclusively the DTLS-client-designated side - see Start()'s own remarks. Reset to a fresh RTO
 		// cycle whenever a new chunk starts waiting for a reply (INIT at Start, COOKIE-ECHO once the
 		// INIT-ACK arrives).
@@ -285,7 +285,7 @@ namespace MiNET.Net.Rtc
 		private bool _drainInFlight;
 		private bool _pendingReset;
 
-		// Send path (Task 5).
+		// Send path.
 		private readonly SctpSendQueue _sendQueue;
 		private uint _nextOutboundTsn;
 		private readonly Dictionary<ushort, ushort> _nextOutboundSeqByStream = new();
@@ -445,22 +445,20 @@ namespace MiNET.Net.Rtc
 		///     closes). Either way, every caller can call this unconditionally and "maybe" rather than
 		///     needing to know which.
 		///     <para>
-		///     Task 7 had exactly one caller (<see cref="RtcPeer.RunHandshakeAsync" />, gated on
-		///     <c>_dtlsIsClient</c>): RFC 8841 does not mandate who initiates, but NetherNet has the DTLS
-		///     client do it, so the codebase followed that as a convention baked into the caller, not this
-		///     method. Task 8's interop against a real WebRTC peer falsified the assumption that convention
-		///     is universal: that peer's own SCTP association only ever starts reactively, the moment its
+		///     Two independent callers rely on this idempotency without coordinating with each other:
+		///     <see cref="RtcPeer.RunHandshakeAsync" /> (gated on <c>_dtlsIsClient</c>: RFC 8841 does not
+		///     mandate who initiates, but NetherNet has the DTLS client do it, so the codebase follows that
+		///     as a convention baked into the caller, not this method), and
+		///     <see cref="RtcChannelManager.CreateChannel" />, which calls it unconditionally the moment
+		///     local demand exists and nothing has started yet, as a second, demand-driven trigger. Both
+		///     must exist: a real WebRTC peer's own SCTP association can start reactively, the moment its
 		///     OWN application asks for a data channel - never eagerly on DTLS connecting, regardless of
-		///     which side is the DTLS client. Paired with this side's own DTLS-client-only eagerness, the
-		///     result was a genuine deadlock: whenever the peer held the DTLS-client designation but never
-		///     created a channel of its own, neither side ever sent the opening INIT, and an association
-		///     this side had local demand for (<see cref="RtcChannelManager.CreateChannel" /> already had a
-		///     channel queued) sat in <see cref="SctpState.Closed" /> forever. This method's idempotency is
-		///     what lets <see cref="RtcChannelManager.CreateChannel" /> now also call it - unconditionally,
-		///     the moment local demand exists and nothing has started yet - as a second, demand-driven
-		///     trigger alongside the original DTLS-client eagerness, without either caller needing to
-		///     coordinate with or even know about the other. The remaining case that leaves - both sides
-		///     genuinely self-initiating with nothing received yet from the other - is not blocked here at
+		///     which side is the DTLS client - so DTLS-client-only eagerness alone deadlocks whenever the
+		///     peer holds the DTLS-client designation but never creates a channel of its own: neither side
+		///     would ever send the opening INIT, and an association with local demand
+		///     (<see cref="RtcChannelManager.CreateChannel" /> already has a channel queued) would sit in
+		///     <see cref="SctpState.Closed" /> forever. The remaining case - both sides genuinely
+		///     self-initiating with nothing received yet from the other - is not blocked here at
 		///     all: see <see cref="HandleInit" />/<see cref="HandleCookieEcho" />'s own remarks for how that
 		///     collision converges instead of deadlocking.
 		///     </para>
@@ -483,7 +481,7 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Public, deliberate teardown entry point (Task 7: <see cref="RtcPeer.Dispose" /> calls this
+		///     Public, deliberate teardown entry point (<see cref="RtcPeer.Dispose" /> calls this
 		///     so the association's own send/receive leases are released on the same path an inbound
 		///     ABORT/SHUTDOWN already uses, rather than just being abandoned to the GC). Sends a
 		///     best-effort ABORT to the peer - only when <see cref="SctpState.Established" />, since
@@ -559,7 +557,7 @@ namespace MiNET.Net.Rtc
 		/// <summary>
 		///     Handshake retransmit backoff, armed only while this side is itself waiting on a reply to
 		///     something it sent (<see cref="_isClient" /> - see <see cref="Start" />'s own remarks for why
-		///     that is no longer purely a fixed DTLS-role designation). A side that only ever answers the
+		///     that is not purely a fixed DTLS-role designation). A side that only ever answers the
 		///     peer's INIT, never sending its own, has nothing here to retransmit. Runs on whatever thread
 		///     the owner calls it from (a different one than <see cref="OnPacketReceived" /> in the real mux
 		///     wiring), so both share <see cref="_gate" />.
@@ -624,8 +622,8 @@ namespace MiNET.Net.Rtc
 				}
 			}
 
-			// Raised outside _gate: IceSession.Nominate/Fail's pattern, so a subscriber (Task 7's
-			// RtcPeer) can safely call back into this association, or anything else, from a different
+			// Raised outside _gate: IceSession.Nominate/Fail's pattern, so a subscriber (RtcPeer)
+			// can safely call back into this association, or anything else, from a different
 			// thread than the one that just released the lock.
 			if (abortReason != null) OnAborted?.Invoke(abortReason);
 		}
@@ -1177,7 +1175,7 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     The chunk codecs (<see cref="SctpPacket.EnumerateChunks" />, <see cref="DataChunkHeader.TryParse" />)
-		///     are span-only and untouched by the round-4b memory/sequence contract change: they hand back
+		///     are span-only: they hand back
 		///     <paramref name="inner" /> as a span slice of <paramref name="packetSpan" />, not an offset.
 		///     This locates that slice by reference (both spans are views over the same backing array) and
 		///     returns the equivalent slice of <paramref name="packet" />, the original memory, so the
@@ -1321,13 +1319,12 @@ namespace MiNET.Net.Rtc
 		///     maps 1:1 to one <see cref="RtcPeer" />'s single-use transport for its whole life, so once
 		///     torn down it must never answer anything again - a fresh INIT arriving after that point (a
 		///     genuinely new connection attempt on the same tag/ports, or hostile replay) gets no reply,
-		///     matching "once Aborted, no handler may transition state or send" (fix-round: a resurrection
-		///     hazard found and closed for <see cref="HandleCookieEcho" /> first; audited onto every other
-		///     handshake handler, this one included, since a stateless responder handler is exactly the
-		///     kind of code most likely to be an overlooked exception to that rule).
+		///     matching "once Aborted, no handler may transition state or send", the same invariant every
+		///     handshake handler enforces - a stateless responder handler is exactly the
+		///     kind of code most likely to be an overlooked exception to that rule.
 		///     <para>
-		///     Fix-round (Critical, Task 8 review): a self-initiated instance is not unconditionally
-		///     excluded from answering an INIT the way it was before this round. RFC 4960 5.2.1's
+		///     A self-initiated instance is not unconditionally
+		///     excluded from answering an INIT. RFC 4960 5.2.1's
 		///     simultaneous-INIT collision - both sides start before receiving anything from the other -
 		///     lands exactly here: an INIT arriving while this side is itself in
 		///     <see cref="SctpState.CookieWait" /> (already sent its own, still awaiting the reply) is the
@@ -1336,7 +1333,7 @@ namespace MiNET.Net.Rtc
 		///     exhaustion. This is the convergent subset of 5.2.1 this stack implements, not the fuller
 		///     duplicate-association tie-break RFC 4960 5.2.2-5.2.4 describe for a restart after one side
 		///     already reached <see cref="SctpState.Established" /> or <see cref="SctpState.CookieEchoed" />
-		///     - those remain dropped-and-counted exactly as before. The collision answer reuses this
+		///     - those remain dropped-and-counted. The collision answer reuses this
 		///     side's OWN EXISTING tag and initial TSN (never a fresh pair) per RFC 4960 5.2.1's own rule:
 		///     the peer must be able to recognize the reply as completing the SAME identity it already has
 		///     half of, and <see cref="_state" /> is deliberately left at <see cref="SctpState.CookieWait" />
@@ -1347,11 +1344,10 @@ namespace MiNET.Net.Rtc
 		///     method's own remarks for its matching half of this convergence).
 		///     </para>
 		///     <para>
-		///     Deliberately gated on <see cref="_state" /> alone, never <see cref="_isClient" />: a first
-		///     attempt at this fix read <c>_isClient</c> here and broke on its own test, because
+		///     Deliberately gated on <see cref="_state" /> alone, never <see cref="_isClient" />:
 		///     <c>_isClient</c> can be <see langword="true" /> from construction (the DTLS-role designation
-		///     a caller passes in) long before <see cref="Start" /> itself ever runs - a real shape once
-		///     <see cref="Start" /> stopped being called unconditionally for every DTLS-client-designated
+		///     a caller passes in) long before <see cref="Start" /> itself ever runs, since
+		///     <see cref="Start" /> is not called unconditionally for every DTLS-client-designated
 		///     instance (see that method's own remarks): a peer's association can sit at
 		///     <see cref="SctpState.Closed" /> with <c>_isClient</c> already true from birth, having still
 		///     never actually chosen a tag or TSN. <see cref="_state" /> has no such ambiguity - only
@@ -1465,37 +1461,34 @@ namespace MiNET.Net.Rtc
 		///     Returns true when this call is the one that transitions to <see cref="SctpState.Established" />;
 		///     the caller raises <see cref="OnEstablished" /> itself, after releasing <see cref="_gate" />.
 		///     <para>
-		///     Fix round (resurrection hazard): <see cref="_localTag" /> is never invalidated by
+		///     <see cref="_localTag" /> is never invalidated by
 		///     <see cref="Teardown" />, and a signed cookie stays HMAC-valid for <see cref="CookieMaxAgeMillis" />
 		///     (60s) regardless of what has happened to this association since it was minted, so a
 		///     network-level retransmit of the client's own, still-perfectly-valid original COOKIE-ECHO can
 		///     arrive well after this side has already torn down (a local <see cref="Abort" />, or an
-		///     inbound ABORT/SHUTDOWN). Before this fix, <c>alreadyEstablished</c> below was computed only
-		///     from <c>_state == Established</c>, which is false once <see cref="SctpState.Aborted" />, so
-		///     the "not already established" branch ran again: overwriting the tags TryValidateCookie just
-		///     re-derived (harmless, since they are the SAME values by construction) but also calling
-		///     <see cref="SctpReceiveBuffer.Reset" />/<see cref="SctpSendQueue.Reset" /> (wiping
-		///     <see cref="Teardown" />'s own cleanup) and flipping <see cref="_state" /> back to
-		///     <see cref="SctpState.Established" />, resending COOKIE-ACK and re-firing
-		///     <see cref="OnEstablished" /> a second time on an association <see cref="RtcPeer.Dispose" />
-		///     already considers dead. The explicit <see cref="SctpState.Aborted" /> check below closes
-		///     this the same way <see cref="HandleCookieAck" /> already closed it on the client side (its
-		///     own <c>_state != CookieEchoed</c> guard already excludes <see cref="SctpState.Aborted" />
-		///     implicitly, which is why it needed no equivalent fix): once Aborted, this handler now
+		///     inbound ABORT/SHUTDOWN). The explicit <see cref="SctpState.Aborted" /> check below guards
+		///     against that: once Aborted, this handler
 		///     ignores-and-counts unconditionally, before even validating the cookie, so nothing about a
 		///     replayed COOKIE-ECHO - correct tag or not, still-valid cookie or not - can ever resurrect a
-		///     torn-down association.
+		///     torn-down association by overwriting the tags <see cref="TryValidateCookie" /> re-derives,
+		///     calling <see cref="SctpReceiveBuffer.Reset" />/<see cref="SctpSendQueue.Reset" /> (wiping
+		///     <see cref="Teardown" />'s own cleanup), flipping <see cref="_state" /> back to
+		///     <see cref="SctpState.Established" />, resending COOKIE-ACK, and re-firing
+		///     <see cref="OnEstablished" /> a second time on an association <see cref="RtcPeer.Dispose" />
+		///     already considers dead. This closes the same gap <see cref="HandleCookieAck" /> closes on the
+		///     client side, where its own <c>_state != CookieEchoed</c> guard already excludes
+		///     <see cref="SctpState.Aborted" /> implicitly.
 		///     </para>
 		///     <para>
-		///     Fix-round (Critical, Task 8 review): a self-initiated instance is no longer unconditionally
+		///     A self-initiated instance is not unconditionally
 		///     excluded here either, matching <see cref="HandleInit" />'s own collision-convergence half.
 		///     When both sides start before receiving anything from each other (see that method's own
 		///     remarks), each answers the other's INIT with its own EXISTING identity, so the COOKIE-ECHO
 		///     this side eventually gets back is the peer choosing to complete THIS side's offered
-		///     identity's mirror - legitimate, not the "only servers receive COOKIE-ECHO" case the old
-		///     unconditional guard assumed. No extra state check is needed to allow it: unlike
-		///     <see cref="HandleInit" />, this handler already ran (before this fix-round, and still) with
-		///     no gate here beyond <see cref="SctpState.Aborted" /> for the ordinary responder path,
+		///     identity's mirror - legitimate, not only the "servers receive COOKIE-ECHO" case. No extra
+		///     state check is needed to allow it: unlike
+		///     <see cref="HandleInit" />, this handler has no gate here beyond
+		///     <see cref="SctpState.Aborted" /> for the ordinary responder path,
 		///     because <see cref="TryValidateCookie" /> - a valid, still-fresh, correctly-HMAC-signed
 		///     cookie this exact instance minted - is already the real legitimacy check; a self-initiated
 		///     instance reaching this method with a valid cookie for its own identity is no different in
@@ -1638,7 +1631,7 @@ namespace MiNET.Net.Rtc
 			_sendPacket(buffer.Slice(0, n));
 		}
 
-		/// <summary>Shared by <see cref="SendSackPacket" /> and <see cref="Flush" />'s bundling case: writes one SACK chunk (current cumulative ack, gap blocks, duplicate TSNs) into <paramref name="destination" />, returning the padded length written. Goes straight through <see cref="SackChunk" />'s span-taking static <c>WriteTo</c> overload rather than boxing the stack-allocated spans below into a <see cref="SackChunk" /> instance first: this runs on every SACK (RFC 4960 6.2's every-other-packet cadence makes that steady-state, not occasional), so the two <c>ToArray()</c> calls that shape used to cost here were a real per-message heap allocation, not a one-time cost.</summary>
+		/// <summary>Shared by <see cref="SendSackPacket" /> and <see cref="Flush" />'s bundling case: writes one SACK chunk (current cumulative ack, gap blocks, duplicate TSNs) into <paramref name="destination" />, returning the padded length written. Goes straight through <see cref="SackChunk" />'s span-taking static <c>WriteTo</c> overload rather than boxing the stack-allocated spans below into a <see cref="SackChunk" /> instance first: this runs on every SACK (RFC 4960 6.2's every-other-packet cadence makes that steady-state, not occasional), so the two <c>ToArray()</c> calls that shape would cost here would be a real per-message heap allocation, not a one-time cost.</summary>
 		private int WriteSackChunkInto(Span<byte> destination)
 		{
 			Span<SackChunk.GapBlock> gapBlocks = stackalloc SackChunk.GapBlock[SackChunk.MaxGapBlocks];

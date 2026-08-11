@@ -324,9 +324,9 @@ namespace MiNET.Test.Rtc
 			uint highestTransmittedTsn = ExtractDataTsn(sentByClient[^1]);
 			// A packet addressed TO the client carries the client's OWN tag (RFC 4960 5.1) - the value
 			// the server was told to use when sending to it - not the tag the client uses when addressing
-			// the server. Now that OnPacketReceived's generic tag gate actually enforces this (see the
-			// coordinator's round-2 review), a hand-crafted SACK using the wrong one would be dropped by
-			// that gate before ever reaching HandleSack, exercising the wrong thing entirely.
+			// the server. Because OnPacketReceived's generic tag gate enforces this, a hand-crafted SACK
+			// using the wrong one would be dropped by that gate before ever reaching HandleSack,
+			// exercising the wrong thing entirely.
 			uint tag = client.LocalVerificationTag;
 
 			// A hostile SACK: cumAck 5 beyond anything this association ever put on the wire.

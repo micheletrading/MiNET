@@ -276,7 +276,7 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(1L, serverManager.IgnoredMessageCount);
 		}
 
-		/// <summary>Fix-round Critical 1: a retransmitted/duplicate OPEN for a stream already negotiated (the peer likely lost our first ACK) must re-ACK - RFC-friendly, idempotent - without rebuilding the channel object or re-firing <see cref="RtcChannelManager.OnDataChannel" />, which would silently orphan whatever the application already subscribed to the original channel.</summary>
+		/// <summary>A retransmitted/duplicate OPEN for a stream already negotiated (the peer likely lost our first ACK) must re-ACK - RFC-friendly, idempotent - without rebuilding the channel object or re-firing <see cref="RtcChannelManager.OnDataChannel" />, which would silently orphan whatever the application already subscribed to the original channel.</summary>
 		[TestMethod]
 		public void DuplicateOpenOnSameStream_DoesNotHijackTheOriginalChannel_ButDoesReAck()
 		{
@@ -316,7 +316,7 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual("still me", originalReceivedMessage);
 		}
 
-		/// <summary>Fix-round Critical 1: RFC 8832 6 fixes each side's stream id parity by DTLS role. An inbound OPEN naming a stream id of OUR OWN parity (the server here is odd, isClient: false) can never be a peer-initiated channel and must be ignored and counted outright, not answered.</summary>
+		/// <summary>RFC 8832 6 fixes each side's stream id parity by DTLS role. An inbound OPEN naming a stream id of OUR OWN parity (the server here is odd, isClient: false) can never be a peer-initiated channel and must be ignored and counted outright, not answered.</summary>
 		[TestMethod]
 		public void OpenWithOurOwnParityStreamId_IsIgnoredAndCounted_NoChannelCreated()
 		{
@@ -335,7 +335,7 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(1L, serverManager.IgnoredMessageCount);
 		}
 
-		/// <summary>Fix-round Important 2: an OPEN whose label is long enough to fragment at the SCTP layer (above <c>FragmentThreshold</c>, 1024 bytes) must still negotiate: the multi-segment fallback in <see cref="RtcChannelManager" />'s DCEP parsing has to actually be reachable by a message this stack's own fragmentation threshold can produce, not just in principle.</summary>
+		/// <summary>An OPEN whose label is long enough to fragment at the SCTP layer (above <c>FragmentThreshold</c>, 1024 bytes) must still negotiate: the multi-segment fallback in <see cref="RtcChannelManager" />'s DCEP parsing has to actually be reachable by a message this stack's own fragmentation threshold can produce, not just in principle.</summary>
 		[TestMethod]
 		public void OpenWithLabelLargeEnoughToFragmentAtSctpLayer_StillNegotiatesSuccessfully()
 		{
@@ -356,7 +356,7 @@ namespace MiNET.Test.Rtc
 			Assert.IsTrue(createdChannel.IsOpen);
 		}
 
-		/// <summary>Fix-round Important 2: an OPEN too large to fit even the fragmented-message scratch buffer is dropped and counted by design (documented at <c>DcepScratchSize</c>), and the association keeps working afterward for a normal-sized OPEN.</summary>
+		/// <summary>An OPEN too large to fit even the fragmented-message scratch buffer is dropped and counted by design (documented at <c>DcepScratchSize</c>), and the association keeps working afterward for a normal-sized OPEN.</summary>
 		[TestMethod]
 		public void OpenLargerThanScratchBuffer_IsDroppedAndCounted_AssociationStillWorks()
 		{
@@ -379,7 +379,7 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual("ReliableDataChannel", createdChannel.Label);
 		}
 
-		/// <summary>Fix-round Important 3 (RFC 8832 6 MUST): a channel's own unordered flag must not apply to a message sent before this side has processed the channel's own ACK - riding ordered on the same stream as the OPEN is what guarantees the message cannot be delivered (or rejected as an unknown stream) ahead of it. The real reordering this guards against cannot be produced by the synchronous loopback wiring these tests use, so this observes the proxy the fix-round asked for instead: the wire-level U flag on the DATA chunk, captured directly off the client's send delegate, before vs. after the ACK is actually processed.</summary>
+		/// <summary>RFC 8832 6 MUST: a channel's own unordered flag must not apply to a message sent before this side has processed the channel's own ACK - riding ordered on the same stream as the OPEN is what guarantees the message cannot be delivered (or rejected as an unknown stream) ahead of it. The real reordering this guards against cannot be produced by the synchronous loopback wiring these tests use, so this observes a proxy instead: the wire-level U flag on the DATA chunk, captured directly off the client's send delegate, before vs. after the ACK is actually processed.</summary>
 		[TestMethod]
 		public void UnorderedChannel_SendBeforeAckProcessed_RidesOrdered_ThenUnorderedOnceAckProcessed()
 		{
@@ -433,7 +433,7 @@ namespace MiNET.Test.Rtc
 			Assert.IsTrue(unorderedPostAck); // reverted to this channel's true (unordered) negotiated semantics
 		}
 
-		/// <summary>Fix-round Important 3: this stack's own conservative superset beyond the RFC 8832 6 MUST (which mandates ordered, not reliable, before ACK) - a message sent before this channel's own ACK has been processed is also held reliable regardless of the channel's real <see cref="RtcDataChannel.MaxRetransmits" />, so it cannot be abandoned (RFC 3758 FORWARD-TSN) before the peer has even confirmed the channel exists. Not wire-observable (MaxRetransmits never appears on the wire, only in local send-queue bookkeeping), so this exercises the actual observable effect instead: simulated loss plus a T3-rtx timeout must retransmit, never abandon, a pre-ACK send on a maxRetransmits: 0 channel; the identical scenario after the ACK has been processed abandons normally, proving the override does not outlive the pre-ACK window.</summary>
+		/// <summary>This stack's own conservative superset beyond the RFC 8832 6 MUST (which mandates ordered, not reliable, before ACK) - a message sent before this channel's own ACK has been processed is also held reliable regardless of the channel's real <see cref="RtcDataChannel.MaxRetransmits" />, so it cannot be abandoned (RFC 3758 FORWARD-TSN) before the peer has even confirmed the channel exists. Not wire-observable (MaxRetransmits never appears on the wire, only in local send-queue bookkeeping), so this exercises the actual observable effect instead: simulated loss plus a T3-rtx timeout must retransmit, never abandon, a pre-ACK send on a maxRetransmits: 0 channel; the identical scenario after the ACK has been processed abandons normally, proving the override does not outlive the pre-ACK window.</summary>
 		[TestMethod]
 		public void UnorderedChannel_SendBeforeAckProcessed_SurvivesLossAndTimeout_ThenAbandonsNormallyOnceAckProcessed()
 		{
@@ -506,7 +506,7 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(1L, client.SendAbandonedCount);
 		}
 
-		/// <summary>Fix-round Important 3: a data message (non-DCEP PPID) addressed to a stream id with no registered channel - stale, or a peer bug - is dropped-and-counted rather than silently discarded; the silent-by-design version of this drop is exactly what let the pre-ACK race in the two tests above go unnoticed.</summary>
+		/// <summary>A data message (non-DCEP PPID) addressed to a stream id with no registered channel - stale, or a peer bug - is dropped-and-counted rather than silently discarded; a silent drop here would let the pre-ACK race in the two tests above go unnoticed.</summary>
 		[TestMethod]
 		public void DataForUnregisteredStream_IsCountedAndDropped()
 		{
@@ -518,7 +518,7 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(1L, serverManager.IgnoredMessageCount);
 		}
 
-		/// <summary>Fix-round drive-by: priority and reliability parameter sit in adjacent fields of the OPEN header (offsets 2-4 and 4-8); a vector with both nonzero at once catches a transposed-field decode bug that an all-zero vector (every other test in this file) could never expose.</summary>
+		/// <summary>Priority and reliability parameter sit in adjacent fields of the OPEN header (offsets 2-4 and 4-8); a vector with both nonzero at once catches a transposed-field decode bug that an all-zero vector (every other test in this file) could never expose.</summary>
 		[TestMethod]
 		public void HandBuiltOpenVector_NonzeroPriorityAndReliabilityParameter_DecodesCorrectly()
 		{
@@ -539,7 +539,7 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(5, createdChannel.MaxRetransmits);
 		}
 
-		/// <summary>Fix-round drive-by: pins the existing (unchanged by this fix round) behaviour of a bare DATA_CHANNEL_ACK for a stream this side never opened - not stale-but-known, never known at all - ignored and counted, same as every other unresolvable DCEP message.</summary>
+		/// <summary>Pins the existing behaviour of a bare DATA_CHANNEL_ACK for a stream this side never opened - not stale-but-known, never known at all - ignored and counted, same as every other unresolvable DCEP message.</summary>
 		[TestMethod]
 		public void BareAckForNeverOpenedStream_IsIgnoredAndCounted()
 		{

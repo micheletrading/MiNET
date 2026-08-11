@@ -33,8 +33,8 @@ namespace MiNET.Test.Rtc
 {
 	/// <summary>
 	///     The receive side of one established SCTP association, driven directly through
-	///     <see cref="SctpAssociation.OnPacketReceived" /> with hand-built DATA packets (the Task 2
-	///     codecs), never through a peer association's own outbound DATA path (Task 6's job). A real
+	///     <see cref="SctpAssociation.OnPacketReceived" /> with hand-built DATA packets, never through
+	///     a peer association's own outbound DATA path. A real
 	///     client/server handshake still runs first, the same shape <see cref="SctpAssociationHandshakeTests" />
 	///     uses, purely to reach <see cref="SctpState.Established" /> with a real, negotiated peer
 	///     Initial TSN; everything after that point is hand-crafted.

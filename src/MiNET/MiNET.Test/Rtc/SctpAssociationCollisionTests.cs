@@ -30,11 +30,10 @@ using MiNET.Net.Rtc;
 namespace MiNET.Test.Rtc
 {
 	/// <summary>
-	///     Task 8 fix-round (Critical, code review): once <see cref="SctpAssociation.Start" /> stopped
-	///     being locked to the DTLS-client-designated side (a real SIPSorcery peer proved that
-	///     restriction wrong - see the task report), two failure shapes became reachable with no
-	///     adversary involved, neither of which the SIPSorcery interop tests could have caught (both need
-	///     precise control over packet ordering a real, independently-timed peer cannot give a test).
+	///     <see cref="SctpAssociation.Start" /> is not locked to the DTLS-client-designated side,
+	///     which makes two failure shapes reachable with no adversary involved, neither of which a
+	///     real, independently-timed interop peer could exercise (both need precise control over
+	///     packet ordering a real peer cannot give a test).
 	///     Both are wired, our-vs-our associations driven by hand, one packet at a time, exactly like
 	///     <see cref="SctpAssociationHandshakeTests" />'s own pair - no real transport, no timing
 	///     dependency, fully deterministic.
@@ -71,13 +70,13 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Corruption scenario from the task-8 review: A initiates, B answers as a stateless responder
+		///     A initiates, B answers as a stateless responder
 		///     (RFC 4960's own design - B commits nothing, <see cref="SctpAssociation.State" /> stays
 		///     <see cref="SctpState.Closed" />) and B's INIT-ACK has not even reached A yet, let alone A's
 		///     COOKIE-ECHO reaching B. B's own application now wants a channel
-		///     (<see cref="RtcChannelManager.CreateChannel" />), which - since Task 8 - tries
-		///     <see cref="SctpAssociation.Start" /> as a demand-driven fallback. Before the
-		///     <see cref="SctpAssociation" /> fix-round fix, nothing distinguished this from a genuinely
+		///     (<see cref="RtcChannelManager.CreateChannel" />), which tries
+		///     <see cref="SctpAssociation.Start" /> as a demand-driven fallback. Without the
+		///     responder-in-flight suppression, nothing would distinguish this from a genuinely
 		///     idle association: B would mint a fresh identity and send a competing INIT of its own, and
 		///     A's still-perfectly-valid COOKIE-ECHO (answering B's ORIGINAL identity) would then be
 		///     dropped by B's own <c>_isClient</c> gate on every retransmit - corrupting a handshake that
@@ -132,13 +131,14 @@ namespace MiNET.Test.Rtc
 		/// <summary>
 		///     True RFC 4960 5.2.1 simultaneous-INIT collision: both sides decide to self-initiate before
 		///     either has received anything from the other at all (no responder-in-flight hint is even in
-		///     play here - see the other test in this file for that race). Before the fix-round fix, each
+		///     play here - see the other test in this file for that race). If each
 		///     side's own <c>HandleInit</c> dropped the other's INIT outright (a self-initiated instance
-		///     refused to also answer one), so neither side's opening chunk was ever acknowledged and both
-		///     retried to exhaustion. The fix answers a colliding INIT with the responder's OWN EXISTING
+		///     refusing to also answer one), neither side's opening chunk would ever be acknowledged and
+		///     both would retry to exhaustion. Instead, <c>HandleInit</c> answers a colliding INIT with the
+		///     responder's OWN EXISTING
 		///     identity rather than a fresh one and accepts the resulting COOKIE-ECHO despite already being
 		///     self-initiated, which is the convergent subset of 5.2.1 this stack implements (RFC
-		///     4960 5.2.2-5.2.4's fuller duplicate-association tie-break is explicitly out of scope - see
+		///     4960 5.2.2-5.2.4's fuller duplicate-association tie-break is out of scope - see
 		///     <see cref="SctpAssociation.HandleInit" />'s own remarks). Asserts both sides converge to
 		///     <see cref="SctpState.Established" /> with no abort on either side.
 		/// </summary>
@@ -177,11 +177,11 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Regression: single-sided <see cref="SctpAssociation.Start" /> must still work in the
-		///     DIRECTION Task 8 added - the DTLS-server-designated (<c>isClient: false</c>) side
+		///     Regression: single-sided <see cref="SctpAssociation.Start" /> must still work in this
+		///     direction - the DTLS-server-designated (<c>isClient: false</c>) side
 		///     self-initiating on local demand while the peer never calls <see cref="SctpAssociation.Start" />
-		///     at all, exactly the shape that deadlocked against a real peer before the fix (see the task
-		///     report). <see cref="SctpAssociationHandshakeTests.TwoAssociations_CompleteHandshake_AndAgreeOnVerificationTags" />
+		///     at all, the shape that deadlocks against a peer that never self-initiates eagerly on its
+		///     own. <see cref="SctpAssociationHandshakeTests.TwoAssociations_CompleteHandshake_AndAgreeOnVerificationTags" />
 		///     already covers the original direction (the designated client self-initiates, the designated
 		///     server stays purely passive); this is its mirror.
 		/// </summary>

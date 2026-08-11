@@ -68,8 +68,7 @@ namespace MiNET.Net.Rtc
 	///     window; an ordered message additionally waits for its stream sequence number's turn.
 	///     </para>
 	///     <para>
-	///     Fragment reassembly design (as of the round-3 fix, superseding round 2's abandon-on-new-Begin):
-	///     UDP guarantees nothing about arrival order, so a peer's second message on a stream routinely
+	///     Fragment reassembly design: UDP guarantees nothing about arrival order, so a peer's second message on a stream routinely
 	///     arrives, and even completes, before an earlier one on the same stream (RFC 4960 6.9 forbids the
 	///     SENDER from interleaving two messages of one stream in TSN space, but says nothing about the
 	///     NETWORK's delivery order). Multiple incomplete fragment runs per stream therefore coexist as
@@ -82,7 +81,7 @@ namespace MiNET.Net.Rtc
 	///     cumulative TSN ack, which would be unrecoverable loss.
 	///     </para>
 	///     <para>
-	///     Delivery (round 4b): a completed fragment run no longer pays a concatenation copy to reach
+	///     Delivery: a completed fragment run does not pay a concatenation copy to reach
 	///     <see cref="SctpAssociation.OnMessage" />. It delivers as a multi-segment
 	///     <see cref="ReadOnlySequence{T}" /> chained directly over its individual leased buffers via
 	///     pooled <see cref="PooledSegment" /> nodes (<see cref="DeliverFragmentsAsSequence" />); a
@@ -200,7 +199,7 @@ namespace MiNET.Net.Rtc
 		///     (Re)arms the buffer for a fresh association: the peer's Initial TSN sets the cumulative ack
 		///     point one behind the first DATA chunk's expected TSN. Any buffer this instance was already
 		///     holding is released back to the pool first, so this is also what a reused instance would need
-		///     between associations (stage 2 never reuses one, but nothing here assumes it won't).
+		///     between associations (this stack never reuses one, but nothing here assumes it won't).
 		/// </summary>
 		public void Reset(uint peerInitialTsn)
 		{
@@ -582,10 +581,8 @@ namespace MiNET.Net.Rtc
 		///     incomplete" and touches nothing - this is what makes it safe for more than one message on
 		///     the same stream, and messages on different streams, to sit here incomplete at once: a
 		///     foreign chunk sitting in the middle of the scan is never mistaken for a piece of this
-		///     message (round 1's cross-stream fix), and completion never fires from list bookkeeping
-		///     alone without this walk confirming the window itself is intact (round 2's regression, since
-		///     removed along with the abandon-on-new-Begin rule it depended on: see the class remarks for
-		///     why that rule was unsafe).
+		///     message, and completion never fires from list bookkeeping
+		///     alone without this walk confirming the window itself is intact.
 		/// </summary>
 		private void TryCompleteAround(uint arrivedTsn)
 		{
@@ -658,10 +655,10 @@ namespace MiNET.Net.Rtc
 		///     The immediate-delivery path (unordered, or ordered and exactly due): chains a
 		///     <see cref="ReadOnlySequence{T}" /> directly over the <paramref name="pieceCount" /> leased
 		///     fragment buffers starting at <paramref name="begin" />, via pooled
-		///     <see cref="PooledSegment" /> nodes, with NO copy. This is the design point 4 of the round-4b
-		///     contract calls for: a fragmented message used to pay one memcpy per completion to land in a
-		///     single concatenated buffer (a <see cref="ReadOnlySpan{T}" /> could not represent anything
-		///     else); a <see cref="ReadOnlySequence{T}" /> does not need one, so it no longer happens here.
+		///     <see cref="PooledSegment" /> nodes, with NO copy. A <see cref="ReadOnlySpan{T}" /> cannot
+		///     represent a fragmented message without first landing it in a single concatenated buffer,
+		///     paying one memcpy per completion; a <see cref="ReadOnlySequence{T}" /> does not need one,
+		///     so this method does not pay it.
 		///     Ownership of each fragment's leased buffer transfers to its segment; <see cref="ReleaseDelivery" />
 		///     returns both the buffers and the segment nodes once the caller's callback has run.
 		/// </summary>
@@ -712,7 +709,7 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     The one case round-4b's contract (point 5) still concatenates: a completed ordered message
+		///     The one case that still concatenates: a completed ordered message
 		///     that is not yet due has to sit in <see cref="_orderedPending" /> until its stream sequence
 		///     number's turn, for however long that takes, and holding N separate leased buffers plus N
 		///     pooled segment nodes for an indefinite wait is worse than paying one copy up front to land

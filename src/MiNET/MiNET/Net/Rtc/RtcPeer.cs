@@ -34,7 +34,7 @@ using log4net;
 namespace MiNET.Net.Rtc
 {
 	/// <summary>
-	///     The stage-1 top of the WebRTC stack, and stage 2's host object: owns one ICE session and
+	///     The top of the WebRTC stack, and this session's host object: owns one ICE session and
 	///     lazily one DTLS session, and speaks the offer/answer exchange (a minimal subset of JSEP)
 	///     needed to stand them up against a real peer. Two factories fix the role for the session's
 	///     whole life, matching NetherNet's own client/server split: <see cref="CreateAnswerer" /> is
@@ -55,9 +55,9 @@ namespace MiNET.Net.Rtc
 
 		private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(15);
 
-		// RFC 8831 6.2 recommends at least this budget per endpoint; Task 7 fixes it here rather than
+		// RFC 8831 6.2 recommends at least this budget per endpoint; this fixes it here rather than
 		// exposing it as a parameter, matching SctpAssociation's own StreamCount constant one file over
-		// (no per-caller configuration is needed for stage 2).
+		// (no per-caller configuration is needed).
 		private const uint SctpArwndBudget = 256 * 1024;
 
 		private readonly UdpMux _mux;
@@ -266,13 +266,12 @@ namespace MiNET.Net.Rtc
 		///     disposing the previous one, leaking a live BouncyCastle session and its pooled buffers.
 		///     Renegotiation is out of scope for this stage.
 		///     <para>
-		///     Fix round, Important finding 2: also builds the SCTP association and subscribes
+		///     Also builds the SCTP association and subscribes
 		///     <see cref="_association" />'s <see cref="SctpAssociation.OnPacketReceived" /> to
 		///     <see cref="DtlsSession.OnDecrypted" /> right here, synchronously, rather than waiting for
-		///     the handshake to succeed first (the old <c>SetUpSctp</c> shape - see
-		///     <see cref="RunHandshakeAsync" />'s own remarks for why that had a real, if self-healing,
-		///     gap). See <see cref="BuildSctpAssociation" />'s own remarks for why this ordering closes
-		///     that gap by construction rather than merely narrowing it.
+		///     the handshake to succeed first. See <see cref="BuildSctpAssociation" />'s own remarks for
+		///     why this ordering closes, by construction, the gap a subscription made only after
+		///     observing handshake success would leave open.
 		///     </para>
 		/// </summary>
 		private void CreateDtlsSession(string remoteFingerprint, bool isServer)
@@ -289,23 +288,22 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Fix round, Important finding 2 (subscription gap): <see cref="DtlsSession._handshakeDone" />
+		///     <see cref="DtlsSession._handshakeDone" />
 		///     flips to <see langword="true" /> inside <see cref="DtlsSession.DoHandshakeAsync" />, on
 		///     whatever thread that method's own <see cref="Task.Run(Action)" /> continuation happens to
-		///     resume on - a moment this class does not control the exact scheduling of. The old
-		///     <c>SetUpSctp</c> subscribed <see cref="_association" /> to <see cref="DtlsSession.OnDecrypted" />
-		///     only after <em>also</em> observing that same handshake success, inside
-		///     <see cref="RunHandshakeAsync" />'s own continuation - a logically later point in program
-		///     order, but not a HAPPENS-BEFORE guarantee against a datagram already queued on the mux
+		///     resume on - a moment this class does not control the exact scheduling of. Subscribing
+		///     <see cref="_association" /> to <see cref="DtlsSession.OnDecrypted" /> only after also
+		///     observing that same handshake success would be a logically later point in program order,
+		///     but not a HAPPENS-BEFORE guarantee against a datagram already queued on the mux
 		///     receive thread: that thread could observe <see cref="DtlsSession._handshakeDone" />
 		///     (a volatile field) true and drain-and-decrypt a queued datagram - delivering it only to
 		///     <see cref="OnDecrypted" />'s pre-existing forwarding subscriber, never to
-		///     <see cref="SctpAssociation.OnPacketReceived" /> - before <see cref="RunHandshakeAsync" />'s
-		///     own continuation had even been scheduled by the thread pool, let alone run this
-		///     subscription line. A dropped INIT self-heals via <see cref="SctpAssociation" />'s own T1
-		///     retransmit, but it is still a silent drop on the receive path.
+		///     <see cref="SctpAssociation.OnPacketReceived" /> - before such a delayed subscription had
+		///     even been scheduled, let alone run. A dropped INIT self-heals via
+		///     <see cref="SctpAssociation" />'s own T1 retransmit, but it would still be a silent drop on
+		///     the receive path.
 		///     <para>
-		///     Fix: build the association and subscribe here, from <see cref="CreateDtlsSession" />,
+		///     Instead: this method builds the association and subscribes here, from <see cref="CreateDtlsSession" />,
 		///     called synchronously from <see cref="AcceptOffer" />/<see cref="AcceptAnswer" /> - both
 		///     return to their own caller (their own last statement, for the offerer, is
 		///     <see cref="IceSession.StartChecks" />, called strictly AFTER this returns) well before
@@ -321,10 +319,10 @@ namespace MiNET.Net.Rtc
 		///     window: it is provably no window at all, by the offer/answer protocol's own call ordering,
 		///     not by a timing assumption. <see cref="RunHandshakeAsync" />'s own eager
 		///     <see cref="SctpAssociation.Start" /> call (DTLS-client role) still only ever runs after a
-		///     successful handshake, so it alone was never at risk here; Task 8 gives
-		///     <see cref="SctpAssociation.Start" /> a second caller with no such guarantee
+		///     successful handshake, so it alone carries no risk here; <see cref="SctpAssociation.Start" />
+		///     also has a second caller with no such guarantee
 		///     (<see cref="RtcChannelManager.CreateChannel" />, which can race arbitrarily far ahead of the
-		///     handshake), which is exactly the gap <see cref="SendSctpPacket" /> now exists to close:
+		///     handshake), which is exactly the gap <see cref="SendSctpPacket" /> closes:
 		///     <see cref="DtlsSession.SendApplicationData" /> still correctly throws before the handshake
 		///     completes, so every send this association makes is routed through that one small wrapper
 		///     instead of the delegate directly, rather than trusting every future caller of
@@ -364,7 +362,7 @@ namespace MiNET.Net.Rtc
 		/// <summary>
 		///     <see cref="SctpAssociation" />'s <see cref="PacketSender" />: everything it ever sends,
 		///     handshake or data plane, funnels through here to <see cref="DtlsSession.SendApplicationData" />.
-		///     Task 8: <see cref="RtcChannelManager.CreateChannel" />'s own demand-driven
+		///     <see cref="RtcChannelManager.CreateChannel" />'s own demand-driven
 		///     <see cref="SctpAssociation.Start" /> call (see that method's remarks) can run before this
 		///     side's DTLS handshake has finished, which <see cref="DtlsSession.SendApplicationData" /> itself
 		///     still correctly rejects by throwing. Swallowed and logged here rather than propagated: the
@@ -470,11 +468,11 @@ namespace MiNET.Net.Rtc
 		///     built. Throws <see cref="InvalidOperationException" /> rather than silently failing when
 		///     called before that association even exists (no DTLS session negotiated yet - before
 		///     <see cref="AcceptOffer" />/<see cref="AcceptAnswer" />, not before <see cref="WaitForTransportAsync" />
-		///     resolves, per the fix-round move described in <see cref="BuildSctpAssociation" />'s own
+		///     resolves; see <see cref="BuildSctpAssociation" />'s own
 		///     remarks): matches <see cref="DtlsSession.SendApplicationData" />'s own pre-handshake guard,
 		///     the same "an undiagnosable silent drop is worse than a thrown exception" stance applied one
 		///     layer up. Once the association exists, a call that races ahead of it reaching
-		///     <see cref="SctpState.Established" /> - now potentially well before
+		///     <see cref="SctpState.Established" /> - potentially well before
 		///     <see cref="WaitForTransportAsync" /> even resolves - is not lost:
 		///     <see cref="RtcChannelManager.CreateChannel" /> queues the DATA_CHANNEL_OPEN and sends it once
 		///     established, and still returns a usable channel object immediately either way.
@@ -530,17 +528,15 @@ namespace MiNET.Net.Rtc
 		///     the peer, then <see cref="SctpAssociation.Abort" />'s own <c>Teardown</c> releasing every
 		///     outstanding send/receive lease - see that method's remarks for why this is safe to call even
 		///     when the association never reached <see cref="SctpState.Established" />, or was never
-		///     constructed at all) and unhooks it from <see cref="_mux" />'s tick, then runs the unchanged
-		///     stage-1 teardown (ICE event unhooks, ufrag removal, ICE and DTLS disposal).
+		///     constructed at all) and unhooks it from <see cref="_mux" />'s tick, then runs the existing
+		///     teardown (ICE event unhooks, ufrag removal, ICE and DTLS disposal).
 		///     <para>
-		///     Fix round, Critical finding 1(b)/Important finding 3: this class's own prior doc comment
-		///     here claimed "there is nothing left for an explicit unsubscribe to protect against" - false,
-		///     and the actual bug this fix round's Critical finding chained through: with no unsubscribe,
+		///     Without the unsubscribe below,
 		///     an in-flight <see cref="DtlsSession.OnDecrypted" /> delivery (already past its own delegate
 		///     snapshot when this method runs - the "residue" this remarks paragraph exists to name
 		///     honestly, see below) could still reach <see cref="SctpAssociation.OnPacketReceived" /> on an
 		///     association this method is concurrently tearing down, and <see cref="SendApplicationData" />
-		///     had no guard of its own to stop a resulting SACK/reply send from racing
+		///     has no guard of its own to stop a resulting SACK/reply send from racing
 		///     <see cref="DtlsSession.Dispose" />'s own close of the transport. The unsubscribe below runs
 		///     FIRST, before <see cref="SctpAssociation.Abort" /> and before <see cref="_dtls" /> is
 		///     disposed, to shrink the window as much as this class can: every delivery that has not yet
@@ -553,9 +549,9 @@ namespace MiNET.Net.Rtc
 		///     delivery already past that point - already inside, or about to enter,
 		///     <see cref="SctpAssociation.OnPacketReceived" /> on another thread - completes regardless of
 		///     the <c>-=</c> below; this method does not, and cannot cheaply, barrier-wait for it. That
-		///     residue is safe with the rest of this fix round in place, not because it cannot happen: (a)
-		///     <see cref="HandleCookieEcho" />/<see cref="HandleInit" /> (fix round, Critical finding 1(a))
-		///     now refuse to transition state or send once <see cref="SctpState.Aborted" />, which
+		///     residue is safe, not because it cannot happen: (a)
+		///     <see cref="HandleCookieEcho" />/<see cref="HandleInit" />
+		///     refuse to transition state or send once <see cref="SctpState.Aborted" />, which
 		///     <see cref="SctpAssociation.Abort" /> below sets before this residual delivery could possibly
 		///     finish processing a chunk that reached it after the abort; and (c)
 		///     <see cref="DtlsSession.SendApplicationData" />'s own disposed guard means even a SACK this

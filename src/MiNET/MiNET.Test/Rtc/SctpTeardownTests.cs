@@ -347,16 +347,18 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix round, Critical finding 1: <see cref="SctpAssociation.Teardown" /> never invalidates
+		///     <see cref="SctpAssociation.Teardown" /> never invalidates
 		///     <see cref="SctpAssociation.LocalVerificationTag" />, and a signed cookie stays valid for up
 		///     to 60s regardless of what has happened to the association since it was minted, so a
 		///     network-level retransmit of the client's own, still-perfectly-signed original COOKIE-ECHO -
-		///     carrying the correct tag - can arrive well after this side has already torn down. Before the
-		///     fix, <c>HandleCookieEcho</c> computed "already established" only from
-		///     <see cref="SctpState.Established" />, so this replay resurrected the association: reset the
-		///     send/receive buffers <see cref="SctpAssociation.Abort" /> had just released, flipped state
-		///     back to Established, resent COOKIE-ACK, and re-fired <see cref="SctpAssociation.OnEstablished" />
-		///     a second time on an association its owner already considers dead.
+		///     carrying the correct tag - can arrive well after this side has already torn down. Pins that
+		///     <c>HandleCookieEcho</c> rejects such a replay unconditionally once
+		///     <see cref="SctpState.Aborted" />, rather than computing "already established" from
+		///     <see cref="SctpState.Established" /> alone, which would let the replay resurrect the
+		///     association: resetting the send/receive buffers <see cref="SctpAssociation.Abort" /> had
+		///     just released, flipping state back to Established, resending COOKIE-ACK, and re-firing
+		///     <see cref="SctpAssociation.OnEstablished" /> a second time on an association its owner
+		///     already considers dead.
 		/// </summary>
 		[TestMethod]
 		public void RetransmittedCookieEcho_AfterAbort_DoesNotResurrectTheAssociation()
@@ -404,9 +406,9 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix round, Critical finding 1's audit: <c>HandleInit</c> answered every well-formed INIT
+		///     <c>HandleInit</c> answers every well-formed INIT
 		///     with a fresh INIT-ACK regardless of state, by design, for every state except
-		///     <see cref="SctpState.Aborted" /> - which it never checked. Deliberately aborts a server
+		///     <see cref="SctpState.Aborted" />, which it must reject. Deliberately aborts a server
 		///     association that never validated a COOKIE-ECHO (<see cref="SctpAssociation.LocalVerificationTag" />
 		///     is therefore still its default, 0), not an already-established one: an INIT's own
 		///     packet-level verification tag is always 0 per RFC 4960 5.1, so against an

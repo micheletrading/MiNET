@@ -36,7 +36,7 @@ using MiNET.Net.Rtc;
 namespace MiNET.Test.Rtc
 {
 	/// <summary>
-	///     Task 7: the finished SCTP association and DCEP channel manager wired end to end into
+	///     The finished SCTP association and DCEP channel manager wired end to end into
 	///     <see cref="RtcPeer" /> on top of the real DTLS/ICE transport, exercised the same two-mux
 	///     loopback topology <see cref="IceSessionTests" /> already uses for an our-vs-our pair (as
 	///     opposed to <see cref="InteropTests" />'s SIPSorcery-vs-us topology). Unlike the synchronous,

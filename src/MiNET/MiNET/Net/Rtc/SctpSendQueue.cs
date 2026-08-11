@@ -56,7 +56,7 @@ namespace MiNET.Net.Rtc
 	/// </summary>
 	internal sealed class SctpSendQueue
 	{
-		// RFC 6298 shape, with the constants the task brief calls for verbatim: RtoMin here is 200ms,
+		// RFC 6298 shape: RtoMin here is 200ms,
 		// not RFC 4960's 1s, which is WebRTC practice (browsers use the same lower floor to keep data
 		// channels responsive on fast local paths) rather than the classic TCP-oriented RFC value.
 		private const long RtoInitialMillis = 1000;
@@ -67,8 +67,8 @@ namespace MiNET.Net.Rtc
 		// start's initial/growth increment and the SACK-driven window bundling both assume it.
 		private const int Mtu = SctpPacket.MaxSize;
 
-		// Congestion window cap the task brief specifies (128 KB); full RFC 4960 congestion avoidance
-		// (a ssthresh phase past slow start) is explicitly deferred by the plan, so cwnd only ever grows
+		// Congestion window cap (128 KB); full RFC 4960 congestion avoidance
+		// (a ssthresh phase past slow start) is out of scope, so cwnd only ever grows
 		// by one MTU per acking SACK, capped here, and halves on a retransmit timeout.
 		private const uint CwndCap = 131072;
 
@@ -99,7 +99,7 @@ namespace MiNET.Net.Rtc
 		// Our own send-side TSN bookkeeping: the highest TSN the peer has told us (via a SACK's
 		// cumulative ack) it has fully received, and the highest TSN we have told the peer (via our own
 		// FORWARD-TSN) to skip past regardless of whether it ever arrives. The two converge once the
-		// peer's own AdvanceCumulative (Task 4's receive buffer) processes that FORWARD-TSN and reports
+		// peer's own AdvanceCumulative (the receive buffer) processes that FORWARD-TSN and reports
 		// the new point back in its next SACK.
 		private uint _cumulativeTsnAck;
 		private uint _forwardTsnAdvertised;

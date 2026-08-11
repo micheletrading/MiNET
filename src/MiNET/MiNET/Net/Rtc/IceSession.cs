@@ -42,7 +42,7 @@ namespace MiNET.Net.Rtc
 
 	/// <summary>
 	///     Raised by <see cref="IceSession.OnDtls" /> for every datagram that demuxed as DTLS on
-	///     the nominated pair. Task 5's DTLS record layer is the consumer.
+	///     the nominated pair. The DTLS record layer is the consumer.
 	/// </summary>
 	public delegate void DtlsDatagramHandler(ReadOnlySpan<byte> datagram, IPEndPoint from);
 

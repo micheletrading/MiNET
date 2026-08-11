@@ -30,7 +30,7 @@ namespace MiNET.Net.Rtc
 {
 	/// <summary>
 	///     A single peer's endpoint of the demultiplexed traffic <see cref="UdpMux" /> hands out.
-	///     Task 4's ICE session implements this for STUN connectivity checks; Task 5's DTLS
+	///     The ICE session implements this for STUN connectivity checks; the DTLS
 	///     record layer consumes <see cref="OnDtls" />.
 	/// </summary>
 	public interface IMuxPeer

@@ -41,8 +41,8 @@ namespace MiNET.Net.Rtc
 
 	/// <summary>
 	///     A span-first STUN (RFC 5389/8445) message codec: header plus the small set of
-	///     attributes the ICE connectivity checks in this stack need. Task 2 appends
-	///     MESSAGE-INTEGRITY and FINGERPRINT on top of <see cref="WriteTo" />.
+	///     attributes the ICE connectivity checks in this stack need. MESSAGE-INTEGRITY and
+	///     FINGERPRINT are appended on top of <see cref="WriteTo" />.
 	/// </summary>
 	public class StunMessage
 	{
