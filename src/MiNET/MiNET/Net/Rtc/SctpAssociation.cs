@@ -268,6 +268,20 @@ namespace MiNET.Net.Rtc
 		// by DeliverLeasedMessages around that span). Teardown reads this, also under _gate, to decide
 		// whether it may reset _receiveBuffer inline (no drain in flight) or must hand the reset off to
 		// the drain itself via _pendingReset (a drain may be running on a different thread).
+		//
+		// A plain bool, not a depth counter: a same-thread reentrant OnPacketReceived call from inside a
+		// subscriber's own callback (a real, expected shape - see DeliverLeasedMessages' own remarks) can
+		// nest a second DeliverLeasedMessages call, whose finally block clears this flag while the outer
+		// call's frame is still further up the stack. If Teardown lands on a different thread in exactly
+		// that window, it sees this false and resets _receiveBuffer inline instead of deferring, even
+		// though a drain is still, in the ordinary sense, in flight. This is harmless under the receive
+		// buffer's current shape, not by a guard here: Reset never touches _freeSegments, so a
+		// ReleaseDelivery call landing after an inline Reset cannot corrupt or double-return anything on
+		// it; a delivery's buffer is already detached from _fragments/_orderedPending the moment it
+		// becomes a LeasedDelivery, so Reset cannot double-return it either; and _bufferedBytes is
+		// decremented at delivery-creation time, not at release time, so Reset zeroing it is unaffected
+		// by release ordering. A future change to Reset or ReleaseDelivery that stops holding one of
+		// those three properties needs this reasoned through again.
 		private bool _drainInFlight;
 		private bool _pendingReset;
 

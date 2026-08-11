@@ -222,13 +222,12 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round regression for Critical finding 1: reassembly must never pull a fragment that
-		///     belongs to a different stream into a message just because its TSN falls inside the
-		///     [Begin, End] span. Stream 1 sends Begin@T and End@T+2 without ever sending a real T+1
-		///     fragment of its own (T+1 belongs to an unrelated, still in-flight stream 2 message); stream
-		///     1's message must therefore never complete (it is genuinely missing a piece it never sent),
-		///     and - the actual "wedge" the finding describes - stream 2's own in-flight fragment at T+1
-		///     must not be silently freed out from under it. Non-theft is proven two ways: no corrupted
+		///     Reassembly must never pull a fragment that belongs to a different stream into a message
+		///     just because its TSN falls inside the [Begin, End] span. Stream 1 sends Begin@T and End@T+2
+		///     without ever sending a real T+1 fragment of its own (T+1 belongs to an unrelated, still
+		///     in-flight stream 2 message); stream 1's message must therefore never complete (it is
+		///     genuinely missing a piece it never sent), and stream 2's own in-flight fragment at T+1 must
+		///     not be silently freed out from under it. Non-theft is proven two ways: no corrupted
 		///     stream-1 delivery, and all three fragments' bytes (A, B, C) are still individually held
 		///     (nothing was combined-and-freed as a bogus completion), which a byte-accounting bug would
 		///     not show but the buggy code's actual behavior does: it wrongly completes, delivers, and
@@ -257,8 +256,8 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round regression for Important finding 2: the out-of-order TSN set must not grow
-		///     without bound. A peer that only ever sends non-contiguous TSNs (skipping the one the
+		///     The out-of-order TSN set must not grow without bound. A peer that only ever sends
+		///     non-contiguous TSNs (skipping the one the
 		///     cumulative ack point is actually waiting for) can otherwise grow <c>_gapTsns</c> forever
 		///     without ever touching the byte budget (these are all single-chunk unordered messages,
 		///     delivered zero-copy, so no bytes are ever buffered). Once the cap is reached, further
@@ -288,8 +287,8 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round regression for Important finding 3: two ordered chunks that carry the same
-		///     (streamId, streamSeq) under different, fresh TSNs both land in the same ordered-pending
+		///     Two ordered chunks that carry the same (streamId, streamSeq) under different, fresh TSNs
+		///     both land in the same ordered-pending
 		///     slot; the second overwrites the first. The buffered-byte accounting must reflect only the
 		///     surviving entry, not both, or a_rwnd drains toward zero permanently.
 		/// </summary>
@@ -312,7 +311,7 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round regression for Important finding 4: a throwing <see cref="SctpAssociation.OnMessage" />
+		///     A throwing <see cref="SctpAssociation.OnMessage" />
 		///     subscriber must not leak the leased buffer, stop later deliveries in the same
 		///     <see cref="SctpAssociation.OnPacketReceived" /> call, or propagate out of it (the hot-path
 		///     law: a subscriber throw must not kill the transport). One incoming packet (stream sequence 0
@@ -344,13 +343,11 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-3 rework: round 2's "abandon the stale run on a new Begin" rule turned out to be
-		///     unsafe under ordinary UDP reordering (see <see cref="SctpReceiveBuffer" />'s class remarks)
-		///     and was removed. Under the round-3 design, a same-stream stale Begin simply sits incomplete
-		///     holding its own share of the budget - never spliced into a later, unrelated completion (the
-		///     invariant round 1 and round 2 both cared about is unchanged), and never discarded just
-		///     because a newer message on the same stream showed up. Discard only happens under real
-		///     budget pressure via reneging, covered by the tests below.
+		///     A same-stream stale Begin simply sits incomplete holding its own share of the budget - never
+		///     spliced into a later, unrelated completion, and never discarded just because a newer message
+		///     on the same stream showed up (discarding on a new Begin is unsafe under ordinary UDP
+		///     reordering, see <see cref="SctpReceiveBuffer" />'s class remarks). Discard only happens under
+		///     real budget pressure via reneging, covered by the tests below.
 		/// </summary>
 		[TestMethod]
 		public void FragmentReassembly_SecondBeginOnSameStream_StaleFirstRunStaysIncompleteAndHoldsBudget()
@@ -376,8 +373,7 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-3 new RED test (a): the scenario that proved round 2's abandon-on-new-Begin rule
-		///     was actually unsafe. UDP guarantees nothing about arrival order; RFC 4960 6.9 only promises
+		///     UDP guarantees nothing about arrival order; RFC 4960 6.9 only promises
 		///     the SENDER never interleaves two messages of one stream in TSN space, so Begin(msg2)
 		///     arriving before End(msg1) is a completely ordinary reorder, not hostile input. Both messages
 		///     must still deliver, with correct content, in stream-sequence order.
@@ -406,7 +402,7 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-3 new RED test (b): under real budget pressure, the oldest renegable incomplete
+		///     Under real budget pressure, the oldest renegable incomplete
 		///     run is discarded to make room - leases returned, its TSNs struck from the next SACK's gap
 		///     blocks (RFC 4960 6.2: this is what makes reneging legal, since the peer must be told to
 		///     retransmit), and a later retransmit of those TSNs is accepted as novel data rather than
@@ -459,7 +455,7 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-3 new RED test (c): a run is only ever a reneging candidate if none of its
+		///     A run is only ever a reneging candidate if none of its
 		///     fragments' TSNs is at or below the cumulative ack. A TSN that folds directly into the
 		///     cumulative ack the instant it arrives (because it happened to be exactly the next expected
 		///     one) is binding - the peer will never retransmit it again - so a run holding one must
@@ -497,8 +493,8 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-4b contract test: the fast path Niclas's <see cref="ReadOnlySequence{T}" /> change
-		///     exists to keep zero-copy. A single-chunk message must deliver as a single-segment sequence
+		///     The <see cref="ReadOnlySequence{T}" /> delivery contract's fast path: a single-chunk
+		///     message must deliver as a single-segment sequence
 		///     wrapping the incoming packet directly, never a multi-segment one, so a consumer's
 		///     <c>if (message.IsSingleSegment) { var span = message.FirstSpan; ... }</c> fast path is real
 		///     rather than dead code.
@@ -525,11 +521,10 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-4b contract test: a fragmented message now delivers as a multi-segment
-		///     <see cref="ReadOnlySequence{T}" /> chained over the individual leased fragment buffers
-		///     (point 4 of the new contract: the old concatenation copy is gone), not one concatenated
-		///     buffer. <see cref="ReadOnlySequence{T}.ToArray" /> exercises reading correctly across those
-		///     segment boundaries.
+		///     A fragmented message delivers as a multi-segment <see cref="ReadOnlySequence{T}" />
+		///     chained directly over the individual leased fragment buffers, never copied into one
+		///     concatenated buffer. <see cref="ReadOnlySequence{T}.ToArray" /> exercises reading correctly
+		///     across those segment boundaries.
 		/// </summary>
 		[TestMethod]
 		public void FragmentedDelivery_IsAMultiSegmentSequence_AndReadsCorrectlyAcrossSegments()
@@ -555,7 +550,7 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-4c: the TSN horizon guard. A SACK gap block's Start/End (<see cref="SackChunk.GapBlock" />,
+		///     The TSN horizon guard. A SACK gap block's Start/End (<see cref="SackChunk.GapBlock" />,
 		///     written by <see cref="SctpPacket" />'s codec via <c>BinaryPrimitives.WriteUInt16BigEndian</c>)
 		///     are 16-bit offsets from the cumulative ack, and <see cref="SctpReceiveBuffer.BuildGapBlocks" />
 		///     computes that offset as <c>(ushort) unchecked(tsn - cumulativeTsn)</c> - a silent wraparound,
@@ -596,8 +591,8 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round Critical 1: <see cref="SctpReceiveBuffer.AdvanceCumulative" /> had no horizon guard,
-		///     unlike <see cref="SctpReceiveBuffer.Receive" />'s own (see
+		///     <see cref="SctpReceiveBuffer.AdvanceCumulative" /> honors the same horizon guard as
+		///     <see cref="SctpReceiveBuffer.Receive" /> (see
 		///     <see cref="TsnBeyondGapOffsetHorizon_IsDroppedAndCounted_BoundaryTsnIsAccepted" /> above): a
 		///     hostile or corrupt FORWARD-TSN naming a cumulative TSN far beyond anything legitimately
 		///     reachable would desync <see cref="SctpAssociation.CumulativeTsnAck" /> permanently, since
@@ -628,10 +623,9 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round Critical 2: a FORWARD-TSN's ordered (streamId, streamSeq) pairs name only the
+		///     A FORWARD-TSN's ordered (streamId, streamSeq) pairs name only the
 		///     highest skipped stream sequence number per stream (RFC 3758's normal shape), not every seq in
-		///     between. The old implementation reused the ordinary in-turn-delivery helper directly, which
-		///     only ever scans forward from the pair's own seq - so any message with a LOWER seq than the
+		///     between, so a message with a LOWER seq than the
 		///     pair that had already arrived complete and was sitting in the ordered-pending buffer (just
 		///     waiting for an earlier, now-abandoned message's turn) was silently skipped over: never
 		///     delivered, its lease never returned, its bytes never released from the budget. RFC 3758 3.6

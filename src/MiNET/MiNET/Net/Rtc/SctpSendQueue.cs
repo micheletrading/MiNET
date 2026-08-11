@@ -500,7 +500,15 @@ namespace MiNET.Net.Rtc
 				{
 					_duplicateCumulativeReports = 0;
 					Interlocked.Increment(ref _fastRetransmitCount);
-					if (_head != null && !_head.Abandoned) MarkForRetransmitOrAbandon(_head);
+					if (_head != null && !_head.Abandoned)
+					{
+						MarkForRetransmitOrAbandon(_head);
+
+						// This can make _head due again (PendingRetransmit), same as HandleTimeout and the
+						// cumulative-ack removal loop above - PeekReadyToSend must resume scanning from
+						// _head rather than from wherever the cursor was left by an earlier, unrelated burst.
+						_sendCursor = _head;
+					}
 				}
 			}
 

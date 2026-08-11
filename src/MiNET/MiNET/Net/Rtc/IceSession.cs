@@ -303,7 +303,26 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
+		/// <summary>
+		///     Subscribed directly to <see cref="UdpMux.OnTick" /> (<see cref="UdpMux" />'s own bare
+		///     multicast, no per-subscriber isolation of its own), so a throw here would abort that tick's
+		///     whole invocation list and starve every other peer registered on the same mux, not just this
+		///     session - the same hazard <see cref="RtcPeer" /> guards its own association tick against at
+		///     its own subscription site. Guarded here instead, since this class owns the subscription.
+		/// </summary>
 		private void OnTick()
+		{
+			try
+			{
+				TickCore();
+			}
+			catch (Exception ex)
+			{
+				Log.Error("IceSession tick threw; this tick is skipped, the mux keeps serving every other peer.", ex);
+			}
+		}
+
+		private void TickCore()
 		{
 			// Closed: Dispose already unsubscribed this handler from mux.OnTick, so reaching this
 			// point at all means a tick that was already in flight when Dispose ran; bail rather

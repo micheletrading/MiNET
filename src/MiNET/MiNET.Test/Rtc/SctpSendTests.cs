@@ -189,15 +189,14 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round Important 4: a peer that advertises a permanently zero (or too-tiny) a_rwnd must
-		///     not stall the head-of-line message forever - the original version of this test asserted only
-		///     that nothing was sent, which is exactly the deadlock the fix (RFC 4960 6.1 rule A's
-		///     zero-window probe) closes: once nothing is in flight, the association may always put one
-		///     chunk on the wire regardless of the advertised window, so the peer gets a chance to ack and
-		///     reopen it. The message here is small, unordered, and under the fragmentation threshold, so it
-		///     delivers zero-copy on arrival regardless of the server's own (zero) buffering budget - that
-		///     isolates this test to the SEND-side window gate the fix touches, not receive-side budget
-		///     accounting (already covered elsewhere in this file's sibling, SctpReceiveTests.cs).
+		///     A peer that advertises a permanently zero (or too-tiny) a_rwnd must not stall the
+		///     head-of-line message forever: RFC 4960 6.1 rule A's zero-window probe means that once
+		///     nothing is in flight, the association may always put one chunk on the wire regardless of
+		///     the advertised window, so the peer gets a chance to ack and reopen it. The message here is
+		///     small, unordered, and under the fragmentation threshold, so it delivers zero-copy on arrival
+		///     regardless of the server's own (zero) buffering budget - that isolates this test to the
+		///     SEND-side window gate, not receive-side budget accounting (covered elsewhere in this file's
+		///     sibling, SctpReceiveTests.cs).
 		/// </summary>
 		[TestMethod]
 		public void PeerAdvertisesZeroWindow_ZeroWindowProbeStillDeliversTheMessage()
@@ -275,15 +274,15 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-2 Finding 1 (RFC 4960 6.2.1): a SACK acking a TSN newer than anything this queue has
-		///     ever actually transmitted - hostile, corrupt, or misdelivered, since a well-behaved peer can
-		///     only ack what it received - must be dropped whole, before any processing. The old code walked
-		///     the resident list and freed queued-but-never-sent chunks, corrupting the ack point into
-		///     believing data was delivered that never left the machine. Proven two ways: nothing is freed by
-		///     the hostile SACK (queued bytes unchanged), and a later LEGITIMATE SACK acking the real highest
-		///     transmitted TSN still works normally - if the hostile one had corrupted the ack point forward,
-		///     this genuinely-older ack would itself now read as stale and be rejected too, so the still-queued
-		///     chunk would never transmit.
+		///     RFC 4960 6.2.1: a SACK acking a TSN newer than anything this queue has ever actually
+		///     transmitted - hostile, corrupt, or misdelivered, since a well-behaved peer can only ack what
+		///     it received - is dropped whole, before any processing, rather than freeing queued-but-never-
+		///     sent chunks and corrupting the ack point into believing data was delivered that never left
+		///     the machine. Proven two ways: nothing is freed by the hostile SACK (queued bytes unchanged),
+		///     and a later LEGITIMATE SACK acking the real highest transmitted TSN still works normally -
+		///     if the hostile one had corrupted the ack point forward, this genuinely-older ack would
+		///     itself now read as stale and be rejected too, so the still-queued chunk would never
+		///     transmit.
 		/// </summary>
 		[TestMethod]
 		public void Sack_CumAckNewerThanAnythingTransmitted_IsDroppedWhole_QueueAndAckPointUnaffected()
@@ -345,10 +344,10 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Fix-round-2 Finding 2 (RFC 4960 6.2.1): a SACK whose cumulative ack is OLDER than the current
-		///     ack point is a stale, reordered duplicate and must be dropped entirely - its gap reports must
-		///     not feed the fast-retransmit duplicate counter or mark any chunk, which could otherwise fire a
-		///     spurious fast retransmit off a stale anchor. Proven by requiring exactly three LEGITIMATE
+		///     RFC 4960 6.2.1: a SACK whose cumulative ack is OLDER than the current ack point is a stale,
+		///     reordered duplicate and is dropped entirely - its gap reports must not feed the
+		///     fast-retransmit duplicate counter or mark any chunk, which could otherwise fire a spurious
+		///     fast retransmit off a stale anchor. Proven by requiring exactly three LEGITIMATE
 		///     same-cumAck gap SACKs after the stale one to trigger fast retransmit: if the stale SACK had
 		///     counted toward the duplicate tally, only two more would be needed. The stale SACK's advertised
 		///     rwnd (deliberately different from the real one) must also never be adopted. An EQUAL cumAck
@@ -413,6 +412,64 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(0L, client.SendFastRetransmitCount);
 			FeedSack(client, tag, tsn1, arwnd: 131072, gap);
 			Assert.AreEqual(1L, client.SendFastRetransmitCount);
+		}
+
+		/// <summary>
+		///     Fast retransmit must actually put the marked chunk back on the wire, not merely increment
+		///     its own counter: the counter fires regardless of whether <c>PeekReadyToSend</c> can still
+		///     reach the chunk it was just told is due again. Arranged so the send-side resume cursor has
+		///     already advanced past the head chunk (via the first, acking SACK's own trailing
+		///     <c>Flush</c>) before the third duplicate SACK marks it - the exact shape
+		///     <see cref="Sack_StaleCumAck_IsDroppedWhole_DupCounterAndRwndUnaffected_ThreeLegitimateDupsStillFastRetransmit" />
+		///     already builds, extended to assert the resend itself.
+		/// </summary>
+		[TestMethod]
+		public void FastRetransmit_ResendsTheMarkedChunkThroughThePump_EvenWhenTheCursorHasAdvancedPastIt()
+		{
+			SctpAssociation server = null;
+			SctpAssociation client = null;
+			var sentByClient = new List<byte[]>();
+			bool relayToServer = true;
+
+			client = new SctpAssociation(true, 5000, 131072, p =>
+			{
+				sentByClient.Add(p.ToArray());
+				if (relayToServer) server.OnPacketReceived(p.ToArray());
+			});
+			server = new SctpAssociation(false, 5000, 131072, p => client.OnPacketReceived(p.ToArray()));
+
+			client.Start();
+			Assert.AreEqual(SctpState.Established, client.State);
+
+			sentByClient.Clear();
+			relayToServer = false; // the real server is disconnected: only the hand-crafted SACKs below reach the client
+
+			Assert.IsTrue(client.Send(streamId: 1, ppid: 1, "aaa"u8, unordered: true, maxRetransmits: -1));
+			Assert.IsTrue(client.Send(streamId: 1, ppid: 1, "bbb"u8, unordered: true, maxRetransmits: -1));
+			Assert.IsTrue(client.Send(streamId: 1, ppid: 1, "ccc"u8, unordered: true, maxRetransmits: -1));
+			Assert.AreEqual(3, sentByClient.Count);
+
+			uint tsn1 = ExtractDataTsn(sentByClient[0]);
+			uint tsn2 = ExtractDataTsn(sentByClient[1]);
+			uint tsn3 = ExtractDataTsn(sentByClient[2]);
+			uint tag = client.LocalVerificationTag;
+
+			// Acks chunk 1: the cumulative-ack removal loop resets the cursor to the new head (chunk 2),
+			// then this SACK's own trailing Flush (HandleSack always calls it once a SACK is accepted)
+			// finds nothing due from chunk 2 onward and advances the cursor past both remaining chunks to
+			// the tail - the cursor is now sitting past chunk 2 before chunk 2 is ever marked.
+			FeedSack(client, tag, tsn1, arwnd: 131072);
+
+			var gap = new[] {new SackChunk.GapBlock((ushort) (tsn3 - tsn1), (ushort) (tsn3 - tsn1))};
+			FeedSack(client, tag, tsn1, arwnd: 131072, gap);
+			FeedSack(client, tag, tsn1, arwnd: 131072, gap);
+
+			sentByClient.Clear();
+			FeedSack(client, tag, tsn1, arwnd: 131072, gap); // third duplicate: fast retransmit fires
+
+			Assert.AreEqual(1L, client.SendFastRetransmitCount);
+			Assert.AreEqual(1, sentByClient.Count, "the fast-retransmitted chunk must actually reappear on the wire, not just increment the counter");
+			Assert.AreEqual(tsn2, ExtractDataTsn(sentByClient[0]));
 		}
 
 		/// <summary>Same shape as <see cref="SctpTeardownTests" />'s own private helper: whether a captured packet carries a chunk of the given type.</summary>
