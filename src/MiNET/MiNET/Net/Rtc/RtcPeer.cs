@@ -88,6 +88,9 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only: how many inbound packets the underlying association has dropped and counted, for whatever reason - see <see cref="SctpAssociation.IgnoredPacketCount" />.</summary>
 		internal long AssociationIgnoredPacketCount => _association?.IgnoredPacketCount ?? 0;
 
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): whether the underlying <see cref="DtlsSession" /> has closed, by either a local <see cref="DtlsSession.Dispose" /> or an inbound close_notify/fatal alert - see <see cref="DtlsSession.IsClosed" />. <see langword="false" /> before <see cref="CreateDtlsSession" /> has run. Exists for interop tests proving a peer's close_notify tore this side's DTLS session down per RFC 5246 7.2.1, independently of whatever the SCTP association above it observes (a dropped post-close datagram means it may never reach <see cref="SctpState.Aborted" /> at all).</summary>
+		internal bool DtlsSessionClosed => _dtls?.IsClosed ?? false;
+
 		/// <summary>
 		///     Off by default; exists only for same-machine test topologies where the peer's ICE
 		///     candidate gathering advertises a real interface address (its own loopback filtering

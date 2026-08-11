@@ -615,18 +615,88 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Deliberately NOT the same outcome as a fatal alert: a real peer (confirmed against
-		///     SIPSorcery in <see cref="InteropTests" />) sends close_notify mid-teardown, still ahead of
-		///     its own SCTP-level graceful shutdown finishing over this same encrypted channel. Tearing
-		///     the whole session down on close_notify the way a fatal alert does would silently drop
-		///     whatever legitimate datagram the peer sends next (there, the SCTP SHUTDOWN-COMPLETE that
-		///     drives the association to its terminal state), so close_notify is drop-and-count instead:
-		///     counted, and the session otherwise keeps working exactly as before.
+		///     RFC 5246 7.2.1: a close_notify ends the connection in both directions immediately, and the
+		///     recipient sends its own close_notify back before closing. The response must ride the native
+		///     record layer's live send sequence, not a stale one: proven here by sending one real message
+		///     first (establishing a known baseline sequence) and asserting the response is exactly one
+		///     past it, on the same session's own live counter.
 		/// </summary>
 		[TestMethod]
-		public async Task EncryptedCloseNotify_IsDroppedAndCounted_SessionKeepsWorking()
+		public async Task EncryptedCloseNotify_ClosesTheSession_AndRespondsWithACloseNotifyAtTheLiveSequence()
 		{
 			const byte AlertContentType = 21;
+			const byte AlertLevelWarning = 1;
+			const byte AlertDescriptionCloseNotify = 0;
+
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			byte[] lastServerToClient = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes =>
+			{
+				lastServerToClient = bytes.ToArray();
+				client.FeedDatagram(bytes);
+			});
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			// One real send first: the response's sequence is checked against this known live baseline,
+			// not just "greater than zero".
+			var firstReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			client.OnDecrypted += payload => firstReceived.TrySetResult(payload.ToArray());
+			server.SendApplicationData(new byte[] {1, 2, 3});
+			CollectionAssert.AreEqual(new byte[] {1, 2, 3}, await firstReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+			Assert.IsNotNull(lastServerToClient, "expected to have captured the sanity send's wire bytes");
+			ulong sanitySequence = ReadSequence(lastServerToClient);
+
+			// Seeded well below the server's own live sequence (already past 1000 after the sanity send
+			// above): the replay window admits anything strictly ahead of the highest sequence seen so
+			// far with no distance limit, so a low, distinct sequence here is enough to be accepted as a
+			// genuine new record without needing to coordinate with the server's own counter.
+			using (var forger = new DtlsRecordCrypto(client.CapturedKeys, isServer: false))
+			{
+				forger.SetSendSequenceForTesting(1);
+				Span<byte> wire = stackalloc byte[2 + DtlsRecordCrypto.RecordOverhead];
+				int wireLength = forger.EncryptRecord(AlertContentType, new byte[] {AlertLevelWarning, AlertDescriptionCloseNotify}, wire);
+				Assert.AreNotEqual(-1, wireLength);
+				server.FeedDatagram(wire.Slice(0, wireLength));
+			}
+
+			Assert.IsTrue(server.IsClosed, "expected the server session to close on receiving close_notify");
+
+			byte responseContentType = lastServerToClient[0];
+			Assert.AreEqual(AlertContentType, responseContentType, "expected the server's own close_notify response to be the last thing it sent");
+			ulong responseSequence = ReadSequence(lastServerToClient);
+			Assert.AreEqual(sanitySequence + 1, responseSequence, "expected the response to ride the native layer's live sequence, one past the last real send - never a stale low sequence");
+
+			using var verifier = new DtlsRecordCrypto(client.CapturedKeys, isServer: false);
+			Span<byte> plaintext = stackalloc byte[2];
+			bool decrypted = verifier.TryDecryptRecord(lastServerToClient, plaintext, out byte contentType, out int length);
+			Assert.IsTrue(decrypted, "expected the response to decrypt cleanly with the real key block");
+			Assert.AreEqual(AlertContentType, contentType);
+			Assert.AreEqual(2, length);
+			Assert.AreEqual(AlertDescriptionCloseNotify, plaintext[1], "expected description close_notify(0) in the response body");
+
+			client.Dispose();
+			server.Dispose();
+		}
+
+		/// <summary>
+		///     RFC 5246 7.2.1's "any data received after a closure alert is ignored" applies within one
+		///     datagram, not just across datagrams: a close_notify record followed by an application-data
+		///     record in the SAME datagram must stop the walk at the alert, never reaching the record
+		///     after it.
+		/// </summary>
+		[TestMethod]
+		public async Task CloseNotify_StopsProcessingTheRestOfTheDatagram_LaterRecordInTheSameDatagramNotDelivered()
+		{
+			const byte AlertContentType = 21;
+			const byte ApplicationDataContentType = 23;
 			const byte AlertLevelWarning = 1;
 			const byte AlertDescriptionCloseNotify = 0;
 
@@ -642,32 +712,81 @@ namespace MiNET.Test.Rtc
 			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
 			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
 
-			long droppedBefore = server.DroppedRecords;
+			bool delivered = false;
+			server.OnDecrypted += _ => delivered = true;
 
-			// Seeded well BELOW the real client's own DtlsRecordCrypto (which starts at
-			// SendSequenceHandshakeHeadroom, 1000, and has not sent anything yet at this point), never
-			// above it: the replay window admits anything strictly ahead of the highest sequence seen so
-			// far with no distance limit, but rejects anything more than 64 behind it, so seeding this
-			// forged record ahead would poison the window against every real message the session sends
-			// afterward, which is exactly what this test needs to prove does NOT happen.
 			using (var forger = new DtlsRecordCrypto(client.CapturedKeys, isServer: false))
 			{
 				forger.SetSendSequenceForTesting(1);
-				Span<byte> wire = stackalloc byte[2 + DtlsRecordCrypto.RecordOverhead];
-				int wireLength = forger.EncryptRecord(AlertContentType, new byte[] {AlertLevelWarning, AlertDescriptionCloseNotify}, wire);
-				Assert.AreNotEqual(-1, wireLength);
-				server.FeedDatagram(wire.Slice(0, wireLength));
+				Span<byte> alertWire = stackalloc byte[2 + DtlsRecordCrypto.RecordOverhead];
+				int alertLength = forger.EncryptRecord(AlertContentType, new byte[] {AlertLevelWarning, AlertDescriptionCloseNotify}, alertWire);
+				Assert.AreNotEqual(-1, alertLength);
+
+				byte[] appPayload = {9, 9, 9};
+				Span<byte> appWire = stackalloc byte[appPayload.Length + DtlsRecordCrypto.RecordOverhead];
+				int appLength = forger.EncryptRecord(ApplicationDataContentType, appPayload, appWire);
+				Assert.AreNotEqual(-1, appLength);
+
+				byte[] datagram = new byte[alertLength + appLength];
+				alertWire.Slice(0, alertLength).CopyTo(datagram);
+				appWire.Slice(0, appLength).CopyTo(datagram.AsSpan(alertLength));
+
+				server.FeedDatagram(datagram);
 			}
 
-			Assert.AreEqual(droppedBefore + 1, server.DroppedRecords);
+			Assert.IsTrue(server.IsClosed, "expected the server session to close on the close_notify record");
+			Assert.IsFalse(delivered, "expected the application-data record after the close_notify, in the same datagram, to never be delivered");
 
-			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
-			client.SendApplicationData(new byte[] {7, 7, 7});
-			CollectionAssert.AreEqual(new byte[] {7, 7, 7}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)), "the session must keep working normally after a close_notify that was not accompanied by a fatal level");
+			client.Dispose();
+			server.Dispose();
+		}
+
+		/// <summary>
+		///     RFC 5246 7.2.1 applies to local-initiated closure too: <see cref="DtlsSession.Dispose" />
+		///     emits a close_notify of its own before closing the transport, so a spec-strict peer accepts
+		///     our goodbye instead of dropping it as a replay of BC's stale Finished-flight sequence.
+		/// </summary>
+		[TestMethod]
+		public async Task Dispose_SendsACloseNotify_BeforeClosingTheTransport()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			byte[] lastServerToClient = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes =>
+			{
+				lastServerToClient = bytes.ToArray();
+				client.FeedDatagram(bytes);
+			});
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
 
 			server.Dispose();
+
+			Assert.IsNotNull(lastServerToClient, "expected Dispose to have sent a close_notify");
+
+			using var verifier = new DtlsRecordCrypto(client.CapturedKeys, isServer: false);
+			Span<byte> plaintext = stackalloc byte[2];
+			bool decrypted = verifier.TryDecryptRecord(lastServerToClient, plaintext, out byte contentType, out int length);
+			Assert.IsTrue(decrypted, "expected Dispose's close_notify to decrypt cleanly with the real key block");
+			Assert.AreEqual(21, contentType, "expected an alert record");
+			Assert.AreEqual(2, length);
+			Assert.AreEqual(0, plaintext[1], "expected description close_notify(0)");
+
 			client.Dispose();
+		}
+
+		private static ulong ReadSequence(ReadOnlySpan<byte> record)
+		{
+			ReadOnlySpan<byte> sequence = record.Slice(5, 6);
+			ulong value = 0;
+			foreach (byte b in sequence) value = (value << 8) | b;
+			return value;
 		}
 
 		/// <summary>

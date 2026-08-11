@@ -229,15 +229,18 @@ namespace MiNET.Test.Rtc
 			theirReliable.send(afterIdle, 0, afterIdle.Length);
 			CollectionAssert.AreEqual(afterIdle, (await weGotAfterIdle).Data);
 
-			// Watch item 1 (T-bit teardown): SIPSorcery's close() on an already-connected transport sends
-			// a graceful SHUTDOWN, not an ABORT, then completes the four-way with a SHUTDOWN-COMPLETE whose
-			// verification tag echoes what it was just sent (our peer's tag from our own side's point of
-			// view) with the T bit set (RFC 4960 9.2/8.5.1) - see the task report for why. Proving our side
-			// still reaches Aborted (not stuck) is the actual "did we zombie" check the watch item cares
-			// about.
+			// Watch item 1 (spec-strict close_notify): SIPSorcery's close() on an already-connected
+			// transport sends a DTLS close_notify ahead of its own SCTP-level graceful shutdown finishing
+			// over the same channel. RFC 5246 7.2.1 requires us to end the DTLS connection in both
+			// directions immediately on receiving it, which means never processing whatever SIPSorcery
+			// sends afterward on this transport - including its SCTP SHUTDOWN-COMPLETE, so this side's
+			// SctpAssociation does not, and is not expected to, reach SctpState.Aborted here; DTLS closure
+			// is the terminal event this watch item now proves, not an SCTP-level handshake. Bounded by
+			// the same WaitUntilAsync timeout pattern used for SIPSorcery's other quirks elsewhere in this
+			// file, in case dropping its final chunk leaves something in its own close() path waiting.
 			theirClient.close();
-			Assert.IsTrue(await WaitUntilAsync(() => ourServer.AssociationState == SctpState.Aborted, TimeSpan.FromSeconds(10)),
-				"our association never reached Aborted after SIPSorcery closed");
+			Assert.IsTrue(await WaitUntilAsync(() => ourServer.DtlsSessionClosed, TimeSpan.FromSeconds(10)),
+				"our DTLS session never closed after SIPSorcery's close_notify");
 		}
 
 		// Exit criterion 2: we dial SIPSorcery. Our client is the offerer.
@@ -347,8 +350,8 @@ namespace MiNET.Test.Rtc
 
 			// Watch item 1: see the identical comment in the other direction's test.
 			theirServer.close();
-			Assert.IsTrue(await WaitUntilAsync(() => ourClient.AssociationState == SctpState.Aborted, TimeSpan.FromSeconds(10)),
-				"our association never reached Aborted after SIPSorcery closed");
+			Assert.IsTrue(await WaitUntilAsync(() => ourClient.DtlsSessionClosed, TimeSpan.FromSeconds(10)),
+				"our DTLS session never closed after SIPSorcery's close_notify");
 		}
 	}
 }

@@ -144,10 +144,12 @@ namespace MiNET.Net.Rtc
 		private const byte ContentTypeAlert = 21;
 		private const byte ContentTypeApplicationData = 23;
 
-		// RFC 5246 7.2: alert level fatal (2) always tears the connection down. close_notify
-		// (description 0) does not get the same treatment here; see ProcessApplicationDatagramLocked's
-		// remarks on why.
+		// RFC 5246 7.2 / 7.2.1: any alert with description close_notify (0), at any level, and any alert
+		// at level fatal (2) both end the connection immediately. close_notify additionally requires
+		// sending a close_notify of our own back before closing; a fatal alert does not.
+		private const byte AlertLevelWarning = 1;
 		private const byte AlertLevelFatal = 2;
+		private const byte AlertDescriptionCloseNotify = 0;
 
 		/// <summary>
 		///     The epoch-1 key block <see cref="CapturingTlsCrypto" /> captured out of this handshake.
@@ -162,8 +164,11 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the native record layer built from this session's captured keys once the handshake completes, null before that.</summary>
 		internal DtlsRecordCrypto RecordCrypto => _recordCrypto;
 
-		/// <summary>Records at epoch 1 that were deliberately never acted on: a content type other than application-data or alert, or an alert that decrypted cleanly but was not a fatal-level alert (close_notify included). Not a BC transport-side count, and not the same as <see cref="DtlsRecordCrypto" />'s own malformed/replay/decrypt-failure counters.</summary>
+		/// <summary>Records at epoch 1 that were deliberately never acted on: a content type other than application-data or alert, or a non-fatal alert whose description is not close_notify. Not a BC transport-side count, and not the same as <see cref="DtlsRecordCrypto" />'s own malformed/replay/decrypt-failure counters.</summary>
 		internal long DroppedRecords => Interlocked.Read(ref _droppedRecords);
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): whether this session has been torn down, by either <see cref="Dispose" /> or an alert-driven <see cref="RequestClose" />. <see cref="RtcPeer" /> exposes this to interop tests as <c>DtlsSessionClosed</c>.</summary>
+		internal bool IsClosed => _closed;
 
 		// Both touched only while holding _gate (see the class doc comment's Invariant paragraph),
 		// so neither needs volatile or Interlocked: _gate's acquire/release already provides the
@@ -331,11 +336,11 @@ namespace MiNET.Net.Rtc
 		///     (<see cref="DtlsRecordCrypto.TryReadRecordHeader" />), so a record whose content is
 		///     rejected (wrong epoch, replay, bad tag) does not stop the walk: only a header that does
 		///     not fit does, since at that point there is no trustworthy length to skip by. Content type
-		///     23 (application data) decrypts and delivers; content type 21 (alert) decrypts and, on a
-		///     fatal level, calls <see cref="RequestClose" /> and stops processing the rest of the
-		///     datagram outright (close_notify does not; see the comment at its own check below); every
-		///     other content type, and every non-fatal alert, is drop-and-count via
-		///     <see cref="_droppedRecords" /> without ever reaching
+		///     23 (application data) decrypts and delivers; content type 21 (alert) decrypts and, on
+		///     close_notify (any level) or a fatal level, calls <see cref="RequestClose" /> and stops
+		///     processing the rest of the datagram outright - close_notify additionally sends a
+		///     close_notify of our own first (RFC 5246 7.2.1); every other alert, and every other
+		///     content type, is drop-and-count via <see cref="_droppedRecords" /> without ever reaching
 		///     <see cref="DtlsRecordCrypto.TryDecryptRecord" />. A decrypt rejection on either content
 		///     type is already counted by <see cref="_recordCrypto" /> itself (replay, malformed, or bad
 		///     tag) and simply moves on to the next record.
@@ -380,22 +385,33 @@ namespace MiNET.Net.Rtc
 					}
 
 					byte level = _receiveScratch[0];
+					byte description = _receiveScratch[1];
+
+					// RFC 5246 7.2.1: close_notify ends the connection in both directions immediately,
+					// and the recipient must send its own close_notify back before closing. The response
+					// rides the native record layer's live sequence counter (EncryptRecord, not BC's own
+					// Close), so a peer whose replay window our own application data has already advanced
+					// still accepts it: BC's Finished-flight sequence would fall behind that window and be
+					// dropped as a replay.
+					if (description == AlertDescriptionCloseNotify)
+					{
+						lock (_sendGate)
+						{
+							TrySendCloseNotifyLocked();
+						}
+
+						RequestClose();
+						return;
+					}
+
+					// RFC 5246 7.2: any fatal-level alert ends the connection immediately; unlike
+					// close_notify, no response is expected or sent.
 					if (level == AlertLevelFatal)
 					{
 						RequestClose();
 						return;
 					}
 
-					// close_notify (description 0) at a non-fatal level is deliberately drop-and-count,
-					// not a teardown trigger, even though RFC 5246 6.2.1 asks the recipient to close its
-					// own write side and stop reading. A real independent WebRTC stack sends it
-					// mid-teardown, still ahead of its own SCTP-level graceful shutdown finishing over
-					// this same encrypted channel (the SHUTDOWN-COMPLETE that drives our own SctpAssociation
-					// to its terminal state arrives in a later datagram); tearing the session down here
-					// would silently drop that datagram and leave the association neither Aborted nor able
-					// to become so. The existing SCTP-level teardown machinery is what actually ends the
-					// session in that case, through its own Dispose call once it decides the association is
-					// done - not this alert.
 					Interlocked.Increment(ref _droppedRecords);
 				}
 				else
@@ -689,6 +705,32 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
+		///     Emits one close_notify record (level warning, description 0) through the native record
+		///     layer's own live send sequence - never through BouncyCastle, whose sequence stalled at
+		///     wherever its Finished flight left off and would be dropped as a replay by any peer whose
+		///     window our own application data has since advanced. Called both when this side initiates
+		///     closure (<see cref="Dispose" />) and when it answers a peer's close_notify
+		///     (<see cref="ProcessApplicationDatagramLocked" />), per RFC 5246 7.2.1's requirement that a
+		///     close_notify recipient send one back before closing. Must be called only while holding
+		///     <see cref="_sendGate" />. A no-op, silently, in either direction this can legitimately fail:
+		///     <see cref="_recordCrypto" /> is still null (the handshake never completed, so there was
+		///     never anything to say goodbye over), or <see cref="DtlsRecordCrypto.EncryptRecord" />
+		///     returns -1 (the 48-bit send sequence is exhausted). Neither caller treats that as a reason
+		///     to skip its own teardown: this is best effort, not a precondition of closing.
+		/// </summary>
+		private void TrySendCloseNotifyLocked()
+		{
+			if (_recordCrypto == null) return;
+
+			Span<byte> body = stackalloc byte[2] {AlertLevelWarning, AlertDescriptionCloseNotify};
+			Span<byte> wire = stackalloc byte[body.Length + DtlsRecordCrypto.RecordOverhead];
+			int length = _recordCrypto.EncryptRecord(ContentTypeAlert, body, wire);
+			if (length == -1) return;
+
+			_sendToWire(wire.Slice(0, length));
+		}
+
+		/// <summary>
 		///     One receive-plus-drain cycle for exactly one already-staged raw datagram (the direct-feed
 		///     slot, re-staged there by <see cref="DrainQueueLocked" /> for this call):
 		///     <see cref="DtlsTransport.Receive" /> pulls it via <see cref="TryReadNow" /> and decodes its
@@ -899,9 +941,11 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     Marks the session closed (<see cref="RequestClose" />), unblocking a handshake still
-		///     running on the <see cref="Task.Run" /> thread, then, under <see cref="_gate" />, closes
-		///     the BouncyCastle transport and disposes the native record layer if the handshake reached
-		///     that far, and returns every still-queued lease to the pool. The gate excludes a concurrently running
+		///     running on the <see cref="Task.Run" /> thread, then, under <see cref="_gate" />, sends a
+		///     close_notify of our own (<see cref="TrySendCloseNotifyLocked" />, best effort - a no-op if
+		///     the native layer was never established), closes the BouncyCastle transport, and disposes
+		///     the native record layer if the handshake reached that far, and returns every still-queued
+		///     lease to the pool. The gate excludes a concurrently running
 		///     <see cref="FeedDatagram" /> drain called from another thread: either the
 		///     drain finishes and releases the gate before this section runs, or this section runs
 		///     first and the drain's own disposed check, repeated inside its own gate acquisition,
@@ -916,9 +960,11 @@ namespace MiNET.Net.Rtc
 		///     <see cref="_directFeedBuffer" /> shares <see cref="_receiveScratch" />'s
 		///     lifetime exactly, so it is returned, or deferred, alongside it on both branches.
 		///     <para>
-		///     <c>_dtlsTransport.Close()</c> and <c>_recordCrypto.Dispose()</c> both run inside a nested
-		///     <c>lock (_sendGate)</c>, the same lock <see cref="SendApplicationData" /> takes around its
-		///     own disposed check and encrypt-and-send call - see that method's own remarks for the full
+		///     <c>TrySendCloseNotifyLocked()</c>, <c>_dtlsTransport.Close()</c>, and
+		///     <c>_recordCrypto.Dispose()</c> all run inside one nested <c>lock (_sendGate)</c>, in that
+		///     order (the close_notify needs <see cref="_recordCrypto" /> still alive), the same lock
+		///     <see cref="SendApplicationData" /> takes around its own disposed check and
+		///     encrypt-and-send call - see that method's own remarks for the full
 		///     lock-order proof. Nested inside the pre-existing <c>lock (_gate)</c> here (an order,
 		///     <see cref="_gate" /> then <see cref="_sendGate" />, never used in reverse anywhere in this
 		///     class), so this adds no new lock-order cycle: <see cref="SendApplicationData" /> only ever
@@ -937,6 +983,7 @@ namespace MiNET.Net.Rtc
 			{
 				lock (_sendGate)
 				{
+					TrySendCloseNotifyLocked();
 					_dtlsTransport?.Close();
 					_recordCrypto?.Dispose();
 				}
