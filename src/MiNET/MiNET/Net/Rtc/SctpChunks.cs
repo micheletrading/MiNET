@@ -265,29 +265,83 @@ namespace MiNET.Net.Rtc
 			return true;
 		}
 
+		/// <summary>
+		///     The span-taking twin of <see cref="TryParse" />, for the hot receive path
+		///     (<see cref="SctpAssociation.HandleSack" />): writes gap blocks straight into
+		///     <paramref name="gapBlockDestination" /> instead of allocating a <see cref="GapBlock" />[]
+		///     to hold them, and skips over the duplicate-TSN bytes without storing them anywhere -
+		///     <see cref="SctpAssociation.HandleSack" /> is this chunk's only production caller and has
+		///     never read <see cref="DuplicateTsns" /> (RFC 4960 6.2's duplicate list is diagnostic
+		///     information about the peer's own retransmit behaviour, not an input to this side's
+		///     cumulative-ack/gap-block bookkeeping). <see cref="TryParse" /> itself is untouched: it is
+		///     still the general-purpose parse - <see cref="DuplicateTsns" /> is directly asserted on in
+		///     SctpChunkTests, so that contract stays exactly as it was.
+		/// </summary>
+		public static bool TryParseGapBlocks(ReadOnlySpan<byte> value, Span<GapBlock> gapBlockDestination, out uint cumulativeTsnAck, out uint arwnd, out int gapCount)
+		{
+			cumulativeTsnAck = 0;
+			arwnd = 0;
+			gapCount = 0;
+
+			if (value.Length < 12) return false;
+
+			cumulativeTsnAck = BinaryPrimitives.ReadUInt32BigEndian(value.Slice(0, 4));
+			arwnd = BinaryPrimitives.ReadUInt32BigEndian(value.Slice(4, 4));
+			ushort declaredGapCount = BinaryPrimitives.ReadUInt16BigEndian(value.Slice(8, 2));
+			ushort declaredDupCount = BinaryPrimitives.ReadUInt16BigEndian(value.Slice(10, 2));
+
+			int needed = 12 + declaredGapCount * 4 + declaredDupCount * 4;
+			if (value.Length < needed) return false;
+
+			int written = Math.Min((int) declaredGapCount, Math.Min(MaxGapBlocks, gapBlockDestination.Length));
+			int position = 12;
+			for (int i = 0; i < written; i++)
+			{
+				ushort start = BinaryPrimitives.ReadUInt16BigEndian(value.Slice(position, 2));
+				ushort end = BinaryPrimitives.ReadUInt16BigEndian(value.Slice(position + 2, 2));
+				gapBlockDestination[i] = new GapBlock(start, end);
+				position += 4;
+			}
+
+			gapCount = written;
+			return true;
+		}
+
 		public int WriteTo(Span<byte> destination)
 		{
-			int gapCount = GapBlocks.Length;
-			int dupCount = DuplicateTsns.Length;
+			return WriteTo(destination, CumulativeTsnAck, Arwnd, GapBlocks, DuplicateTsns);
+		}
+
+		/// <summary>
+		///     The span-taking twin of the instance <see cref="WriteTo(Span{byte})" />: writes the identical
+		///     wire format straight from <paramref name="gapBlocks" />/<paramref name="duplicateTsns" />
+		///     without a <see cref="SackChunk" /> instance to hold them, so a caller building a SACK from
+		///     stack-allocated spans (<see cref="SctpAssociation.WriteSackChunkInto" />) never has to copy
+		///     them into arrays first just to call this.
+		/// </summary>
+		public static int WriteTo(Span<byte> destination, uint cumulativeTsnAck, uint arwnd, ReadOnlySpan<GapBlock> gapBlocks, ReadOnlySpan<uint> duplicateTsns)
+		{
+			int gapCount = gapBlocks.Length;
+			int dupCount = duplicateTsns.Length;
 			int valueLength = 12 + gapCount * 4 + dupCount * 4;
 
 			Span<byte> value = destination.Slice(4, valueLength);
-			BinaryPrimitives.WriteUInt32BigEndian(value.Slice(0, 4), CumulativeTsnAck);
-			BinaryPrimitives.WriteUInt32BigEndian(value.Slice(4, 4), Arwnd);
+			BinaryPrimitives.WriteUInt32BigEndian(value.Slice(0, 4), cumulativeTsnAck);
+			BinaryPrimitives.WriteUInt32BigEndian(value.Slice(4, 4), arwnd);
 			BinaryPrimitives.WriteUInt16BigEndian(value.Slice(8, 2), (ushort) gapCount);
 			BinaryPrimitives.WriteUInt16BigEndian(value.Slice(10, 2), (ushort) dupCount);
 
 			int position = 12;
 			for (int i = 0; i < gapCount; i++)
 			{
-				BinaryPrimitives.WriteUInt16BigEndian(value.Slice(position, 2), GapBlocks[i].Start);
-				BinaryPrimitives.WriteUInt16BigEndian(value.Slice(position + 2, 2), GapBlocks[i].End);
+				BinaryPrimitives.WriteUInt16BigEndian(value.Slice(position, 2), gapBlocks[i].Start);
+				BinaryPrimitives.WriteUInt16BigEndian(value.Slice(position + 2, 2), gapBlocks[i].End);
 				position += 4;
 			}
 
 			for (int i = 0; i < dupCount; i++)
 			{
-				BinaryPrimitives.WriteUInt32BigEndian(value.Slice(position, 4), DuplicateTsns[i]);
+				BinaryPrimitives.WriteUInt32BigEndian(value.Slice(position, 4), duplicateTsns[i]);
 				position += 4;
 			}
 

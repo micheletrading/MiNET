@@ -797,7 +797,8 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		private void HandleSack(ReadOnlySpan<byte> value)
 		{
-			if (!SackChunk.TryParse(value, out SackChunk sack))
+			Span<SackChunk.GapBlock> gapBlocks = stackalloc SackChunk.GapBlock[SackChunk.MaxGapBlocks];
+			if (!SackChunk.TryParseGapBlocks(value, gapBlocks, out uint cumulativeTsnAck, out uint arwnd, out int gapCount))
 			{
 				CountIgnored();
 				return;
@@ -809,10 +810,10 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			bool accepted = _sendQueue.OnSackReceived(sack.CumulativeTsnAck, sack.GapBlocks, ClockNowMillis());
+			bool accepted = _sendQueue.OnSackReceived(cumulativeTsnAck, gapBlocks.Slice(0, gapCount), ClockNowMillis());
 			if (!accepted) return;
 
-			_peerArwnd = sack.Arwnd;
+			_peerArwnd = arwnd;
 
 			MaybeSendForwardTsn();
 			Flush();
@@ -1474,7 +1475,7 @@ namespace MiNET.Net.Rtc
 			_sendPacket(buffer.Slice(0, n));
 		}
 
-		/// <summary>Shared by <see cref="SendSackPacket" /> and <see cref="Flush" />'s bundling case: writes one SACK chunk (current cumulative ack, gap blocks, duplicate TSNs) into <paramref name="destination" />, returning the padded length written.</summary>
+		/// <summary>Shared by <see cref="SendSackPacket" /> and <see cref="Flush" />'s bundling case: writes one SACK chunk (current cumulative ack, gap blocks, duplicate TSNs) into <paramref name="destination" />, returning the padded length written. Goes straight through <see cref="SackChunk" />'s span-taking static <c>WriteTo</c> overload rather than boxing the stack-allocated spans below into a <see cref="SackChunk" /> instance first: this runs on every SACK (RFC 4960 6.2's every-other-packet cadence makes that steady-state, not occasional), so the two <c>ToArray()</c> calls that shape used to cost here were a real per-message heap allocation, not a one-time cost.</summary>
 		private int WriteSackChunkInto(Span<byte> destination)
 		{
 			Span<SackChunk.GapBlock> gapBlocks = stackalloc SackChunk.GapBlock[SackChunk.MaxGapBlocks];
@@ -1483,10 +1484,8 @@ namespace MiNET.Net.Rtc
 			Span<uint> duplicateTsns = stackalloc uint[SackChunk.MaxDuplicateTsns];
 			int duplicateCount = _receiveBuffer.DrainDuplicateTsns(duplicateTsns);
 
-			var sack = new SackChunk(_receiveBuffer.CumulativeTsnAck, _receiveBuffer.CurrentArwnd,
-				gapBlocks.Slice(0, gapCount).ToArray(), duplicateTsns.Slice(0, duplicateCount).ToArray());
-
-			return sack.WriteTo(destination);
+			return SackChunk.WriteTo(destination, _receiveBuffer.CumulativeTsnAck, _receiveBuffer.CurrentArwnd,
+				gapBlocks.Slice(0, gapCount), duplicateTsns.Slice(0, duplicateCount));
 		}
 
 		private void SendCookieAckPacket()
