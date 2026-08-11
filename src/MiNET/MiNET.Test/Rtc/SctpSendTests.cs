@@ -323,7 +323,12 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual((uint) message.Length, queuedBefore); // nothing acked yet: all 5 pieces still resident
 
 			uint highestTransmittedTsn = ExtractDataTsn(sentByClient[^1]);
-			uint tag = client.PeerVerificationTag;
+			// A packet addressed TO the client carries the client's OWN tag (RFC 4960 5.1) - the value
+			// the server was told to use when sending to it - not the tag the client uses when addressing
+			// the server. Now that OnPacketReceived's generic tag gate actually enforces this (see the
+			// coordinator's round-2 review), a hand-crafted SACK using the wrong one would be dropped by
+			// that gate before ever reaching HandleSack, exercising the wrong thing entirely.
+			uint tag = client.LocalVerificationTag;
 
 			// A hostile SACK: cumAck 5 beyond anything this association ever put on the wire.
 			FeedSack(client, tag, unchecked(highestTransmittedTsn + 5), arwnd: 131072);
@@ -384,7 +389,9 @@ namespace MiNET.Test.Rtc
 
 			uint tsn1 = ExtractDataTsn(sentByClient[0]);
 			uint tsn3 = ExtractDataTsn(sentByClient[2]);
-			uint tag = client.PeerVerificationTag;
+			// See the sibling test's own remark: a packet addressed TO the client must carry the
+			// client's own tag, not the tag it uses to address the server.
+			uint tag = client.LocalVerificationTag;
 
 			// Establish an ack point: chunk 1 acked, chunks 2 and 3 remain outstanding.
 			FeedSack(client, tag, tsn1, arwnd: 131072);

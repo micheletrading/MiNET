@@ -24,6 +24,8 @@
 #endregion
 
 using System;
+using System.Buffers;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Net.Rtc;
 
@@ -165,6 +167,55 @@ namespace MiNET.Test.Rtc
 			client.OnPacketReceived(badTagCookieAckArray.AsMemory(0, n2));
 			Assert.AreEqual(SctpState.Established, client.State);
 			Assert.AreEqual(clientIgnoredBefore + 2, client.IgnoredPacketCount);
+		}
+
+		/// <summary>
+		///     RFC 4960 8.5: unlike the COOKIE-ACK case above (which was already rejected on its own,
+		///     chunk-type-specific tag check), this proves the rejection is general - a well-formed DATA
+		///     chunk, a chunk type with no tag check of its own, is still dropped whole when the packet's
+		///     verification tag does not match the established association's own tag: no delivery, and no
+		///     SACK reaction (nothing sent back at all), just the ignored counter advancing.
+		/// </summary>
+		[TestMethod]
+		public void WrongTagDataPacket_OnEstablishedAssociation_IsDroppedWhole_NoDeliveryNoSackReaction()
+		{
+			SctpAssociation server = null;
+			SctpAssociation client = null;
+			var serverReceived = new List<byte[]>();
+			var serverSent = new List<byte[]>();
+
+			client = new SctpAssociation(true, 5000, 131072, p => server.OnPacketReceived(p.ToArray()));
+			server = new SctpAssociation(false, 5000, 131072, p =>
+			{
+				serverSent.Add(p.ToArray());
+				client.OnPacketReceived(p.ToArray());
+			});
+			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) => serverReceived.Add(message.ToArray());
+
+			client.Start();
+			Assert.AreEqual(SctpState.Established, server.State);
+			serverSent.Clear(); // drop the handshake replies (INIT-ACK, COOKIE-ACK) already captured above
+
+			uint wrongTag = unchecked(server.LocalVerificationTag + 1);
+			var header = new DataChunkHeader(unchecked(server.CumulativeTsnAck + 1), streamId: 1, streamSeq: 0, ppid: 7, unordered: false, begin: true, end: true, immediateSack: false);
+			byte[] payload = {1, 2, 3, 4};
+
+			byte[] packetArray = new byte[SctpPacket.MaxSize];
+			Span<byte> packet = packetArray;
+			int n = SctpPacket.WriteHeader(packet, 5000, 5000, wrongTag);
+			n += header.WriteTo(packet.Slice(n), payload);
+			SctpPacket.FinishChecksum(packet.Slice(0, n));
+
+			long ignoredBefore = server.IgnoredPacketCount;
+			uint cumulativeBefore = server.CumulativeTsnAck;
+
+			server.OnPacketReceived(packetArray.AsMemory(0, n));
+
+			Assert.AreEqual(ignoredBefore + 1, server.IgnoredPacketCount);
+			Assert.AreEqual(0, serverReceived.Count);
+			Assert.AreEqual(cumulativeBefore, server.CumulativeTsnAck);
+			Assert.AreEqual(0, serverSent.Count);
+			Assert.AreEqual(SctpState.Established, server.State);
 		}
 	}
 }

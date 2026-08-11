@@ -477,12 +477,42 @@ namespace MiNET.Net.Rtc
 		///     chunk type, a wrong verification tag, or an invalid cookie all fall through to a
 		///     dropped-and-counted packet (or chunk) rather than an exception, per this codebase's
 		///     hot-path rule for the mux receive thread.
+		///     <para>
+		///     RFC 4960 8.5: once this association has a tag of its own to be checked against
+		///     (<see cref="SctpState.Established" /> or <see cref="SctpState.Aborted" />), a packet whose
+		///     verification tag does not match <see cref="_localTag" /> is dropped whole here, before the
+		///     chunk loop even starts - no chunk in it is inspected or dispatched, so DATA/SACK/FORWARD-TSN
+		///     and the liveness/teardown chunk types below all get this protection uniformly, not just the
+		///     handshake chunk types that already checked the tag themselves. Pre-establishment packets
+		///     (<see cref="SctpState.Closed" />, <see cref="SctpState.CookieWait" />,
+		///     <see cref="SctpState.CookieEchoed" />) skip this gate and keep flowing straight to the
+		///     per-chunk handshake checks exactly as before: the stateless COOKIE-ECHO path (see the class
+		///     remarks) has no tag of its own to gate on until a cookie is actually validated, and each
+		///     handshake chunk type already validates the tag it expects on its own terms (see
+		///     <see cref="HandleInit" />, <see cref="HandleInitAck" />, <see cref="HandleCookieEcho" />,
+		///     <see cref="HandleCookieAck" />). RFC 4960 8.5.1's special T-bit acceptance rule (an ABORT or
+		///     SHUTDOWN-COMPLETE whose tag echoes the PEER's own, rather than ours, is also acceptable) is
+		///     not implemented by this gate - out of this task's scope, see <see cref="HandleAbort" />'s own
+		///     remarks.
+		///     </para>
 		/// </summary>
 		public void OnPacketReceived(ReadOnlyMemory<byte> packet)
 		{
 			ReadOnlySpan<byte> packetSpan = packet.Span;
 
 			if (!SctpPacket.TryReadHeader(packetSpan, out _, out _, out uint verificationTag))
+			{
+				CountIgnored();
+				return;
+			}
+
+			bool dropWholePacketForWrongTag;
+			lock (_gate)
+			{
+				dropWholePacketForWrongTag = (_state == SctpState.Established || _state == SctpState.Aborted) && verificationTag != _localTag;
+			}
+
+			if (dropWholePacketForWrongTag)
 			{
 				CountIgnored();
 				return;
@@ -716,8 +746,8 @@ namespace MiNET.Net.Rtc
 		///     Server or client role, called under <see cref="_gate" />: RFC 4960 8.3 path-liveness probe,
 		///     answered only once <see cref="SctpState.Established" /> - one arriving during the handshake or
 		///     after teardown is dropped and counted, not answered. The Heartbeat Info parameter is echoed
-		///     back VERBATIM (opaque bytes, no interpretation): SIPSorcery, and any compliant peer, sends
-		///     these during interop and treats silence as path death. A malformed chunk (missing or
+		///     back VERBATIM (opaque bytes, no interpretation): a compliant WebRTC peer heartbeats during a
+		///     session and treats silence as path death. A malformed chunk (missing or
 		///     truncated TLV) is dropped and counted rather than answered - this codebase's hot-path law
 		///     (never throw on hostile input) applies here exactly as everywhere else on this receive path.
 		/// </summary>
@@ -745,12 +775,14 @@ namespace MiNET.Net.Rtc
 		///     even being parsed). Idempotent: an ABORT (or anything else) arriving after this association is
 		///     already <see cref="SctpState.Aborted" /> is dropped and counted instead, which is what keeps
 		///     <see cref="OnAborted" /> firing exactly once no matter how many teardown-triggering chunks
-		///     arrive. RFC 4960 8.5.1's special verification-tag acceptance rule for ABORT (accept if the T
-		///     bit is set and the tag echoes the peer's own, in addition to the ordinary exact-match case) is
-		///     deliberately NOT implemented here - the existing tag handling in this class stays exactly as
-		///     built (most chunk types here, including this one, do not check the packet's verification tag
-		///     against association state at all today; that is pre-existing and out of this task's scope,
-		///     not something introduced or weakened by this method).
+		///     arrive. This chunk is only ever reached once <see cref="OnPacketReceived" />'s own
+		///     packet-level gate has already confirmed the packet's verification tag matches
+		///     <see cref="_localTag" /> (that gate covers <see cref="SctpState.Established" /> and
+		///     <see cref="SctpState.Aborted" /> alike, so it also guards this idempotency check itself). RFC
+		///     4960 8.5.1's special verification-tag acceptance rule for ABORT and SHUTDOWN-COMPLETE (accept
+		///     if the T bit is set and the tag echoes the PEER's own tag instead of ours, in addition to the
+		///     ordinary exact-match case the packet-level gate enforces) is deliberately NOT implemented -
+		///     out of this task's scope, not something the gate weakens or works around.
 		/// </summary>
 		private string HandleAbort()
 		{
