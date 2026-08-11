@@ -501,7 +501,7 @@ namespace MiNET.Net.Rtc.FastDtls
 			signedParams.CopyTo(signed.Slice(64));
 			Span<byte> hash = stackalloc byte[32];
 			SHA256.HashData(signed, hash);
-			if (!_peerPublicKey.VerifyHash(hash, signature, DSASignatureFormat.Rfc3279DerSequence))
+			if (!VerifySignature(hash, signature))
 			{
 				Abort(AlertDecryptError, "ServerKeyExchange signature verification failed.");
 				return;
@@ -509,6 +509,25 @@ namespace MiNET.Net.Rtc.FastDtls
 
 			_peerPoint = point.ToArray();
 			_state = State.ClientAwaitCertificateRequest;
+		}
+
+		/// <summary>
+		///     <see cref="ECDsa.VerifyHash(ReadOnlySpan{byte},ReadOnlySpan{byte},DSASignatureFormat)" />,
+		///     wrapped: a malformed DER signature is documented to return
+		///     <see langword="false" />, but is not guaranteed not to throw instead on every platform,
+		///     and either outcome is the identical "signature verification failed" case to both callers
+		///     here.
+		/// </summary>
+		private bool VerifySignature(ReadOnlySpan<byte> hash, ReadOnlySpan<byte> signature)
+		{
+			try
+			{
+				return _peerPublicKey.VerifyHash(hash, signature, DSASignatureFormat.Rfc3279DerSequence);
+			}
+			catch (Exception e) when (e is not DtlsHandshakeException)
+			{
+				return false;
+			}
 		}
 
 		private void SendClientSecondFlight()
@@ -622,7 +641,7 @@ namespace MiNET.Net.Rtc.FastDtls
 				Abort(AlertDecodeError, "Malformed CertificateVerify.");
 				return;
 			}
-			if (!_peerPublicKey.VerifyHash(transcriptHash, signature, DSASignatureFormat.Rfc3279DerSequence))
+			if (!VerifySignature(transcriptHash, signature))
 			{
 				Abort(AlertDecryptError, "CertificateVerify signature verification failed.");
 				return;
@@ -764,8 +783,21 @@ namespace MiNET.Net.Rtc.FastDtls
 				Curve = ECCurve.NamedCurves.nistP256,
 				Q = new ECPoint { X = peerPoint.AsSpan(1, 32).ToArray(), Y = peerPoint.AsSpan(33, 32).ToArray() },
 			};
-			using ECDiffieHellman peer = ECDiffieHellman.Create(parameters); // throws on an off-curve point
-			return _ecdhe.DeriveRawSecretAgreement(peer.PublicKey);
+			try
+			{
+				using ECDiffieHellman peer = ECDiffieHellman.Create(parameters); // throws on an off-curve point
+				return _ecdhe.DeriveRawSecretAgreement(peer.PublicKey);
+			}
+			catch (Exception e) when (e is not DtlsHandshakeException)
+			{
+				// A well-formed-length point whose coordinates are not actually on the curve reaches
+				// here: point validation throws (the concrete exception type is platform-dependent -
+				// CryptographicException on some backends, PlatformNotSupportedException on others), never
+				// something this handshake can recover from, so it becomes the same alert-and-close the
+				// format check above already uses, not a raw exception escaping the handshake.
+				Abort(AlertDecodeError, $"Peer ECDHE public point is not a valid point on P-256: {e.Message}");
+				return null;
+			}
 		}
 
 		// ---- flight assembly ----
@@ -788,17 +820,33 @@ namespace MiNET.Net.Rtc.FastDtls
 			return messageSeq;
 		}
 
+		/// <summary>
+		///     Builds every datagram of the current flight into <paramref name="built" /> first, and only
+		///     transmits them, in order, once that build is entirely finished - never inline, mid-build.
+		///     <see cref="_datagramBuffer" />/<see cref="_datagramUsed" /> are shared, per-instance
+		///     staging state that <see cref="QueueRecord" />/<see cref="FlushDatagram" /> mutate across
+		///     this whole method; a transmit callback that is not itself asynchronous can cause the peer's
+		///     reply to synchronously reenter this same engine instance (see <see cref="_transmit" />'s
+		///     own field, and <see cref="DtlsSession.TransmitHandshakeDatagram" /> for the host that
+		///     actually exercises this), and a reentrant call to this method while an outer one was still
+		///     mid-loop would corrupt that shared state out from under it. Deferring every
+		///     <see cref="_transmit" /> call to after the loop closes that window: by the time the first
+		///     one can trigger anything, <paramref name="built" /> already holds the complete flight and
+		///     <see cref="_datagramUsed" /> is back at 0, so a reentrant call here starts its own build
+		///     into a fresh, unrelated local list and cannot observe this one mid-flight.
+		/// </summary>
 		private void TransmitFlight()
 		{
 			_datagramUsed = 0;
 			_lastFlightMaxDatagram = 0;
 			Span<byte> fragment = stackalloc byte[12 + MaxFragmentEpoch0];
+			var built = new List<byte[]>();
 
 			foreach (FlightEntry entry in _flight)
 			{
 				if (entry.IsChangeCipherSpec)
 				{
-					QueueRecord(ContentType.ChangeCipherSpec, new byte[] { 1 }, epoch1: false);
+					QueueRecord(ContentType.ChangeCipherSpec, new byte[] { 1 }, epoch1: false, built);
 					continue;
 				}
 
@@ -809,18 +857,23 @@ namespace MiNET.Net.Rtc.FastDtls
 					int fragmentLength = Math.Min(maxFragment, entry.Body.Length - offset);
 					WriteHandshakeHeader(fragment, entry.Type, entry.Body.Length, entry.MessageSeq, offset, fragmentLength);
 					entry.Body.AsSpan(offset, fragmentLength).CopyTo(fragment.Slice(12));
-					QueueRecord(ContentType.Handshake, fragment.Slice(0, 12 + fragmentLength), entry.Epoch1);
+					QueueRecord(ContentType.Handshake, fragment.Slice(0, 12 + fragmentLength), entry.Epoch1, built);
 					offset += fragmentLength;
 				} while (offset < entry.Body.Length);
 			}
 
-			FlushDatagram();
+			FlushDatagram(built);
+
+			foreach (byte[] datagram in built)
+			{
+				_transmit(datagram);
+			}
 		}
 
-		private void QueueRecord(ContentType type, ReadOnlySpan<byte> plaintext, bool epoch1)
+		private void QueueRecord(ContentType type, ReadOnlySpan<byte> plaintext, bool epoch1, List<byte[]> built)
 		{
 			int wireLength = epoch1 ? plaintext.Length + 8 + 16 : plaintext.Length;
-			if (_datagramUsed > 0 && _datagramUsed + DtlsRecords.HeaderLength + wireLength > CurrentMtu) FlushDatagram();
+			if (_datagramUsed > 0 && _datagramUsed + DtlsRecords.HeaderLength + wireLength > CurrentMtu) FlushDatagram(built);
 
 			Span<byte> b = _datagramBuffer.AsSpan(_datagramUsed);
 			if (!epoch1)
@@ -837,13 +890,13 @@ namespace MiNET.Net.Rtc.FastDtls
 			_datagramUsed += DtlsRecords.HeaderLength + wireLength;
 		}
 
-		private void FlushDatagram()
+		private void FlushDatagram(List<byte[]> built)
 		{
 			if (_datagramUsed == 0) return;
 			byte[] datagram = _datagramBuffer.AsSpan(0, _datagramUsed).ToArray();
 			_datagramUsed = 0;
 			if (datagram.Length > _lastFlightMaxDatagram) _lastFlightMaxDatagram = datagram.Length;
-			_transmit(datagram);
+			built.Add(datagram);
 		}
 
 		private void AppendTranscript(HandshakeType type, ushort messageSeq, ReadOnlySpan<byte> body)

@@ -32,9 +32,11 @@ namespace MiNET.Net.Rtc
 	///     certificate chain against a CA; the SDP offer/answer carries <see cref="FingerprintSha256" />
 	///     out of band (over the already-authenticated signalling channel) and the DTLS handshake is
 	///     trusted only when the peer's presented leaf hashes to that pinned value. A thin wrapper over
-	///     <see cref="FastDtls.DtlsCertificate" />: whoever constructs a <see cref="DtlsSession" /> from
-	///     this now owns <see cref="DtlsCertificate" /> and disposes it (see
-	///     <see cref="DtlsSession.Dispose" />), not the caller of <see cref="CreateSelfSigned" />.
+	///     <see cref="FastDtls.DtlsCertificate" />. Ownership stays with whoever calls
+	///     <see cref="CreateSelfSigned" />: a <see cref="DtlsSession" /> built from this instance reads
+	///     it but never disposes it, since one certificate is shared across every
+	///     <see cref="DtlsSession" /> a server negotiates - the normal WebRTC shape - and disposing it
+	///     from inside any one of those sessions would break every other peer still using it.
 	/// </summary>
 	public class RtcCertificate
 	{

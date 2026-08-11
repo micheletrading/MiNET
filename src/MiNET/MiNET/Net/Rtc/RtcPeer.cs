@@ -352,16 +352,29 @@ namespace MiNET.Net.Rtc
 			// association a given tick belongs to, for a useful log message - rather than in UdpMux or
 			// HighPrecisionTimer themselves. The wrapped delegate is kept so Dispose can unsubscribe the
 			// SAME instance (unsubscribing _association.OnTick directly here would not remove it).
+			// DtlsSession.OnTick and SctpAssociation.OnTick each get their own try/catch: one throwing
+			// must not cost the other its tick for this same 10ms window - a swallowed DTLS retransmit is
+			// bad enough without also silently losing this peer's SCTP RTO/delayed-SACK/T3 timers, or the
+			// reverse, for the exact same reason a single shared catch across every peer on the mux is
+			// wrong one level up.
 			_associationTick = () =>
 			{
 				try
 				{
 					_dtls.OnTick();
+				}
+				catch (Exception ex)
+				{
+					Log.Error("DtlsSession.OnTick threw; this peer's DTLS tick is skipped, its SCTP tick still runs.", ex);
+				}
+
+				try
+				{
 					_association.OnTick();
 				}
 				catch (Exception ex)
 				{
-					Log.Error("DtlsSession.OnTick or SctpAssociation.OnTick threw; this peer's tick is skipped, the mux keeps serving every other peer.", ex);
+					Log.Error("SctpAssociation.OnTick threw; this peer's SCTP tick is skipped, the mux keeps serving every other peer.", ex);
 				}
 			};
 			_mux.OnTick += _associationTick;

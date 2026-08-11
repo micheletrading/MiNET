@@ -87,6 +87,48 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
+		///     One <see cref="RtcCertificate" /> shared across many peers is the normal WebRTC shape for a
+		///     server: it negotiates a fresh <see cref="DtlsSession" /> per peer from the same identity.
+		///     <see cref="DtlsSession.Dispose" /> must never dispose that shared certificate - if it did,
+		///     the first peer disconnecting would leave every other session still using the same
+		///     certificate unable to sign its own ServerKeyExchange/CertificateVerify, throwing
+		///     <see cref="System.ObjectDisposedException" /> the next time it tried.
+		/// </summary>
+		[TestMethod]
+		public async Task Dispose_NeverDisposesTheSharedCertificate_ASecondSessionOverTheSameCertificateStillCompletes()
+		{
+			var sharedServerCert = RtcCertificate.CreateSelfSigned();
+			var firstClientCert = RtcCertificate.CreateSelfSigned();
+			var secondClientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession firstServer = null, firstClient = null;
+			firstServer = new DtlsSession(sharedServerCert, firstClientCert.FingerprintSha256, isServer: true, bytes => firstClient.FeedDatagram(bytes));
+			firstClient = new DtlsSession(firstClientCert, sharedServerCert.FingerprintSha256, isServer: false, bytes => firstServer.FeedDatagram(bytes));
+
+			Task<bool> firstServerDone = firstServer.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> firstClientDone = firstClient.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await firstClientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await firstServerDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			firstServer.Dispose();
+			firstClient.Dispose();
+
+			// A second, later peer over the SAME shared certificate must still be able to complete its
+			// own handshake.
+			DtlsSession secondServer = null, secondClient = null;
+			secondServer = new DtlsSession(sharedServerCert, secondClientCert.FingerprintSha256, isServer: true, bytes => secondClient.FeedDatagram(bytes));
+			secondClient = new DtlsSession(secondClientCert, sharedServerCert.FingerprintSha256, isServer: false, bytes => secondServer.FeedDatagram(bytes));
+
+			Task<bool> secondServerDone = secondServer.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> secondClientDone = secondClient.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await secondClientDone.WaitAsync(TimeSpan.FromSeconds(15)), "expected the second peer's handshake to complete despite the first session, sharing the same certificate, already being disposed");
+			Assert.IsTrue(await secondServerDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			secondServer.Dispose();
+			secondClient.Dispose();
+		}
+
+		/// <summary>
 		///     Pins that the key block <see cref="DtlsSession.CapturedKeys" /> copies out of the
 		///     handshake engine is the actual material the engine negotiated, not merely present. Both
 		///     sides derive the same key block from the same master secret, so the two copies must agree
@@ -232,6 +274,133 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
+		///     A rejected peer must actually be told why: <see cref="DtlsEngine.Abort" /> puts a fatal
+		///     alert (bad_certificate) on the wire before throwing, and that alert must reach
+		///     <see cref="WireSender" />, not just get queued and then silently dropped once the session
+		///     closes behind it. Without this, a peer we reject burns its own full retransmission timeout
+		///     instead of failing fast on the alert.
+		/// </summary>
+		[TestMethod]
+		public async Task WrongFingerprint_EmitsAFatalAlertOnTheWire_BeforeClosing()
+		{
+			const byte AlertContentType = 21;
+
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+			var imposter = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			var clientSentDatagrams = new List<byte[]>();
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, imposter.FingerprintSha256, false, bytes =>
+			{
+				clientSentDatagrams.Add(bytes.ToArray());
+				server.FeedDatagram(bytes);
+			});
+
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsFalse(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			bool sawAlert = clientSentDatagrams.Any(d => d.Length > 0 && d[0] == AlertContentType);
+			Assert.IsTrue(sawAlert, "expected the client to have put a fatal alert (bad_certificate) on the wire before closing, so a rejected peer is told why instead of silently timing out");
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     A well-formed-length ClientKeyExchange whose 65-byte point is not actually on P-256 (only
+		///     its length and leading 0x04 tag are checked before the point reaches ECDH point
+		///     validation) must never escape <see cref="DtlsSession.FeedDatagram" /> as a raw platform
+		///     exception: the receive path treats any handshake failure as normal, adversarial network
+		///     life, not a crash. Built by intercepting a real client's own ClientKeyExchange record (so
+		///     every other field - lengths, transcript, message sequence - is genuinely valid) and
+		///     flipping one byte inside its X coordinate: astronomically unlikely to coincidentally land
+		///     back on the curve, so the tampered point is off-curve with overwhelming probability.
+		/// </summary>
+		[TestMethod]
+		public async Task MalformedClientKeyExchange_OffCurvePoint_NeverEscapesFeedDatagram_ClosesAndCountsFailure()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			byte[] tamperedFlight = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				// Intercept the flight carrying ClientKeyExchange instead of delivering it: every earlier
+				// datagram (the two ClientHellos) is unaffected and delivered normally, so the handshake
+				// reaches this exact point genuinely, through the real protocol.
+				if (TryTamperClientKeyExchangePoint(bytes, out byte[] tampered))
+				{
+					tamperedFlight = tampered;
+					return;
+				}
+				server.FeedDatagram(bytes);
+			});
+
+			_ = server.DoHandshakeAsync(CancellationToken.None);
+			_ = client.DoHandshakeAsync(CancellationToken.None);
+
+			Assert.IsNotNull(tamperedFlight, "expected to have intercepted the client's ClientKeyExchange-carrying flight");
+
+			long failuresBefore = server.HandshakeFailures;
+
+			try
+			{
+				server.FeedDatagram(tamperedFlight);
+			}
+			catch (Exception ex)
+			{
+				Assert.Fail($"expected no exception to escape FeedDatagram; got {ex.GetType().Name}: {ex.Message}");
+			}
+
+			Assert.AreEqual(failuresBefore + 1, server.HandshakeFailures, "expected the off-curve point to be counted as a handshake failure");
+			Assert.IsTrue(server.IsClosed, "expected the session to close rather than wedge");
+
+			client.Dispose();
+			server.Dispose();
+		}
+
+		/// <summary>
+		///     Walks <paramref name="datagram" />'s records looking for an epoch-0 Handshake record whose
+		///     handshake type is ClientKeyExchange (16); if found, flips one byte inside the embedded
+		///     65-byte point's X coordinate (offset: record header 13 + handshake header 12 + 1-byte
+		///     point-length prefix, then +1 into the point itself, past the fixed 0x04 uncompressed tag)
+		///     and returns the whole datagram, tampered, byte-identical everywhere else.
+		/// </summary>
+		private static bool TryTamperClientKeyExchangePoint(ReadOnlySpan<byte> datagram, out byte[] tampered)
+		{
+			const byte HandshakeContentType = 22;
+			const byte ClientKeyExchangeType = 16;
+
+			byte[] result = datagram.ToArray();
+			int offset = 0;
+			bool found = false;
+			while (offset < result.Length)
+			{
+				if (!DtlsRecordCrypto.TryReadRecordHeader(result.AsSpan(offset), out byte contentType, out int epoch, out int fragmentLength)) break;
+
+				if (epoch == 0 && contentType == HandshakeContentType && fragmentLength >= 12 + 1 + 65)
+				{
+					byte handshakeType = result[offset + DtlsRecordCrypto.HeaderLength];
+					if (handshakeType == ClientKeyExchangeType)
+					{
+						int pointOffset = offset + DtlsRecordCrypto.HeaderLength + 12 + 1;
+						result[pointOffset + 1] ^= 0xFF;
+						found = true;
+					}
+				}
+
+				offset += DtlsRecordCrypto.HeaderLength + fragmentLength;
+			}
+
+			tampered = found ? result : null;
+			return found;
+		}
+
+		/// <summary>
 		///     Replaying an already-seen ciphertext datagram at the native, post-handshake record layer
 		///     must be rejected by the anti-replay window (RFC 6347 4.1.2.6) without taking the session
 		///     down or losing anything: <see cref="DtlsSession.FeedDatagram" /> walks the record, finds
@@ -299,6 +468,35 @@ namespace MiNET.Test.Rtc
 			cts.CancelAfter(TimeSpan.FromMilliseconds(300));
 
 			Assert.IsFalse(await handshake.WaitAsync(TimeSpan.FromSeconds(3)));
+		}
+
+		/// <summary>
+		///     A second call to <see cref="DtlsSession.DoHandshakeAsync" /> must not reach
+		///     <see cref="DtlsEngine.Start" /> a second time: the engine itself throws
+		///     <see cref="InvalidOperationException" /> ("Already started.") on that, an internal detail a
+		///     caller of this class should never see. Guarded at the session boundary by returning the
+		///     same task instead.
+		/// </summary>
+		[TestMethod]
+		public async Task DoHandshakeAsync_CalledTwice_ReturnsTheSameTask_NeverReenteringTheEngine()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientFirst = client.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientSecond = client.DoHandshakeAsync(CancellationToken.None);
+
+			Assert.AreSame(clientFirst, clientSecond, "expected a second call to return the same handshake task rather than re-entering the engine");
+			Assert.IsTrue(await clientFirst.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			server.Dispose();
+			client.Dispose();
 		}
 
 		/// <summary>
@@ -902,9 +1100,19 @@ namespace MiNET.Test.Rtc
 			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
 			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
 
-			byte[] triggerDatagram = FindLastEpochZeroDatagram(clientToServerDatagrams);
-			serverToClientDatagrams.Clear();
+			// Establishment itself is the seed that makes the rest of this test meaningful: the record
+			// layer's own counter must continue exactly where the engine's own epoch-1 sends (its
+			// Finished message) left off, never from 0 - a seed of 0 here would be a real AES-GCM nonce
+			// reuse the moment the record layer sends its first record, and nothing else in this test
+			// would catch it without this direct check.
+			Assert.AreEqual(server.EngineNextEpoch1SendSequence, server.RecordCrypto.NextSendSequence, "expected the record layer to be seeded from exactly the engine's own next epoch-1 sequence");
+			Assert.AreNotEqual(0UL, server.RecordCrypto.NextSendSequence, "expected the seed to be non-zero: the engine's own Finished message already consumed at least one epoch-1 sequence under this key");
 
+			byte[] triggerDatagram = FindLastEpochZeroDatagram(clientToServerDatagrams);
+
+			// Deliberately NOT cleared: the uniqueness set below must span the whole session, including
+			// the handshake engine's own Finished record, or a seed-from-zero bug (the record layer
+			// silently colliding with the engine's own already-sent sequence) would be invisible here.
 			var received1 = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 			client.OnDecrypted += payload => received1.TrySetResult(payload.ToArray());
 			server.SendApplicationData(new byte[] {1});
@@ -936,7 +1144,7 @@ namespace MiNET.Test.Rtc
 				}
 			}
 
-			Assert.IsTrue(epoch1RecordCount >= 3, "expected at least the two application-data sends and the resend's own Finished record to have carried epoch-1");
+			Assert.IsTrue(epoch1RecordCount >= 4, "expected at least the handshake's own Finished, the two application-data sends, and the resend's own Finished record to have carried epoch-1");
 
 			server.Dispose();
 			client.Dispose();

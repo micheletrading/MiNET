@@ -83,9 +83,26 @@ namespace MiNET.Test.Rtc
 			FastClientAgainstBcServer(clientPathMtu: 700);
 		}
 
+		/// <summary>
+		///     Reinstates the record-layer-against-BC coverage the DTLS engine rewire dropped when it
+		///     retired <see cref="DtlsSession" />'s own BouncyCastle handshake driver: the production
+		///     post-handshake record layer, <see cref="MiNET.Net.Rtc.DtlsRecordCrypto" /> - what
+		///     <see cref="DtlsSession" /> actually protects application data with, not
+		///     <see cref="RecordCipher" /> (this harness's own single-direction internal test cipher) -
+		///     cross-checked against BC's own record layer, both directions, over the keys this same
+		///     handshake negotiated. Self-interop within this project's own two record-layer
+		///     implementations could still agree on a mirrored wire bug; BC is the independent check.
+		///     AES-128-GCM only, matching the one cipher suite the engine ever negotiates.
+		/// </summary>
+		[TestMethod]
+		public void FastDtlsClient_AgainstBouncyCastleServer_ProductionRecordLayerCrossChecksBothDirections()
+		{
+			FastClientAgainstBcServer(extraCrossCheck: CrossCheckProductionRecordLayer);
+		}
+
 		// ---- harness ----
 
-		private static void FastClientAgainstBcServer(int clientPathMtu = int.MaxValue)
+		private static void FastClientAgainstBcServer(int clientPathMtu = int.MaxValue, Action<DtlsTransport, BlockingCollection<byte[]>, BlockingCollection<byte[]>, DtlsEngine> extraCrossCheck = null)
 		{
 			using DtlsCertificate fastCert = DtlsCertificate.Generate();
 			var crypto = new BcTlsCrypto(new SecureRandom(new CryptoApiRandomGenerator()));
@@ -128,6 +145,8 @@ namespace MiNET.Test.Rtc
 
 				// FastDtls keys -> BC (server role receives with the client write key)
 				SendThroughFastKeys(bcTransport, toBc, fast.Keys.ClientWriteKey, fast.Keys.ClientWriteSalt);
+
+				extraCrossCheck?.Invoke(bcTransport, toBc, toFast, fast);
 			}
 			finally
 			{
@@ -231,6 +250,45 @@ namespace MiNET.Test.Rtc
 		private static void AssertPayload(byte[] received, string direction)
 		{
 			Assert.IsTrue(received.AsSpan().SequenceEqual(ProbePayload), $"payload corrupted: {direction}");
+		}
+
+		private static readonly byte[] ProductionLayerProbePayload = System.Text.Encoding.UTF8.GetBytes("production record layer cross-check");
+
+		/// <summary>
+		///     One <see cref="MiNET.Net.Rtc.DtlsRecordCrypto" /> instance, client role, doing both
+		///     directions exactly as <see cref="DtlsSession" /> does: <see cref="MiNET.Net.Rtc.DtlsRecordCrypto.EncryptRecord" />
+		///     with the client write key, <see cref="MiNET.Net.Rtc.DtlsRecordCrypto.TryDecryptRecord" />
+		///     with the server write key. The seed is arbitrary but must clear whatever
+		///     <see cref="SendThroughFastKeys" /> already put on BC's receive window in this same session
+		///     (100), so 500 here, not the production seed <see cref="DtlsSession" /> would actually use
+		///     (this harness has no <see cref="DtlsSession" /> in the loop at all - only the engine and a
+		///     bare record layer instance built directly from its keys).
+		/// </summary>
+		private static void CrossCheckProductionRecordLayer(DtlsTransport bcTransport, BlockingCollection<byte[]> toBc, BlockingCollection<byte[]> toFast, DtlsEngine fast)
+		{
+			const byte ApplicationData = 23;
+
+			using var ours = new MiNET.Net.Rtc.DtlsRecordCrypto(fast.Keys, isServer: false, sendSequenceSeed: 500);
+
+			// We encrypt (client role) with the production record layer, BC decrypts.
+			Span<byte> wire = stackalloc byte[ProductionLayerProbePayload.Length + MiNET.Net.Rtc.DtlsRecordCrypto.RecordOverhead];
+			int wireLength = ours.EncryptRecord(ApplicationData, ProductionLayerProbePayload, wire);
+			Assert.AreNotEqual(-1, wireLength);
+			toBc.Add(wire.Slice(0, wireLength).ToArray());
+
+			byte[] buffer = new byte[1500];
+			int n = bcTransport.Receive(buffer, 0, buffer.Length, 3000);
+			Assert.IsTrue(n == ProductionLayerProbePayload.Length && buffer.AsSpan(0, n).SequenceEqual(ProductionLayerProbePayload), "BC did not accept a record protected by the production record layer");
+
+			// BC encrypts, the production record layer decrypts.
+			bcTransport.Send(ProductionLayerProbePayload, 0, ProductionLayerProbePayload.Length);
+			Assert.IsTrue(toFast.TryTake(out byte[] datagram, 3000), "no record arrived from BC");
+
+			Span<byte> plaintext = stackalloc byte[ProductionLayerProbePayload.Length];
+			bool ok = ours.TryDecryptRecord(datagram, plaintext, out byte contentType, out int length);
+			Assert.IsTrue(ok, "the production record layer failed to decrypt a genuine BC-produced record");
+			Assert.AreEqual(ApplicationData, contentType);
+			Assert.IsTrue(plaintext.Slice(0, length).SequenceEqual(ProductionLayerProbePayload), "payload corrupted crossing the production record layer");
 		}
 
 		// ---- BC plumbing ----

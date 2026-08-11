@@ -34,7 +34,9 @@ namespace MiNET.Net.Rtc
 	/// <summary>
 	///     Native DTLS 1.2 epoch-1 record protection: encode/decode, the 48-bit send sequence, and the
 	///     RFC 6347 4.1.2.6 anti-replay window, all on <see cref="AesGcm" /> over spans with no
-	///     BouncyCastle, socket, or lock anywhere in this class. Not thread-safe on its own:
+	///     socket or lock anywhere in this class, and no dependency on any third-party TLS library; its
+	///     wire format is cross-checked against an independent TLS implementation in the test suite's
+	///     <c>FastDtlsBcInteropTests</c>. Not thread-safe on its own:
 	///     <see cref="EncryptRecord" /> and <see cref="TryDecryptRecord" /> both mutate instance state
 	///     (the send sequence, the replay window) with no synchronization, so a caller with concurrent
 	///     senders or receivers on the same instance must serialize every call itself

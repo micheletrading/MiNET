@@ -25,7 +25,6 @@
 
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Channels;
@@ -143,26 +142,14 @@ namespace MiNET.Net.Rtc
 		// still needs it to rebuild and re-send that flight. Disposed only from Dispose.
 		private readonly DtlsEngine _engine;
 		private readonly TaskCompletionSource<bool> _handshakeCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		// Guards DoHandshakeAsync against a second call reaching _engine.Start() a second time (see
+		// that method's own remarks): 0 until the first call, exchanged to 1 there, checked with
+		// Interlocked so two overlapping first calls from different threads still only ever start the
+		// engine once.
+		private int _handshakeStarted;
 		private int _tickCount;
 		private long _handshakeFailures;
-
-		// A call into _engine (Start/HandleDatagram/OnTimeout/Retransmit) can rebuild and send a
-		// multi-datagram flight, one TransmitHandshakeDatagram call per datagram, from inside a single
-		// loop over the engine's own mutable, per-instance flight-building state - not itself
-		// reentrancy-safe. In production this is never reentered (a real socket send never
-		// synchronously delivers the peer's reply back into this same call), but a host whose
-		// WireSender is not itself asynchronous (this project's own loopback-wired tests included) can
-		// otherwise deliver that reply, and any resulting call back into this same engine instance,
-		// from arbitrarily deep inside that still-running loop. _engineCallDepth and
-		// _pendingHandshakeSends restore the same effective ordering a real socket would give: every
-		// datagram the engine hands to TransmitHandshakeDatagram is queued, never sent inline, and the
-		// queue is only drained once the outermost engine call on this session has fully returned, so
-		// every reentrant call the drain itself provokes always finds the engine's own flight-building
-		// state settled, never mid-loop. Touched only under _gate or _sendGate, matching every call
-		// site that can reach TransmitHandshakeDatagram.
-		private int _engineCallDepth;
-		private readonly Queue<byte[]> _pendingHandshakeSends = new Queue<byte[]>();
-		private bool _drainingHandshakeSends;
 
 		private DtlsRecordCrypto _recordCrypto;
 		private volatile bool _handshakeDone;
@@ -217,6 +204,9 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the native record layer built from this session's negotiated keys once the handshake completes, null before that.</summary>
 		internal DtlsRecordCrypto RecordCrypto => _recordCrypto;
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the handshake engine's own next epoch-1 send sequence, live - proves <see cref="RecordCrypto" /> was seeded from exactly this value at establishment, not from 0.</summary>
+		internal ulong EngineNextEpoch1SendSequence => _engine.NextEpoch1SendSequence;
 
 		/// <summary>Records at epoch 1 that were deliberately never acted on: a content type other than application-data or alert, or a non-fatal alert whose description is not close_notify. Not the same as <see cref="DtlsRecordCrypto" />'s own malformed/replay/decrypt-failure counters, and not the epoch-0 counters below.</summary>
 		internal long DroppedRecords => Interlocked.Read(ref _droppedRecords);
@@ -341,14 +331,19 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     Hands one datagram to <see cref="_engine" /> before the handshake has completed. Must be
-		///     called only while already holding <see cref="_gate" />. <see cref="DtlsHandshakeException" />
-		///     is the engine's own signal that the peer's message failed the handshake outright (a bad
-		///     fingerprint, a bad signature, a malformed message, a fatal alert from the peer): counted,
-		///     logged at Info - a handshake failure against a hostile or broken peer is normal server
-		///     life, not a defect - and closed through <see cref="RequestClose" />. Never rethrown: an
-		///     unhandled throw on this receive path is exactly the class of defect this project treats as
-		///     a hard stop, and a malformed handshake message is exactly the input a real, adversarial
-		///     network condition will eventually deliver.
+		///     called only while already holding <see cref="_gate" />. Catches <see cref="Exception" />,
+		///     not only <see cref="DtlsHandshakeException" />: the engine's own signal for a message that
+		///     fails the handshake outright (a bad fingerprint, a bad signature, a malformed message, a
+		///     fatal alert from the peer) is <see cref="DtlsHandshakeException" />, but a well-formed
+		///     message carrying content that is invalid one layer deeper - an off-curve ECDHE point, a
+		///     signature the platform's own crypto rejects by throwing rather than returning false - can
+		///     surface as a different, platform-dependent exception type from underneath the engine. Both
+		///     cases get the identical treatment: counted, logged at Info - a handshake failure against a
+		///     hostile or broken peer is normal server life, not a defect - and closed through
+		///     <see cref="RequestClose" />. Never rethrown: an unhandled throw on this receive path is
+		///     exactly the class of defect this project treats as a hard stop, and a malformed or
+		///     adversarial handshake message is exactly the input a real network condition will
+		///     eventually deliver.
 		///     <see cref="EstablishRecordLayerLocked" /> runs right here, still under <see cref="_gate" />,
 		///     the instant <see cref="DtlsEngine.IsComplete" /> is first observed true: no other caller
 		///     can observe a half-published <see cref="_recordCrypto" />, since every reader of it either
@@ -357,22 +352,16 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		private void HandleHandshakeDatagramLocked(ReadOnlySpan<byte> datagram)
 		{
-			_engineCallDepth++;
 			try
 			{
 				_engine.HandleDatagram(datagram);
 			}
-			catch (DtlsHandshakeException e)
+			catch (Exception e)
 			{
 				Interlocked.Increment(ref _handshakeFailures);
 				Log.Info($"DTLS handshake failed ({(_isServer ? "server" : "client")}): {e.Message}");
 				RequestClose();
 				return;
-			}
-			finally
-			{
-				_engineCallDepth--;
-				if (_engineCallDepth == 0) DrainPendingHandshakeSendsLocked();
 			}
 
 			if (!_handshakeDone && _engine.IsComplete)
@@ -594,18 +583,7 @@ namespace MiNET.Net.Rtc
 				resentThisDatagram = true;
 
 				_engine.SeedEpoch1SendSequence(_recordCrypto.NextSendSequence);
-
-				_engineCallDepth++;
-				try
-				{
-					_engine.Retransmit(); // rebuilds the flight; its transmit callback already try/catches per datagram
-				}
-				finally
-				{
-					_engineCallDepth--;
-					if (_engineCallDepth == 0) DrainPendingHandshakeSendsLocked();
-				}
-
+				_engine.Retransmit(); // rebuilds the flight; its transmit callback already try/catches per datagram
 				_recordCrypto.SeedSendSequenceForward(_engine.NextEpoch1SendSequence);
 
 				Interlocked.Increment(ref _resendsPerformed);
@@ -706,25 +684,43 @@ namespace MiNET.Net.Rtc
 		///     Registers <paramref name="cancellationToken" />'s teardown (see <see cref="RequestClose" />)
 		///     and, for the client role, starts the handshake by calling <see cref="DtlsEngine.Start" />
 		///     under <see cref="_gate" />: this call never blocks a thread, since <see cref="_engine" />
-		///     is push-driven end to end (see the class remarks). The server role does nothing active
-		///     here - it already answers whatever the
+		///     is push-driven end to end (see the class remarks); its own outgoing datagram reaches the
+		///     wire inline, through <see cref="TransmitHandshakeDatagram" />. The server role does nothing
+		///     active here - it already answers whatever the
 		///     client sends via <see cref="FeedDatagram" />, which works regardless of whether this method
 		///     has even been called (<see cref="_engine" /> exists from construction).
+		///     <para>
+		///     A second or later call returns the same <see cref="_handshakeCompletion" /> task without
+		///     touching <see cref="_engine" /> again: calling <see cref="DtlsEngine.Start" /> a second time
+		///     throws <see cref="InvalidOperationException" /> from the engine itself
+		///     ("Already started."), an unhelpful diagnostic for a caller of this class to see, and there
+		///     is nothing meaningful for a second, redundant call to do once the handshake is already
+		///     under way - the first caller's own <paramref name="cancellationToken" /> already governs
+		///     cancellation, so a different token passed to a later call is not wired to anything.
+		///     </para>
 		///     <para>
 		///     Resolves <see langword="false" />, never throws, on any handshake failure: a bad
 		///     fingerprint or a malformed peer message reaches <see cref="_handshakeCompletion" /> through
 		///     <see cref="HandleHandshakeDatagramLocked" />'s own catch calling <see cref="RequestClose" />,
 		///     which resolves it there; cancellation reaches it the same way, through the registration
-		///     below. <see cref="TaskCompletionSource{TResult}.TrySetResult" /> is idempotent, so whichever
-		///     of completion, failure, or cancellation reaches <see cref="_handshakeCompletion" /> first is
-		///     the result every caller of this method observes; nothing here needs to race a registration
-		///     against an in-flight blocking call the way the previous design did, because nothing in this
-		///     design ever blocks one.
+		///     below, disposed once the handshake settles (whichever of completion, failure, or
+		///     cancellation reaches <see cref="_handshakeCompletion" /> first) rather than left to leak for
+		///     the life of <paramref name="cancellationToken" />'s own source.
+		///     <see cref="TaskCompletionSource{TResult}.TrySetResult" /> is idempotent, so whichever of
+		///     those three reaches <see cref="_handshakeCompletion" /> first is the result every caller of
+		///     this method observes; nothing here needs to race the registration against an in-flight
+		///     blocking call the way the previous design did, because nothing in this design ever blocks
+		///     one.
 		///     </para>
 		/// </summary>
 		public Task<bool> DoHandshakeAsync(CancellationToken cancellationToken)
 		{
-			if (cancellationToken.CanBeCanceled) cancellationToken.Register(RequestClose);
+			if (Interlocked.Exchange(ref _handshakeStarted, 1) != 0) return _handshakeCompletion.Task;
+
+			CancellationTokenRegistration registration = cancellationToken.CanBeCanceled
+				? cancellationToken.Register(RequestClose)
+				: default;
+			_handshakeCompletion.Task.ContinueWith(_ => registration.Dispose(), CancellationToken.None);
 
 			lock (_gate)
 			{
@@ -734,16 +730,7 @@ namespace MiNET.Net.Rtc
 				}
 				else if (!_isServer)
 				{
-					_engineCallDepth++;
-					try
-					{
-						_engine.Start();
-					}
-					finally
-					{
-						_engineCallDepth--;
-						if (_engineCallDepth == 0) DrainPendingHandshakeSendsLocked();
-					}
+					_engine.Start();
 				}
 			}
 
@@ -926,69 +913,32 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     The handshake engine's transmit callback (passed to its constructor). Never sends inline:
-		///     queues onto <see cref="_pendingHandshakeSends" /> instead, which
-		///     <see cref="DrainPendingHandshakeSendsLocked" /> flushes once the outermost engine call on
-		///     this session has fully returned - see <see cref="_engineCallDepth" />'s own remarks for
-		///     why an engine call's own datagrams cannot be sent inline. Drops the datagram once
-		///     <see cref="_closed" /> is set instead of queuing it: a handshake can be cancelled, or the
-		///     session disposed, from another thread while a call into <see cref="_engine" /> is still
-		///     building a flight.
+		///     The handshake engine's transmit callback (passed to its constructor): wraps the existing
+		///     wire-send with the same per-datagram try/catch shape used elsewhere on this send path (see
+		///     <see cref="HandleEpochZeroRecordLocked" /> and <see cref="TrySendCloseNotifyLocked" />) -
+		///     a lost handshake datagram is droppable by nature (the peer's own retransmission logic, or
+		///     ours via <see cref="OnTick" />, covers it), so one failed send must never abort the flight
+		///     still being built, or unwind out of whichever of <see cref="DoHandshakeAsync" />,
+		///     <see cref="FeedDatagram" />, or <see cref="OnTick" /> is currently on the stack calling
+		///     into <see cref="_engine" />. Sends inline, synchronously: safe against a host whose
+		///     <see cref="WireSender" /> is not itself asynchronous and delivers the peer's reply back
+		///     into this same call chain, because <see cref="DtlsEngine.TransmitFlight" /> only ever calls
+		///     this once its own flight-building state has fully settled (see that method's own remarks),
+		///     never mid-build. Drops the datagram once <see cref="_closed" /> is set instead of sending
+		///     it: a handshake can be cancelled, or the session disposed, from another thread while a call
+		///     into <see cref="_engine" /> is still building a flight.
 		/// </summary>
 		private void TransmitHandshakeDatagram(byte[] datagram)
 		{
 			if (_closed) return;
 
-			_pendingHandshakeSends.Enqueue(datagram);
-		}
-
-		/// <summary>
-		///     Flushes <see cref="_pendingHandshakeSends" /> to the wire, in order, each inside its own
-		///     try/catch shape (matching every other send on this path - see
-		///     <see cref="HandleEpochZeroRecordLocked" /> and <see cref="TrySendCloseNotifyLocked" />): a
-		///     lost handshake datagram is droppable by nature (the peer's own retransmission logic, or
-		///     ours via <see cref="OnTick" />, covers it), so one failed send must never stop the rest of
-		///     the flight from going out. Called once <see cref="_engineCallDepth" /> has unwound to 0,
-		///     by whichever of <see cref="DoHandshakeAsync" />, <see cref="HandleHandshakeDatagramLocked" />,
-		///     <see cref="OnTick" />, or <see cref="HandleEpochZeroRecordLocked" /> is the outermost call
-		///     on the stack at that moment, by which time the engine's flight-building state has fully
-		///     settled. <see cref="_drainingHandshakeSends" /> guards against a reentrant call to this
-		///     same method: a datagram actually reaching <see cref="_sendToWire" /> from here can itself
-		///     reenter <see cref="_engine" />, through a host whose <see cref="WireSender" /> is not
-		///     itself asynchronous delivering the peer's reply synchronously, and that reentrant call can
-		///     land back on <see cref="_engineCallDepth" /> 0 too, at its own matching call site - the
-		///     same shape <see cref="DrainQueueLocked" /> and <see cref="_draining" /> already solve for
-		///     <see cref="_inbound" />. A second, nested call here returns immediately instead of starting
-		///     a second concurrent dequeue loop over the same queue; nothing it would have sent is lost,
-		///     since the one <see langword="while" /> loop already running re-checks
-		///     <see cref="_pendingHandshakeSends" />'s count on every iteration and picks up whatever the
-		///     reentrant call enqueued before returning control back to it.
-		/// </summary>
-		private void DrainPendingHandshakeSendsLocked()
-		{
-			if (_drainingHandshakeSends) return;
-
-			_drainingHandshakeSends = true;
 			try
 			{
-				while (_pendingHandshakeSends.Count > 0)
-				{
-					byte[] datagram = _pendingHandshakeSends.Dequeue();
-					if (_closed) continue;
-
-					try
-					{
-						_sendToWire(datagram);
-					}
-					catch (Exception ex)
-					{
-						Log.Debug($"Failed to send a DTLS handshake datagram ({(_isServer ? "server" : "client")}).", ex);
-					}
-				}
+				_sendToWire(datagram);
 			}
-			finally
+			catch (Exception ex)
 			{
-				_drainingHandshakeSends = false;
+				Log.Debug($"Failed to send a DTLS handshake datagram ({(_isServer ? "server" : "client")}).", ex);
 			}
 		}
 
@@ -1013,19 +963,7 @@ namespace MiNET.Net.Rtc
 				if (++_tickCount < TicksPerRetransmit) return;
 				_tickCount = 0;
 
-				// OnTimeout only rebuilds and re-sends the current flight; it never parses inbound
-				// data, so it can never observe the handshake complete as a side effect the way
-				// HandleHandshakeDatagramLocked's own call to HandleDatagram can.
-				_engineCallDepth++;
-				try
-				{
-					_engine.OnTimeout();
-				}
-				finally
-				{
-					_engineCallDepth--;
-					if (_engineCallDepth == 0) DrainPendingHandshakeSendsLocked();
-				}
+				_engine.OnTimeout();
 			}
 		}
 
@@ -1065,9 +1003,14 @@ namespace MiNET.Net.Rtc
 		/// <summary>
 		///     Marks the session closed (<see cref="RequestClose" />), then, under <see cref="_gate" />,
 		///     sends a close_notify of our own (<see cref="TrySendCloseNotifyLocked" />, best effort - a
-		///     no-op if the native layer was never established) and disposes the native record layer, the
-		///     handshake engine, and this session's certificate if the handshake reached that far, and
-		///     returns every still-queued lease to the pool. The gate excludes a concurrently running
+		///     no-op if the native layer was never established) and disposes the native record layer and
+		///     the handshake engine if the handshake reached that far, and returns every still-queued
+		///     lease to the pool. Never disposes <see cref="_localCertificate" />'s own
+		///     <see cref="FastDtls.DtlsCertificate" />: ownership of the certificate stays with whoever
+		///     constructed the <see cref="RtcCertificate" /> and passed it into this session's
+		///     constructor, not with the session itself, since one certificate is the normal WebRTC shape
+		///     for a server across many peers, and each peer's own <see cref="DtlsSession" /> disposing it
+		///     would break every other peer still using it (or about to). The gate excludes a concurrently running
 		///     <see cref="FeedDatagram" /> drain called from another thread: either the
 		///     drain finishes and releases the gate before this section runs, or this section runs
 		///     first and the drain's own disposed check, repeated inside its own gate acquisition,
@@ -1111,7 +1054,6 @@ namespace MiNET.Net.Rtc
 					TrySendCloseNotifyLocked();
 					_recordCrypto?.Dispose();
 					_engine.Dispose();
-					_localCertificate.DtlsCertificate.Dispose();
 
 					if (CapturedKeys != null)
 					{
