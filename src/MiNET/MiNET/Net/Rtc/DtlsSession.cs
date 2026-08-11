@@ -27,7 +27,6 @@ using System;
 using System.Buffers;
 using System.Security.Cryptography;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using log4net;
 using MiNET.Net.Rtc.FastDtls;
@@ -52,35 +51,37 @@ namespace MiNET.Net.Rtc
 	///     <see cref="HandleEpochZeroRecordLocked" /> re-seeds the engine's epoch-1 counter forward to
 	///     the record layer's own and asks it to rebuild and re-send its last flight, rate-limited, and
 	///     drops the record itself without delivering it anywhere.
+	///     <see cref="FeedDatagram" /> reads straight out of the caller's own buffer: the only copy
+	///     on the receive path is the decrypt itself, ciphertext from the caller's span into
+	///     <see cref="_receiveScratch" />. Nothing pools, leases, or queues a raw datagram.
 	///     Invariant: <see cref="_gate" /> serializes every access to
-	///     <see cref="_recordCrypto" />, <see cref="_receiveScratch" />, <see cref="_directFeedBuffer" />,
-	///     and <see cref="_engine" /> between <see cref="FeedDatagram" />'s drain section and
-	///     <see cref="Dispose" />, so a concurrent teardown from another thread can never return either
-	///     buffer to the pool while a drain still holds a span over one - EXCEPT for the one deliberate
-	///     window <see cref="DrainQueueLocked" /> opens around each <see cref="OnDecrypted" /> call: the
-	///     gate is explicitly released for that one call and reacquired right after, so a subscriber's
-	///     own work never runs while blocking a concurrent <see cref="FeedDatagram" /> or
+	///     <see cref="_recordCrypto" />, <see cref="_receiveScratch" />, and <see cref="_engine" />
+	///     between <see cref="FeedDatagram" /> and <see cref="Dispose" />, so a concurrent teardown from
+	///     another thread can never return <see cref="_receiveScratch" /> to the pool while a call into
+	///     <see cref="ProcessApplicationDatagramLocked" /> still holds a span over it - EXCEPT for the
+	///     one deliberate window that method opens around each <see cref="OnDecrypted" /> call: the gate
+	///     is explicitly released for that one call and reacquired right after, so a subscriber's own
+	///     work never runs while blocking a concurrent <see cref="FeedDatagram" /> or
 	///     <see cref="SendApplicationData" /> caller.
-	///     <see cref="_draining" /> is what keeps the buffer-lifetime half of this invariant true across
-	///     that window regardless: set <see langword="true" /> before the window ever opens and not
-	///     cleared until the drain loop has fully stopped, so a <see cref="Dispose" /> that reaches
+	///     <see cref="_processing" /> is what keeps the buffer-lifetime half of this invariant true
+	///     across that window regardless: set <see langword="true" /> before the window ever opens and
+	///     not cleared until the call has fully finished, so a <see cref="Dispose" /> that reaches
 	///     <see cref="_gate" /> during the window - reentrant on this same thread (a subscriber calling
 	///     <see cref="Dispose" /> synchronously from inside <see cref="OnDecrypted" />) or genuinely
 	///     concurrent on another thread (only possible now that the gate is not held for the callback's
-	///     whole duration) - always observes <see cref="_draining" /> true and defers both buffers'
-	///     return to <see cref="FeedDatagram" />'s own unwind instead of freeing them out from under the
-	///     drain loop still running further up the call stack (or, in the concurrent case, on another
-	///     thread entirely). See <see cref="DrainQueueLocked" />'s own remarks for the mechanics.
-	///     Threading: <see cref="FeedDatagram" /> itself is safe to call concurrently from multiple
-	///     threads, even though nothing in today's topology actually does so, a single
-	///     receive loop per <see cref="UdpMux" /> feeding one datagram at a time. Every datagram passed
-	///     to it is either drained inline or queued onto <see cref="_inbound" />, on exactly one of
-	///     those two paths, and is never silently dropped or corrupted by an overlapping call: the
-	///     direct-feed fast path's guard-check-through-drain sequence runs entirely under
-	///     <see cref="_gate" />, and the lease-and-<see cref="_inbound" /> path was already safe under
-	///     concurrency on its own (a fresh per-call <see cref="ArrayPool{T}" /> lease, and
-	///     <see cref="System.Threading.Channels.Channel{T}" /> is internally thread-safe for concurrent
-	///     writers).
+	///     whole duration) - always observes <see cref="_processing" /> true and defers
+	///     <see cref="_receiveScratch" />'s return to <see cref="FeedDatagram" />'s own unwind instead
+	///     of freeing it out from under the call still running further up the call stack (or, in the
+	///     concurrent case, on another thread entirely).
+	///     <see cref="_processing" /> also guards against a second call reaching the same shared state
+	///     while the first is still in flight: a call to <see cref="FeedDatagram" /> that finds it
+	///     already set - whether reentrant on this same thread from inside an <see cref="OnDecrypted" />
+	///     subscriber, or, in principle, a genuinely concurrent caller on another thread arriving during
+	///     that same window - is dropped and counted (<see cref="ReentrantFeedsDropped" />) rather than
+	///     touching <see cref="_receiveScratch" /> or <see cref="_engine" /> a second time. This is a
+	///     fail-safe for a programming error, not a queue: the production topology is a single receive
+	///     loop per <see cref="UdpMux" /> feeding one datagram at a time, so the guard is never expected
+	///     to fire outside a subscriber that reenters this session from its own callback.
 	/// </summary>
 	public sealed class DtlsSession : IDisposable
 	{
@@ -119,7 +120,6 @@ namespace MiNET.Net.Rtc
 		private readonly RtcCertificate _localCertificate;
 		private readonly bool _isServer;
 		private readonly WireSender _sendToWire;
-		private readonly Channel<(byte[] Leased, int Length)> _inbound = Channel.CreateUnbounded<(byte[] Leased, int Length)>();
 		private readonly byte[] _receiveScratch = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
 		private readonly object _gate = new object();
 
@@ -128,11 +128,6 @@ namespace MiNET.Net.Rtc
 		// a subscriber does inside OnDecrypted. This lock only ever needs to exclude concurrent
 		// callers of SendApplicationData itself from each other.
 		private readonly object _sendGate = new object();
-
-		// A persistent (allocated once, never per-call), reused staging buffer for
-		// FeedDatagram's no-backlog fast path. See FeedDatagram and TryReadNow for the full mechanism.
-		private readonly byte[] _directFeedBuffer = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
-		private int _directFeedLength = -1;
 
 		// Owns the whole handshake; not thread-safe on its own, so every call to it below is made
 		// under _gate (retransmission via Retransmit(), post-establishment, is the one exception - see
@@ -156,6 +151,7 @@ namespace MiNET.Net.Rtc
 		private volatile bool _closed;
 		private int _disposed;
 		private long _droppedRecords;
+		private long _reentrantFeedsDropped;
 
 		// The clock seam for the epoch-0 resend rate limit: every "now" read on that path goes through
 		// this instead of Environment.TickCount64 directly, so a test can drive the 1-second window
@@ -223,10 +219,13 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): whether this session has been torn down, by either <see cref="Dispose" /> or an alert-driven <see cref="RequestClose" />. <see cref="RtcPeer" /> exposes this to interop tests as <c>DtlsSessionClosed</c>.</summary>
 		internal bool IsClosed => _closed;
 
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many datagrams <see cref="FeedDatagram" /> dropped because a call into it was already in progress on this session - a reentrant call from inside an <see cref="OnDecrypted" /> subscriber, or, in principle, a genuinely concurrent caller arriving while another call's callback window is open. Neither case ever delivers or touches session-owned scratch state.</summary>
+		internal long ReentrantFeedsDropped => Interlocked.Read(ref _reentrantFeedsDropped);
+
 		// Both touched only while holding _gate (see the class doc comment's Invariant paragraph),
 		// so neither needs volatile or Interlocked: _gate's acquire/release already provides the
 		// necessary visibility across the two threads that can ever reach either field.
-		private bool _draining;
+		private bool _processing;
 		private bool _deferredScratchReturn;
 
 		public DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, WireSender sendToWire)
@@ -240,57 +239,39 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Feeds one raw datagram demuxed as DTLS by <see cref="IceSession.OnDtlsDatagram" />.
-		///     Before the handshake completes this hands the datagram straight to
-		///     <see cref="_engine" /> under <see cref="_gate" /> (see <see cref="HandleHandshakeDatagramLocked" />);
-		///     it is never queued, since the engine consumes a datagram synchronously and never blocks a
-		///     thread waiting for one. Datagrams
-		///     that arrive before <see cref="DoHandshakeAsync" /> has even been called are not lost
-		///     either: <see cref="_engine" /> already exists by the time this constructor returns, so
-		///     there is always somewhere for them to go.
-		///     Afterwards it drains it immediately, inline, on the calling thread, under
-		///     <see cref="_gate" /> so a concurrent <see cref="Dispose" /> can never free
-		///     <see cref="_receiveScratch" /> or dispose <see cref="_recordCrypto" /> out from under it
-		///     (the disposed check alone is check-then-act, not a real exclusion). Draining always means
-		///     native decode, via <see cref="ProcessApplicationDatagramLocked" />: an epoch-0 record
-		///     within the datagram (a peer retransmitting a final handshake flight it believes was lost)
-		///     is handled inline there too, by re-sending the engine's last flight rather than delivering
-		///     the record anywhere (see that method's own remarks).
+		///     Feeds one raw datagram demuxed as DTLS by <see cref="IceSession.OnDtlsDatagram" />,
+		///     decrypting straight out of <paramref name="datagram" /> with no intermediate copy or
+		///     queue: the caller's buffer is borrowed only for the synchronous duration of this call, and
+		///     any plaintext this call produces lands in <see cref="_receiveScratch" />, session-owned
+		///     scratch, before the call returns.
 		///     <para>
-		///     The steady-state case is a datagram that is about to be consumed
-		///     inline, on this exact call, by <see cref="DrainQueueLocked" />'s very first iteration a
-		///     few instructions from now, with nothing else backlogged. Leasing it from
-		///     <see cref="ArrayPool{T}" /> and round-tripping it through <see cref="_inbound" /> just to
-		///     read it straight back out again bought nothing in that case. When the handshake is done,
-		///     no drain from this same thread is already running (<see cref="_draining" />), the channel
-		///     is empty, and the datagram fits <see cref="_directFeedBuffer" />, this copies straight into
-		///     that persistent buffer (allocated once, at construction, never per-call; a plain memory
-		///     copy, not a heap allocation) instead and lets <see cref="TryReadNow" /> pick it up first.
-		///     <see cref="_directFeedLength" /> is the only state that says the slot is live; it is
-		///     cleared by <see cref="TryReadNow" /> the instant it copies the bytes into
-		///     <see cref="DrainQueueLocked" />'s own local buffer (synchronously, nested inside this same
-		///     call, well before this method returns), and <see cref="DrainLocked" />'s own <c>finally</c>
-		///     clears it unconditionally besides, so the slot can never outlive this call on any path,
-		///     including one that never reaches <see cref="TryReadNow" /> at all. Anything that does not
-		///     fit this fast path (an existing backlog, a reentrant drain, or a datagram too large for the
-		///     staging buffer) falls through to the unchanged lease-and-<see cref="_inbound" /> path below.
+		///     Before the handshake completes this hands <paramref name="datagram" /> straight to
+		///     <see cref="_engine" /> (see <see cref="HandleHandshakeDatagramLocked" />): the engine
+		///     consumes it synchronously and never blocks a thread waiting for one, and this branch is
+		///     naturally, harmlessly reentrant on <see cref="_gate" /> - the engine's own transmit
+		///     callback can synchronously trigger the peer's own reply back into this same call stack (a
+		///     loopback wiring, as every handshake test in this assembly uses), and <see cref="Monitor" />
+		///     is reentrant for the thread that already owns it. Datagrams that arrive before
+		///     <see cref="DoHandshakeAsync" /> has even been called are not lost either: <see cref="_engine" />
+		///     already exists by the time this constructor returns, so there is always somewhere for them
+		///     to go.
 		///     </para>
 		///     <para>
-		///     For concurrent <see cref="FeedDatagram" /> calls: the guard, the copy into
-		///     <see cref="_directFeedBuffer" />, and the <see cref="_directFeedLength" /> set are all
-		///     inside <see cref="_gate" /> below, not before it, so the whole decide-copy-drain sequence
-		///     is atomic per caller. Two concurrent callers on different threads (unreachable under
-		///     today's single-receive-loop-per-mux topology, but not guaranteed by anything this class
-		///     enforces on its own) simply serialize on <see cref="_gate" /> rather than racing to
-		///     clobber the shared staging buffer: the first caller's guard-through-drain runs to
-		///     completion, including clearing <see cref="_directFeedLength" />, before the second caller
-		///     can even evaluate its own guard. <see cref="_inbound" />'s lease-and-write path was already
-		///     safe under concurrency on its own (a fresh <see cref="ArrayPool{T}" /> lease per call, and
-		///     <see cref="Channel{T}" /> is internally thread-safe for concurrent writers), so it stays
-		///     outside the lock; only the shared, mutable staging buffer needed it. Concurrent
-		///     <see cref="FeedDatagram" /> calls are therefore safe: every datagram is either drained
-		///     inline or queued, on exactly one path, never silently dropped or corrupted, regardless of
-		///     how many callers overlap.
+		///     Once the handshake is done, <see cref="ProcessApplicationDatagramLocked" /> walks
+		///     <paramref name="datagram" />'s records natively; an epoch-0 record within it (a peer
+		///     retransmitting a final handshake flight it believes was lost) is handled there too, by
+		///     re-sending the engine's last flight rather than delivering the record anywhere (see that
+		///     method's own remarks). Unlike the handshake branch, this one is never expected to reenter:
+		///     <see cref="OnDecrypted" /> is a real delivery callback a subscriber's own code runs inside,
+		///     so a call that finds <see cref="_processing" /> already set - reentrant on this same thread
+		///     from inside that subscriber, or, in principle, a genuinely concurrent caller on another
+		///     thread arriving during that same callback's window - is dropped and counted
+		///     (<see cref="ReentrantFeedsDropped" />) rather than touching <see cref="_receiveScratch" />
+		///     a second time (see the class doc comment's Invariant paragraph for why that window can be
+		///     open at all). Both branches run under <see cref="_gate" /> so a concurrent
+		///     <see cref="Dispose" /> can never free <see cref="_receiveScratch" /> or dispose
+		///     <see cref="_recordCrypto" /> out from under this call (the disposed check alone is
+		///     check-then-act, not a real exclusion).
 		///     </para>
 		/// </summary>
 		public void FeedDatagram(ReadOnlySpan<byte> datagram)
@@ -308,25 +289,27 @@ namespace MiNET.Net.Rtc
 					return;
 				}
 
-				if (!_draining && _inbound.Reader.Count == 0 && datagram.Length <= _directFeedBuffer.Length)
+				if (_processing)
 				{
-					datagram.CopyTo(_directFeedBuffer);
-					_directFeedLength = datagram.Length;
-					DrainLocked();
+					Interlocked.Increment(ref _reentrantFeedsDropped);
 					return;
 				}
+
+				_processing = true;
+				try
+				{
+					ProcessApplicationDatagramLocked(datagram);
+				}
+				finally
+				{
+					_processing = false;
+					if (_deferredScratchReturn)
+					{
+						_deferredScratchReturn = false;
+						ArrayPool<byte>.Shared.Return(_receiveScratch);
+					}
+				}
 			}
-
-			byte[] leased = ArrayPool<byte>.Shared.Rent(datagram.Length);
-			datagram.CopyTo(leased);
-
-			if (!_inbound.Writer.TryWrite((leased, datagram.Length)))
-			{
-				ArrayPool<byte>.Shared.Return(leased);
-				return;
-			}
-
-			DrainUnderGate();
 		}
 
 		/// <summary>
@@ -412,14 +395,15 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Decrypts every record of one post-handshake datagram, natively, record by record. A leaf
-		///     step of <see cref="DrainQueueLocked" />'s single-flight loop, not a second entry point of
-		///     its own: must be called only from there, which is what guarantees only one thread is ever
-		///     inside this method at a time (it decrypts into the shared <see cref="_receiveScratch" />
-		///     buffer, so two overlapping calls would corrupt each other's plaintext out from under a
-		///     concurrent <see cref="OnDecrypted" /> delivery - exactly the failure mode
-		///     <see cref="_draining" /> exists to rule out, and which <see cref="DrainQueueLocked" />'s doc
-		///     comment explains in full). Releases <see cref="_gate" /> around each
+		///     Decrypts every record of one post-handshake datagram, natively, record by record, straight
+		///     out of <paramref name="datagram" /> - a slice of the caller's own buffer, valid only for
+		///     this synchronous call. Called only from <see cref="FeedDatagram" />, under
+		///     <see cref="_gate" />, with <see cref="_processing" /> already set: that is what guarantees
+		///     only one call is ever inside this method at a time (it decrypts into the shared
+		///     <see cref="_receiveScratch" /> buffer, so two overlapping calls would corrupt each other's
+		///     plaintext out from under a concurrent <see cref="OnDecrypted" /> delivery - exactly the
+		///     failure mode <see cref="_processing" /> exists to rule out, and which <see cref="FeedDatagram" />'s
+		///     own doc comment explains in full). Releases <see cref="_gate" /> around each
 		///     <see cref="OnDecrypted" /> call, via the explicit <see cref="Monitor.Exit(object)" />/
 		///     <see cref="Monitor.Enter(object)" /> pair below rather than a nested <c>lock</c> (which is
 		///     reentrant and would keep the gate held across the whole callback). The disposed/closed
@@ -506,7 +490,6 @@ namespace MiNET.Net.Rtc
 						}
 
 						RequestClose();
-						ReclaimAbandonedLeasesLocked();
 						return;
 					}
 
@@ -515,7 +498,6 @@ namespace MiNET.Net.Rtc
 					if (level == AlertLevelFatal)
 					{
 						RequestClose();
-						ReclaimAbandonedLeasesLocked();
 						return;
 					}
 
@@ -538,7 +520,7 @@ namespace MiNET.Net.Rtc
 		///     this same datagram, and answering twice for one datagram buys the peer nothing further),
 		///     or when <see cref="_closed" /> is set: <see cref="RequestClose" /> (<see cref="Dispose" />,
 		///     or a concurrent alert-driven close) can flip it true from another thread without ever
-		///     needing <see cref="_gate" /> itself, so a drain already inside this method can still
+		///     needing <see cref="_gate" /> itself, so a call already inside this method can still
 		///     observe it turn true out from under it. Re-checked here, immediately before the resend
 		///     would actually reach the wire, for the same reason <see cref="SendApplicationData" /> and
 		///     <see cref="TransmitHandshakeDatagram" /> both check it at their own last possible moment:
@@ -587,96 +569,6 @@ namespace MiNET.Net.Rtc
 				_recordCrypto.SeedSendSequenceForward(_engine.NextEpoch1SendSequence);
 
 				Interlocked.Increment(ref _resendsPerformed);
-			}
-		}
-
-		/// <summary>
-		///     Acquires <see cref="_gate" /> and runs <see cref="DrainLocked" />. Used by the
-		///     lease-and-<see cref="_inbound" /> path, which does not already hold the gate when it
-		///     decides to drain (unlike the direct-feed fast path in <see cref="FeedDatagram" />, which
-		///     calls <see cref="DrainLocked" /> directly since it is already inside the lock).
-		/// </summary>
-		private void DrainUnderGate()
-		{
-			lock (_gate)
-			{
-				if (Volatile.Read(ref _disposed) != 0)
-				{
-					_directFeedLength = -1;
-					return;
-				}
-
-				// A drain already in progress on another thread releases _gate for the duration of
-				// each OnDecrypted call (see DrainQueueLocked), so this call can reach here concurrently
-				// with one already under way. Starting a second, overlapping drain here would decrypt,
-				// and write _receiveScratch, from two threads at once. The datagram this call just
-				// enqueued onto _inbound is not lost: the in-progress drain's own outer loop re-checks
-				// _inbound.Reader.Count after every item it finishes and will pick it up.
-				if (_draining) return;
-
-				DrainLocked();
-			}
-		}
-
-		/// <summary>
-		///     The actual drain-and-cleanup body shared by both of <see cref="FeedDatagram" />'s paths.
-		///     Must only be called while already holding <see cref="_gate" />. See
-		///     <see cref="FeedDatagram" />'s own doc comment for the invariants this preserves.
-		/// </summary>
-		private void DrainLocked()
-		{
-			_draining = true;
-			try
-			{
-				DrainQueueLocked();
-			}
-			finally
-			{
-				_draining = false;
-				_directFeedLength = -1;
-				if (_deferredScratchReturn)
-				{
-					_deferredScratchReturn = false;
-					ArrayPool<byte>.Shared.Return(_receiveScratch);
-					ArrayPool<byte>.Shared.Return(_directFeedBuffer);
-				}
-			}
-		}
-
-		/// <summary>
-		///     The single-flight loop behind <see cref="DrainLocked" />: keeps pulling one raw datagram
-		///     at a time - the direct-feed slot first, then <see cref="_inbound" />, both via
-		///     <see cref="TryReadNow" /> - into <see cref="_directFeedBuffer" /> (reused here purely as
-		///     scratch space for the raw, still-undecrypted bytes; a plain memory copy, never a heap
-		///     allocation) and dispatching each one to <see cref="ProcessApplicationDatagramLocked" />,
-		///     until nothing is left queued. Must be called only from <see cref="DrainLocked" />, with
-		///     <see cref="_draining" /> already set: that is what lets a second, concurrent
-		///     <see cref="FeedDatagram" /> call safely just enqueue and return (see
-		///     <see cref="DrainUnderGate" />) instead of starting an overlapping drain of its own, and
-		///     this loop's own re-check of <see cref="TryReadNow" /> after each item is what picks up
-		///     whatever queued while <see cref="_gate" /> was released for an <see cref="OnDecrypted" />
-		///     call.
-		///     <para>
-		///     <see cref="ProcessApplicationDatagramLocked" /> decrypts into the shared
-		///     <see cref="_receiveScratch" /> buffer and releases <see cref="_gate" /> around its own
-		///     <see cref="OnDecrypted" /> call; routing every datagram through this one loop, rather than
-		///     letting native decode run inline from <see cref="FeedDatagram" /> directly, is what keeps
-		///     that sharing safe - two datagrams decrypting concurrently on different threads would
-		///     otherwise be free to clobber each other's plaintext out from under a delivery still
-		///     reading it. The disposed/closed check after each dispatch stops the loop the instant
-		///     either fires mid-iteration (a subscriber disposing the session, or an alert record calling
-		///     <see cref="RequestClose" />): the remaining queued datagrams, if any, are abandoned rather
-		///     than processed, exactly like <see cref="Dispose" /> abandoning whatever is still queued in
-		///     <see cref="_inbound" />.
-		///     </para>
-		/// </summary>
-		private void DrainQueueLocked()
-		{
-			while (TryReadNow(_directFeedBuffer, out int length))
-			{
-				ProcessApplicationDatagramLocked(_directFeedBuffer.AsSpan(0, length));
-
-				if (Volatile.Read(ref _disposed) != 0 || _closed) return;
 			}
 		}
 
@@ -785,8 +677,8 @@ namespace MiNET.Net.Rtc
 		///     section. Two call sites nest that <c>lock (_sendGate)</c> inside an already-held
 		///     <c>lock (_gate)</c> - <see cref="Dispose" /> inside its own,
 		///     <see cref="ProcessApplicationDatagramLocked" />'s close_notify branch inside the one
-		///     <see cref="FeedDatagram" />/<see cref="DrainUnderGate" /> already holds around the whole
-		///     drain, and <see cref="HandleEpochZeroRecordLocked" /> the same way - and nothing in this
+		///     <see cref="FeedDatagram" /> already holds around the whole call, and
+		///     <see cref="HandleEpochZeroRecordLocked" /> the same way - and nothing in this
 		///     class ever takes <see cref="_sendGate" /> first and then waits on <see cref="_gate" />, so
 		///     the order is never reversed and none of those nesting sites introduces a lock-order cycle.
 		///     Whichever of this method or one of those reaches <see cref="_sendGate" /> first runs to
@@ -872,47 +764,6 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Checks <see cref="FeedDatagram" />'s direct-feed slot first. It is
-		///     only ever live for the duration of one <see cref="FeedDatagram" /> call (see that
-		///     method's doc comment), so consuming and clearing it here, the instant it is used, is what
-		///     makes that guarantee hold: the caller has the bytes copied into its own buffer
-		///     (<paramref name="buffer" />, owned by the caller further up this same synchronous call
-		///     chain) before this method returns, so nothing outside this call ever observes the slot.
-		///     <see cref="DrainQueueLocked" /> calls this with <see cref="_directFeedBuffer" /> itself as
-		///     <paramref name="buffer" />, so the direct-feed branch below copies that buffer onto itself;
-		///     deliberate and safe (<see cref="Span{T}.CopyTo(Span{T})" /> is a <c>memmove</c> and the
-		///     source and destination ranges are identical), reusing the buffer as generic staging space
-		///     for the raw, still-undecrypted bytes rather than adding a second one.
-		/// </summary>
-		private bool TryReadNow(Span<byte> buffer, out int length)
-		{
-			if (_directFeedLength >= 0)
-			{
-				length = Math.Min(_directFeedLength, buffer.Length);
-				_directFeedBuffer.AsSpan(0, length).CopyTo(buffer);
-				_directFeedLength = -1;
-				return true;
-			}
-
-			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
-			{
-				length = 0;
-				return false;
-			}
-
-			try
-			{
-				length = Math.Min(item.Length, buffer.Length);
-				item.Leased.AsSpan(0, length).CopyTo(buffer);
-				return true;
-			}
-			finally
-			{
-				ArrayPool<byte>.Shared.Return(item.Leased);
-			}
-		}
-
-		/// <summary>
 		///     The handshake engine's transmit callback (passed to its constructor): wraps the existing
 		///     wire-send with the same per-datagram try/catch shape used elsewhere on this send path (see
 		///     <see cref="HandleEpochZeroRecordLocked" /> and <see cref="TrySendCloseNotifyLocked" />) -
@@ -983,47 +834,27 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Returns every lease still queued in <see cref="_inbound" /> to the pool without processing
-		///     it. <see cref="Dispose" /> always reaches this eventually, but a session closed by an
-		///     inbound close_notify or fatal alert may never be disposed for a while (or at all, on a
-		///     short-lived test session), so calling this immediately after <see cref="RequestClose" /> on
-		///     that path is what actually reclaims those leases rather than leaving them pinned until
-		///     something else happens to dispose the session. Must be called only while holding
-		///     <see cref="_gate" /> - every call site already does, since <see cref="_inbound" /> is only
-		///     ever safe to drain destructively under it (see the class remarks' Invariant paragraph).
-		/// </summary>
-		private void ReclaimAbandonedLeasesLocked()
-		{
-			while (_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
-			{
-				ArrayPool<byte>.Shared.Return(item.Leased);
-			}
-		}
-
-		/// <summary>
 		///     Marks the session closed (<see cref="RequestClose" />), then, under <see cref="_gate" />,
 		///     sends a close_notify of our own (<see cref="TrySendCloseNotifyLocked" />, best effort - a
 		///     no-op if the native layer was never established) and disposes the native record layer and
-		///     the handshake engine if the handshake reached that far, and returns every still-queued
-		///     lease to the pool. Never disposes <see cref="_localCertificate" />'s own
-		///     <see cref="FastDtls.DtlsCertificate" />: ownership of the certificate stays with whoever
-		///     constructed the <see cref="RtcCertificate" /> and passed it into this session's
-		///     constructor, not with the session itself, since one certificate is the normal WebRTC shape
-		///     for a server across many peers, and each peer's own <see cref="DtlsSession" /> disposing it
-		///     would break every other peer still using it (or about to). The gate excludes a concurrently running
-		///     <see cref="FeedDatagram" /> drain called from another thread: either the
-		///     drain finishes and releases the gate before this section runs, or this section runs
-		///     first and the drain's own disposed check, repeated inside its own gate acquisition,
-		///     bails out before touching the now-freed <see cref="_receiveScratch" />. A same-thread
-		///     <em>reentrant</em> call (Dispose invoked synchronously from an <see cref="OnDecrypted" />
-		///     subscriber) is different: the gate is already held by this same thread,
-		///     so it does not block, and <see cref="_draining" /> being true means the drain loop is
-		///     still further up this exact call stack, still about to touch <see cref="_receiveScratch" />
-		///     once this call returns control to it. In that case the buffer is not returned here;
-		///     <see cref="_deferredScratchReturn" /> is set instead, and <see cref="FeedDatagram" />'s
-		///     own <c>finally</c> performs the return once the drain has actually stopped.
-		///     <see cref="_directFeedBuffer" /> shares <see cref="_receiveScratch" />'s
-		///     lifetime exactly, so it is returned, or deferred, alongside it on both branches.
+		///     the handshake engine if the handshake reached that far. Never disposes
+		///     <see cref="_localCertificate" />'s own <see cref="FastDtls.DtlsCertificate" />: ownership of
+		///     the certificate stays with whoever constructed the <see cref="RtcCertificate" /> and passed
+		///     it into this session's constructor, not with the session itself, since one certificate is
+		///     the normal WebRTC shape for a server across many peers, and each peer's own
+		///     <see cref="DtlsSession" /> disposing it would break every other peer still using it (or
+		///     about to). The gate excludes a concurrently running <see cref="FeedDatagram" /> call on
+		///     another thread: either that call finishes and releases the gate before this section runs,
+		///     or this section runs first and the other call's own disposed check, repeated inside its own
+		///     gate acquisition, bails out before touching the now-freed <see cref="_receiveScratch" />. A
+		///     same-thread <em>reentrant</em> call (Dispose invoked synchronously from an
+		///     <see cref="OnDecrypted" /> subscriber) is different: the gate is already held by this same
+		///     thread, so it does not block, and <see cref="_processing" /> being true means
+		///     <see cref="ProcessApplicationDatagramLocked" />'s walk is still further up this exact call
+		///     stack, still about to touch <see cref="_receiveScratch" /> once this call returns control to
+		///     it. In that case the buffer is not returned here; <see cref="_deferredScratchReturn" /> is
+		///     set instead, and <see cref="FeedDatagram" />'s own <c>finally</c> performs the return once
+		///     that call has actually finished.
 		///     <para>
 		///     <c>TrySendCloseNotifyLocked()</c>, <c>_recordCrypto.Dispose()</c>, and
 		///     <c>_engine.Dispose()</c> run inside one nested <c>lock (_sendGate)</c>, in that order (the
@@ -1064,16 +895,13 @@ namespace MiNET.Net.Rtc
 					}
 				}
 
-				ReclaimAbandonedLeasesLocked();
-
-				if (_draining)
+				if (_processing)
 				{
 					_deferredScratchReturn = true;
 				}
 				else
 				{
 					ArrayPool<byte>.Shared.Return(_receiveScratch);
-					ArrayPool<byte>.Shared.Return(_directFeedBuffer);
 				}
 			}
 		}

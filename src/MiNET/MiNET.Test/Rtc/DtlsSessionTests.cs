@@ -593,20 +593,21 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Pins concurrent <see cref="DtlsSession.FeedDatagram" /> safety: without the whole
-		///     decide-copy-drain sequence running inside the lock, the direct-feed fast
-		///     path's guard check, its copy into the shared staging buffer, and the length flag it sets
-		///     would all run outside the lock, so two threads could both pass the empty-channel guard and
-		///     race to write the one shared buffer; the loser's datagram would be silently dropped or,
-		///     worse, the buffer's contents would be corrupted mid-copy. Two threads, synchronized with a
-		///     <see cref="Barrier" /> to maximise actual overlap, each feed a disjoint half of a batch of
-		///     distinct, never-before-delivered wire datagrams (captured up front rather than replayed,
-		///     since a genuine replay is deliberately discarded by the anti-replay window, which is a
-		///     different code path already covered by <see cref="ReplayedRecord_IsDiscarded_AndSessionKeepsWorking" />).
-		///     Every one of them must arrive exactly once, none dropped, none corrupted.
+		///     Pins concurrent <see cref="DtlsSession.FeedDatagram" /> safety under the direct-decrypt
+		///     design: with the inbound queue gone, a losing concurrent arrival is no longer buffered for
+		///     later delivery, it is dropped and counted by the same reentrancy guard a same-thread
+		///     callback reentry hits (see <see cref="FeedDatagram_ReenteredFromWithinOnDecrypted_IsDroppedAndCounted_OuterDeliveryStillCompletesIntact" />).
+		///     What must still hold, regardless of how the two threads below interleave, is the
+		///     accounting identity: every fed datagram is either delivered exactly once, with its genuine
+		///     payload, or dropped and counted - never both, never neither, and never a corrupted payload.
+		///     Two threads, synchronized with a <see cref="Barrier" /> to maximise actual overlap, each
+		///     feed a disjoint half of a batch of distinct, never-before-delivered wire datagrams (captured
+		///     up front rather than replayed, since a genuine replay is deliberately discarded by the
+		///     anti-replay window, a different code path already covered by
+		///     <see cref="ReplayedRecord_IsDiscarded_AndSessionKeepsWorking" />).
 		/// </summary>
 		[TestMethod]
-		public async Task ConcurrentFeedDatagram_DeliversEveryDatagram_NoneDroppedOrCorrupted()
+		public async Task ConcurrentFeedDatagram_NeverCorrupts_EveryDatagramIsEitherDeliveredOnceOrSafelyDropped()
 		{
 			var serverCert = RtcCertificate.CreateSelfSigned();
 			var clientCert = RtcCertificate.CreateSelfSigned();
@@ -665,17 +666,22 @@ namespace MiNET.Test.Rtc
 			Task t2 = Task.Run(() => Feed(perThread));
 			await Task.WhenAll(t1, t2).WaitAsync(TimeSpan.FromSeconds(10));
 
-			var deadline = DateTime.UtcNow.AddSeconds(5);
-			while (receivedPayloads.Count < perThread * 2 && DateTime.UtcNow < deadline)
-			{
-				await Task.Delay(10);
-			}
+			// Every delivered payload must be one of the genuine ones sent, and never delivered twice:
+			// the only corruption this design could still produce.
+			HashSet<string> validHex = payloads.Select(Convert.ToHexString).ToHashSet();
+			List<string> deliveredHex = receivedPayloads.Select(Convert.ToHexString).ToList();
+			Assert.IsTrue(deliveredHex.All(validHex.Contains), "expected every delivered payload to be one of the genuine datagrams sent, never a corrupted one");
+			Assert.AreEqual(deliveredHex.Count, deliveredHex.Distinct().Count(), "expected no payload to be delivered more than once");
 
-			Assert.AreEqual(perThread * 2, receivedPayloads.Count, "expected every concurrently-fed datagram to be decrypted exactly once; a drop or a corrupted copy would show up as a count mismatch here");
+			// Every datagram that was not delivered must be accounted for as a reentrancy-guard drop,
+			// not silently lost some other way.
+			Assert.AreEqual(perThread * 2, receivedPayloads.Count + server.ReentrantFeedsDropped, "expected every fed datagram to be either delivered exactly once or dropped and counted - never lost silently");
 
-			List<string> expected = payloads.Select(Convert.ToHexString).OrderBy(s => s).ToList();
-			List<string> actual = receivedPayloads.Select(Convert.ToHexString).OrderBy(s => s).ToList();
-			CollectionAssert.AreEqual(expected, actual);
+			// The session is still fully alive for a genuinely new record afterward.
+			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
+			client.SendApplicationData(new byte[] {9, 9, 9});
+			CollectionAssert.AreEqual(new byte[] {9, 9, 9}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
 
 			server.Dispose();
 			client.Dispose();
@@ -1572,6 +1578,73 @@ namespace MiNET.Test.Rtc
 			server.OnDecrypted += payload => secondReceived.TrySetResult(payload.ToArray());
 			client.SendApplicationData(new byte[] {2, 2, 2});
 			CollectionAssert.AreEqual(new byte[] {2, 2, 2}, await secondReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)), "the session must still deliver a clean record after a rejected tamper attempt");
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     The one real service the deleted inbound-queue machinery provided was buffer-lifetime
+		///     safety if <see cref="DtlsSession.FeedDatagram" /> re-enters from inside a delivery
+		///     callback: a programming error in production (the mux thread is the only caller) that must
+		///     still fail safe rather than corrupt <c>_receiveScratch</c>. Calling
+		///     <see cref="DtlsSession.FeedDatagram" /> again, synchronously, from inside an
+		///     <see cref="DtlsSession.OnDecrypted" /> subscriber must be dropped and counted, must not
+		///     throw, and must not disturb the outer call still on the stack: the outer delivery still
+		///     completes and hands back the original payload untouched.
+		/// </summary>
+		[TestMethod]
+		public async Task FeedDatagram_ReenteredFromWithinOnDecrypted_IsDroppedAndCounted_OuterDeliveryStillCompletesIntact()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			bool interceptOnly = false;
+			byte[] interceptedDatagram = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				if (interceptOnly)
+				{
+					interceptedDatagram = bytes.ToArray();
+				}
+				else
+				{
+					server.FeedDatagram(bytes);
+				}
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			// Captured, never delivered: a genuinely valid, still-fresh record for the reentrant call
+			// below to feed back in.
+			interceptOnly = true;
+			client.SendApplicationData(new byte[] {6, 6, 6});
+			interceptOnly = false;
+			Assert.IsNotNull(interceptedDatagram, "expected to have captured an undelivered wire datagram to replay reentrantly");
+
+			long reentrantDropsBefore = server.ReentrantFeedsDropped;
+			int deliveredCount = 0;
+			var outerReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload =>
+			{
+				deliveredCount++;
+				outerReceived.TrySetResult(payload.ToArray());
+
+				// Reentrant: FeedDatagram is still on the stack, having released _gate for this exact
+				// call. Must not throw, must not deliver, must not corrupt the outer call's own delivery.
+				server.FeedDatagram(interceptedDatagram);
+			};
+
+			client.SendApplicationData(new byte[] {7, 7, 7});
+
+			CollectionAssert.AreEqual(new byte[] {7, 7, 7}, await outerReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)), "expected the outer delivery to complete intact despite the reentrant call inside its own callback");
+			Assert.AreEqual(reentrantDropsBefore + 1, server.ReentrantFeedsDropped, "expected the reentrant call to be dropped and counted");
+			Assert.AreEqual(1, deliveredCount, "expected the reentrantly-fed datagram to never be delivered");
 
 			server.Dispose();
 			client.Dispose();
