@@ -414,5 +414,122 @@ namespace MiNET.Test.Rtc
 			FeedSack(client, tag, tsn1, arwnd: 131072, gap);
 			Assert.AreEqual(1L, client.SendFastRetransmitCount);
 		}
+
+		/// <summary>Same shape as <see cref="SctpTeardownTests" />'s own private helper: whether a captured packet carries a chunk of the given type.</summary>
+		private static bool ContainsChunkType(ReadOnlySpan<byte> packet, byte chunkType)
+		{
+			SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(packet);
+			while (enumerator.MoveNext())
+			{
+				(byte type, byte _, ReadOnlySpan<byte> _) = enumerator.Current;
+				if (type == chunkType) return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		///     A batch of ordered, unreliable (maxRetransmits: 0) small messages, all abandoned together
+		///     by a single T3 timeout, produces one valid FORWARD-TSN: the pair list is bounded by what one
+		///     SctpPacket.MaxSize packet holds, but the cumulative target it advertises still covers every
+		///     abandoned message, truncated pairs or not.
+		/// </summary>
+		[TestMethod]
+		public void ManySmallOrderedMessagesAbandonedTogether_ForwardTsn_CumulativeAdvancesFully_WithBoundedPairsAndNoThrow()
+		{
+			const int messageCount = 400; // exceeds the ~295 pairs one FORWARD-TSN chunk can hold
+
+			bool dropEnabled = false;
+			SctpAssociation server = null;
+			SctpAssociation client = null;
+
+			client = new SctpAssociation(true, 5000, 1_048_576, p =>
+			{
+				if (dropEnabled) return;
+				server.OnPacketReceived(p.ToArray());
+			});
+			server = new SctpAssociation(false, 5000, 1_048_576, p => client.OnPacketReceived(p.ToArray()));
+
+			client.Start();
+			Assert.AreEqual(SctpState.Established, client.State);
+
+			long fakeNow = 10_000_000;
+			client.ClockNowMillis = () => fakeNow;
+
+			uint baseline = server.CumulativeTsnAck;
+
+			dropEnabled = true; // every DATA chunk from here on vanishes: the server never acks any of them
+			for (int i = 0; i < messageCount; i++)
+			{
+				Assert.IsTrue(client.Send(streamId: 1, ppid: 1, new[] {(byte) i}, unordered: false, maxRetransmits: 0));
+			}
+
+			fakeNow += 1500; // past the initial 1000ms RTO
+			dropEnabled = false; // let the resulting FORWARD-TSN (nothing else is due) reach the server
+			client.OnTick();
+
+			Assert.AreEqual((long) messageCount, client.SendAbandonedCount);
+			Assert.AreEqual(unchecked(baseline + (uint) messageCount), server.CumulativeTsnAck);
+		}
+
+		/// <summary>
+		///     RFC 3758 5.2: a FORWARD-TSN this side already advertised is retransmitted, like a lost DATA
+		///     chunk, whenever the peer's own SACK still has not caught up to it - so a single lost
+		///     FORWARD-TSN does not leave the association permanently wedged with a gap neither side can
+		///     ever clear.
+		/// </summary>
+		[TestMethod]
+		public void LostForwardTsn_IsRetransmittedOnTimeout_ReceiverCumulativeEventuallyAdvances()
+		{
+			bool dropData = false;
+			bool dropForwardTsn = false;
+
+			SctpAssociation server = null;
+			SctpAssociation client = null;
+
+			client = new SctpAssociation(true, 5000, 131072, p =>
+			{
+				if (dropData && ContainsChunkType(p, SctpChunkType.Data))
+				{
+					dropData = false;
+					return;
+				}
+
+				if (dropForwardTsn && ContainsChunkType(p, SctpChunkType.ForwardTsn))
+				{
+					dropForwardTsn = false;
+					return;
+				}
+
+				server.OnPacketReceived(p.ToArray());
+			});
+			server = new SctpAssociation(false, 5000, 131072, p => client.OnPacketReceived(p.ToArray()));
+
+			client.Start();
+			Assert.AreEqual(SctpState.Established, client.State);
+
+			long fakeNow = 4_000_000;
+			client.ClockNowMillis = () => fakeNow;
+
+			uint cumulativeBefore = server.CumulativeTsnAck;
+
+			dropData = true; // this message's one and only DATA chunk never arrives
+			Assert.IsTrue(client.Send(streamId: 1, ppid: 1, "gone"u8, unordered: true, maxRetransmits: 0));
+
+			dropForwardTsn = true; // neither does the FORWARD-TSN its abandonment produces
+			fakeNow += 1500; // past the initial RTO: T3 fires, abandons the chunk, sends (and loses) FORWARD-TSN #1
+			client.OnTick();
+
+			Assert.AreEqual(1L, client.SendAbandonedCount);
+			Assert.AreEqual(cumulativeBefore, server.CumulativeTsnAck); // the lost FORWARD-TSN never reached the server
+
+			// Past another RTO: nothing is left to time out (the chunk is already abandoned), so only a
+			// FORWARD-TSN-specific re-arm keeps T3 alive here at all - proving it does is the point of this
+			// second tick.
+			fakeNow += client.SendRtoMillis + 500;
+			client.OnTick();
+
+			Assert.AreEqual(unchecked(cumulativeBefore + 1), server.CumulativeTsnAck);
+		}
 	}
 }

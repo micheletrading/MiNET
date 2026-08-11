@@ -217,5 +217,41 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(0, serverSent.Count);
 			Assert.AreEqual(SctpState.Established, server.State);
 		}
+
+		/// <summary>
+		///     A State Cookie our own outbound COOKIE-ECHO could never carry is rejected at HandleInitAck
+		///     before it is retained, so it can never resurface as a throw building that packet - not on
+		///     receipt, and not on any later handshake retransmit tick either.
+		/// </summary>
+		[TestMethod]
+		public void InitAck_OversizedStateCookie_IsRejectedAndCounted_NoThrowOnReceiveOrLaterTick()
+		{
+			var clientSent = new List<byte[]>();
+			var client = new SctpAssociation(isClient: true, sctpPort: 5000, arwndBudget: 131072, sendPacket: p => clientSent.Add(p.ToArray()));
+
+			client.Start();
+			Assert.AreEqual(SctpState.CookieWait, client.State);
+			uint clientTag = client.LocalVerificationTag;
+
+			// Far larger than any cookie an outbound COOKIE-ECHO could ever carry inside SctpPacket.MaxSize.
+			byte[] hostileCookie = new byte[2000];
+			var initAck = new InitChunk(4242, 131072, 1024, 1024, 500, forwardTsnSupported: true, hostileCookie);
+
+			byte[] packetArray = new byte[4096];
+			Span<byte> packet = packetArray;
+			int n = SctpPacket.WriteHeader(packet, 5000, 5000, clientTag);
+			n += initAck.WriteTo(packet.Slice(n));
+			SctpPacket.FinishChecksum(packet.Slice(0, n));
+
+			long ignoredBefore = client.IgnoredPacketCount;
+
+			client.OnPacketReceived(packetArray.AsMemory(0, n));
+
+			Assert.AreEqual(SctpState.CookieWait, client.State, "an unusable INIT-ACK must not be adopted");
+			Assert.AreEqual(ignoredBefore + 1, client.IgnoredPacketCount);
+
+			// A later handshake retransmit tick must not throw either - nothing was ever retained to echo.
+			client.OnTick();
+		}
 	}
 }

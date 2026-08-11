@@ -131,6 +131,28 @@ namespace MiNET.Net.Rtc
 		// outer bound alone.
 		private const int MaxForwardTsnPairs = 512;
 
+		// Outbound counterpart to MaxForwardTsnPairs: caps how many (streamId, streamSeq) pairs
+		// SendForwardTsnPacket ever builds into one chunk, computed from what one SctpPacket.MaxSize
+		// packet can actually hold - packet header(12), the FORWARD-TSN chunk's own header(4), and its
+		// fixed New Cumulative TSN field(4), leaving the rest for 4-byte pairs. RFC 3758 permits the pair list to be advisory:
+		// When more pairs exist than this, the FORWARD-TSN still
+		// advertises the full, real cumulative target - only the pair list is truncated, never split across multiple chunks.
+		private const int MaxOutboundForwardTsnPairs = (SctpPacket.MaxSize - 12 - 4 - 4) / 4;
+
+		// The largest inbound Heartbeat Info this side can ever echo back verbatim: SctpPacket.MaxSize
+		// minus the packet's own common header(12) and the Heartbeat chunk's header(4) plus its
+		// Heartbeat Info parameter's own 4-byte TLV header(4). An Info any larger could never fit the
+		// ack SendHeartbeatAckPacket builds, so HandleHeartbeat drops and counts it up front rather than
+		// attempting (and failing) to answer.
+		private const int MaxHeartbeatInfoLength = SctpPacket.MaxSize - 12 - 8;
+
+		// The largest State Cookie an INIT-ACK can hand us that our own outbound COOKIE-ECHO could ever
+		// carry: SctpPacket.MaxSize minus the packet's own common header(12) and CookieEchoChunk's
+		// header(4) - CookieEchoChunk writes the cookie raw, with no further TLV framing of its own. A
+		// cookie longer than this can never round-trip back to the peer, so HandleInitAck rejects it
+		// before ever retaining it.
+		private const int MaxCookieEchoCookieLength = SctpPacket.MaxSize - 12 - 4;
+
 		// RFC 4960 6.2 SACK policy: a SACK goes out on the second packet carrying DATA, or 200ms after
 		// the first unacked one, whichever comes first (plus the immediate triggers HandleData/MaybeSendSack
 		// check for separately).
@@ -241,6 +263,13 @@ namespace MiNET.Net.Rtc
 		private int _dataPacketsSinceSack;
 		private bool _sackTimerArmed;
 		private long _sackTimerArmedAtTicks;
+
+		// True for exactly the span of one outside-the-lock delivery drain (set and cleared under _gate
+		// by DeliverLeasedMessages around that span). Teardown reads this, also under _gate, to decide
+		// whether it may reset _receiveBuffer inline (no drain in flight) or must hand the reset off to
+		// the drain itself via _pendingReset (a drain may be running on a different thread).
+		private bool _drainInFlight;
+		private bool _pendingReset;
 
 		// Send path (Task 5).
 		private readonly SctpSendQueue _sendQueue;
@@ -566,7 +595,17 @@ namespace MiNET.Net.Rtc
 				{
 					long now = ClockNowMillis();
 					_sendQueue.HandleTimeout(now);
-					MaybeSendForwardTsn();
+					MaybeSendForwardTsn(retransmitIfOutstanding: true);
+
+					// RFC 3758 5.2: a FORWARD-TSN this side already advertised is not necessarily covered
+					// by HandleTimeout's own "anyOutstanding" re-arm above - once every DATA chunk behind
+					// it is abandoned there is nothing left for that check to see, but the peer's SACK may
+					// still not have caught up (the FORWARD-TSN itself is still in flight, or was lost).
+					// Keeping the timer armed here, independent of anyOutstanding, is what lets a lost
+					// FORWARD-TSN actually get retried above on a later tick instead of the association
+					// going quiet with a hole neither side can ever clear on its own.
+					_sendQueue.ArmTimerIfForwardTsnOutstanding(now);
+
 					Flush();
 				}
 			}
@@ -664,9 +703,15 @@ namespace MiNET.Net.Rtc
 							break;
 
 						case SctpChunkType.Data:
-							packetHadData = true;
-							hasZeroCopyDelivery = HandleData(flags, value, packet, packetSpan, out zcStreamId, out zcPpid, out zcPayload, out bool chunkWantsImmediateSack);
+							// packetHadData reflects whether this chunk was actually
+							// admitted (parsed and reached the receive buffer), not merely that its chunk
+							// type was DATA - a chunk HandleData rejected (malformed, or the association was
+							// not yet/no longer Established) must not feed MaybeSendSack's cadence
+							// bookkeeping, exactly as it must not feed a real send (see that method's own
+							// state gate).
+							hasZeroCopyDelivery = HandleData(flags, value, packet, packetSpan, out zcStreamId, out zcPpid, out zcPayload, out bool chunkWantsImmediateSack, out bool chunkAdmitted);
 							if (chunkWantsImmediateSack) immediateSackRequested = true;
+							if (chunkAdmitted) packetHadData = true;
 							break;
 
 						case SctpChunkType.Sack:
@@ -752,13 +797,19 @@ namespace MiNET.Net.Rtc
 		///     unblocked) lands in <see cref="SctpReceiveBuffer.Deliveries" /> instead, which the caller
 		///     drains once outside the lock regardless of this method's return value. DATA received before
 		///     <see cref="SctpState.Established" /> is dropped and counted, never buffered.
+		///     <paramref name="admitted" /> is true once, and only once, this chunk actually
+		///     reached <see cref="SctpReceiveBuffer.Receive" /> - a malformed chunk, or one that arrived
+		///     outside <see cref="SctpState.Established" />, leaves it false, which is what
+		///     <see cref="OnPacketReceived" /> uses to keep such a chunk from feeding
+		///     <see cref="MaybeSendSack" />'s cadence bookkeeping.
 		/// </summary>
-		private bool HandleData(byte flags, ReadOnlySpan<byte> value, ReadOnlyMemory<byte> packet, ReadOnlySpan<byte> packetSpan, out ushort streamId, out uint ppid, out ReadOnlyMemory<byte> zcPayload, out bool immediateSackRequested)
+		private bool HandleData(byte flags, ReadOnlySpan<byte> value, ReadOnlyMemory<byte> packet, ReadOnlySpan<byte> packetSpan, out ushort streamId, out uint ppid, out ReadOnlyMemory<byte> zcPayload, out bool immediateSackRequested, out bool admitted)
 		{
 			streamId = 0;
 			ppid = 0;
 			zcPayload = default;
 			immediateSackRequested = false;
+			admitted = false;
 
 			if (!DataChunkHeader.TryParse(flags, value, out DataChunkHeader header, out ReadOnlySpan<byte> payload))
 			{
@@ -774,6 +825,7 @@ namespace MiNET.Net.Rtc
 				return false;
 			}
 
+			admitted = true;
 			bool zeroCopy = _receiveBuffer.Receive(header, payload);
 			if (zeroCopy)
 			{
@@ -881,6 +933,15 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
+			// A peer-supplied Info this side could never echo back within one SctpPacket.MaxSize packet:
+			// dropped and counted rather than attempted, the hot-path law applied to a length nothing
+			// upstream of this bounds (see MaxHeartbeatInfoLength's own remarks).
+			if (heartbeat.Info.Length > MaxHeartbeatInfoLength)
+			{
+				CountIgnored();
+				return;
+			}
+
 			SendHeartbeatAckPacket(heartbeat.Info);
 		}
 
@@ -946,12 +1007,27 @@ namespace MiNET.Net.Rtc
 		///     raise <see cref="OnAborted" /> with once <see cref="_gate" /> is released (the established
 		///     outside-the-lock pattern; see the class remarks and <see cref="OnTick" />'s own
 		///     <c>abortReason</c> variable).
+		///     <para>
+		///     This can run on a different thread than <see cref="OnPacketReceived" /> (<see cref="Abort" />
+		///     from <see cref="RtcPeer.Dispose" />, an application thread) while
+		///     <see cref="DeliverLeasedMessages" /> has an outside-the-lock delivery drain in flight on the
+		///     mux thread; calling <see cref="SctpReceiveBuffer.Reset" /> here unconditionally would mutate
+		///     the same <see cref="SctpReceiveBuffer" /> state (the free list, leased buffers already handed
+		///     out as part of a delivery) that drain is concurrently walking, from two threads with no lock
+		///     common to both at that instant. So: while a drain is in flight
+		///     (<see cref="_drainInFlight" />), this only requests the reset (<see cref="_pendingReset" />)
+		///     and returns - the drain performs it, under <see cref="_gate" />, once it finishes and
+		///     observes the flag. When no drain is in flight, this resets inline.
+		///     </para>
 		/// </summary>
 		private string Teardown(string reason)
 		{
 			_state = SctpState.Aborted;
 			_sendQueue.ReleaseAll();
-			_receiveBuffer.Reset(_peerInitialTsn);
+
+			if (_drainInFlight) _pendingReset = true;
+			else _receiveBuffer.Reset(_peerInitialTsn);
+
 			_sackTimerArmed = false;
 			return reason;
 		}
@@ -960,13 +1036,24 @@ namespace MiNET.Net.Rtc
 		///     Called under <see cref="_gate" /> after anything that might have abandoned a chunk (T3-rtx in
 		///     <see cref="OnTick" />, fast retransmit inside <see cref="HandleSack" />): sends a FORWARD-TSN
 		///     when <see cref="_sendQueue" /> can now advertise further than it already has.
+		///     <paramref name="retransmitIfOutstanding" /> is true only from <see cref="OnTick" />'s T3-rtx
+		///     branch (RFC 3758 5.2): when nothing NEW has become advanceable, but the last FORWARD-TSN this
+		///     side advertised is still ahead of what the peer's own SACK has acknowledged - either it is
+		///     still in flight, or the packet carrying it was lost - this re-sends that exact same target
+		///     and pair list, the FORWARD-TSN's own equivalent of a T3 DATA retransmission. Left false from
+		///     <see cref="HandleSack" />'s own call so an ordinary SACK that simply has not caught up yet
+		///     does not itself provoke a resend on every packet; only the timer path does.
 		/// </summary>
-		private void MaybeSendForwardTsn()
+		private void MaybeSendForwardTsn(bool retransmitIfOutstanding = false)
 		{
-			if (_sendQueue.TryComputeForwardTsnAdvance(_forwardTsnPairsScratch, out uint newTarget))
+			if (_sendQueue.TryComputeForwardTsnAdvance(_forwardTsnPairsScratch, MaxOutboundForwardTsnPairs, out uint newTarget))
 			{
 				SendForwardTsnPacket(newTarget, _forwardTsnPairsScratch);
 				_sendQueue.MarkForwardTsnAdvertised(newTarget);
+			}
+			else if (retransmitIfOutstanding && _sendQueue.TryGetOutstandingForwardTsn(_forwardTsnPairsScratch, MaxOutboundForwardTsnPairs, out uint outstandingTarget))
+			{
+				SendForwardTsnPacket(outstandingTarget, _forwardTsnPairsScratch);
 			}
 		}
 
@@ -1047,9 +1134,18 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
+		/// <summary>
+		///     <paramref name="pairs" /> is already capped at <see cref="MaxOutboundForwardTsnPairs" /> by
+		///     both of <see cref="MaybeSendForwardTsn" />'s callers into <see cref="SctpSendQueue" />
+		///     (<see cref="SctpSendQueue.TryComputeForwardTsnAdvance" />, <see cref="SctpSendQueue.TryGetOutstandingForwardTsn" />),
+		///     so the stack allocation below is sized from that fixed, compile-time bound - never from
+		///     <paramref name="pairs" />.<c>Count</c> itself - and then sliced down to what is actually
+		///     used, the same shape every other fixed-size stackalloc buffer in this class already uses.
+		/// </summary>
 		private void SendForwardTsnPacket(uint newCumulativeTsn, List<(ushort StreamId, ushort StreamSeq)> pairs)
 		{
-			Span<byte> pairBytes = stackalloc byte[pairs.Count * 4];
+			Span<byte> pairBytes = stackalloc byte[MaxOutboundForwardTsnPairs * 4];
+			pairBytes = pairBytes.Slice(0, pairs.Count * 4);
 			for (int i = 0; i < pairs.Count; i++)
 			{
 				BinaryPrimitives.WriteUInt16BigEndian(pairBytes.Slice(i * 4, 2), pairs[i].StreamId);
@@ -1084,28 +1180,64 @@ namespace MiNET.Net.Rtc
 		///     Drains <see cref="SctpReceiveBuffer.Deliveries" /> (fragment-reassembly completions and any
 		///     ordered messages a cascade unblocked), called once per chunk processed regardless of chunk
 		///     type: the list is empty except right after a DATA chunk that completed one or more
-		///     messages. Raised the same way <see cref="OnEstablished" /> is, outside <see cref="_gate" />.
-		///     Every leased fragment buffer and pooled segment node backing a delivery's sequence is
-		///     returned exactly once, in a <c>finally</c>, regardless of whether the subscriber threw.
+		///     messages. <see cref="SafeInvokeOnMessage" /> is raised the same way <see cref="OnEstablished" />
+		///     is, outside <see cref="_gate" /> - that discipline is unchanged.
+		///     <para>
+		///     The snapshot below (list contents copied out, and <see cref="SctpReceiveBuffer.Deliveries" />
+		///     cleared) and every <see cref="SctpReceiveBuffer.ReleaseDelivery" /> call run under
+		///     <see cref="_gate" />, so <see cref="SctpReceiveBuffer" />'s own free list is never mutated
+		///     concurrently with anything else touching it - the callback itself stays outside the lock,
+		///     since releasing a lease invokes no user code but the callback does. A
+		///     reentrant <see cref="OnPacketReceived" /> from inside a subscriber's own
+		///     callback (the shape every loopback test in this codebase uses) cannot truncate this
+		///     drain by clearing the shared <see cref="SctpReceiveBuffer.Deliveries" /> list out from under
+		///     it, because this method already copied its own batch out before releasing <see cref="_gate" />.
+		///     <see cref="_drainInFlight" /> brackets the outside-the-lock section so <see cref="Teardown" />
+		///     (possibly running on a different thread) can tell a drain is in progress and hand its own
+		///     <see cref="SctpReceiveBuffer.Reset" /> off via <see cref="_pendingReset" /> instead of racing
+		///     it; see that method's own remarks.
+		///     </para>
 		/// </summary>
 		private void DeliverLeasedMessages()
 		{
-			List<SctpReceiveBuffer.LeasedDelivery> deliveries = _receiveBuffer.Deliveries;
-			for (int i = 0; i < deliveries.Count; i++)
+			List<SctpReceiveBuffer.LeasedDelivery> snapshot;
+			lock (_gate)
 			{
-				SctpReceiveBuffer.LeasedDelivery delivery = deliveries[i];
-				try
-				{
-					ReadOnlySequence<byte> sequence = delivery.Sequence;
-					SafeInvokeOnMessage(delivery.StreamId, delivery.Ppid, in sequence);
-				}
-				finally
-				{
-					_receiveBuffer.ReleaseDelivery(delivery);
-				}
+				if (_receiveBuffer.Deliveries.Count == 0) return;
+
+				_drainInFlight = true;
+				snapshot = new List<SctpReceiveBuffer.LeasedDelivery>(_receiveBuffer.Deliveries);
+				_receiveBuffer.Deliveries.Clear();
 			}
 
-			deliveries.Clear();
+			try
+			{
+				for (int i = 0; i < snapshot.Count; i++)
+				{
+					SctpReceiveBuffer.LeasedDelivery delivery = snapshot[i];
+					try
+					{
+						ReadOnlySequence<byte> sequence = delivery.Sequence;
+						SafeInvokeOnMessage(delivery.StreamId, delivery.Ppid, in sequence);
+					}
+					finally
+					{
+						lock (_gate) _receiveBuffer.ReleaseDelivery(delivery);
+					}
+				}
+			}
+			finally
+			{
+				lock (_gate)
+				{
+					_drainInFlight = false;
+					if (_pendingReset)
+					{
+						_pendingReset = false;
+						_receiveBuffer.Reset(_peerInitialTsn);
+					}
+				}
+			}
 		}
 
 		/// <summary>
@@ -1135,9 +1267,16 @@ namespace MiNET.Net.Rtc
 		///     carried at least one DATA chunk: sends immediately when <paramref name="immediateSackRequested" />
 		///     (the I-flag was set on some DATA chunk in the packet) or a gap is outstanding; otherwise
 		///     every second such packet, with the 200ms fallback armed here and enforced by <see cref="OnTick" />.
+		///     Gated on <see cref="SctpState.Established" />: a DATA or FORWARD-TSN chunk arriving on an
+		///     association that is not (yet, or no longer) Established must never provoke a SACK off
+		///     <see cref="_receiveBuffer" /> state that may be stale, reset, or not yet negotiated.
+		///     <see cref="Teardown" /> disarms the 200ms fallback separately; this is the gate on the
+		///     receive-driven trigger.
 		/// </summary>
 		private void MaybeSendSack(bool immediateSackRequested)
 		{
+			if (_state != SctpState.Established) return;
+
 			bool sendNow = immediateSackRequested || _receiveBuffer.HasGap;
 
 			if (!sendNow)
@@ -1278,6 +1417,16 @@ namespace MiNET.Net.Rtc
 			}
 
 			if (!InitChunk.TryParse(value, out InitChunk initAck) || initAck.StateCookie.IsEmpty)
+			{
+				CountIgnored();
+				return;
+			}
+
+			// A State Cookie this side could never echo back in a COOKIE-ECHO of its own: rejected before
+			// it is ever retained, rather than retained and only failing later - on every retransmit -
+			// once SendCookieEchoPacket actually tries to write it (see MaxCookieEchoCookieLength's own
+			// remarks).
+			if (initAck.StateCookie.Length > MaxCookieEchoCookieLength)
 			{
 				CountIgnored();
 				return;

@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -58,6 +59,20 @@ namespace MiNET.Test.Rtc
 		private static byte[] BuildShutdownPacket(uint verificationTag, ReadOnlySpan<byte> value = default) => BuildRawChunkPacket(verificationTag, 7 /* SHUTDOWN */, value);
 
 		private static byte[] BuildShutdownCompletePacket(uint verificationTag) => BuildRawChunkPacket(verificationTag, 14 /* SHUTDOWN-COMPLETE */, ReadOnlySpan<byte>.Empty);
+
+		/// <summary>Same shape as <see cref="SctpReceiveTests" />'s own private helper: hand-builds and delivers one DATA chunk.</summary>
+		private static void FeedData(SctpAssociation receiver, uint verificationTag, uint tsn, ushort streamId, ushort streamSeq, uint ppid, bool unordered, bool begin, bool end, ReadOnlySpan<byte> payload)
+		{
+			var header = new DataChunkHeader(tsn, streamId, streamSeq, ppid, unordered, begin, end, immediateSack: false);
+
+			byte[] packetArray = new byte[SctpPacket.MaxSize];
+			Span<byte> packet = packetArray;
+			int n = SctpPacket.WriteHeader(packet, Port, Port, verificationTag);
+			n += header.WriteTo(packet.Slice(n), payload);
+			SctpPacket.FinishChecksum(packet.Slice(0, n));
+
+			receiver.OnPacketReceived(packetArray.AsMemory(0, n));
+		}
 
 		/// <summary>Establishes a client/server pair, exactly like <see cref="SctpAssociationHandshakeTests" />'s own handshake test, but also captures every packet the server sends so a test can inspect the server's replies directly.</summary>
 		private static (SctpAssociation Client, SctpAssociation Server, List<byte[]> ServerSent) EstablishPair()
@@ -120,6 +135,116 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(ignoredBefore + 1, server.IgnoredPacketCount);
 			Assert.AreEqual(0, serverSent.Count);
 			Assert.AreEqual(SctpState.Established, server.State);
+		}
+
+		/// <summary>
+		///     A HEARTBEAT whose Info this side could never echo back within one SctpPacket.MaxSize reply
+		///     packet is dropped and counted rather than attempted: the hot-path law applied to a length
+		///     nothing upstream of HandleHeartbeat bounds.
+		/// </summary>
+		[TestMethod]
+		public void Heartbeat_OversizedInfo_IsDroppedAndCounted_NoThrowNoReply()
+		{
+			(_, SctpAssociation server, List<byte[]> serverSent) = EstablishPair();
+
+			// Larger than any reply built inside SctpPacket.MaxSize (1200 bytes) could ever hold, so this
+			// must be rejected on receipt rather than attempted and failing later.
+			byte[] info = new byte[1400];
+			byte[] packetArray = new byte[2048];
+			Span<byte> packet = packetArray;
+			int n = SctpPacket.WriteHeader(packet, Port, Port, server.LocalVerificationTag);
+			n += new HeartbeatChunk(info).WriteTo(packet.Slice(n));
+			SctpPacket.FinishChecksum(packet.Slice(0, n));
+
+			long ignoredBefore = server.IgnoredPacketCount;
+
+			server.OnPacketReceived(packetArray.AsMemory(0, n));
+
+			Assert.AreEqual(ignoredBefore + 1, server.IgnoredPacketCount);
+			Assert.AreEqual(0, serverSent.Count);
+			Assert.AreEqual(SctpState.Established, server.State);
+		}
+
+		/// <summary>
+		///     Teardown never invalidates the association's own verification tag, so a DATA chunk carrying
+		///     it still passes the packet-level tag gate and reaches HandleData on an Aborted association.
+		///     MaybeSendSack's own cadence fires on the second such packet, so this sends two to prove
+		///     neither provokes a SACK off a torn-down receive buffer.
+		/// </summary>
+		[TestMethod]
+		public void Data_OnAbortedAssociation_WithMatchingTag_NeverEmitsASack_NotEvenOnTheSecondPacket()
+		{
+			(_, SctpAssociation server, List<byte[]> serverSent) = EstablishPair();
+
+			uint tag = server.LocalVerificationTag;
+			uint tsn = unchecked(server.CumulativeTsnAck + 1);
+
+			server.Abort();
+			Assert.AreEqual(SctpState.Aborted, server.State);
+			serverSent.Clear();
+
+			FeedData(server, tag, tsn, 1, 0, 1, unordered: true, begin: true, end: true, new byte[] {1, 2, 3});
+			FeedData(server, tag, unchecked(tsn + 1), 1, 0, 1, unordered: true, begin: true, end: true, new byte[] {4, 5, 6});
+
+			Assert.AreEqual(0, serverSent.Count, "an Aborted association never emits a SACK, no matter how many post-teardown DATA packets arrive");
+			Assert.AreEqual(SctpState.Aborted, server.State);
+		}
+
+		/// <summary>
+		///     Teardown never touches the receive buffer from a foreign thread while a delivery drain is in
+		///     flight; the drain performs the deferred reset itself once it finishes. Proven with a
+		///     deterministic interleaving rather than a stress loop: the drain processes "second" and
+		///     "third" as two leased deliveries in the same batch (the zero-copy "first" delivery never
+		///     goes through the drain at all), and the OnMessage subscriber for "second" runs Abort() to
+		///     completion on a separate thread, synchronously, before returning - while the drain still has
+		///     "third" left to process. Without the snapshot the drain takes under its own gate, Abort's
+		///     Reset clearing the shared delivery list out from under the still-running drain loop would
+		///     truncate it: "third" would never be delivered, its lease leaked forever.
+		/// </summary>
+		[TestMethod]
+		public void Abort_FromAnotherThread_DuringAnInFlightDeliveryDrain_HandsOffTheResetInsteadOfRacingIt()
+		{
+			(_, SctpAssociation server, List<byte[]> _) = EstablishPair();
+
+			uint tag = server.LocalVerificationTag;
+			uint tsn = unchecked(server.CumulativeTsnAck + 1);
+
+			var deliveredTexts = new List<string>();
+			Exception abortException = null;
+
+			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) =>
+			{
+				string text = System.Text.Encoding.UTF8.GetString(message.ToArray());
+				deliveredTexts.Add(text);
+
+				if (text == "second")
+				{
+					var abortThread = new System.Threading.Thread(() =>
+					{
+						try { server.Abort(); }
+						catch (Exception ex) { abortException = ex; }
+					});
+					abortThread.Start();
+					abortThread.Join();
+				}
+			};
+
+			// Sequences 1 and 2 arrive first and both buffer (leased, WaitForTurn); sequence 0 then
+			// arrives, delivered zero-copy AND cascading sequences 1 and 2 into the SAME leased-delivery
+			// batch the drain processes - the same shape SctpReceiveTests' ThrowingOnMessageSubscriber
+			// test uses, extended to two cascaded deliveries so a truncated drain is provable rather than
+			// merely plausible.
+			FeedData(server, tag, unchecked(tsn + 2), 12, 2, 1, unordered: false, begin: true, end: true, "third"u8);
+			FeedData(server, tag, unchecked(tsn + 1), 12, 1, 1, unordered: false, begin: true, end: true, "second"u8);
+			FeedData(server, tag, tsn, 12, 0, 1, unordered: false, begin: true, end: true, "first"u8);
+
+			Assert.IsNull(abortException, "Abort() must not throw while a delivery drain is in flight");
+			CollectionAssert.AreEqual(new[] {"first", "second", "third"}, deliveredTexts, "the drain must not be truncated by a concurrent Teardown - a dropped \"third\" is a leaked lease");
+			Assert.AreEqual(SctpState.Aborted, server.State);
+
+			// The deferred reset actually ran once the drain finished: the receive buffer's budget is back
+			// to full, the same signal Abort_ReleasesParkedReceiveBufferState uses for the inline case.
+			Assert.AreEqual(ArwndBudget, server.CurrentArwnd);
 		}
 
 		[TestMethod]

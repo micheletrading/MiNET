@@ -79,6 +79,23 @@ namespace MiNET.Net.Rtc
 		private PendingChunk _tail;
 		private PendingChunk _freeList;
 
+		// Bytes currently in flight (SentAtTicks != 0, neither Abandoned nor PendingRetransmit),
+		// maintained incrementally at every place a chunk's state actually crosses that boundary
+		// (MarkTransmitted enters it; cumulative-ack removal and MarkForRetransmitOrAbandon leave it).
+		// AvailableWindowBytes and PeekReadyToSend read this field directly rather than walking the
+		// whole list per call.
+		private uint _inFlightBytes;
+
+		// PeekReadyToSend's own resume point: repeated calls within one Flush burst
+		// (SctpAssociation.Flush's inner while loop calls this once per chunk it writes) scan forward
+		// from here rather than from _head, so an already-in-flight chunk earlier calls in the same
+		// burst already passed is not re-skipped. Reset to _head (via null, which PeekReadyToSend treats
+		// the same way) whenever something could make an EARLIER chunk due again than wherever the
+		// cursor currently sits - HandleTimeout's own re-arm, the fast-retransmit branch of
+		// OnSackReceived, and the cumulative-ack removal loop (which can free the very node the cursor
+		// points at).
+		private PendingChunk _sendCursor;
+
 		// Our own send-side TSN bookkeeping: the highest TSN the peer has told us (via a SACK's
 		// cumulative ack) it has fully received, and the highest TSN we have told the peer (via our own
 		// FORWARD-TSN) to skip past regardless of whether it ever arrives. The two converge once the
@@ -162,6 +179,8 @@ namespace MiNET.Net.Rtc
 			_head = null;
 			_tail = null;
 			_queuedBytes = 0;
+			_inFlightBytes = 0;
+			_sendCursor = null;
 			_timerArmed = false;
 		}
 
@@ -209,7 +228,6 @@ namespace MiNET.Net.Rtc
 			node.RetransmitCount = 0;
 			node.SentAtTicks = 0;
 			node.PendingRetransmit = false;
-			node.GapAcked = false;
 			node.Abandoned = false;
 			node.Next = null;
 
@@ -224,19 +242,8 @@ namespace MiNET.Net.Rtc
 		public uint AvailableWindowBytes(uint peerArwnd)
 		{
 			uint windowCap = Math.Min(peerArwnd, _cwnd);
-			uint inFlight = InFlightBytes();
+			uint inFlight = _inFlightBytes;
 			return inFlight >= windowCap ? 0 : windowCap - inFlight;
-		}
-
-		private uint InFlightBytes()
-		{
-			uint sum = 0;
-			for (PendingChunk n = _head; n != null; n = n.Next)
-			{
-				if (n.SentAtTicks != 0 && !n.Abandoned && !n.PendingRetransmit) sum += (uint) n.Length;
-			}
-
-			return sum;
 		}
 
 		/// <summary>
@@ -247,30 +254,58 @@ namespace MiNET.Net.Rtc
 		///     stops, rather than skipping ahead to a smaller one, the moment a due chunk does not fit:
 		///     first transmissions stay in TSN order.
 		///     <para>
+		///     Resumes from <see cref="_sendCursor" /> rather than always rescanning from
+		///     <see cref="_head" />: <see cref="SctpAssociation.Flush" />'s own inner loop calls this once
+		///     per chunk it writes into the current burst, so a scan from <see cref="_head" /> on every
+		///     call would re-walk and re-skip every already-in-flight chunk earlier calls in the same
+		///     burst already passed - O(n) per call, O(n^2) for the burst as a whole in queue depth. The
+		///     cursor only ever advances past a chunk once it is no longer due AND nothing here would make it due
+		///     again on its own; anything that CAN make an earlier chunk due again
+		///     (<see cref="HandleTimeout" />, the fast-retransmit branch of <see cref="OnSackReceived" />)
+		///     or that can free the exact node the cursor points at (that same method's cumulative-ack
+		///     removal) resets it back to <see cref="_head" /> there instead, never here.
+		///     </para>
+		///     <para>
 		///     RFC 4960 6.1 rule A's zero-window probe: when nothing at all is currently in flight, the
 		///     first due chunk is returned regardless of how small (even zero) <paramref name="windowBudget" />
 		///     is. Without this, a peer that advertises a permanently zero or too-tiny a_rwnd - which
 		///     <see cref="AvailableWindowBytes" /> folds directly into the budget passed in here - would
 		///     never see a single byte leave the wire, since nothing would ever get the chance to be acked
 		///     and reopen the window: a deadlock, not congestion control. The probe is exactly one chunk:
-		///     once it is sent, <see cref="InFlightBytes" /> becomes nonzero and this reverts to the
+		///     once it is sent, <see cref="_inFlightBytes" /> becomes nonzero and this reverts to the
 		///     ordinary strict gate until an ack (or the probe's own eventual loss/retransmit) frees it
 		///     again.
 		///     </para>
 		/// </summary>
 		public PendingChunk PeekReadyToSend(uint windowBudget)
 		{
-			bool zeroWindowProbeAllowed = InFlightBytes() == 0;
+			bool zeroWindowProbeAllowed = _inFlightBytes == 0;
 
-			for (PendingChunk n = _head; n != null; n = n.Next)
+			PendingChunk n = _sendCursor ?? _head;
+			PendingChunk lastVisited = n;
+			while (n != null)
 			{
-				if (n.Abandoned) continue;
+				lastVisited = n;
+
+				if (n.Abandoned)
+				{
+					n = n.Next;
+					continue;
+				}
+
 				bool due = n.SentAtTicks == 0 || n.PendingRetransmit;
-				if (!due) continue;
+				if (!due)
+				{
+					n = n.Next;
+					continue;
+				}
+
+				_sendCursor = n;
 				if (n.Length > windowBudget && !zeroWindowProbeAllowed) return null;
 				return n;
 			}
 
+			_sendCursor = lastVisited; // fully drained: resume from the tail (or null) rather than _head next time
 			return null;
 		}
 
@@ -279,12 +314,16 @@ namespace MiNET.Net.Rtc
 		///     T3-rtx if it was not already running (RFC 6298 5.1); a retransmission's own count and RTO
 		///     backoff were already applied by whatever marked it <see cref="PendingChunk.PendingRetransmit" />
 		///     (<see cref="HandleTimeout" /> or the fast-retransmit branch of <see cref="OnSackReceived" />),
-		///     not here, so this never double-counts.
+		///     not here, so this never double-counts. Every call transitions <paramref name="chunk" /> from
+		///     not-in-flight to in-flight (see <see cref="PeekReadyToSend" />'s own due check: it never
+		///     returns a chunk that was already in flight), so <see cref="_inFlightBytes" /> always gains
+		///     exactly its length here.
 		/// </summary>
 		public void MarkTransmitted(PendingChunk chunk, long nowMillis)
 		{
 			chunk.SentAtTicks = nowMillis;
 			chunk.PendingRetransmit = false;
+			_inFlightBytes += (uint) chunk.Length;
 
 			if (SctpTsn.IsNewer(chunk.Tsn, _highestTransmittedTsn)) _highestTransmittedTsn = chunk.Tsn;
 
@@ -331,6 +370,11 @@ namespace MiNET.Net.Rtc
 			_cwnd = Math.Max(_cwnd / 2, (uint) Mtu);
 			_duplicateCumulativeReports = 0;
 
+			// This can mark a chunk before _sendCursor's current position due again (PendingRetransmit),
+			// so PeekReadyToSend must resume scanning from _head rather than from wherever the cursor
+			// was left by an earlier, unrelated burst.
+			_sendCursor = _head;
+
 			bool anyOutstanding = false;
 			for (PendingChunk n = _head; n != null; n = n.Next)
 			{
@@ -354,11 +398,11 @@ namespace MiNET.Net.Rtc
 		/// <summary>
 		///     Applies one inbound SACK: frees every chunk the cumulative ack now covers (taking one RTT
 		///     sample from the first eligible chunk per Karn's rule - never from one that was ever
-		///     retransmitted), grows cwnd by one MTU when the cumulative ack actually advanced, marks
-		///     gap-acked chunks without freeing them (RFC 4960's renege rule), and counts three
-		///     cumulative-stuck, gap-carrying SACKs in a row as a fast-retransmit signal for the chunk right
-		///     after the ack point. Restarts (or disarms, if nothing remains outstanding) T3-rtx whenever
-		///     the cumulative ack advances, per RFC 6298 5.3.
+		///     retransmitted), grows cwnd by one MTU when the cumulative ack actually advanced, and counts
+		///     three cumulative-stuck, gap-carrying SACKs in a row as a fast-retransmit signal for the chunk
+		///     right after the ack point (gap blocks feed only that counter - this queue never marks
+		///     individual chunks as gap-acked, nothing here reads such a marking). Restarts (or disarms, if
+		///     nothing remains outstanding) T3-rtx whenever the cumulative ack advances, per RFC 6298 5.3.
 		///     <para>
 		///     RFC 4960 6.2.1's two SACK validation rules gate all of the above, in order, before any of it
 		///     runs:
@@ -415,6 +459,8 @@ namespace MiNET.Net.Rtc
 						rttSampleMillis = nowMillis - node.SentAtTicks;
 					}
 
+					if (node.SentAtTicks != 0 && !node.PendingRetransmit && !node.Abandoned) _inFlightBytes -= (uint) node.Length;
+
 					_head = node.Next;
 					if (_head == null) _tail = null;
 
@@ -422,6 +468,12 @@ namespace MiNET.Net.Rtc
 					ReturnBuffer(node);
 					ReturnNodeToFreeList(node);
 				}
+
+				// The removal above can free the exact node _sendCursor was pointing at (a dangling
+				// reference into a node already back on the free list), and _head itself has moved
+				// regardless - PeekReadyToSend must resume from the new _head, not wherever the cursor
+				// was left before this SACK arrived.
+				_sendCursor = _head;
 
 				_cumulativeTsnAck = sackCumulativeTsnAck;
 				if (SctpTsn.IsNewer(_cumulativeTsnAck, _forwardTsnAdvertised)) _forwardTsnAdvertised = _cumulativeTsnAck;
@@ -452,20 +504,6 @@ namespace MiNET.Net.Rtc
 				}
 			}
 
-			// RFC 4960 6.2 renege rule: gap-acked data is marked, never freed here - only cumulative
-			// catching up (above) actually returns its lease. Chunks are stored TSN-ascending, so each
-			// block's scan can stop as soon as it passes the block's end.
-			foreach (SackChunk.GapBlock block in gapBlocks)
-			{
-				uint start = unchecked(sackCumulativeTsnAck + block.Start);
-				uint end = unchecked(sackCumulativeTsnAck + block.End);
-				for (PendingChunk n = _head; n != null; n = n.Next)
-				{
-					if (SctpTsn.IsNewer(n.Tsn, end)) break;
-					if (!SctpTsn.IsNewer(start, n.Tsn)) n.GapAcked = true;
-				}
-			}
-
 			return true;
 		}
 
@@ -488,11 +526,23 @@ namespace MiNET.Net.Rtc
 			_rtoMillis = Math.Clamp(_srttMillis + 4 * _rttvarMillis, RtoMinMillis, RtoMaxMillis);
 		}
 
-		/// <summary>Shared by <see cref="HandleTimeout" /> and the fast-retransmit branch of <see cref="OnSackReceived" />: counts the retransmit, then either schedules it or, past its own retransmit budget, abandons it for good (RFC 3758).</summary>
+		/// <summary>
+		///     Shared by <see cref="HandleTimeout" /> and the fast-retransmit branch of
+		///     <see cref="OnSackReceived" />: counts the retransmit, then either schedules it or, past its
+		///     own retransmit budget, abandons it for good (RFC 3758). Both callers only ever reach here
+		///     with a chunk that was actually in flight (<c>SentAtTicks != 0</c>, neither
+		///     <c>PendingRetransmit</c> nor <c>Abandoned</c> already set - see each call site's own
+		///     remarks), so it always leaves that state here, before <see cref="AbandonChunk" /> (if
+		///     reached) zeroes <see cref="PendingChunk.Length" />; the <c>wasInFlight</c> check below is
+		///     belt-and-suspenders against that invariant ever being violated, not load-bearing today.
+		/// </summary>
 		private void MarkForRetransmitOrAbandon(PendingChunk n)
 		{
+			bool wasInFlight = n.SentAtTicks != 0 && !n.PendingRetransmit && !n.Abandoned;
+
 			n.RetransmitCount++;
 			Interlocked.Increment(ref _retransmitCount);
+			if (wasInFlight) _inFlightBytes -= (uint) n.Length;
 
 			if (n.MaxRetransmits >= 0 && n.RetransmitCount > n.MaxRetransmits) AbandonChunk(n);
 			else n.PendingRetransmit = true;
@@ -519,8 +569,14 @@ namespace MiNET.Net.Rtc
 		///     <paramref name="pairs" /> cleared and <paramref name="newTarget" /> unchanged) when nothing
 		///     new can be advertised - either nothing is abandoned yet, or the very next chunk is still
 		///     genuinely outstanding.
+		///     <paramref name="maxPairs" /> caps how many (streamId, streamSeq) pairs are actually
+		///     collected into <paramref name="pairs" /> - the walk that computes <paramref name="newTarget" />
+		///     itself is not cut short by it, so a long contiguous run of abandoned chunks still advertises
+		///     its real, full cumulative target; only the pair list is truncated once the cap is reached
+		///     (RFC 3758 permits the pairs to be advisory - see <see cref="SctpAssociation" />'s own
+		///     <c>MaxOutboundForwardTsnPairs</c> remarks for the packet-fit bound this is capped at).
 		/// </summary>
-		public bool TryComputeForwardTsnAdvance(List<(ushort StreamId, ushort StreamSeq)> pairs, out uint newTarget)
+		public bool TryComputeForwardTsnAdvance(List<(ushort StreamId, ushort StreamSeq)> pairs, int maxPairs, out uint newTarget)
 		{
 			pairs?.Clear();
 			newTarget = _forwardTsnAdvertised;
@@ -532,17 +588,60 @@ namespace MiNET.Net.Rtc
 			{
 				newTarget = n.Tsn;
 				moved = true;
-				if (!n.Unordered && n.End) pairs?.Add((n.StreamId, n.StreamSeq));
+				if (!n.Unordered && n.End && pairs != null && pairs.Count < maxPairs) pairs.Add((n.StreamId, n.StreamSeq));
 				expected = unchecked(expected + 1);
 			}
 
 			return moved;
 		}
 
+		/// <summary>
+		///     RFC 3758 5.2's retransmission case: whether the last FORWARD-TSN this side advertised
+		///     (<see cref="_forwardTsnAdvertised" />) is still ahead of what the peer's own SACK has
+		///     actually acknowledged (<see cref="_cumulativeTsnAck" />) - either it is still in flight, or
+		///     the packet carrying it was lost. When true, reconstructs the same target and (capped) pair
+		///     list <see cref="TryComputeForwardTsnAdvance" /> would have produced when it was first sent:
+		///     every chunk from <see cref="_head" /> up to <paramref name="pairs" />'s own already-abandoned
+		///     range is still resident (abandoned chunks are never removed from the list, only marked), so
+		///     nothing about the original content needs to be remembered separately.
+		/// </summary>
+		public bool TryGetOutstandingForwardTsn(List<(ushort StreamId, ushort StreamSeq)> pairs, int maxPairs, out uint target)
+		{
+			pairs?.Clear();
+			target = _forwardTsnAdvertised;
+
+			if (!SctpTsn.IsNewer(_forwardTsnAdvertised, _cumulativeTsnAck)) return false;
+
+			for (PendingChunk n = _head; n != null && n.Abandoned && !SctpTsn.IsNewer(n.Tsn, _forwardTsnAdvertised); n = n.Next)
+			{
+				if (!n.Unordered && n.End && pairs != null && pairs.Count < maxPairs) pairs.Add((n.StreamId, n.StreamSeq));
+			}
+
+			return true;
+		}
+
 		/// <summary>Records that a FORWARD-TSN advertising up to <paramref name="target" /> has actually gone out; the queue no longer needs to re-offer it on the next call.</summary>
 		public void MarkForwardTsnAdvertised(uint target)
 		{
 			_forwardTsnAdvertised = target;
+		}
+
+		/// <summary>
+		///     Called from <see cref="SctpAssociation.OnTick" />'s T3-rtx branch right after
+		///     <see cref="TryGetOutstandingForwardTsn" />/<see cref="TryComputeForwardTsnAdvance" /> may
+		///     have (re)sent a FORWARD-TSN: <see cref="HandleTimeout" />'s own re-arm above only looks at
+		///     outstanding DATA, so once every chunk behind an advertised FORWARD-TSN is abandoned there is
+		///     nothing left for it to see, and the timer would otherwise go permanently dark even though
+		///     the peer has still not caught up (RFC 3758 5.2). A no-op once the gap is already closed, or
+		///     if something else already re-armed the timer for its own reason.
+		/// </summary>
+		public void ArmTimerIfForwardTsnOutstanding(long nowMillis)
+		{
+			if (_timerArmed) return;
+			if (!SctpTsn.IsNewer(_forwardTsnAdvertised, _cumulativeTsnAck)) return;
+
+			_timerArmed = true;
+			_timerDeadlineMillis = nowMillis + _rtoMillis;
 		}
 
 		private static void ReturnBuffer(PendingChunk n)
@@ -594,9 +693,6 @@ namespace MiNET.Net.Rtc
 
 			/// <summary>Set by <see cref="HandleTimeout" /> or a fast retransmit; cleared once <see cref="MarkTransmitted" /> actually sends it again.</summary>
 			public bool PendingRetransmit;
-
-			/// <summary>RFC 4960 6.2 renege rule: marked by a SACK gap block, never freed by it - only an advancing cumulative ack actually returns the lease.</summary>
-			public bool GapAcked;
 
 			/// <summary>RFC 3758: given up on past its own <see cref="MaxRetransmits" />. <see cref="Buffer" /> is already returned; the node stays resident only as a marker for <see cref="TryComputeForwardTsnAdvance" />.</summary>
 			public bool Abandoned;
