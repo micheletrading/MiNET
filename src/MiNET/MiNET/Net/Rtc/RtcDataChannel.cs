@@ -70,6 +70,16 @@ namespace MiNET.Net.Rtc
 		/// <summary>True once negotiation completed: immediately for an inbound channel (RFC 8832: the OPEN receiver may use the channel right away), or once the peer's ACK arrives for an outbound one.</summary>
 		public bool IsOpen { get; private set; }
 
+		/// <summary>
+		///     RFC 8832 6 MUST: "the sending side MUST NOT send messages out of order until the
+		///     DATA_CHANNEL_ACK message, or any message, has been received on the channel" - both triggers
+		///     end this window (<see cref="RaiseOpen" /> for the ACK case, <see cref="DeliverData" /> for
+		///     the any-message case), not only <see cref="IsOpen" />, which is why this is its own field
+		///     rather than reusing that property. See <see cref="Send" /> for what riding inside this
+		///     window actually changes.
+		/// </summary>
+		private bool _canUseNegotiatedSemantics;
+
 		/// <summary>Raised at most once, exactly when <see cref="IsOpen" /> flips to true.</summary>
 		public event Action OnOpen;
 
@@ -89,6 +99,7 @@ namespace MiNET.Net.Rtc
 		internal void RaiseOpen()
 		{
 			IsOpen = true;
+			_canUseNegotiatedSemantics = true;
 			try
 			{
 				OnOpen?.Invoke();
@@ -100,39 +111,63 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     Sends <paramref name="data" /> on this channel, riding its own negotiated semantics
-		///     (unordered flag, <see cref="MaxRetransmits" />) rather than DCEP's always-reliable-ordered
-		///     control stream. An empty payload cannot go out as a zero-length SCTP DATA chunk, so it is
-		///     sent as a single zero byte under the matching -empty PPID instead (RFC 8831 3.2); the peer's
-		///     <see cref="RtcChannelManager" /> reconstructs it back to an empty sequence on arrival, this
-		///     padding byte never reaches a consumer's <see cref="OnMessage" />. A failed send (association
-		///     not established, or its send-queue budget exhausted) is dropped and logged, matching this
-		///     method's fixed <see langword="void" /> signature: the caller has no return value to inspect.
+		///     Sends <paramref name="data" /> on this channel. An empty payload cannot go out as a
+		///     zero-length SCTP DATA chunk, so it is sent as a single zero byte under the matching -empty
+		///     PPID instead (RFC 8831 3.2); the peer's <see cref="RtcChannelManager" /> reconstructs it back
+		///     to an empty sequence on arrival, this padding byte never reaches a consumer's
+		///     <see cref="OnMessage" />. A failed send (association not established, or its send-queue
+		///     budget exhausted) is dropped and logged, matching this method's fixed <see langword="void" />
+		///     signature: the caller has no return value to inspect.
+		///     <para>
+		///     Two different rules govern how a message rides the wire before this channel's own
+		///     pre-negotiation window ends (<see cref="_canUseNegotiatedSemantics" />), and they are NOT the
+		///     same kind of rule:
+		///     </para>
+		///     <para>
+		///     Ordered is RFC 8832 6's own MUST, independent of <see cref="Ordered" />: DCEP's OPEN rides
+		///     ordered-reliable ahead of any data on the same stream, but SCTP's ordering guarantee only
+		///     covers ordered chunks - an unordered send in that same gap could overtake the OPEN, or even
+		///     be rejected by the peer as an unknown stream before it has processed the OPEN at all. This
+		///     half can never be relaxed without breaking the spec.
+		///     </para>
+		///     <para>
+		///     Reliable (forcing <see cref="MaxRetransmits" /> to -1 for the duration) is NOT required by
+		///     the RFC - ordered delivery alone already guarantees the message rides behind the OPEN - it is
+		///     this stack's own deliberate, conservative superset: abandoning (RFC 3758 FORWARD-TSN) a
+		///     channel's very first messages before the peer has even confirmed the channel exists is a
+		///     pointless risk at the traffic volumes this stack deals in, so this stack chooses not to allow
+		///     it. This half is free to be simplified away later; the ordered half is not.
+		///     </para>
 		/// </summary>
 		public void Send(ReadOnlySpan<byte> data, bool asString = false)
 		{
 			bool empty = data.IsEmpty;
 			uint ppid = asString ? (empty ? PpidStringEmpty : PpidString) : (empty ? PpidBinaryEmpty : PpidBinary);
-			bool unordered = !Ordered;
+
+			bool preNegotiation = !_canUseNegotiatedSemantics;
+			bool unordered = preNegotiation ? false : !Ordered; // RFC 8832 6 MUST while preNegotiation
+			int maxRetransmits = preNegotiation ? -1 : MaxRetransmits; // this stack's own conservative superset
 
 			bool sent;
 			if (empty)
 			{
 				Span<byte> padding = stackalloc byte[1];
 				padding[0] = 0;
-				sent = _association.Send(StreamId, ppid, padding, unordered, MaxRetransmits);
+				sent = _association.Send(StreamId, ppid, padding, unordered, maxRetransmits);
 			}
 			else
 			{
-				sent = _association.Send(StreamId, ppid, data, unordered, MaxRetransmits);
+				sent = _association.Send(StreamId, ppid, data, unordered, maxRetransmits);
 			}
 
 			if (!sent) Log.Warn($"RtcDataChannel '{Label}' (stream {StreamId}): send dropped (association not established, or send-queue budget exhausted).");
 		}
 
-		/// <summary>Called by <see cref="RtcChannelManager" /> for every inbound message on this channel's stream: derives <c>isString</c>/emptiness from <paramref name="ppid" /> and hands <paramref name="message" /> to <see cref="OnMessage" /> unchanged (zero-copy) for the non-empty case, per this codebase's established sequence-validity-during-the-callback contract.</summary>
+		/// <summary>Called by <see cref="RtcChannelManager" /> for every inbound message on this channel's stream: derives <c>isString</c>/emptiness from <paramref name="ppid" /> and hands <paramref name="message" /> to <see cref="OnMessage" /> unchanged (zero-copy) for the non-empty case, per this codebase's established sequence-validity-during-the-callback contract. Also ends <see cref="Send" />'s pre-negotiation window: RFC 8832 6's MUST is scoped to "until a DATA_CHANNEL_ACK message, or any message, has been received on the channel" - inbound traffic on this stream is proof the peer has already processed the OPEN, exactly like an ACK is.</summary>
 		internal void DeliverData(uint ppid, in ReadOnlySequence<byte> message)
 		{
+			_canUseNegotiatedSemantics = true;
+
 			bool isString = ppid == PpidString || ppid == PpidStringEmpty;
 			bool isEmpty = ppid == PpidStringEmpty || ppid == PpidBinaryEmpty;
 			ReadOnlySequence<byte> payload = isEmpty ? ReadOnlySequence<byte>.Empty : message;
@@ -194,10 +229,16 @@ namespace MiNET.Net.Rtc
 		private const byte ChannelTypePartialReliableRexmit = 0x01;
 		private const byte ChannelTypePartialReliableRexmitUnordered = 0x81;
 
-		// Large enough for any label this stack negotiates (NetherNet's two are 19 and 21 bytes) with
-		// generous headroom; a legitimate OPEN never approaches this, so hitting the limit only ever
-		// means hostile or corrupt input.
-		private const int DcepScratchSize = 512;
+		// Sized to actually cover the multi-segment fallback TryGetContiguous exists for: SctpAssociation
+		// only fragments a message above FragmentThreshold (1024 bytes, see SctpAssociation's own
+		// remarks), so a scratch buffer at or below that never receives a genuinely multi-segment
+		// sequence to fall back for in the first place - 2048 gives headroom above that threshold for a
+		// deliberately large label while staying a fixed, cheap stack buffer. NetherNet's own two labels
+		// (19 and 21 bytes) never come close to fragmenting at all. This is a hard cap, not a soft one:
+		// RFC 8832's label/protocol lengths are 16-bit fields (up to 65535 bytes each), so an OPEN is
+		// legal in principle far beyond what fits here, and one that does not fit is dropped and counted
+		// by design, not a bug - see TryGetContiguous.
+		private const int DcepScratchSize = 2048;
 
 		private readonly SctpAssociation _association;
 		private readonly bool _isClient;
@@ -209,13 +250,13 @@ namespace MiNET.Net.Rtc
 		// this counter only ever steps by 2 from its role's own starting id.
 		private ushort _nextStreamId;
 
-		private long _ignoredDcepMessageCount;
+		private long _ignoredMessageCount;
 
 		/// <summary>Raised outside <see cref="_gate" />, once per inbound OPEN accepted: the reply ACK has already been sent by the time this fires (see <see cref="HandleOpen" />), and the channel is already <see cref="RtcDataChannel.IsOpen" />.</summary>
 		public event Action<RtcDataChannel> OnDataChannel;
 
-		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many inbound DCEP messages on <see cref="DcepPpid" /> were dropped for being malformed, truncated, naming an unsupported channel type, or an unrecognised DCEP message type.</summary>
-		internal long IgnoredDcepMessageCount => Interlocked.Read(ref _ignoredDcepMessageCount);
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): every message this class drops rather than acting on - a malformed, truncated, wrong-parity, or unsupported-channel-type DCEP control message (<see cref="HandleDcep" />), a duplicate OPEN or a stray ACK for a stream already resolved one way or the other, and a data-plane message (non-DCEP PPID) addressed to a stream id with no registered channel (<see cref="OnAssociationMessage" />). Was DCEP-only ("IgnoredDcepMessageCount") until the fix round that added the last case - a silent, uncounted drop there is exactly what let the pre-ACK ordering race go unnoticed.</summary>
+		internal long IgnoredMessageCount => Interlocked.Read(ref _ignoredMessageCount);
 
 		/// <summary><paramref name="isClient" /> is the DTLS role, not an application-level concept - <see cref="SctpAssociation" />'s own constructor takes the identical flag with the identical meaning (see Task 7's wiring), which is what fixes this side's stream id parity per RFC 8832 6.</summary>
 		public RtcChannelManager(SctpAssociation association, bool isClient)
@@ -259,7 +300,7 @@ namespace MiNET.Net.Rtc
 			return channel;
 		}
 
-		/// <summary>Dispatches every inbound message on <see cref="_association" />: DCEP control traffic (PPID 50) to <see cref="HandleDcep" />, everything else to whichever channel owns that stream id (a message for a stream id with no channel - stale, or a peer bug - is dropped silently, not counted: it is not DCEP traffic this class is responsible for policing).</summary>
+		/// <summary>Dispatches every inbound message on <see cref="_association" />: DCEP control traffic (PPID 50) to <see cref="HandleDcep" />, everything else to whichever channel owns that stream id. A message for a stream id with no registered channel - stale, or a peer bug - is dropped and counted (was silent before this fix round; see <see cref="IgnoredMessageCount" />'s own remarks for why that hid a real bug), never dispatched.</summary>
 		private void OnAssociationMessage(ushort streamId, uint ppid, in ReadOnlySequence<byte> message)
 		{
 			if (ppid == DcepPpid)
@@ -270,7 +311,13 @@ namespace MiNET.Net.Rtc
 
 			RtcDataChannel channel;
 			lock (_gate) _channelsByStreamId.TryGetValue(streamId, out channel);
-			channel?.DeliverData(ppid, in message);
+			if (channel == null)
+			{
+				CountIgnored();
+				return;
+			}
+
+			channel.DeliverData(ppid, in message);
 		}
 
 		private void HandleDcep(ushort streamId, in ReadOnlySequence<byte> message)
@@ -305,15 +352,35 @@ namespace MiNET.Net.Rtc
 		///     order, so the wire reply is never delayed behind a subscriber (matches
 		///     <see cref="SctpAssociation" />'s own COOKIE-ACK-before-OnEstablished ordering one file over).
 		///     A malformed OPEN (too short for the fixed header, or claiming a label/protocol length that
-		///     runs past the message) or one naming a channel type this stack's model cannot represent is
-		///     dropped and counted, never answered - this is the hostile-input path the class remarks
-		///     describe.
+		///     runs past the message), one naming a stream id of OUR OWN parity (RFC 8832 6 - never a valid
+		///     id for a peer-initiated channel, see <see cref="HasPeerParity" />), or one naming a channel
+		///     type this stack's model cannot represent is dropped and counted, never answered - this is
+		///     the hostile-input path the class remarks describe. An OPEN for a stream id already carrying
+		///     a channel (the peer retransmitting because it lost our first ACK - ordinary on a real
+		///     network, not hostile) is counted but still re-ACKed: idempotent and RFC-friendly, but the
+		///     existing channel object - and whatever the application already subscribed to it - is never
+		///     rebuilt or silently swapped out, and <see cref="OnDataChannel" /> never fires twice for it.
 		/// </summary>
 		private void HandleOpen(ushort streamId, ReadOnlySpan<byte> bytes)
 		{
 			if (!TryParseOpen(bytes, out byte channelType, out uint reliabilityParameter, out ReadOnlySpan<byte> labelBytes))
 			{
 				CountIgnored();
+				return;
+			}
+
+			if (!HasPeerParity(streamId))
+			{
+				CountIgnored();
+				return;
+			}
+
+			RtcDataChannel existing;
+			lock (_gate) _channelsByStreamId.TryGetValue(streamId, out existing);
+			if (existing != null)
+			{
+				CountIgnored();
+				SendAck(streamId);
 				return;
 			}
 
@@ -340,6 +407,13 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
+		/// <summary>RFC 8832 6: the DTLS client's own channels sit on even stream ids, the DTLS server's on odd ones, so a well-behaved peer's OPEN always names a stream id of the OPPOSITE parity to ours. Used only to validate an inbound OPEN in <see cref="HandleOpen" />; nothing else in this class needs it, since every other id this class touches (<see cref="CreateChannel" />'s own counter, an OPEN's or a data message's stream id once a channel already exists for it) is already known-good by construction or by dictionary lookup.</summary>
+		private bool HasPeerParity(ushort streamId)
+		{
+			int ourParity = _isClient ? 0 : 1;
+			return (streamId % 2) != ourParity;
+		}
+
 		/// <summary>Inbound DATA_CHANNEL_ACK: opens the matching outbound channel this side created earlier. An ACK for an unknown stream, or one already open (a stray duplicate), is dropped and counted rather than acted on twice.</summary>
 		private void HandleAck(ushort streamId)
 		{
@@ -364,7 +438,7 @@ namespace MiNET.Net.Rtc
 
 		private void CountIgnored()
 		{
-			Interlocked.Increment(ref _ignoredDcepMessageCount);
+			Interlocked.Increment(ref _ignoredMessageCount);
 		}
 
 		/// <summary>Copies <paramref name="sequence" /> into <paramref name="scratch" /> when it spans more than one segment (a fragmented DCEP message); the single-segment case is the zero-copy fast path, per this class's remarks on why a control message this small does not need a sequence-aware reader. Fails (rather than copying a partial prefix) when the message does not fit <paramref name="scratch" /> at all.</summary>
