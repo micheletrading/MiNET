@@ -25,6 +25,7 @@
 
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Channels;
@@ -42,18 +43,18 @@ namespace MiNET.Net.Rtc
 	///     receive thread for the life of the session. Once the handshake is done,
 	///     <see cref="FeedDatagram" /> decrypts application data and alerts natively, in place, straight
 	///     out of the caller's own span, via <see cref="_recordCrypto" /> and
-	///     <see cref="ProcessApplicationDatagramLocked" />: BouncyCastle's <see cref="DatagramTransport" />
-	///     never sees another byte of it. The one exception is a post-handshake datagram carrying an
-	///     epoch-0 record (a peer retransmitting a final handshake flight it believes was lost), which
-	///     is queued and drained through <see cref="DtlsTransport.Receive(Span{byte}, int)" /> /
-	///     <see cref="DtlsTransport.ReceivePending(Span{byte}, DtlsRecordCallback)" />: BouncyCastle owns
-	///     flight retransmission, and mixing per-record handling into that would break it. No
+	///     <see cref="ProcessApplicationDatagramLocked" />: BouncyCastle is out of the loop entirely, and
+	///     nothing it built is retained past the handshake. A post-handshake datagram carrying an
+	///     epoch-0 record - a peer retransmitting a final handshake flight it believes was lost - is
+	///     handled natively too: <see cref="ProcessApplicationDatagramLocked" /> re-emits
+	///     <see cref="_finalFlightCache" />, the raw bytes of our own last outgoing flight, verbatim to
+	///     the wire, rate-limited, and drops the record itself without delivering it anywhere. No
 	///     background thread ever exists after the handshake.
-	///     Invariant: <see cref="_gate" /> serializes every access to <see cref="_dtlsTransport" />,
+	///     Invariant: <see cref="_gate" /> serializes every access to
 	///     <see cref="_recordCrypto" />, <see cref="_receiveScratch" />, and <see cref="_directFeedBuffer" />
 	///     between <see cref="FeedDatagram" />'s drain section and <see cref="Dispose" />, so a concurrent
-	///     teardown from another thread can never return either buffer to the pool (or close the
-	///     transport) while a drain still holds a span over one - EXCEPT for the one deliberate window
+	///     teardown from another thread can never return either buffer to the pool while a drain still
+	///     holds a span over one - EXCEPT for the one deliberate window
 	///     <see cref="DrainQueueLocked" /> opens around each <see cref="OnDecrypted" /> call: the gate is
 	///     explicitly released for that one call and reacquired right after, so a subscriber's own
 	///     work never runs while blocking a concurrent <see cref="FeedDatagram" /> or
@@ -131,7 +132,6 @@ namespace MiNET.Net.Rtc
 		private readonly byte[] _directFeedBuffer = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
 		private int _directFeedLength = -1;
 
-		private DtlsTransport _dtlsTransport;
 		private CapturingTlsCrypto _capturingCrypto;
 		private DtlsRecordCrypto _recordCrypto;
 		private volatile bool _handshakeDone;
@@ -139,11 +139,28 @@ namespace MiNET.Net.Rtc
 		private int _disposed;
 		private long _droppedRecords;
 
-		// Touched only under _gate, by DrainOneBcDatagramLocked and TryReadNow, both only ever reachable
-		// from the single thread inside the current drain: true for the exact duration of one
-		// DrainOneBcDatagramLocked call, so TryReadNow refuses to fall through past an empty direct-feed
-		// slot into _inbound while it is set. See DrainOneBcDatagramLocked's own remarks for why.
-		private bool _bcOneShotOnly;
+		// The raw bytes of our own final handshake flight, one entry per outgoing wire datagram,
+		// oldest first: everything BouncyCastle sent since it last received something. Written only
+		// from the single handshake thread (SendToWire/ReceiveFromQueue, both reachable only from
+		// BouncyCastle's blocking Accept/Connect - see RunHandshake), so it needs no lock of its own
+		// while the handshake is running; DoHandshakeAsync's existing safe-publication argument for
+		// _recordCrypto (the handshake thread's writes all happen strictly before the volatile
+		// _handshakeDone write on that same thread) applies here too, so ProcessApplicationDatagramLocked
+		// reading it under _gate post-handshake can never race the handshake thread's own writes. Capped
+		// at MaxFinalFlightDatagrams, keeping the most recent on overflow: a real final flight is 2-3
+		// small records, so the cap is defensive only.
+		private readonly List<byte[]> _finalFlightCache = new List<byte[]>();
+		private const int MaxFinalFlightDatagrams = 16;
+
+		// The clock seam for the epoch-0 resend rate limit: every "now" read on that path goes through
+		// this instead of Environment.TickCount64 directly, so a test can drive the 1-second window
+		// deterministically. Defaults to the real clock; only tests (via the assembly's
+		// InternalsVisibleTo) ever replace it. Matches SctpAssociation.ClockNowMillis's own seam.
+		internal Func<long> ClockNowMillis = () => Environment.TickCount64;
+		private long? _lastResendAtMillis;
+		private const long ResendRateLimitMillis = 1000;
+		private long _resendsPerformed;
+		private long _epochZeroRecordsDropped;
 
 		// Touched only under _sendGate (see TrySendCloseNotifyLocked's own remarks), by both of that
 		// method's call sites: guards the whole session, not one call, against ever putting a second
@@ -164,8 +181,10 @@ namespace MiNET.Net.Rtc
 
 		// Every legitimate SendApplicationData payload rides inside one SCTP packet, which
 		// SctpAssociation already caps at SctpPacket.MaxSize: this is a caller-bug ceiling, not a size a
-		// real send would ever approach, checked before the stackalloc below is ever sized from it.
-		private const int MaxSendPayloadLength = SctpPacket.MaxSize;
+		// real send would ever approach, checked before the stackalloc below is ever sized from it. The
+		// DTLS layer must accept anything SCTP can ever hand it, so this can never be smaller than
+		// SctpPacket.MaxSize; internal so a test can pin that relationship directly.
+		internal const int MaxSendPayloadLength = SctpPacket.MaxSize;
 
 		/// <summary>
 		///     The epoch-1 key block <see cref="CapturingTlsCrypto" /> captured out of this handshake.
@@ -180,8 +199,17 @@ namespace MiNET.Net.Rtc
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the native record layer built from this session's captured keys once the handshake completes, null before that.</summary>
 		internal DtlsRecordCrypto RecordCrypto => _recordCrypto;
 
-		/// <summary>Records at epoch 1 that were deliberately never acted on: a content type other than application-data or alert, or a non-fatal alert whose description is not close_notify. Not a BC transport-side count, and not the same as <see cref="DtlsRecordCrypto" />'s own malformed/replay/decrypt-failure counters.</summary>
+		/// <summary>Records at epoch 1 that were deliberately never acted on: a content type other than application-data or alert, or a non-fatal alert whose description is not close_notify. Not the same as <see cref="DtlsRecordCrypto" />'s own malformed/replay/decrypt-failure counters, and not the epoch-0 counters below.</summary>
 		internal long DroppedRecords => Interlocked.Read(ref _droppedRecords);
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many times an epoch-0 record triggered a verbatim re-emit of <see cref="_finalFlightCache" />.</summary>
+		internal long ResendsPerformed => Interlocked.Read(ref _resendsPerformed);
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many epoch-0 records were dropped without a resend, either because <see cref="_finalFlightCache" /> was empty or the 1-second resend rate limit was still active.</summary>
+		internal long EpochZeroRecordsDropped => Interlocked.Read(ref _epochZeroRecordsDropped);
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many datagrams <see cref="_finalFlightCache" /> currently holds. Zero for a client-role handshake (its last handshake event is a receive, not a send) and non-zero for a server-role one, once the handshake has completed.</summary>
+		internal int FinalFlightCacheCount => _finalFlightCache.Count;
 
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): whether this session has been torn down, by either <see cref="Dispose" /> or an alert-driven <see cref="RequestClose" />. <see cref="RtcPeer" /> exposes this to interop tests as <c>DtlsSessionClosed</c>.</summary>
 		internal bool IsClosed => _closed;
@@ -221,13 +249,11 @@ namespace MiNET.Net.Rtc
 		///     immediately, inline, on the calling thread, under <see cref="_gate" /> so a concurrent
 		///     <see cref="Dispose" /> can never free <see cref="_receiveScratch" /> or dispose
 		///     <see cref="_recordCrypto" /> out from under it (the disposed check alone is check-then-act,
-		///     not a real exclusion). What draining actually does to the datagram - native decode via
-		///     <see cref="ProcessApplicationDatagramLocked" />, or the unchanged BouncyCastle route for a
-		///     datagram carrying an epoch-0 record (a peer retransmitting a final handshake flight) - is
-		///     decided per datagram inside <see cref="DrainQueueLocked" />, not here: this method only
-		///     ever decides inline-versus-queued, so both content types share one single-flight drain
-		///     rather than needing two independently-synchronized ones (see
-		///     <see cref="DrainQueueLocked" />'s own remarks for why that single-flight property matters).
+		///     not a real exclusion). Draining always means native decode, via
+		///     <see cref="ProcessApplicationDatagramLocked" />: an epoch-0 record within the datagram (a
+		///     peer retransmitting a final handshake flight it believes was lost) is handled inline there
+		///     too, by re-emitting the cached final flight rather than delivering the record anywhere (see
+		///     that method's own remarks).
 		///     A <see cref="DtlsSessionClosedException" /> raised by the drain (Dispose or a cancelled
 		///     handshake closed the session while this call was in flight) is swallowed here: it is an
 		///     expected race during teardown, not a caller-visible failure. <see cref="_draining" />
@@ -307,56 +333,36 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     The routing peek <see cref="DrainQueueLocked" /> uses to decide native decode versus the
-		///     BouncyCastle route for one already-dequeued raw datagram: <see langword="true" /> the
-		///     instant any record in <paramref name="datagram" /> declares epoch 0, <see langword="false" />
-		///     once every record has been walked without finding one. A record whose header does not fit
-		///     (<see cref="DtlsRecordCrypto.TryReadRecordHeader" /> returning <see langword="false" />)
-		///     ends the walk rather than guessing at where a next record might start: nothing after that
-		///     point can be trusted to be epoch 0 or not, so the caller falls through to native
-		///     processing, which independently drop-and-counts whatever it cannot parse either.
-		/// </summary>
-		private static bool ContainsEpochZeroRecord(ReadOnlySpan<byte> datagram)
-		{
-			int offset = 0;
-			while (offset < datagram.Length)
-			{
-				if (!DtlsRecordCrypto.TryReadRecordHeader(datagram.Slice(offset), out _, out int epoch, out int fragmentLength)) return false;
-				if (epoch == 0) return true;
-				offset += DtlsRecordCrypto.HeaderLength + fragmentLength;
-			}
-
-			return false;
-		}
-
-		/// <summary>
-		///     Decrypts every record of one post-handshake datagram already known
-		///     (<see cref="ContainsEpochZeroRecord" />, checked by the caller) to carry no epoch-0 record.
-		///     A leaf step of <see cref="DrainQueueLocked" />'s single-flight loop, not a second entry
-		///     point of its own: must be called only from there, which is what guarantees only one thread
-		///     is ever inside this method, or <see cref="DrainOneBcDatagramLocked" />, at a time (both
-		///     decrypt into the same <see cref="_receiveScratch" /> buffer, so two overlapping calls would
-		///     corrupt each other's plaintext out from under a concurrent <see cref="OnDecrypted" />
-		///     delivery - exactly the failure mode <see cref="_draining" /> exists to rule out, and which
-		///     <see cref="DrainQueueLocked" />'s doc comment explains in full). Releases <see cref="_gate" />
-		///     around each <see cref="OnDecrypted" /> call exactly as <see cref="DrainOneBcDatagramLocked" />
-		///     does, via the same explicit <see cref="Monitor.Exit(object)" />/<see cref="Monitor.Enter(object)" />
-		///     pair, for the same reason (a plain <c>lock</c> is reentrant and would keep the gate held
-		///     across the whole callback). The disposed/closed check immediately after each re-acquire is
-		///     load-bearing for the same reason it is in <see cref="DrainOneBcDatagramLocked" />: a
-		///     subscriber, or a genuinely concurrent thread, may have disposed the session or torn it down
-		///     via <see cref="RequestClose" /> while the gate was released, and <see cref="_recordCrypto" />
+		///     Decrypts every record of one post-handshake datagram, natively, record by record. A leaf
+		///     step of <see cref="DrainQueueLocked" />'s single-flight loop, not a second entry point of
+		///     its own: must be called only from there, which is what guarantees only one thread is ever
+		///     inside this method at a time (it decrypts into the shared <see cref="_receiveScratch" />
+		///     buffer, so two overlapping calls would corrupt each other's plaintext out from under a
+		///     concurrent <see cref="OnDecrypted" /> delivery - exactly the failure mode
+		///     <see cref="_draining" /> exists to rule out, and which <see cref="DrainQueueLocked" />'s doc
+		///     comment explains in full). Releases <see cref="_gate" /> around each
+		///     <see cref="OnDecrypted" /> call, via the explicit <see cref="Monitor.Exit(object)" />/
+		///     <see cref="Monitor.Enter(object)" /> pair below rather than a nested <c>lock</c> (which is
+		///     reentrant and would keep the gate held across the whole callback). The disposed/closed
+		///     check immediately after each re-acquire is load-bearing: a subscriber, or a genuinely
+		///     concurrent thread, may have disposed the session or torn it down via
+		///     <see cref="RequestClose" /> while the gate was released, and <see cref="_recordCrypto" />
 		///     must not be touched again once that has happened.
 		///     <para>
 		///     Walks records left to right using their own declared length
 		///     (<see cref="DtlsRecordCrypto.TryReadRecordHeader" />), so a record whose content is
 		///     rejected (wrong epoch, replay, bad tag) does not stop the walk: only a header that does
-		///     not fit does, since at that point there is no trustworthy length to skip by. Content type
-		///     23 (application data) decrypts and delivers; content type 21 (alert) decrypts and, on
-		///     close_notify (any level) or a fatal level, calls <see cref="RequestClose" /> and stops
-		///     processing the rest of the datagram outright - close_notify additionally sends a
-		///     close_notify of our own first (RFC 5246 7.2.1); every other alert, and every other
-		///     content type, is drop-and-count via <see cref="_droppedRecords" /> without ever reaching
+		///     not fit does, since at that point there is no trustworthy length to skip by. A record
+		///     declaring epoch 0 - a peer retransmitting a final handshake flight it believes was lost -
+		///     is never handed to <see cref="_recordCrypto" /> at all: <see cref="HandleEpochZeroRecordLocked" />
+		///     decides whether to answer it, and the walk moves on to whatever follows in the same
+		///     datagram, so a junk-prefix or coalesced-retransmission datagram never costs the peer its
+		///     other, legitimate records. Content type 23 (application data) decrypts and delivers;
+		///     content type 21 (alert) decrypts and, on close_notify (any level) or a fatal level, calls
+		///     <see cref="RequestClose" /> and stops processing the rest of the datagram outright -
+		///     close_notify additionally sends a close_notify of our own first (RFC 5246 7.2.1); every
+		///     other alert, and every other content type, is drop-and-count via
+		///     <see cref="_droppedRecords" /> without ever reaching
 		///     <see cref="DtlsRecordCrypto.TryDecryptRecord" />. A decrypt rejection on either content
 		///     type is already counted by <see cref="_recordCrypto" /> itself (replay, malformed, or bad
 		///     tag) and simply moves on to the next record.
@@ -364,16 +370,21 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		private void ProcessApplicationDatagramLocked(ReadOnlySpan<byte> datagram)
 		{
+			bool resentThisDatagram = false;
 			int offset = 0;
 			while (offset < datagram.Length)
 			{
-				if (!DtlsRecordCrypto.TryReadRecordHeader(datagram.Slice(offset), out byte contentType, out _, out int fragmentLength)) return;
+				if (!DtlsRecordCrypto.TryReadRecordHeader(datagram.Slice(offset), out byte contentType, out int epoch, out int fragmentLength)) return;
 
 				int recordLength = DtlsRecordCrypto.HeaderLength + fragmentLength;
 				ReadOnlySpan<byte> record = datagram.Slice(offset, recordLength);
 				offset += recordLength;
 
-				if (contentType == ContentTypeApplicationData)
+				if (epoch == 0)
+				{
+					HandleEpochZeroRecordLocked(ref resentThisDatagram);
+				}
+				else if (contentType == ContentTypeApplicationData)
 				{
 					if (!_recordCrypto.TryDecryptRecord(record, _receiveScratch, out _, out int length)) continue;
 
@@ -440,6 +451,44 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
+		///     Answers one epoch-0 record found by <see cref="ProcessApplicationDatagramLocked" />'s walk:
+		///     the record itself is never delivered anywhere, only ever counted or answered with a
+		///     verbatim resend of <see cref="_finalFlightCache" />. A peer still asking for the final
+		///     flight never received it, so the sequence numbers those cached datagrams carry are absent
+		///     from its anti-replay window - replaying them verbatim is safe. Drop-and-count, no resend,
+		///     when the cache is empty (this side is the DTLS client, or this side's own last flight was a
+		///     receive, not a send - see the class doc comment), when the 1-second rate limit
+		///     (<see cref="ResendRateLimitMillis" />, read through <see cref="ClockNowMillis" />) is still
+		///     active, or when <paramref name="resentThisDatagram" /> is already <see langword="true" />:
+		///     a resend already answered an earlier epoch-0 record in this same datagram, and answering
+		///     twice for one datagram buys the peer nothing further.
+		/// </summary>
+		private void HandleEpochZeroRecordLocked(ref bool resentThisDatagram)
+		{
+			if (resentThisDatagram || _finalFlightCache.Count == 0)
+			{
+				Interlocked.Increment(ref _epochZeroRecordsDropped);
+				return;
+			}
+
+			long now = ClockNowMillis();
+			if (_lastResendAtMillis is long lastResendAt && now - lastResendAt < ResendRateLimitMillis)
+			{
+				Interlocked.Increment(ref _epochZeroRecordsDropped);
+				return;
+			}
+
+			_lastResendAtMillis = now;
+			resentThisDatagram = true;
+			foreach (byte[] flightDatagram in _finalFlightCache)
+			{
+				_sendToWire(flightDatagram);
+			}
+
+			Interlocked.Increment(ref _resendsPerformed);
+		}
+
+		/// <summary>
 		///     Acquires <see cref="_gate" /> and runs <see cref="DrainLocked" />. Used by the
 		///     lease-and-<see cref="_inbound" /> path, which does not already hold the gate when it
 		///     decides to drain (unlike the direct-feed fast path in <see cref="FeedDatagram" />, which
@@ -458,10 +507,9 @@ namespace MiNET.Net.Rtc
 				// A drain already in progress on another thread releases _gate for the duration of
 				// each OnDecrypted call (see DrainQueueLocked), so this call can reach here concurrently
 				// with one already under way. Starting a second, overlapping drain here would decrypt,
-				// or call BouncyCastle's Receive/ReceivePending, and write _receiveScratch, from two
-				// threads at once. The datagram this call just enqueued onto _inbound is not lost:
-				// the in-progress drain's own outer loop re-checks _inbound.Reader.Count after every
-				// item it finishes and will pick it up.
+				// and write _receiveScratch, from two threads at once. The datagram this call just
+				// enqueued onto _inbound is not lost: the in-progress drain's own outer loop re-checks
+				// _inbound.Reader.Count after every item it finishes and will pick it up.
 				if (_draining) return;
 
 				DrainLocked();
@@ -501,48 +549,33 @@ namespace MiNET.Net.Rtc
 		///     at a time - the direct-feed slot first, then <see cref="_inbound" />, both via
 		///     <see cref="TryReadNow" /> - into <see cref="_directFeedBuffer" /> (reused here purely as
 		///     scratch space for the raw, still-undecrypted bytes; a plain memory copy, never a heap
-		///     allocation) and dispatching each one to <see cref="ProcessApplicationDatagramLocked" /> or
-		///     <see cref="DrainOneBcDatagramLocked" /> depending on whether it carries an epoch-0 record
-		///     (<see cref="ContainsEpochZeroRecord" />), until nothing is left queued. Must be called only
-		///     from <see cref="DrainLocked" />, with <see cref="_draining" /> already set: that is what
-		///     lets a second, concurrent <see cref="FeedDatagram" /> call safely just enqueue and return
-		///     (see <see cref="DrainUnderGate" />) instead of starting an overlapping drain of its own,
-		///     and this loop's own re-check of <see cref="TryReadNow" /> after each item is what picks up
+		///     allocation) and dispatching each one to <see cref="ProcessApplicationDatagramLocked" />,
+		///     until nothing is left queued. Must be called only from <see cref="DrainLocked" />, with
+		///     <see cref="_draining" /> already set: that is what lets a second, concurrent
+		///     <see cref="FeedDatagram" /> call safely just enqueue and return (see
+		///     <see cref="DrainUnderGate" />) instead of starting an overlapping drain of its own, and
+		///     this loop's own re-check of <see cref="TryReadNow" /> after each item is what picks up
 		///     whatever queued while <see cref="_gate" /> was released for an <see cref="OnDecrypted" />
-		///     call. Routing an epoch-0-carrying datagram through <see cref="DrainOneBcDatagramLocked" />
-		///     re-stages it into the direct-feed slot first (<see cref="_directFeedLength" />) so
-		///     BouncyCastle's own pull-based <see cref="DtlsTransport.Receive(Span{byte}, int)" /> can
-		///     read it back out through the same <see cref="TryReadNow" /> path unchanged; without that
-		///     re-stage, BouncyCastle's <c>Receive</c> would instead pull whatever comes next out of
-		///     <see cref="_inbound" />, which could be a native-eligible datagram this loop had not yet
-		///     examined.
+		///     call.
 		///     <para>
-		///     Both dispatch targets decrypt into the shared <see cref="_receiveScratch" /> buffer and
-		///     release <see cref="_gate" /> around their own <see cref="OnDecrypted" /> call; routing every
-		///     datagram through this one loop, rather than letting native decode run inline from
-		///     <see cref="FeedDatagram" /> directly, is what keeps that sharing safe - two datagrams
-		///     decrypting concurrently on different threads would otherwise be free to clobber each
-		///     other's plaintext out from under a delivery still reading it. The disposed/closed check
-		///     after each dispatch stops the loop the instant either fires mid-iteration (a subscriber
-		///     disposing the session, or an alert record calling <see cref="RequestClose" />): the
-		///     remaining queued datagrams, if any, are abandoned rather than processed, exactly like
-		///     <see cref="Dispose" /> abandoning whatever is still queued in <see cref="_inbound" />.
+		///     <see cref="ProcessApplicationDatagramLocked" /> decrypts into the shared
+		///     <see cref="_receiveScratch" /> buffer and releases <see cref="_gate" /> around its own
+		///     <see cref="OnDecrypted" /> call; routing every datagram through this one loop, rather than
+		///     letting native decode run inline from <see cref="FeedDatagram" /> directly, is what keeps
+		///     that sharing safe - two datagrams decrypting concurrently on different threads would
+		///     otherwise be free to clobber each other's plaintext out from under a delivery still
+		///     reading it. The disposed/closed check after each dispatch stops the loop the instant
+		///     either fires mid-iteration (a subscriber disposing the session, or an alert record calling
+		///     <see cref="RequestClose" />): the remaining queued datagrams, if any, are abandoned rather
+		///     than processed, exactly like <see cref="Dispose" /> abandoning whatever is still queued in
+		///     <see cref="_inbound" />.
 		///     </para>
 		/// </summary>
 		private void DrainQueueLocked()
 		{
 			while (TryReadNow(_directFeedBuffer, out int length))
 			{
-				ReadOnlySpan<byte> raw = _directFeedBuffer.AsSpan(0, length);
-				if (!ContainsEpochZeroRecord(raw))
-				{
-					ProcessApplicationDatagramLocked(raw);
-				}
-				else
-				{
-					_directFeedLength = length;
-					DrainOneBcDatagramLocked();
-				}
+				ProcessApplicationDatagramLocked(_directFeedBuffer.AsSpan(0, length));
 
 				if (Volatile.Read(ref _disposed) != 0 || _closed) return;
 			}
@@ -576,8 +609,9 @@ namespace MiNET.Net.Rtc
 		///     block until any in-flight callback has fully completed, and after it returns no callback
 		///     can start later either, so by the time <see cref="_closed" /> is read, <see cref="RequestClose" />
 		///     has either already run to completion or can never run at all: the read is deterministic,
-		///     not a race. The transport is closed directly since it was never stored into
-		///     <see cref="_dtlsTransport" />.
+		///     not a race. The transport is closed directly: this session never retains a reference to
+		///     it at all, on either the success or the raced-close path (see <see cref="RunHandshake" />'s
+		///     own remarks).
 		///     </para>
 		/// </summary>
 		public async Task<bool> DoHandshakeAsync(CancellationToken cancellationToken)
@@ -604,12 +638,12 @@ namespace MiNET.Net.Rtc
 					return false;
 				}
 
-				_dtlsTransport = transport;
-
 				// Assigned strictly before _handshakeDone's volatile write a few lines down publishes
-				// it, on this same thread: the same safe-publication argument SendApplicationData's own
-				// doc comment makes for _dtlsTransport applies here too, so a caller observing
-				// _handshakeDone true is guaranteed to see a non-null _recordCrypto as well.
+				// it, on this same thread: a caller observing _handshakeDone true is guaranteed to see a
+				// non-null _recordCrypto as well. _finalFlightCache needs the identical argument: the
+				// handshake thread's last write to it (SendToWire, still on this same call stack inside
+				// RunHandshake above) happens strictly before this same write, so it too is safely
+				// published by the time any reader can observe _handshakeDone true.
 				_recordCrypto = new DtlsRecordCrypto(CapturedKeys, _isServer);
 
 				_handshakeDone = true;
@@ -623,6 +657,17 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
+		/// <summary>
+		///     Drives BouncyCastle's blocking Accept/Connect to completion and returns the resulting
+		///     <see cref="DtlsTransport" /> to <see cref="DoHandshakeAsync" />, which never stores it into
+		///     a field: nothing outside this one call ever touches BouncyCastle again, so the transport,
+		///     the handshake protocol state, and everything else BouncyCastle built are free to be
+		///     collected the moment this method's caller is done with the local variable. Every
+		///     <see cref="DatagramTransportAdapter.Send" />/<see cref="DatagramTransportAdapter.Receive(Span{byte},int)" />
+		///     call BouncyCastle makes while this method runs - the only two places that touch
+		///     <see cref="_finalFlightCache" /> - happens synchronously on this same thread, so that cache
+		///     needs no lock of its own for the whole span this method is running.
+		/// </summary>
 		private DtlsTransport RunHandshake()
 		{
 			_capturingCrypto = new CapturingTlsCrypto();
@@ -675,8 +720,8 @@ namespace MiNET.Net.Rtc
 		///     encrypt call on the instance being disposed.
 		///     </para>
 		///     <para>
-		///     The disposed guard and <see cref="Dispose" />'s own <c>_recordCrypto?.Dispose()</c> /
-		///     <c>_dtlsTransport?.Close()</c> calls are synchronized on <see cref="_sendGate" /> itself
+		///     The disposed guard and <see cref="Dispose" />'s own <c>_recordCrypto?.Dispose()</c>
+		///     call are synchronized on <see cref="_sendGate" /> itself
 		///     (chosen over a second, separate flag-only scheme: <see cref="_disposed" /> already exists
 		///     and is set atomically, first thing, in <see cref="Dispose" />, before anything else -
 		///     reusing it needs no new field). Lock-order proof: both the disposed check below and
@@ -771,125 +816,20 @@ namespace MiNET.Net.Rtc
 		}
 
 		/// <summary>
-		///     One receive-plus-drain cycle for exactly one already-staged raw datagram (the direct-feed
-		///     slot, re-staged there by <see cref="DrainQueueLocked" /> for this call):
-		///     <see cref="DtlsTransport.Receive" /> pulls it via <see cref="TryReadNow" /> and decodes its
-		///     first record; <see cref="DtlsTransport.ReceivePending" /> then drains any further records
-		///     BouncyCastle bundled from that same datagram without touching the queue again. Does not
-		///     itself loop over further queued datagrams - <see cref="DrainQueueLocked" /> is the single
-		///     loop that does, across both this method and <see cref="ProcessApplicationDatagramLocked" />,
-		///     so that only one of the two is ever pulling from the queue or writing
-		///     <see cref="_receiveScratch" /> at a time. <see cref="_bcOneShotOnly" /> brackets the whole
-		///     call for a related reason: BouncyCastle discarding this record internally (wrong epoch, bad
-		///     MAC, a duplicate it already has state for) makes its own <c>Receive</c> retry against
-		///     <see cref="TryReadNow" /> again before ever returning to us, and without the guard that
-		///     retry would fall through past the now-empty direct-feed slot straight into
-		///     <see cref="_inbound" />, pulling out whatever <see cref="DrainQueueLocked" /> queued up next
-		///     - which <see cref="DrainQueueLocked" /> has not routed yet and may not even be epoch 0.
-		///     With the guard, that retry instead reports nothing available and BouncyCastle's bounded
-		///     wait (see below) simply expires, exactly as if the queue really were empty; the item
-		///     <see cref="DrainQueueLocked" />'s own next iteration was going to route stays untouched.
-		///     <para>
-		///     The 1 passed to <c>Receive</c> is load-bearing, not a rounding choice.
-		///     BouncyCastle's own <c>Timeout.ForWaitMillis</c> treats 0 as "no deadline" (returns
-		///     null), and <c>Timeout.GetWaitMillis(null, ...)</c> always returns 0, so
-		///     <c>DtlsRecordLayer.Receive(buf, 0)</c> never builds a real deadline. If it discards a
-		///     record (wrong epoch, bad MAC, replay, retransmitted Finished per RFC 9146) it retries
-		///     internally against that same always-0, never-expiring wait and, once the queue is
-		///     genuinely empty, spins at CPU speed on this thread forever (verified against BC 2.7.0's
-		///     <c>DtlsRecordLayer.cs</c> and <c>Timeout.cs</c> source directly, not inferred). A
-		///     waitMillis of 1 makes <c>Timeout.ForWaitMillis</c> build a real, non-null deadline, so
-		///     BouncyCastle's retry loop provably re-checks a real elapsed-time computation each pass
-		///     and exits once that ~1 ms has genuinely elapsed; <see cref="ReceiveFromQueue" /> honours
-		///     it by actually blocking up to that long (via the same <see cref="CancellationTokenSource" />
-		///     already used for the handshake), so the wait is a bounded yield, not a busy spin.
-		///     </para>
-		///     <para>
-		///     Must be called, and always returns, with
-		///     <see cref="_gate" /> held exactly once (its only caller, <see cref="DrainQueueLocked" />,
-		///     is itself only ever reached via <see cref="DrainLocked" />, which already holds it via an
-		///     enclosing <c>lock</c>). Inside the <c>while</c>, the gate is released for the exact
-		///     duration of the <see cref="OnDecrypted" /> call and reacquired immediately after, via
-		///     explicit <see cref="Monitor.Exit(object)" />/<see cref="Monitor.Enter(object)" /> rather
-		///     than a nested <c>lock</c>: a plain .NET <c>lock</c> is reentrant, so nesting one here would
-		///     keep the gate held across the whole callback, defeating the purpose of releasing it. This
-		///     is what lets a slow subscriber (<see cref="SctpAssociation.OnPacketReceived" />) run
-		///     without blocking a concurrent <see cref="FeedDatagram" /> call on another thread, and what
-		///     stops a SACK a handler sends synchronously in response
-		///     (<see cref="DtlsSession.SendApplicationData" />, <see cref="_sendGate" />) from ever
-		///     nesting under this gate. The reentrancy and deferred-scratch-return invariants this
-		///     method's callers document still hold across the released window: <see cref="_draining" />
-		///     is set <see langword="true" /> by <see cref="DrainLocked" /> before this method is ever
-		///     entered, and is not cleared until its <c>finally</c> after
-		///     <see cref="DrainQueueLocked" /> returns, so any <see cref="Dispose" /> that manages to run
-		///     during the window - reentrant on this same thread (a subscriber calling
-		///     <see cref="Dispose" /> synchronously), or genuinely concurrent on another thread (possible
-		///     because the gate is not held throughout) - observes <see cref="_draining" /> true
-		///     under its own <c>lock (_gate)</c> and defers returning <see cref="_receiveScratch" />/
-		///     <see cref="_directFeedBuffer" /> to <see cref="DrainLocked" />'s own unwind, rather than
-		///     freeing either out from under the still-in-flight call.
-		///     </para>
-		/// </summary>
-		private void DrainOneBcDatagramLocked()
-		{
-			DtlsTransport transport = _dtlsTransport;
-			if (transport == null)
-			{
-				_directFeedLength = -1;
-				return;
-			}
-
-			_bcOneShotOnly = true;
-			try
-			{
-				int n = transport.Receive(_receiveScratch.AsSpan(), 1);
-				while (n > 0)
-				{
-					int length = n;
-					Monitor.Exit(_gate);
-					try
-					{
-						OnDecrypted?.Invoke(_receiveScratch.AsMemory(0, length));
-					}
-					finally
-					{
-						Monitor.Enter(_gate);
-					}
-
-					// Since the gate is released across the call above, a subscriber may have called
-					// Dispose() from inside that invocation, or a concurrent Dispose on another thread
-					// may have run while the gate was released. Either way Dispose is safe here (see
-					// this method's own doc comment): it closes the transport right away, so this loop
-					// must not call anything on it again once disposal has happened.
-					if (Volatile.Read(ref _disposed) != 0) return;
-
-					n = transport.ReceivePending(_receiveScratch.AsSpan(), null);
-				}
-			}
-			finally
-			{
-				_bcOneShotOnly = false;
-			}
-		}
-
-		/// <summary>
-		///     Serves both the blocking handshake thread (positive waitMillis, BouncyCastle's own
-		///     retransmission schedule) and <see cref="DrainOneBcDatagramLocked" />'s post-handshake drain
-		///     (always 1, never 0; see that method's doc comment). Every "nothing available" exit funnels
-		///     through <see cref="NoDataOrThrow" /> so a session closed mid-wait
+		///     BouncyCastle's own pull, reached only from <see cref="DatagramTransportAdapter.Receive(Span{byte},int)" />
+		///     while <see cref="RunHandshake" /> is still on the stack: nothing calls this once the
+		///     handshake has finished and BouncyCastle's transport has been dropped. Every "nothing
+		///     available" exit funnels through <see cref="NoDataOrThrow" /> so a session closed mid-wait
 		///     (<see cref="RequestClose" />) aborts the caller instead of returning an ordinary -1 for
-		///     it to retry.
+		///     it to retry. Every datagram this method actually hands back clears
+		///     <see cref="_finalFlightCache" /> first: BouncyCastle is about to process something it
+		///     received, so whatever it sends from here on is a new flight, not a continuation of
+		///     whatever was captured before this receive.
 		///     <para>
 		///     The zero-allocation read (<see cref="TryReadNow" />) is always attempted
-		///     first, regardless of <paramref name="waitMillis" />. Zero per-datagram allocation is a
-		///     hard requirement of the post-handshake path; <see cref="DrainOneBcDatagramLocked" /> passing
-		///     1 rather than 0 must not, by itself, move every post-handshake receive onto the
-		///     <see cref="CancellationTokenSource" />-and-OS-timer path when the very datagram being
-		///     drained is already sitting in <see cref="_inbound" /> or the direct-feed slot (it always
-		///     is: <see cref="DrainQueueLocked" /> re-stages it there itself before ever calling
-		///     <see cref="DrainOneBcDatagramLocked" />). The bounded wait below is reached only when the queue
-		///     is genuinely empty: BouncyCastle's own discard-retry case or the handshake's
-		///     network-bound retransmission wait, both already rare/already-waiting-on-the-network, so
+		///     first, regardless of <paramref name="waitMillis" />. The bounded wait below is reached
+		///     only when the queue is genuinely empty: BouncyCastle's own discard-retry case or the
+		///     handshake's network-bound retransmission wait, both already rare/already-waiting-on-the-network, so
 		///     paying for a timer there is acceptable. <see cref="CancellationTokenSource.TryReset" />
 		///     was considered for reuse (verified against its Microsoft Learn documentation) but
 		///     rejected: it is documented for "the sole owner... when the operation... has completed
@@ -901,7 +841,11 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		private int ReceiveFromQueue(Span<byte> buffer, int waitMillis)
 		{
-			if (TryReadNow(buffer, out int length)) return length;
+			if (TryReadNow(buffer, out int length))
+			{
+				_finalFlightCache.Clear();
+				return length;
+			}
 
 			if (waitMillis <= 0) return NoDataOrThrow();
 
@@ -918,7 +862,11 @@ namespace MiNET.Net.Rtc
 				}
 			}
 
-			if (canRead && TryReadNow(buffer, out length)) return length;
+			if (canRead && TryReadNow(buffer, out length))
+			{
+				_finalFlightCache.Clear();
+				return length;
+			}
 
 			return NoDataOrThrow();
 		}
@@ -927,17 +875,14 @@ namespace MiNET.Net.Rtc
 		///     Checks <see cref="FeedDatagram" />'s direct-feed slot first. It is
 		///     only ever live for the duration of one <see cref="FeedDatagram" /> call (see that
 		///     method's doc comment), so consuming and clearing it here, the instant it is used, is what
-		///     makes that guarantee hold: BouncyCastle has the bytes copied into its own buffer
+		///     makes that guarantee hold: the caller has the bytes copied into its own buffer
 		///     (<paramref name="buffer" />, owned by the caller further up this same synchronous call
 		///     chain) before this method returns, so nothing outside this call ever observes the slot.
 		///     <see cref="DrainQueueLocked" /> calls this with <see cref="_directFeedBuffer" /> itself as
 		///     <paramref name="buffer" />, so the direct-feed branch below copies that buffer onto itself;
 		///     deliberate and safe (<see cref="Span{T}.CopyTo(Span{T})" /> is a <c>memmove</c> and the
 		///     source and destination ranges are identical), reusing the buffer as generic staging space
-		///     for the raw, still-undecrypted bytes rather than adding a second one. While
-		///     <see cref="_bcOneShotOnly" /> is set, an empty direct-feed slot is reported as nothing
-		///     available rather than falling through to <see cref="_inbound" /> - see
-		///     <see cref="DrainOneBcDatagramLocked" />'s own remarks for why.
+		///     for the raw, still-undecrypted bytes rather than adding a second one.
 		/// </summary>
 		private bool TryReadNow(Span<byte> buffer, out int length)
 		{
@@ -947,12 +892,6 @@ namespace MiNET.Net.Rtc
 				_directFeedBuffer.AsSpan(0, length).CopyTo(buffer);
 				_directFeedLength = -1;
 				return true;
-			}
-
-			if (_bcOneShotOnly)
-			{
-				length = 0;
-				return false;
 			}
 
 			if (!_inbound.Reader.TryRead(out (byte[] Leased, int Length) item))
@@ -987,20 +926,36 @@ namespace MiNET.Net.Rtc
 
 		/// <summary>
 		///     BouncyCastle's own write path, reached only from <see cref="DatagramTransportAdapter.Send(ReadOnlySpan{byte})" />
-		///     - our own sends (<see cref="SendApplicationData" />, <see cref="TrySendCloseNotifyLocked" />)
-		///     call <see cref="_sendToWire" /> directly and never come through here. Drops the datagram
-		///     once <see cref="_closed" /> is set instead of passing it through: RFC 5246 7.2.1 requires
-		///     nothing further on the wire once a close_notify has gone out in either direction, and
-		///     BouncyCastle's own <c>Close()</c> (called from <see cref="Dispose" /> right after our native
-		///     close_notify) generates and sends one more alert of its own, on its stalled epoch-1
-		///     sequence, that this call chain is the only place able to catch. The whole call chain, from
-		///     <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" /> down to <see cref="UdpMux.Send" />, is
-		///     synchronous, so there is no reason to lease a copy just to hand out a
-		///     <see cref="ReadOnlyMemory{T}" /> nobody keeps past the call.
+		///     while <see cref="RunHandshake" /> is still on the stack - our own sends
+		///     (<see cref="SendApplicationData" />, <see cref="TrySendCloseNotifyLocked" />,
+		///     <see cref="HandleEpochZeroRecordLocked" />) call <see cref="_sendToWire" /> directly and
+		///     never come through here. Drops the datagram once <see cref="_closed" /> is set instead of
+		///     passing it through: a handshake can be cancelled, or the session disposed, while
+		///     BouncyCastle is still mid-Accept/Connect on its own thread and about to call
+		///     <c>transport.Close()</c> (see <see cref="DoHandshakeAsync" />'s raced-cancellation branch),
+		///     which generates and sends one more record of its own on the way out - this is the one
+		///     place able to catch that.
+		///     <para>
+		///     Every datagram actually forwarded is also appended to <see cref="_finalFlightCache" />,
+		///     capped at <see cref="MaxFinalFlightDatagrams" /> (oldest dropped first): this is how the
+		///     cache comes to hold our final flight once the handshake completes, since
+		///     <see cref="ReceiveFromQueue" /> clears it on every inbound datagram BouncyCastle
+		///     processes, leaving only what was sent since the last receive.
+		///     </para>
+		///     <para>
+		///     The whole call chain, from <see cref="DtlsTransport.Send(ReadOnlySpan{byte})" /> down to
+		///     <see cref="UdpMux.Send" />, is synchronous, so there is no reason to lease a copy just to
+		///     hand out a <see cref="ReadOnlyMemory{T}" /> nobody keeps past the call; the copy taken here
+		///     for <see cref="_finalFlightCache" /> is the one exception, since that cache does outlive
+		///     the call.
+		///     </para>
 		/// </summary>
 		private void SendToWire(ReadOnlySpan<byte> buffer)
 		{
 			if (_closed) return;
+
+			if (_finalFlightCache.Count >= MaxFinalFlightDatagrams) _finalFlightCache.RemoveAt(0);
+			_finalFlightCache.Add(buffer.ToArray());
 
 			_sendToWire(buffer);
 		}
@@ -1042,9 +997,11 @@ namespace MiNET.Net.Rtc
 		///     Marks the session closed (<see cref="RequestClose" />), unblocking a handshake still
 		///     running on the <see cref="Task.Run" /> thread, then, under <see cref="_gate" />, sends a
 		///     close_notify of our own (<see cref="TrySendCloseNotifyLocked" />, best effort - a no-op if
-		///     the native layer was never established), closes the BouncyCastle transport, and disposes
-		///     the native record layer if the handshake reached that far, and returns every still-queued
-		///     lease to the pool. The gate excludes a concurrently running
+		///     the native layer was never established) and disposes the native record layer if the
+		///     handshake reached that far, and returns every still-queued lease to the pool. Never closes
+		///     BouncyCastle's transport: it was never retained past the handshake in the first place (see
+		///     <see cref="RunHandshake" />'s own remarks), so there is nothing here to close, and nothing
+		///     BC-originated ever touches the wire once the handshake is done. The gate excludes a concurrently running
 		///     <see cref="FeedDatagram" /> drain called from another thread: either the
 		///     drain finishes and releases the gate before this section runs, or this section runs
 		///     first and the drain's own disposed check, repeated inside its own gate acquisition,
@@ -1059,9 +1016,9 @@ namespace MiNET.Net.Rtc
 		///     <see cref="_directFeedBuffer" /> shares <see cref="_receiveScratch" />'s
 		///     lifetime exactly, so it is returned, or deferred, alongside it on both branches.
 		///     <para>
-		///     <c>TrySendCloseNotifyLocked()</c>, <c>_dtlsTransport.Close()</c>, and
-		///     <c>_recordCrypto.Dispose()</c> all run inside one nested <c>lock (_sendGate)</c>, in that
-		///     order (the close_notify needs <see cref="_recordCrypto" /> still alive), the same lock
+		///     <c>TrySendCloseNotifyLocked()</c> and <c>_recordCrypto.Dispose()</c> run inside one nested
+		///     <c>lock (_sendGate)</c>, in that order (the close_notify needs <see cref="_recordCrypto" />
+		///     still alive), the same lock
 		///     <see cref="SendApplicationData" /> takes around its own disposed check and
 		///     encrypt-and-send call - see that method's own remarks for the full
 		///     lock-order proof, which also covers <see cref="ProcessApplicationDatagramLocked" />'s own
@@ -1085,8 +1042,13 @@ namespace MiNET.Net.Rtc
 				lock (_sendGate)
 				{
 					TrySendCloseNotifyLocked();
-					_dtlsTransport?.Close();
 					_recordCrypto?.Dispose();
+
+					// Only safe once _recordCrypto is disposed: it holds the two IV arrays here as its
+					// live send/receive salts for as long as it runs (see CapturedDtlsKeys.Zero's own
+					// remarks), and this same _sendGate section is what guarantees encrypting and
+					// disposing/zeroing can never race (see SendApplicationData's own lock-order proof).
+					_capturingCrypto?.Captured?.Zero();
 				}
 
 				ReclaimAbandonedLeasesLocked();

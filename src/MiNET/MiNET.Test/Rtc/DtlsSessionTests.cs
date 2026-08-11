@@ -47,6 +47,19 @@ namespace MiNET.Test.Rtc
 			StringAssert.Matches(certificate.FingerprintSha256, new Regex("^([0-9A-F]{2}:){31}[0-9A-F]{2}$"));
 		}
 
+		/// <summary>
+		///     Pins the coupling <see cref="DtlsSession.MaxSendPayloadLength" />'s own comment names: the
+		///     DTLS layer must accept anything SCTP can ever hand it, since every <see cref="SctpAssociation" />
+		///     send path builds into an <see cref="SctpPacket.MaxSize" /> buffer. If this ever shrank below
+		///     that, a legitimate full-size SCTP packet would start throwing out of
+		///     <see cref="DtlsSession.SendApplicationData" /> instead of being sent.
+		/// </summary>
+		[TestMethod]
+		public void MaxSendPayloadLength_IsAtLeastTheSctpPacketCeiling()
+		{
+			Assert.IsTrue(DtlsSession.MaxSendPayloadLength >= SctpPacket.MaxSize);
+		}
+
 		[TestMethod]
 		public async Task Handshake_Completes_AndCarriesApplicationData()
 		{
@@ -161,6 +174,42 @@ namespace MiNET.Test.Rtc
 			using var aesGcm = new AesGcm(writeKey, 16);
 			aesGcm.Decrypt(nonce, ciphertext, tag, plaintext, aad);
 			return plaintext;
+		}
+
+		/// <summary>
+		///     <see cref="CapturedDtlsKeys" /> holds plaintext copies of both write keys and IVs for the
+		///     session's whole lifetime; <see cref="DtlsSession.Dispose" /> zeroes them once
+		///     <see cref="DtlsRecordCrypto" /> (which uses the two IV arrays as its live send/receive
+		///     salts for as long as it runs) is itself disposed. The properties keep returning the same
+		///     array instances afterward - only their contents change.
+		/// </summary>
+		[TestMethod]
+		public async Task Dispose_ZeroesTheCapturedKeyMaterial()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			CapturedDtlsKeys keys = server.CapturedKeys;
+			Assert.IsTrue(keys.ClientWriteKey.Any(b => b != 0), "sanity: expected real key material before dispose");
+			Assert.IsTrue(keys.ServerWriteKey.Any(b => b != 0), "sanity: expected real key material before dispose");
+
+			server.Dispose();
+
+			CollectionAssert.AreEqual(new byte[keys.ClientWriteKey.Length], keys.ClientWriteKey, "expected the client write key to be zeroed on dispose");
+			CollectionAssert.AreEqual(new byte[keys.ServerWriteKey.Length], keys.ServerWriteKey, "expected the server write key to be zeroed on dispose");
+			CollectionAssert.AreEqual(new byte[keys.ClientWriteIv.Length], keys.ClientWriteIv, "expected the client write IV to be zeroed on dispose");
+			CollectionAssert.AreEqual(new byte[keys.ServerWriteIv.Length], keys.ServerWriteIv, "expected the server write IV to be zeroed on dispose");
+
+			client.Dispose();
 		}
 
 		[TestMethod]
@@ -490,32 +539,78 @@ namespace MiNET.Test.Rtc
 			client.Dispose();
 		}
 
+		/// <summary>Finds the last datagram in <paramref name="datagrams" /> whose first record declares epoch 0: for a live handshake capture, the peer's own ChangeCipherSpec, the shape a real final-flight retransmission carries at its front.</summary>
+		private static byte[] FindLastEpochZeroDatagram(List<byte[]> datagrams)
+		{
+			return datagrams.Last(d => DtlsRecordCrypto.TryReadRecordHeader(d, out _, out int epoch, out _) && epoch == 0);
+		}
+
 		/// <summary>
-		///     A retransmitted final flight bundles CCS at epoch 0 with Finished at epoch 1 in one
-		///     datagram, and BouncyCastle owns that retransmission logic entirely; splitting the datagram
-		///     per record would break it. This captures the last epoch-0 raw datagram of a live handshake
-		///     (the client's own ChangeCipherSpec, immediately preceding its epoch-1 Finished - the
-		///     closest this harness's synchronous, one-record-per-datagram pump gets to a real final-flight
-		///     shape) and replays it at the server after the handshake has completed, simulating the peer
-		///     retransmitting a flight it believes was lost.
-		///     <para>
-		///     The routing decision is what is under test, not BouncyCastle's own reaction to it: an
-		///     established <see cref="Org.BouncyCastle.Tls.DtlsTransport" /> does not answer a stray
-		///     handshake-phase record with anything on the wire once <c>Accept</c>/<c>Connect</c> has
-		///     already returned (verified empirically - every server-sent datagram was captured across
-		///     this exact re-feed and there were none), so "the BC route was taken" is proven by what does
-		///     NOT happen: none of <see cref="DtlsRecordCrypto" />'s three counters move (the native layer
-		///     never even attempted to decrypt it) and <see cref="DtlsSession.DroppedRecords" /> does not
-		///     move either (a deleted routing decision would fall through to native processing instead,
-		///     where content type 22 at epoch 0 hits the "anything else" branch and counts as dropped -
-		///     the one counter the previous version of this test left unchecked). The trailing send/receive
-		///     round trip is the other half: it proves the session, and specifically the retained
-		///     BouncyCastle transport this datagram was actually handed to, is still fully functional
-		///     afterward, not merely that nothing crashed.
-		///     </para>
+		///     A server-role handshake ends with the server's own final flight (ChangeCipherSpec at epoch
+		///     0, Finished at epoch 1) as the last thing it ever sends, so <see cref="DtlsSession.FinalFlightCacheCount" />
+		///     must be non-empty once the handshake completes, and its contents must be exactly the tail
+		///     of what the wire actually observed. Feeding the server a datagram whose first record
+		///     declares epoch 0 (here, the client's own ChangeCipherSpec, the closest this harness's
+		///     synchronous, one-record-per-datagram pump gets to a real peer retransmitting a lost final
+		///     flight) then proves the resend itself: byte-identical to that same tail, on the same wire
+		///     closure the live handshake used.
 		/// </summary>
 		[TestMethod]
-		public async Task FeedDatagram_PostHandshakeEpochZeroRecord_RoutesToBcTransport_NativeCountersStayZero()
+		public async Task EpochZeroRecord_TriggersVerbatimResendOfTheCachedFinalFlight_MatchingWhatTheWireObserved()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			var serverToClientDatagrams = new List<byte[]>();
+			var clientToServerDatagrams = new List<byte[]>();
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes =>
+			{
+				serverToClientDatagrams.Add(bytes.ToArray());
+				client.FeedDatagram(bytes);
+			});
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				clientToServerDatagrams.Add(bytes.ToArray());
+				server.FeedDatagram(bytes);
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			int cacheCount = server.FinalFlightCacheCount;
+			Assert.IsTrue(cacheCount > 0, "expected a server-role handshake to end with a non-empty final-flight cache");
+			Assert.IsTrue(cacheCount <= serverToClientDatagrams.Count);
+
+			List<byte[]> expectedFinalFlight = serverToClientDatagrams.Skip(serverToClientDatagrams.Count - cacheCount).ToList();
+			byte[] triggerDatagram = FindLastEpochZeroDatagram(clientToServerDatagrams);
+
+			long resendsBefore = server.ResendsPerformed;
+			int preTriggerCount = serverToClientDatagrams.Count;
+
+			server.FeedDatagram(triggerDatagram);
+
+			Assert.AreEqual(resendsBefore + 1, server.ResendsPerformed);
+			List<byte[]> resent = serverToClientDatagrams.Skip(preTriggerCount).ToList();
+			Assert.AreEqual(expectedFinalFlight.Count, resent.Count, "expected the resend to re-emit exactly the cached final flight, one datagram per cached entry");
+			for (int i = 0; i < expectedFinalFlight.Count; i++)
+			{
+				CollectionAssert.AreEqual(expectedFinalFlight[i], resent[i], $"expected resent datagram {i} to be byte-identical to what the wire originally observed");
+			}
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     Two epoch-0 triggers inside the same 1-second window must produce exactly one resend; only
+		///     advancing the clock seam (<see cref="DtlsSession.ClockNowMillis" />) past that window
+		///     re-arms it. Fully clock-driven, no real wall-clock wait.
+		/// </summary>
+		[TestMethod]
+		public async Task EpochZeroRecord_RateLimitsResends_ToAtMostOnePerSecond_AdvancingTheClockReArms()
 		{
 			var serverCert = RtcCertificate.CreateSelfSigned();
 			var clientCert = RtcCertificate.CreateSelfSigned();
@@ -533,30 +628,191 @@ namespace MiNET.Test.Rtc
 			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
 			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
 			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(server.FinalFlightCacheCount > 0);
 
-			Assert.IsTrue(clientToServerDatagrams.Count > 0, "expected to have captured at least one client->server handshake datagram");
-			byte[] finalFlightDatagram = clientToServerDatagrams.Last(d => DtlsRecordCrypto.TryReadRecordHeader(d, out _, out int e, out _) && e == 0);
+			byte[] triggerDatagram = FindLastEpochZeroDatagram(clientToServerDatagrams);
 
-			long malformedBefore = server.RecordCrypto.MalformedRecords;
-			long decryptFailuresBefore = server.RecordCrypto.DecryptFailures;
-			long replayDropsBefore = server.RecordCrypto.ReplayDrops;
-			long droppedRecordsBefore = server.DroppedRecords;
+			long fakeNow = 1_000_000;
+			server.ClockNowMillis = () => fakeNow;
 
-			// Simulate the peer retransmitting a flight it believes was lost, well after the handshake
-			// has actually completed on both sides.
-			server.FeedDatagram(finalFlightDatagram);
+			server.FeedDatagram(triggerDatagram);
+			Assert.AreEqual(1L, server.ResendsPerformed, "expected the first trigger to resend: cache non-empty, no prior resend");
 
-			Assert.AreEqual(malformedBefore, server.RecordCrypto.MalformedRecords, "the native record layer must never even attempt to decrypt an epoch-0 record; routing it to BC must not count as malformed");
-			Assert.AreEqual(decryptFailuresBefore, server.RecordCrypto.DecryptFailures);
-			Assert.AreEqual(replayDropsBefore, server.RecordCrypto.ReplayDrops);
-			Assert.AreEqual(droppedRecordsBefore, server.DroppedRecords, "a deleted epoch-0 routing decision would fall through to native processing and count this as a dropped record; it must not move");
+			server.FeedDatagram(triggerDatagram);
+			Assert.AreEqual(1L, server.ResendsPerformed, "expected the second trigger inside the 1-second window to be rate-limited, not resent");
+			Assert.AreEqual(1L, server.EpochZeroRecordsDropped);
 
-			// The session, and specifically the BouncyCastle transport this datagram was actually handed
-			// to, must still be fully functional afterward.
+			fakeNow += 1000; // exactly the boundary: "at least 1 second has passed" must re-arm here.
+			server.FeedDatagram(triggerDatagram);
+			Assert.AreEqual(2L, server.ResendsPerformed, "expected advancing the clock seam past the 1-second window to re-arm the resend");
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     RFC 5246 7.2.1's "any data received after a closure alert is ignored" has a counterpart
+		///     here: an epoch-0 record must not cost the peer its other, legitimate records in the same
+		///     datagram. A coalesced datagram - the exact shape a real retransmitted final flight has
+		///     (ChangeCipherSpec at epoch 0 immediately followed by Finished at epoch 1) - must still
+		///     deliver whatever valid epoch-1 record follows the epoch-0 one.
+		/// </summary>
+		[TestMethod]
+		public async Task CoalescedDatagram_EpochZeroRecordFollowedByValidRecord_DeliversTheValidRecordNormally()
+		{
+			const byte ApplicationDataContentType = 23;
+
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			var clientToServerDatagrams = new List<byte[]>();
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				clientToServerDatagrams.Add(bytes.ToArray());
+				server.FeedDatagram(bytes);
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			byte[] epochZeroRecord = FindLastEpochZeroDatagram(clientToServerDatagrams);
+
+			using var forger = new DtlsRecordCrypto(client.CapturedKeys, isServer: false);
+			forger.SetSendSequenceForTesting(1);
+			byte[] appPayload = {9, 9, 9};
+			Span<byte> appWire = stackalloc byte[appPayload.Length + DtlsRecordCrypto.RecordOverhead];
+			int appLength = forger.EncryptRecord(ApplicationDataContentType, appPayload, appWire);
+			Assert.AreNotEqual(-1, appLength);
+
+			byte[] datagram = new byte[epochZeroRecord.Length + appLength];
+			epochZeroRecord.CopyTo(datagram, 0);
+			appWire.Slice(0, appLength).CopyTo(datagram.AsSpan(epochZeroRecord.Length));
+
+			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
+
+			server.FeedDatagram(datagram);
+
+			CollectionAssert.AreEqual(appPayload, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+			Assert.AreEqual(1L, server.ResendsPerformed, "expected the epoch-0 record ahead of the valid one to still trigger its own resend");
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     An epoch-0 header (13 bytes) declaring a fragment length that consumes the rest of the
+		///     datagram as garbage, with nothing valid before or after it, is the junk-prefix attack shape
+		///     F1+F2 names: an unauthenticated header alone must never cost more than a rate-limited
+		///     resend, never throw, and never allocate once the rate limit is active. A fixed fake clock
+		///     (never advancing) makes every trigger past the first provably rate-limited, regardless of
+		///     how fast or slow the machine running this test is.
+		/// </summary>
+		[TestMethod]
+		public async Task JunkPrefixDatagram_EpochZeroHeaderThenGarbage_HandledFully_AtMostOneResend_ZeroAllocationOnTheDropPath()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(server.FinalFlightCacheCount > 0);
+
+			const int garbageLength = 32;
+			byte[] junkDatagram = new byte[13 + garbageLength];
+			junkDatagram[0] = 22; // an arbitrary content type; the epoch-0 path never reads it
+			junkDatagram[1] = 0xFE;
+			junkDatagram[2] = 0xFD;
+			// epoch (bytes 3-4) left at 0; sequence (bytes 5-10) left at 0, neither read by the epoch-0 path.
+			junkDatagram[11] = (byte) (garbageLength >> 8);
+			junkDatagram[12] = (byte) garbageLength;
+			for (int i = 13; i < junkDatagram.Length; i++) junkDatagram[i] = 0xAA;
+
+			long fakeNow = 5000;
+			server.ClockNowMillis = () => fakeNow;
+
+			server.FeedDatagram(junkDatagram);
+			Assert.AreEqual(1L, server.ResendsPerformed, "expected the first-ever trigger to resend");
+
+			// Warm this exact path once more before measuring, then measure allocation across many more:
+			// every one of these is rate-limited (same fakeNow), so this is the pure drop-and-count path.
+			server.FeedDatagram(junkDatagram);
+
+			const int iterations = 500;
+			long before = GC.GetTotalAllocatedBytes(precise: true);
+			for (int i = 0; i < iterations; i++)
+			{
+				server.FeedDatagram(junkDatagram);
+			}
+			long after = GC.GetTotalAllocatedBytes(precise: true);
+
+			Assert.AreEqual(0L, after - before, "expected zero heap allocation on the rate-limited drop path");
+			Assert.AreEqual(1L, server.ResendsPerformed, "expected at most one resend total across every trigger in this test");
+
+			// The session is still fully alive: a genuinely new record still delivers.
 			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
 			client.SendApplicationData(new byte[] {1, 2, 3});
 			CollectionAssert.AreEqual(new byte[] {1, 2, 3}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     The role asymmetry F1+F2's design names: a client-role handshake's last handshake event is
+		///     a receive (the server's own Finished flight), so <see cref="DtlsSession.FinalFlightCacheCount" />
+		///     ends at zero, and empty is correct - a server that sent its final flight has, by
+		///     definition, already received ours. An epoch-0 record reaching a session with an empty cache
+		///     (the server's own ChangeCipherSpec, fed to the client here) is dropped and counted, never
+		///     answered, and never throws.
+		/// </summary>
+		[TestMethod]
+		public async Task EpochZeroRecord_ClientRoleWithEmptyCache_IsDroppedAndCounted_NoThrow()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			var serverToClientDatagrams = new List<byte[]>();
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes =>
+			{
+				serverToClientDatagrams.Add(bytes.ToArray());
+				client.FeedDatagram(bytes);
+			});
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			Assert.AreEqual(0, client.FinalFlightCacheCount, "expected a client-role handshake to end with an empty final-flight cache");
+
+			byte[] serverEpochZeroDatagram = FindLastEpochZeroDatagram(serverToClientDatagrams);
+
+			long droppedBefore = client.EpochZeroRecordsDropped;
+			long resendsBefore = client.ResendsPerformed;
+
+			client.FeedDatagram(serverEpochZeroDatagram);
+
+			Assert.AreEqual(droppedBefore + 1, client.EpochZeroRecordsDropped);
+			Assert.AreEqual(resendsBefore, client.ResendsPerformed, "expected no resend: the cache is empty");
+
+			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			client.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
+			server.SendApplicationData(new byte[] {7, 7, 7});
+			CollectionAssert.AreEqual(new byte[] {7, 7, 7}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
 
 			server.Dispose();
 			client.Dispose();
@@ -793,7 +1049,7 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     The other order F1 covers: a peer's close_notify already closed this side (sending our own
+		///     The other order: a peer's close_notify already closed this side (sending our own
 		///     response in the process, per RFC 5246 7.2.1) before <see cref="DtlsSession.Dispose" /> is
 		///     ever called on it. Without a send-once guard, <see cref="DtlsSession.Dispose" /> would try
 		///     to say goodbye a second time - <see cref="RequestClose" /> having already run inside the
@@ -847,9 +1103,9 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>
-		///     Shared by both F1 tests: every datagram captured must be exactly one record, a close_notify,
-		///     riding the native layer's live sequence (never BouncyCastle's stale one), and there must be
-		///     exactly one such datagram total.
+		///     Shared by the two close_notify-ordering tests above: every datagram captured must be
+		///     exactly one record, a close_notify, riding the native layer's live sequence (never
+		///     BouncyCastle's stale one), and there must be exactly one such datagram total.
 		/// </summary>
 		private static void AssertExactlyOneLiveCloseNotify(List<byte[]> sentDatagrams, CapturedDtlsKeys peerKeys)
 		{
