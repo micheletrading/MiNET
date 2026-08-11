@@ -386,11 +386,19 @@ namespace MiNET.Net.Rtc
 			ImmediateSack = immediateSack;
 		}
 
+		/// <summary>
+		///     RFC 4960 3.3.1 requires at least one byte of user data, so a value that is exactly the
+		///     12-byte fixed part (a zero-length payload) is rejected here, not merely one shorter than
+		///     it: <see cref="SctpReceiveBuffer" />'s byte-budget bound is exactly what stops an unlimited
+		///     number of buffered entries, and a zero-length chunk passes that budget test for free
+		///     (0 bytes always fits), so admitting one would let a peer grow <c>_fragments</c>/
+		///     <c>_orderedPending</c> without limit and without the budget ever engaging.
+		/// </summary>
 		public static bool TryParse(byte flags, ReadOnlySpan<byte> value, out DataChunkHeader header, out ReadOnlySpan<byte> payload)
 		{
 			header = default;
 			payload = default;
-			if (value.Length < 12) return false;
+			if (value.Length <= 12) return false;
 
 			uint tsn = BinaryPrimitives.ReadUInt32BigEndian(value.Slice(0, 4));
 			ushort streamId = BinaryPrimitives.ReadUInt16BigEndian(value.Slice(4, 2));
@@ -506,10 +514,19 @@ namespace MiNET.Net.Rtc
 			return true;
 		}
 
+		/// <summary>
+		///     Length-checked: an oversized <see cref="Info" /> (an unbounded echo of whatever a peer's
+		///     HEARTBEAT carried) must never throw out of a hot receive/tick path just because the reply
+		///     does not fit <paramref name="destination" />. Returns 0, writing nothing, when it does not
+		///     fit; the only production caller (<see cref="SctpAssociation.HandleHeartbeat" />) already
+		///     bounds <see cref="Info" /> before ever reaching here, so this is defense in depth, not the
+		///     primary guard.
+		/// </summary>
 		public int WriteTo(Span<byte> destination)
 		{
 			int parameterLength = 4 + Info.Length;
 			int valueLength = parameterLength + ((4 - parameterLength % 4) % 4);
+			if (SctpChunkCodec.HeaderLength + valueLength > destination.Length) return 0;
 
 			Span<byte> value = destination.Slice(4, valueLength);
 			BinaryPrimitives.WriteUInt16BigEndian(value.Slice(0, 2), HeartbeatInfoParameterType);

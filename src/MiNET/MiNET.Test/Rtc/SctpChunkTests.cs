@@ -325,6 +325,85 @@ namespace MiNET.Test.Rtc
 			BinaryPrimitives.WriteUInt16BigEndian(shortSack.Slice(8, 2), 5); // claims 5 gap blocks
 			BinaryPrimitives.WriteUInt16BigEndian(shortSack.Slice(10, 2), 0);
 			Assert.IsFalse(SackChunk.TryParse(shortSack, out _));
+
+			// A HEARTBEAT Info TLV shorter than its own 4-byte header.
+			Span<byte> truncatedHeartbeat = stackalloc byte[2];
+			Assert.IsFalse(HeartbeatChunk.TryParse(truncatedHeartbeat, out _));
+
+			// A HEARTBEAT Info TLV whose declared length reaches past the value it actually has.
+			Span<byte> shortHeartbeat = stackalloc byte[6];
+			BinaryPrimitives.WriteUInt16BigEndian(shortHeartbeat.Slice(0, 2), 1); // Heartbeat Info parameter type
+			BinaryPrimitives.WriteUInt16BigEndian(shortHeartbeat.Slice(2, 2), 20); // claims 20 bytes, value only has 6
+			Assert.IsFalse(HeartbeatChunk.TryParse(shortHeartbeat, out _));
+
+			// A HEARTBEAT Info TLV with the wrong parameter type.
+			Span<byte> wrongTypeHeartbeat = stackalloc byte[4];
+			BinaryPrimitives.WriteUInt16BigEndian(wrongTypeHeartbeat.Slice(0, 2), 2); // not the Heartbeat Info type (1)
+			BinaryPrimitives.WriteUInt16BigEndian(wrongTypeHeartbeat.Slice(2, 2), 4);
+			Assert.IsFalse(HeartbeatChunk.TryParse(wrongTypeHeartbeat, out _));
+		}
+
+		/// <summary>
+		///     HeartbeatChunk.WriteTo is the one production write path an inbound peer's own bytes can
+		///     drive the length of (an echoed Heartbeat Info): it never throws, even when the caller's
+		///     destination cannot hold the result - it reports that by returning 0, writing nothing.
+		/// </summary>
+		[TestMethod]
+		public void HeartbeatChunk_WriteTo_OversizedInfo_DoesNotThrow_ReturnsZero()
+		{
+			byte[] info = new byte[2000];
+			var heartbeat = new HeartbeatChunk(info);
+			Span<byte> packet = stackalloc byte[SctpPacket.MaxSize];
+			int n = SctpPacket.WriteHeader(packet, 5000, 5000, 1);
+
+			int written = heartbeat.WriteTo(packet.Slice(n));
+
+			Assert.AreEqual(0, written);
+		}
+
+		/// <summary>
+		///     TryParseGapBlocks is the only production SACK parse path (HandleSack's hot receive-path
+		///     twin of the general-purpose TryParse above), so its own length arithmetic gets the same
+		///     hostile-input coverage directly: a truncated block list, a declared count reaching past the
+		///     buffer, and a legitimate zero-block SACK.
+		/// </summary>
+		[TestMethod]
+		public void TryParseGapBlocks_HostileInput_ReturnsFalseWithoutThrowing_ZeroBlocksIsValid()
+		{
+			Span<SackChunk.GapBlock> destination = stackalloc SackChunk.GapBlock[SackChunk.MaxGapBlocks];
+
+			// Shorter than the 12-byte fixed part.
+			Span<byte> tooShort = stackalloc byte[8];
+			Assert.IsFalse(SackChunk.TryParseGapBlocks(tooShort, destination, out _, out _, out _));
+
+			// Declared gap count reaches past what the value actually holds.
+			Span<byte> truncatedGaps = stackalloc byte[16]; // fixed(12) + room for one gap block only
+			BinaryPrimitives.WriteUInt32BigEndian(truncatedGaps.Slice(0, 4), 500);
+			BinaryPrimitives.WriteUInt32BigEndian(truncatedGaps.Slice(4, 4), 131072);
+			BinaryPrimitives.WriteUInt16BigEndian(truncatedGaps.Slice(8, 2), 5); // claims 5 gap blocks, only 1 fits
+			BinaryPrimitives.WriteUInt16BigEndian(truncatedGaps.Slice(10, 2), 0);
+			Assert.IsFalse(SackChunk.TryParseGapBlocks(truncatedGaps, destination, out _, out _, out _));
+
+			// Declared duplicate-TSN count reaches past what the value actually holds (gap count itself is
+			// satisfiable; only the trailing duplicate list is short).
+			Span<byte> truncatedDuplicates = stackalloc byte[16]; // fixed(12) + one gap block, no room for a duplicate TSN
+			BinaryPrimitives.WriteUInt32BigEndian(truncatedDuplicates.Slice(0, 4), 500);
+			BinaryPrimitives.WriteUInt32BigEndian(truncatedDuplicates.Slice(4, 4), 131072);
+			BinaryPrimitives.WriteUInt16BigEndian(truncatedDuplicates.Slice(8, 2), 1); // 1 gap block: fits exactly
+			BinaryPrimitives.WriteUInt16BigEndian(truncatedDuplicates.Slice(10, 2), 1); // claims 1 duplicate TSN: does not fit
+			Assert.IsFalse(SackChunk.TryParseGapBlocks(truncatedDuplicates, destination, out _, out _, out _));
+
+			// A legitimate, well-formed SACK with zero gap blocks (the ordinary in-order-delivery case) is
+			// valid, not hostile: cumulative ack and arwnd still parse, and no blocks are written.
+			Span<byte> zeroBlocks = stackalloc byte[12];
+			BinaryPrimitives.WriteUInt32BigEndian(zeroBlocks.Slice(0, 4), 999);
+			BinaryPrimitives.WriteUInt32BigEndian(zeroBlocks.Slice(4, 4), 262144);
+			BinaryPrimitives.WriteUInt16BigEndian(zeroBlocks.Slice(8, 2), 0);
+			BinaryPrimitives.WriteUInt16BigEndian(zeroBlocks.Slice(10, 2), 0);
+			Assert.IsTrue(SackChunk.TryParseGapBlocks(zeroBlocks, destination, out uint cumulativeTsnAck, out uint arwnd, out int gapCount));
+			Assert.AreEqual(999u, cumulativeTsnAck);
+			Assert.AreEqual(262144u, arwnd);
+			Assert.AreEqual(0, gapCount);
 		}
 	}
 }
