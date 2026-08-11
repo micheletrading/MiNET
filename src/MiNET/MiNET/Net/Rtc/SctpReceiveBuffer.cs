@@ -410,28 +410,46 @@ namespace MiNET.Net.Rtc
 		///     delivery the FORWARD-TSN is not entitled to discard, so this delivers each of those, in order,
 		///     before moving <see cref="_nextOrderedSeq" /> to just past the pair and running the ordinary
 		///     forward drain (<see cref="AdvanceOrderedSeqAndDrain" />) for whatever is already buffered
-		///     beyond it.
+		///     beyond it. Iterates <paramref name="pending" /> itself - bounded by however many
+		///     already-complete ordered messages this stream genuinely has buffered, which the receive
+		///     byte budget already caps independently - rather than walking every stream sequence number
+		///     from the current expected one up to <paramref name="pairSeq" />: a peer-chosen seq can sit
+		///     up to 65536 steps away, and one inbound FORWARD-TSN chunk can carry up to
+		///     <c>MaxForwardTsnPairs</c> (512) such pairs, so the walk must stay bounded by the buffered
+		///     set, not by the seq distance a peer names.
 		/// </summary>
 		private void DeliverStrandedThenAdvanceOrderedSeq(ushort streamId, ushort pairSeq)
 		{
-			if (_orderedPending.TryGetValue(streamId, out Dictionary<ushort, (byte[] Buffer, int Length, uint Ppid)> pending))
+			if (_orderedPending.TryGetValue(streamId, out Dictionary<ushort, (byte[] Buffer, int Length, uint Ppid)> pending) && pending.Count > 0)
 			{
 				ushort seq = _nextOrderedSeq.TryGetValue(streamId, out ushort v) ? v : (ushort) 0;
 
-				while (true)
+				// Every key in `pending` whose seq falls in [seq, pairSeq] (SctpSeq order, so this is
+				// correct across a seq-space wraparound too) is a real, already-complete delivery the
+				// FORWARD-TSN is not entitled to discard (RFC 3758 3.6).
+				List<ushort> strandedSeqs = null;
+				foreach (ushort candidate in pending.Keys)
 				{
-					if (pending.TryGetValue(seq, out (byte[] Buffer, int Length, uint Ppid) msg))
+					if (!SctpSeq.IsNewer(seq, candidate) && !SctpSeq.IsNewer(candidate, pairSeq))
 					{
-						pending.Remove(seq);
+						(strandedSeqs ??= new List<ushort>()).Add(candidate);
+					}
+				}
+
+				if (strandedSeqs != null)
+				{
+					strandedSeqs.Sort((a, b) => unchecked((short) (a - seq)).CompareTo(unchecked((short) (b - seq))));
+
+					foreach (ushort strandedSeq in strandedSeqs)
+					{
+						(byte[] Buffer, int Length, uint Ppid) msg = pending[strandedSeq];
+						pending.Remove(strandedSeq);
 
 						PooledSegment segment = RentSegment();
 						segment.Initialize(msg.Buffer, msg.Length, 0);
 						Deliveries.Add(new LeasedDelivery(streamId, msg.Ppid, segment, segment));
 						_bufferedBytes -= (uint) msg.Length;
 					}
-
-					if (seq == pairSeq) break; // reached the pair itself; stop before (ushort) seq+1 could wrap past it
-					seq = unchecked((ushort) (seq + 1));
 				}
 			}
 

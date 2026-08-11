@@ -671,5 +671,68 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(2, received.Count);
 			CollectionAssert.AreEqual("four"u8.ToArray(), received[1].Payload);
 		}
+
+		/// <summary>
+		///     RFC 4960 3.3.1 requires at least one byte of user data: a zero-length DATA chunk (value
+		///     exactly the 12-byte fixed part, no payload) is dropped and counted, never admitted, so it
+		///     cannot grow the receive buffer's fragment/ordered-pending state for free - the byte budget
+		///     is meaningless against an admission that always costs zero bytes.
+		/// </summary>
+		[TestMethod]
+		public void ZeroLengthData_IsDroppedAndCounted_ReceiveBufferStateDoesNotGrow()
+		{
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+
+			long ignoredBefore = server.IgnoredPacketCount;
+			uint arwndBefore = server.CurrentArwnd;
+			uint cumulativeBefore = server.CumulativeTsnAck;
+
+			FeedData(server, tag, tsn, 70, 0, 1, unordered: true, begin: true, end: true, ReadOnlySpan<byte>.Empty);
+
+			Assert.AreEqual(0, received.Count);
+			Assert.AreEqual(ignoredBefore + 1, server.IgnoredPacketCount);
+			Assert.AreEqual(arwndBefore, server.CurrentArwnd);
+			Assert.AreEqual(cumulativeBefore, server.CumulativeTsnAck); // never accepted, so never acked either
+		}
+
+		/// <summary>
+		///     A FORWARD-TSN ordered pair naming a stream sequence far ahead of every stranded, buffered
+		///     message on that stream still delivers every one of them, in order, before advancing past
+		///     the pair - the same guarantee <see cref="ForwardTsn_OrderedPairJump_DeliversStrandedBufferedMessage_BeforeAdvancingExpectedSeq" />
+		///     proves for a small jump, exercised here over a wide span (bounded well under the 16-bit
+		///     stream sequence space's own signed-serial-arithmetic half-range, past which "far ahead" and
+		///     "wrapped around" become indistinguishable regardless of how the pair is processed).
+		/// </summary>
+		[TestMethod]
+		public void ForwardTsn_OrderedPairJump_FarAheadSeq_DeliversAllStrandedMessages()
+		{
+			(SctpAssociation server, _, List<(ushort StreamId, uint Ppid, byte[] Payload)> received) = CreateEstablishedPair();
+			uint tag = server.LocalVerificationTag;
+			uint tsn = server.CumulativeTsnAck + 1;
+			const ushort streamId = 6;
+
+			// Three stranded, already-complete ordered messages sitting far apart in seq space, each
+			// buffered because its own turn never came. Fed at a gap ahead of the cumulative ack (rather
+			// than contiguous with it) so RecordTsnReceived does not fold their own TSNs into the
+			// cumulative ack by itself - the FORWARD-TSN below must be what advances it.
+			FeedData(server, tag, tsn + 10, streamId, 100, ppid: 1, unordered: false, begin: true, end: true, "a"u8);
+			FeedData(server, tag, tsn + 11, streamId, 10000, ppid: 1, unordered: false, begin: true, end: true, "b"u8);
+			FeedData(server, tag, tsn + 12, streamId, 25000, ppid: 1, unordered: false, begin: true, end: true, "c"u8);
+			Assert.AreEqual(0, received.Count);
+
+			FeedForwardTsn(server, tag, tsn + 12, (streamId, (ushort) 30000));
+
+			Assert.AreEqual(3, received.Count);
+			CollectionAssert.AreEqual("a"u8.ToArray(), received[0].Payload);
+			CollectionAssert.AreEqual("b"u8.ToArray(), received[1].Payload);
+			CollectionAssert.AreEqual("c"u8.ToArray(), received[2].Payload);
+
+			// Expected sequence advanced to just past the pair: seq 30001 now delivers immediately, in turn.
+			FeedData(server, tag, tsn + 13, streamId, 30001, ppid: 1, unordered: false, begin: true, end: true, "d"u8);
+			Assert.AreEqual(4, received.Count);
+			CollectionAssert.AreEqual("d"u8.ToArray(), received[3].Payload);
+		}
 	}
 }
