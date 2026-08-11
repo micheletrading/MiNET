@@ -50,7 +50,7 @@ namespace MiNET.Net.Rtc
 	/// </summary>
 	internal sealed class DtlsRecordCrypto : IDisposable
 	{
-		private const int HeaderLength = 13;
+		internal const int HeaderLength = 13;
 		private const int ExplicitNonceLength = 8;
 		private const int TagLength = 16;
 		private const int SaltLength = 4;
@@ -60,6 +60,19 @@ namespace MiNET.Net.Rtc
 		private const int Epoch1 = 1;
 		private const int ReplayWindowSize = 64;
 		private const ulong MaxSequence = (1UL << 48) - 1;
+
+		/// <summary>
+		///     Every instance is built from a <see cref="CapturedDtlsKeys" />, which only exists after a
+		///     completed BouncyCastle handshake, and that handshake has by definition already sent its
+		///     Finished message (plus one retransmission per lost final flight) under epoch 1, consuming
+		///     the low send sequence numbers before this class ever protects a byte. Starting fresh at 0
+		///     would repeat one of those (epoch, sequence) pairs: a GCM nonce reused on the wire, and a
+		///     guaranteed replay-window drop at the peer, which cannot distinguish an authentic collision
+		///     from ordinary datagram loss. Defaulting the constructor to this headroom, rather than
+		///     leaning on a caller to seed it correctly, means there is no sequence to get wrong: every
+		///     instance is safe to send from the moment it exists.
+		/// </summary>
+		internal const ulong SendSequenceHandshakeHeadroom = 1000;
 
 		/// <summary>Header(13) + explicit nonce(8) + tag(16): every byte an encrypted record carries beyond its plaintext.</summary>
 		public const int RecordOverhead = HeaderLength + ExplicitNonceLength + TagLength;
@@ -87,7 +100,8 @@ namespace MiNET.Net.Rtc
 		///     picks which of the two roles' key/salt pairs is ours to send with; the other role's pair
 		///     is the peer's, used to receive, per the wire convention that a client always sends with
 		///     <see cref="CapturedDtlsKeys.ClientWriteKey" />/<see cref="CapturedDtlsKeys.ClientWriteIv" />
-		///     and a server always sends with the server pair.
+		///     and a server always sends with the server pair. The send sequence starts at
+		///     <see cref="SendSequenceHandshakeHeadroom" />, not 0; see that constant's remarks.
 		/// </summary>
 		public DtlsRecordCrypto(CapturedDtlsKeys keys, bool isServer)
 		{
@@ -97,6 +111,7 @@ namespace MiNET.Net.Rtc
 			_receiveSalt = isServer ? keys.ClientWriteIv : keys.ServerWriteIv;
 			_sendCipher = new AesGcm(sendKey, TagLength);
 			_receiveCipher = new AesGcm(receiveKey, TagLength);
+			_sendSequence = SendSequenceHandshakeHeadroom;
 		}
 
 		/// <summary>

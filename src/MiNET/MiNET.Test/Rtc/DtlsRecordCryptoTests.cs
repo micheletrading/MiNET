@@ -72,7 +72,7 @@ namespace MiNET.Test.Rtc
 				int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
 
 				Assert.AreNotEqual(-1, wireLength);
-				Assert.AreEqual((ulong) i, ReadSequence(wire));
+				Assert.AreEqual(DtlsRecordCrypto.SendSequenceHandshakeHeadroom + (ulong) i, ReadSequence(wire));
 
 				bool ok = server.TryDecryptRecord(wire.Slice(0, wireLength), plaintext, out byte contentType, out int length);
 
@@ -81,6 +81,27 @@ namespace MiNET.Test.Rtc
 				Assert.AreEqual(payload.Length, length);
 				CollectionAssert.AreEqual(payload, plaintext.Slice(0, length).ToArray());
 			}
+		}
+
+		/// <summary>
+		///     Pins the constructor's own default shut as the one place that matters: nothing outside
+		///     this class has to remember to seed the send sequence away from 0 for a real
+		///     <see cref="CapturedDtlsKeys" /> instance to be safe to send from immediately. A caller
+		///     that forgot would repeat one of the (epoch, sequence) pairs BouncyCastle's Finished flight
+		///     already used on the wire.
+		/// </summary>
+		[TestMethod]
+		public void EncryptRecord_FreshInstance_StartsAtTheHandshakeHeadroomSequence_NotZero()
+		{
+			CapturedDtlsKeys keys = CreateTestKeys();
+			using var client = new DtlsRecordCrypto(keys, isServer: false);
+
+			byte[] payload = {1, 2, 3};
+			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
+			int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
+
+			Assert.AreNotEqual(-1, wireLength);
+			Assert.AreEqual(DtlsRecordCrypto.SendSequenceHandshakeHeadroom, ReadSequence(wire), "a fresh instance must start above the low epoch-1 sequences BouncyCastle's Finished flight consumes, with no caller action required");
 		}
 
 		[TestMethod]
@@ -93,11 +114,12 @@ namespace MiNET.Test.Rtc
 			Span<byte> tooSmall = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead - 1];
 			Assert.AreEqual(-1, client.EncryptRecord(ApplicationData, payload, tooSmall));
 
-			// The sequence must not have moved: a record encrypted right after must still be sequence 0.
+			// The sequence must not have moved: a record encrypted right after must still be the
+			// fresh instance's starting sequence, not one past it.
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
 			int wireLength = client.EncryptRecord(ApplicationData, payload, wire);
 			Assert.AreNotEqual(-1, wireLength);
-			Assert.AreEqual(0UL, ReadSequence(wire));
+			Assert.AreEqual(DtlsRecordCrypto.SendSequenceHandshakeHeadroom, ReadSequence(wire));
 		}
 
 		[TestMethod]
@@ -175,13 +197,13 @@ namespace MiNET.Test.Rtc
 			// on the server side decrypts it via the session's ordinary FeedDatagram path. BouncyCastle
 			// sends the handshake's own Finished message under epoch 1 too (post-CCS), so the server's
 			// epoch-1 receive window has already advanced past a few low sequence numbers by the time
-			// the handshake completes; a synthetic instance starting fresh at sequence 0 would collide
-			// with one BouncyCastle already consumed and be silently dropped as a replay/bad MAC.
-			// Seeding well clear of anything the handshake itself could plausibly have used sidesteps
-			// that without needing to parse BouncyCastle's actual Finished sequence off the wire.
+			// the handshake completes; a fresh instance starting at sequence 0 would collide with one
+			// BouncyCastle already consumed and be silently dropped as a replay/bad MAC. The
+			// constructor's own default (DtlsRecordCrypto.SendSequenceHandshakeHeadroom) already starts
+			// well clear of anything the handshake itself could plausibly have used, so nothing here
+			// needs to seed it explicitly.
 			using (var ourClientCrypto = new DtlsRecordCrypto(clientKeys, isServer: false))
 			{
-				ourClientCrypto.SetSendSequenceForTesting(1000);
 				byte[] payload1 = {10, 20, 30, 40, 50};
 				Span<byte> wire1 = stackalloc byte[payload1.Length + DtlsRecordCrypto.RecordOverhead];
 				int wire1Length = ourClientCrypto.EncryptRecord(ApplicationData, payload1, wire1);
@@ -320,7 +342,7 @@ namespace MiNET.Test.Rtc
 			byte[] payload = {1, 2, 3, 4};
 			Span<byte> firstWire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
 			int firstLength = client.EncryptRecord(ApplicationData, payload, firstWire);
-			byte[] sequenceZero = firstWire.Slice(0, firstLength).ToArray();
+			byte[] earliestRecord = firstWire.Slice(0, firstLength).ToArray();
 
 			byte[] farRecord = null;
 			Span<byte> wire = stackalloc byte[payload.Length + DtlsRecordCrypto.RecordOverhead];
@@ -331,12 +353,12 @@ namespace MiNET.Test.Rtc
 			}
 
 			Span<byte> plaintext = stackalloc byte[payload.Length];
-			Assert.IsTrue(server.TryDecryptRecord(farRecord, plaintext, out _, out _), "expected sequence 70 to establish the window's high water mark");
+			Assert.IsTrue(server.TryDecryptRecord(farRecord, plaintext, out _, out _), "expected the 71st record to establish the window's high water mark");
 
 			long before = server.ReplayDrops;
-			bool ok = server.TryDecryptRecord(sequenceZero, plaintext, out _, out _);
+			bool ok = server.TryDecryptRecord(earliestRecord, plaintext, out _, out _);
 
-			Assert.IsFalse(ok, "sequence 0 is 70 behind the highest received (70), which is >= the 64-wide window");
+			Assert.IsFalse(ok, "the earliest record is 70 behind the highest received, which is >= the 64-wide window");
 			Assert.AreEqual(before + 1, server.ReplayDrops);
 		}
 

@@ -436,5 +436,356 @@ namespace MiNET.Test.Rtc
 			server.Dispose();
 			client.Dispose();
 		}
+
+		/// <summary>
+		///     The point of the whole native-record-layer switch-over: once the handshake is done,
+		///     BouncyCastle never touches another byte of application data on either side. Both sessions
+		///     switched, so this exercises the native path on both ends at once, in both directions, well
+		///     past the 64-wide replay window and the low sequence numbers BouncyCastle's own Finished
+		///     flight already used.
+		/// </summary>
+		[TestMethod]
+		public async Task NativeRecordLayer_ExchangesOneThousandDatagramsEachWay_AllDeliveredIntact()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			var serverReceived = new List<byte[]>();
+			var clientReceived = new List<byte[]>();
+			server.OnDecrypted += payload => serverReceived.Add(payload.ToArray());
+			client.OnDecrypted += payload => clientReceived.Add(payload.ToArray());
+
+			const int count = 1000;
+			for (int i = 0; i < count; i++)
+			{
+				client.SendApplicationData(new byte[] {(byte) i, (byte) (i >> 8), 0xAB});
+			}
+			for (int i = 0; i < count; i++)
+			{
+				server.SendApplicationData(new byte[] {(byte) i, (byte) (i >> 8), 0xCD});
+			}
+
+			Assert.AreEqual(count, serverReceived.Count, "expected every one of the 1000 client->server datagrams to be delivered");
+			Assert.AreEqual(count, clientReceived.Count, "expected every one of the 1000 server->client datagrams to be delivered");
+			for (int i = 0; i < count; i++)
+			{
+				CollectionAssert.AreEqual(new byte[] {(byte) i, (byte) (i >> 8), 0xAB}, serverReceived[i]);
+				CollectionAssert.AreEqual(new byte[] {(byte) i, (byte) (i >> 8), 0xCD}, clientReceived[i]);
+			}
+
+			Assert.AreEqual(0L, server.RecordCrypto.DecryptFailures);
+			Assert.AreEqual(0L, server.RecordCrypto.ReplayDrops);
+			Assert.AreEqual(0L, client.RecordCrypto.DecryptFailures);
+			Assert.AreEqual(0L, client.RecordCrypto.ReplayDrops);
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     A retransmitted final flight bundles CCS at epoch 0 with Finished at epoch 1 in one
+		///     datagram, and BouncyCastle owns that retransmission logic entirely; splitting the datagram
+		///     per record would break it. This captures a genuinely epoch-0 raw datagram straight out of
+		///     a live handshake (the first flight, the ClientHello, always predates any ChangeCipherSpec)
+		///     and replays it at the server after the handshake has completed, simulating the peer
+		///     retransmitting a flight it believes was lost. The native record layer must recognise the
+		///     epoch-0 record and route the whole datagram to the retained BouncyCastle transport instead
+		///     of attempting - and failing - to decrypt it itself, and the session must keep working
+		///     normally afterward.
+		/// </summary>
+		[TestMethod]
+		public async Task FeedDatagram_PostHandshakeEpochZeroRecord_RoutesToBcTransport_NativeCountersStayZero()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			var clientToServerDatagrams = new List<byte[]>();
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				clientToServerDatagrams.Add(bytes.ToArray());
+				server.FeedDatagram(bytes);
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			Assert.IsTrue(clientToServerDatagrams.Count > 0, "expected to have captured at least one client->server handshake datagram");
+			byte[] earlyEpochZeroDatagram = clientToServerDatagrams[0];
+			Assert.IsTrue(DtlsRecordCrypto.TryReadRecordHeader(earlyEpochZeroDatagram, out _, out int epoch, out _) && epoch == 0, "expected the very first client->server datagram (the ClientHello flight) to be epoch 0");
+
+			long malformedBefore = server.RecordCrypto.MalformedRecords;
+			long decryptFailuresBefore = server.RecordCrypto.DecryptFailures;
+			long replayDropsBefore = server.RecordCrypto.ReplayDrops;
+
+			// Simulate the peer retransmitting a flight it believes was lost, well after the handshake
+			// has actually completed on both sides.
+			server.FeedDatagram(earlyEpochZeroDatagram);
+
+			Assert.AreEqual(malformedBefore, server.RecordCrypto.MalformedRecords, "the native record layer must never even attempt to decrypt an epoch-0 record; routing it to BC must not count as malformed");
+			Assert.AreEqual(decryptFailuresBefore, server.RecordCrypto.DecryptFailures);
+			Assert.AreEqual(replayDropsBefore, server.RecordCrypto.ReplayDrops);
+
+			// The session must still be fully functional afterward.
+			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
+			client.SendApplicationData(new byte[] {1, 2, 3});
+			CollectionAssert.AreEqual(new byte[] {1, 2, 3}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     An encrypted fatal alert is indistinguishable, on the wire, from a normal application-data
+		///     record except for its content type; the receiving session must decrypt it, recognise it,
+		///     and tear itself down exactly as if <see cref="DtlsSession.Dispose" /> had been called: no
+		///     more sends reach the wire, and no more datagrams are delivered. The alert is forged with an
+		///     independent <see cref="DtlsRecordCrypto" /> built from the real captured key block (the
+		///     same cross-boundary pattern <see cref="DtlsRecordCryptoTests" /> uses), seeded well past
+		///     anything the real session has sent so the server's replay window admits it.
+		/// </summary>
+		[TestMethod]
+		public async Task EncryptedFatalAlert_TearsDownTheSession_SendsDropSilently_FeedDatagramBecomesNoOp()
+		{
+			const byte AlertContentType = 21;
+			const byte AlertLevelFatal = 2;
+			const byte AlertDescriptionUnexpectedMessage = 10;
+
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			bool serverClosed = false;
+			bool serverSentAfterClose = false;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes =>
+			{
+				if (serverClosed) serverSentAfterClose = true;
+				client.FeedDatagram(bytes);
+			});
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			// Sanity: the pipe works before teardown.
+			var firstReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => firstReceived.TrySetResult(payload.ToArray());
+			client.SendApplicationData(new byte[] {1, 2, 3});
+			CollectionAssert.AreEqual(new byte[] {1, 2, 3}, await firstReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+			using (var forger = new DtlsRecordCrypto(client.CapturedKeys, isServer: false))
+			{
+				forger.SetSendSequenceForTesting(5000);
+				Span<byte> wire = stackalloc byte[2 + DtlsRecordCrypto.RecordOverhead];
+				int wireLength = forger.EncryptRecord(AlertContentType, new byte[] {AlertLevelFatal, AlertDescriptionUnexpectedMessage}, wire);
+				Assert.AreNotEqual(-1, wireLength);
+				server.FeedDatagram(wire.Slice(0, wireLength));
+			}
+
+			serverClosed = true;
+
+			// Sends drop silently: must not throw, must never reach the wire.
+			server.SendApplicationData(new byte[] {9, 9, 9});
+			Assert.IsFalse(serverSentAfterClose, "SendApplicationData must not touch the wire at all once a fatal alert has torn the session down");
+
+			// FeedDatagram becomes a no-op: a subsequent legitimate datagram is not delivered.
+			bool deliveredAfterClose = false;
+			server.OnDecrypted += _ => deliveredAfterClose = true;
+			client.SendApplicationData(new byte[] {4, 5, 6});
+			await Task.Delay(200);
+			Assert.IsFalse(deliveredAfterClose);
+
+			client.Dispose();
+			server.Dispose();
+		}
+
+		/// <summary>
+		///     Deliberately NOT the same outcome as a fatal alert: a real peer (confirmed against
+		///     SIPSorcery in <see cref="InteropTests" />) sends close_notify mid-teardown, still ahead of
+		///     its own SCTP-level graceful shutdown finishing over this same encrypted channel. Tearing
+		///     the whole session down on close_notify the way a fatal alert does would silently drop
+		///     whatever legitimate datagram the peer sends next (there, the SCTP SHUTDOWN-COMPLETE that
+		///     drives the association to its terminal state), so close_notify is drop-and-count instead:
+		///     counted, and the session otherwise keeps working exactly as before.
+		/// </summary>
+		[TestMethod]
+		public async Task EncryptedCloseNotify_IsDroppedAndCounted_SessionKeepsWorking()
+		{
+			const byte AlertContentType = 21;
+			const byte AlertLevelWarning = 1;
+			const byte AlertDescriptionCloseNotify = 0;
+
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			long droppedBefore = server.DroppedRecords;
+
+			// Seeded well BELOW the real client's own DtlsRecordCrypto (which starts at
+			// SendSequenceHandshakeHeadroom, 1000, and has not sent anything yet at this point), never
+			// above it: the replay window admits anything strictly ahead of the highest sequence seen so
+			// far with no distance limit, but rejects anything more than 64 behind it, so seeding this
+			// forged record ahead would poison the window against every real message the session sends
+			// afterward, which is exactly what this test needs to prove does NOT happen.
+			using (var forger = new DtlsRecordCrypto(client.CapturedKeys, isServer: false))
+			{
+				forger.SetSendSequenceForTesting(1);
+				Span<byte> wire = stackalloc byte[2 + DtlsRecordCrypto.RecordOverhead];
+				int wireLength = forger.EncryptRecord(AlertContentType, new byte[] {AlertLevelWarning, AlertDescriptionCloseNotify}, wire);
+				Assert.AreNotEqual(-1, wireLength);
+				server.FeedDatagram(wire.Slice(0, wireLength));
+			}
+
+			Assert.AreEqual(droppedBefore + 1, server.DroppedRecords);
+
+			var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => received.TrySetResult(payload.ToArray());
+			client.SendApplicationData(new byte[] {7, 7, 7});
+			CollectionAssert.AreEqual(new byte[] {7, 7, 7}, await received.Task.WaitAsync(TimeSpan.FromSeconds(5)), "the session must keep working normally after a close_notify that was not accompanied by a fatal level");
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     A single corrupted byte on the wire must never take the session down or lose a delivery
+		///     count: it is drop-and-count, exactly like <see cref="DtlsRecordCryptoTests" /> already
+		///     proves for the record layer in isolation, but exercised through the full session so the
+		///     dispatch in <see cref="DtlsSession.FeedDatagram" /> is what is actually under test, not
+		///     just <see cref="DtlsRecordCrypto" /> on its own.
+		/// </summary>
+		[TestMethod]
+		public async Task TamperedRecord_IsDroppedAndCounted_SessionStaysAlive_NextCleanRecordDelivers()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			bool interceptOnly = false;
+			byte[] intercepted = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes =>
+			{
+				if (interceptOnly)
+				{
+					intercepted = bytes.ToArray();
+				}
+				else
+				{
+					server.FeedDatagram(bytes);
+				}
+			});
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			// Capture one clean record's wire bytes without delivering it, so its sequence has never
+			// been seen by the server's replay window: tampering an already-delivered sequence would be
+			// rejected as a replay, not a bad tag, and would prove nothing about DecryptFailures.
+			interceptOnly = true;
+			client.SendApplicationData(new byte[] {1, 1, 1});
+			interceptOnly = false;
+			Assert.IsNotNull(intercepted, "expected to have captured the wire bytes of an undelivered record");
+
+			byte[] tampered = (byte[]) intercepted.Clone();
+			tampered[tampered.Length - 1] ^= 0xFF; // last byte of the record is always the final tag byte
+
+			long decryptFailuresBefore = server.RecordCrypto.DecryptFailures;
+			int deliveredCount = 0;
+			server.OnDecrypted += _ => deliveredCount++;
+
+			server.FeedDatagram(tampered);
+
+			Assert.AreEqual(0, deliveredCount, "a tampered record must never be delivered");
+			Assert.AreEqual(decryptFailuresBefore + 1, server.RecordCrypto.DecryptFailures);
+
+			// The replay window must not have advanced on the rejected tamper attempt: the clean
+			// original, at the same sequence, still decrypts.
+			var firstReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => firstReceived.TrySetResult(payload.ToArray());
+			server.FeedDatagram(intercepted);
+			CollectionAssert.AreEqual(new byte[] {1, 1, 1}, await firstReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+			// And the session is still fully alive for a genuinely new record afterward.
+			var secondReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnDecrypted += payload => secondReceived.TrySetResult(payload.ToArray());
+			client.SendApplicationData(new byte[] {2, 2, 2});
+			CollectionAssert.AreEqual(new byte[] {2, 2, 2}, await secondReceived.Task.WaitAsync(TimeSpan.FromSeconds(5)), "the session must still deliver a clean record after a rejected tamper attempt");
+
+			server.Dispose();
+			client.Dispose();
+		}
+
+		/// <summary>
+		///     This is the point of the whole plan: with BouncyCastle out of the post-handshake path
+		///     entirely, the roughly 5000 bytes/datagram allocation floor the BC-backed pipeline carried
+		///     collapses to zero. Both sessions' native record layers, both directions, 10k datagrams
+		///     each way, well past JIT/AesGcm warmup.
+		/// </summary>
+		[TestMethod]
+		public async Task NativeRecordLayer_TenThousandDatagramsBothDirections_AllocatesNothingOnOurSide()
+		{
+			var serverCert = RtcCertificate.CreateSelfSigned();
+			var clientCert = RtcCertificate.CreateSelfSigned();
+
+			DtlsSession server = null, client = null;
+			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
+			client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, bytes => server.FeedDatagram(bytes));
+
+			Task<bool> serverDone = server.DoHandshakeAsync(CancellationToken.None);
+			Task<bool> clientDone = client.DoHandshakeAsync(CancellationToken.None);
+			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
+			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
+
+			server.OnDecrypted += _ => { };
+			client.OnDecrypted += _ => { };
+
+			byte[] payload = {1, 2, 3, 4, 5, 6, 7, 8};
+
+			// Warmup: JIT and any AesGcm first-use setup happen here, not inside the measured bracket.
+			for (int i = 0; i < 100; i++)
+			{
+				client.SendApplicationData(payload);
+				server.SendApplicationData(payload);
+			}
+
+			long before = GC.GetTotalAllocatedBytes(precise: true);
+			for (int i = 0; i < 10000; i++)
+			{
+				client.SendApplicationData(payload);
+				server.SendApplicationData(payload);
+			}
+			long after = GC.GetTotalAllocatedBytes(precise: true);
+
+			Assert.AreEqual(0L, after - before, "expected zero heap allocation across 10k datagrams each way, post-handshake; the BC-backed floor this replaces measured roughly 5000 bytes per datagram");
+
+			server.Dispose();
+			client.Dispose();
+		}
 	}
 }
