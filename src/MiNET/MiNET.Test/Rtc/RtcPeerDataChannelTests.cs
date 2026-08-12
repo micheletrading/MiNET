@@ -312,5 +312,46 @@ namespace MiNET.Test.Rtc
 			await Task.Delay(TimeSpan.FromMilliseconds(200));
 			Assert.AreEqual(1, serverClosedCount);
 		}
+
+		/// <summary>
+		///     The fourth <see cref="RtcPeer.OnTransportClosed" /> source in isolation: an inbound DTLS
+		///     close_notify with NO SCTP teardown alongside it. Disposing one side's
+		///     <see cref="DtlsSession" /> directly (not the <see cref="RtcPeer" />, whose Dispose would
+		///     also put an SCTP ABORT on the wire first) sends only the close_notify, so the peer's
+		///     association stays <see cref="SctpState.Established" /> while its DTLS session closes -
+		///     proving the tick-poll of <see cref="DtlsSession.IsClosed" /> is what raised the event,
+		///     not the association forwarder.
+		/// </summary>
+		[TestMethod]
+		public async Task DtlsCloseNotifyAlone_PeerRaisesOnTransportClosed_AssociationStillEstablished()
+		{
+			using var offererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			using var answererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			offererMux.Start();
+			answererMux.Start();
+
+			(RtcPeer client, RtcPeer server) = await ConnectAsync(offererMux, answererMux);
+			using var clientDisposable = client;
+			using var serverDisposable = server;
+
+			int serverClosedCount = 0;
+			var serverClosed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnTransportClosed += () =>
+			{
+				Interlocked.Increment(ref serverClosedCount);
+				serverClosed.TrySetResult(true);
+			};
+
+			// Sends close_notify to the server and nothing else: the client's association is bypassed,
+			// so no ABORT chunk ever goes on the wire.
+			client.Dtls.Dispose();
+
+			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "server's OnTransportClosed never fired after the client's close_notify");
+			Assert.IsTrue(server.DtlsSessionClosed, "the server's DTLS session should have closed on the inbound close_notify");
+			Assert.AreEqual(SctpState.Established, server.AssociationState, "the association must be untouched; only the DTLS poll may have raised the event");
+
+			await Task.Delay(TimeSpan.FromMilliseconds(200));
+			Assert.AreEqual(1, serverClosedCount);
+		}
 	}
 }
