@@ -29,6 +29,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Net.Rtc;
@@ -207,6 +208,109 @@ namespace MiNET.Test.Rtc
 			byte[] oversized = new byte[DtlsSession.MaxSendPayloadLength + 1];
 			ArgumentOutOfRangeException ex = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => client.SendApplicationData(oversized));
 			StringAssert.Contains(ex.Message, DtlsSession.MaxSendPayloadLength.ToString());
+		}
+
+		/// <summary>Same shape as <see cref="SctpTeardownTests" />'s own private helper: hand-builds one raw, checksummed SCTP packet carrying a single chunk, addressed by the RECEIVING association's own verification tag (RFC 4960 8.5: what a real peer would have been told to address it by).</summary>
+		private static byte[] BuildRawChunkPacket(uint verificationTag, byte chunkType, ReadOnlySpan<byte> value)
+		{
+			byte[] packetArray = new byte[SctpPacket.MaxSize];
+			Span<byte> packet = packetArray;
+			int n = SctpPacket.WriteHeader(packet, 5000, 5000, verificationTag);
+			value.CopyTo(packet.Slice(n + 4));
+			n += SctpChunkCodec.FinishChunk(packet.Slice(n), chunkType, 0, value.Length);
+			SctpPacket.FinishChecksum(packet.Slice(0, n));
+			return packetArray.AsSpan(0, n).ToArray();
+		}
+
+		private static byte[] BuildShutdownPacket(uint verificationTag) => BuildRawChunkPacket(verificationTag, 7 /* SHUTDOWN */, ReadOnlySpan<byte>.Empty);
+
+		/// <summary>
+		///     Stage 3 Task 1's brief scenario (a): once a real peer pair is up, one side aborting its
+		///     own association - a real ABORT chunk on the wire, not a local <see cref="RtcPeer.Dispose" />
+		///     - must reach the OTHER side's association as an inbound ABORT and surface there as
+		///     <see cref="RtcPeer.OnTransportClosed" />, exactly once. The aborting side's own
+		///     <see cref="RtcPeer.OnTransportClosed" /> fires too (<see cref="SctpAssociation.OnAborted" />
+		///     fires locally for a self-initiated <see cref="SctpAssociation.Abort" /> just as it does for
+		///     an inbound one - see that event's own remarks), asserted here as well since both are
+		///     legitimate and this is the signal <c>NetherNetSession</c> keys teardown off on either end.
+		/// </summary>
+		[TestMethod]
+		public async Task AssociationAbort_SurfacesOnBothPeers_OnTransportClosed_ExactlyOnce()
+		{
+			using var offererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			using var answererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			offererMux.Start();
+			answererMux.Start();
+
+			(RtcPeer client, RtcPeer server) = await ConnectAsync(offererMux, answererMux);
+			using var clientDisposable = client;
+			using var serverDisposable = server;
+
+			int clientClosedCount = 0;
+			int serverClosedCount = 0;
+			var clientClosed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			var serverClosed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			client.OnTransportClosed += () =>
+			{
+				Interlocked.Increment(ref clientClosedCount);
+				clientClosed.TrySetResult(true);
+			};
+			server.OnTransportClosed += () =>
+			{
+				Interlocked.Increment(ref serverClosedCount);
+				serverClosed.TrySetResult(true);
+			};
+
+			// Sends a real ABORT chunk to the client over the wire; also fires OnAborted locally on the
+			// server's own association (SctpAssociation.Abort's own remarks).
+			server.Association.Abort();
+
+			Assert.IsTrue(await clientClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "client's OnTransportClosed never fired after the server aborted");
+			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "server's own OnTransportClosed never fired for its own local Abort()");
+
+			// A settle window: proves neither side's guard lets a second, delayed delivery re-fire.
+			await Task.Delay(TimeSpan.FromMilliseconds(200));
+			Assert.AreEqual(1, clientClosedCount);
+			Assert.AreEqual(1, serverClosedCount);
+		}
+
+		/// <summary>
+		///     Stage 3 Task 1's brief scenario (b): the same wiring, for a clean SHUTDOWN instead of an
+		///     ABORT. <see cref="SctpAssociation" /> never initiates a graceful shutdown itself (only ever
+		///     answers one), so this hand-builds a real inbound SHUTDOWN chunk - the same technique
+		///     <see cref="SctpTeardownTests" /> uses at the association level - and feeds it directly to
+		///     the server's association, simulating what a real peer-initiated graceful close puts on the
+		///     wire. A SHUTDOWN tears the association down exactly like an inbound ABORT does, so this
+		///     proves <see cref="RtcPeer" />'s subscription covers that path too, not only an ABORT chunk.
+		/// </summary>
+		[TestMethod]
+		public async Task AssociationReceivesShutdown_OnTransportClosed_FiresOnce()
+		{
+			using var offererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			using var answererMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			offererMux.Start();
+			answererMux.Start();
+
+			(RtcPeer client, RtcPeer server) = await ConnectAsync(offererMux, answererMux);
+			using var clientDisposable = client;
+			using var serverDisposable = server;
+
+			int serverClosedCount = 0;
+			var serverClosed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			server.OnTransportClosed += () =>
+			{
+				Interlocked.Increment(ref serverClosedCount);
+				serverClosed.TrySetResult(true);
+			};
+
+			byte[] shutdownPacket = BuildShutdownPacket(server.Association.LocalVerificationTag);
+			server.Association.OnPacketReceived(shutdownPacket);
+
+			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "server's OnTransportClosed never fired after receiving SHUTDOWN");
+			Assert.AreEqual(SctpState.Aborted, server.AssociationState);
+
+			await Task.Delay(TimeSpan.FromMilliseconds(200));
+			Assert.AreEqual(1, serverClosedCount);
 		}
 	}
 }

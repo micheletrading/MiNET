@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -174,6 +175,62 @@ namespace MiNET.Test.Rtc
 			StunMessage seen = await peer.Stun.Task.WaitAsync(TimeSpan.FromSeconds(5));
 			Assert.AreEqual("throwUfrag:cliUfrag", seen.Username);
 			Assert.AreEqual(1, mux.DispatchFailures);
+		}
+
+		/// <summary>
+		///     Stage 3 Task 1's brief scenario (c): first contact registers an endpoint pre-integrity (no
+		///     MESSAGE-INTEGRITY check happens until the resolved <see cref="IMuxPeer" /> itself gets a
+		///     chance to look at the binding request), so a flood that knows a live ufrag but spoofs many
+		///     distinct source endpoints must not grow the peer table without limit. Each of
+		///     <see cref="UdpMux.MaxEndpointsPerUfrag" /> plus a few more distinct <see cref="UdpClient" />s
+		///     (a distinct local port each, the practical stand-in for a distinct source endpoint a unit
+		///     test can actually produce) sends one binding request for the same ufrag; the resolver -
+		///     invoked only for an admitted endpoint - must plateau at the cap, and every request beyond it
+		///     must land on <see cref="UdpMux.AdmissionCapDrops" /> instead.
+		/// </summary>
+		[TestMethod]
+		public async Task FirstContactStun_BeyondPerUfragCap_DropsAndCountsWithoutGrowingThePeerTable()
+		{
+			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			long admittedCount = 0;
+			mux.RegisterUfrag("capUfrag", _ =>
+			{
+				Interlocked.Increment(ref admittedCount);
+				return new RecordingPeer();
+			});
+			mux.Start();
+
+			const int overflow = 5;
+			int attempts = UdpMux.MaxEndpointsPerUfrag + overflow;
+			var senders = new List<UdpClient>();
+			try
+			{
+				for (int i = 0; i < attempts; i++)
+				{
+					var sender = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+					senders.Add(sender);
+
+					var request = new StunMessage
+					{
+						Type = StunMessageType.BindingRequest,
+						TransactionId = RandomNumberGenerator.GetBytes(12),
+						Username = "capUfrag:cliUfrag"
+					};
+					byte[] wire = new byte[StunMessage.MaxSize];
+					int written = request.WriteTo(wire);
+					await sender.SendAsync(wire.AsMemory(0, written), mux.LocalEndPoint);
+				}
+
+				var deadline = DateTime.UtcNow.AddSeconds(5);
+				while (mux.AdmissionCapDrops < overflow && DateTime.UtcNow < deadline) await Task.Delay(10);
+
+				Assert.AreEqual(UdpMux.MaxEndpointsPerUfrag, Interlocked.Read(ref admittedCount), "the resolver must not be invoked beyond the per-ufrag cap");
+				Assert.AreEqual(overflow, mux.AdmissionCapDrops);
+			}
+			finally
+			{
+				foreach (UdpClient sender in senders) sender.Dispose();
+			}
 		}
 	}
 }

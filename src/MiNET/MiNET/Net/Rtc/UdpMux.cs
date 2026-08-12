@@ -54,10 +54,27 @@ namespace MiNET.Net.Rtc
 		private const int ReceiveBufferSize = 2048;
 		private const int TickIntervalMs = 10;
 
+		// A real client's NAT rebinding produces at most one, occasionally two, source endpoints for
+		// the life of one ufrag, so this leaves generous headroom while still bounding how far a flood
+		// that knows (or guesses) a live ufrag can grow _peers/_sendAddresses for that ufrag alone.
+		internal const int MaxEndpointsPerUfrag = 8;
+
+		// A defense-in-depth ceiling on first-contact admissions across every ufrag combined,
+		// independent of the per-ufrag cap above; RemovePeer decrements this as sessions end, so a
+		// long-lived server's churn never erodes the budget left for new joins.
+		internal const int MaxUnknownEndpointAdmissions = 4096;
+
 		private readonly Socket _socket;
 		private readonly CancellationTokenSource _cancellation = new();
 		private readonly ConcurrentDictionary<SocketAddress, PeerEntry> _peers = new();
 		private readonly ConcurrentDictionary<string, Func<IPEndPoint, IMuxPeer>> _ufragResolvers = new();
+
+		// Endpoints first contact has admitted for each ufrag so far, checked against
+		// MaxEndpointsPerUfrag on every new endpoint; cleared by RemoveUfrag rather than decremented
+		// per endpoint, since the only caller that ever removes individual peers (IceSession.Dispose)
+		// tears the whole session, and its ufrag, down at the same time - no live session ever needs
+		// its own count to shrink out from under it.
+		private readonly ConcurrentDictionary<string, int> _ufragEndpointCounts = new();
 
 		// Send-side mirror of the SocketAddress already computed for every registered peer, so
 		// Send can hand the alloc-free SendTo(ReadOnlySpan<byte>, SocketFlags, SocketAddress)
@@ -67,6 +84,8 @@ namespace MiNET.Net.Rtc
 		private HighPrecisionTimer _timer;
 		private long _droppedDatagrams;
 		private long _dispatchFailures;
+		private long _admittedEndpointCount;
+		private long _admissionCapDrops;
 		private int _started;
 		private int _disposed;
 
@@ -81,6 +100,14 @@ namespace MiNET.Net.Rtc
 		///     fire-and-forget and would otherwise go silently deaf for every peer on the mux.
 		/// </summary>
 		public long DispatchFailures => Interlocked.Read(ref _dispatchFailures);
+
+		/// <summary>
+		///     First-contact STUN binding requests dropped because <see cref="MaxEndpointsPerUfrag" />
+		///     or <see cref="MaxUnknownEndpointAdmissions" /> was already spent - a flood that knows
+		///     (or guesses) a live ufrag, counted separately from <see cref="DroppedDatagrams" />'s
+		///     parse/route failures.
+		/// </summary>
+		public long AdmissionCapDrops => Interlocked.Read(ref _admissionCapDrops);
 
 		public event Action OnTick;
 
@@ -116,13 +143,23 @@ namespace MiNET.Net.Rtc
 		public void RegisterPeer(IPEndPoint remote, IMuxPeer peer)
 		{
 			SocketAddress address = remote.Serialize();
-			_peers[address] = new PeerEntry(peer, remote);
+			_peers[address] = new PeerEntry(peer, remote, admittedByFirstContact: false);
 			_sendAddresses[remote] = address;
 		}
 
+		/// <summary>
+		///     Decrements <see cref="_admittedEndpointCount" /> only for an entry <see cref="HandleFirstContact" />
+		///     admitted (<see cref="PeerEntry.AdmittedByFirstContact" />): an app-registered peer
+		///     (<see cref="RegisterPeer" />) never counted against <see cref="MaxUnknownEndpointAdmissions" />
+		///     in the first place, so removing one must not push the budget negative.
+		/// </summary>
 		public void RemovePeer(IPEndPoint remote)
 		{
-			_peers.TryRemove(remote.Serialize(), out _);
+			if (_peers.TryRemove(remote.Serialize(), out PeerEntry entry) && entry.AdmittedByFirstContact)
+			{
+				Interlocked.Decrement(ref _admittedEndpointCount);
+			}
+
 			_sendAddresses.TryRemove(remote, out _);
 		}
 
@@ -134,6 +171,7 @@ namespace MiNET.Net.Rtc
 		public void RemoveUfrag(string localUfrag)
 		{
 			_ufragResolvers.TryRemove(localUfrag, out _);
+			_ufragEndpointCounts.TryRemove(localUfrag, out _);
 		}
 
 		public void Send(IPEndPoint to, ReadOnlySpan<byte> datagram)
@@ -259,9 +297,26 @@ namespace MiNET.Net.Rtc
 			}
 
 			int separator = message.Username.IndexOf(':');
-			if (separator < 0 || !_ufragResolvers.TryGetValue(message.Username.Substring(0, separator), out Func<IPEndPoint, IMuxPeer> resolver))
+			if (separator < 0)
 			{
 				Interlocked.Increment(ref _droppedDatagrams);
+				return;
+			}
+
+			string ufrag = message.Username.Substring(0, separator);
+			if (!_ufragResolvers.TryGetValue(ufrag, out Func<IPEndPoint, IMuxPeer> resolver))
+			{
+				Interlocked.Increment(ref _droppedDatagrams);
+				return;
+			}
+
+			// Bounded admission, ahead of ever calling the resolver: an unauthenticated flood that
+			// knows (or guesses) a live ufrag must not grow _peers/_sendAddresses without limit before
+			// ICE integrity even has a chance to reject it (see the two constants' own remarks).
+			int endpointsForUfrag = _ufragEndpointCounts.TryGetValue(ufrag, out int count) ? count : 0;
+			if (endpointsForUfrag >= MaxEndpointsPerUfrag || Interlocked.Read(ref _admittedEndpointCount) >= MaxUnknownEndpointAdmissions)
+			{
+				Interlocked.Increment(ref _admissionCapDrops);
 				return;
 			}
 
@@ -274,8 +329,10 @@ namespace MiNET.Net.Rtc
 			}
 
 			SocketAddress address = endPoint.Serialize();
-			_peers[address] = new PeerEntry(peer, endPoint);
+			_peers[address] = new PeerEntry(peer, endPoint, admittedByFirstContact: true);
 			_sendAddresses[endPoint] = address;
+			_ufragEndpointCounts.AddOrUpdate(ufrag, 1, (_, existing) => existing + 1);
+			Interlocked.Increment(ref _admittedEndpointCount);
 			peer.OnStun(message, data, endPoint);
 		}
 
@@ -314,10 +371,14 @@ namespace MiNET.Net.Rtc
 			public readonly IMuxPeer Peer;
 			public readonly IPEndPoint EndPoint;
 
-			public PeerEntry(IMuxPeer peer, IPEndPoint endPoint)
+			/// <summary>Whether <see cref="HandleFirstContact" /> admitted this entry (counted against <see cref="MaxUnknownEndpointAdmissions" />), as opposed to an app-driven <see cref="RegisterPeer" /> call - see <see cref="RemovePeer" />'s own remarks for why this matters on the way out.</summary>
+			public readonly bool AdmittedByFirstContact;
+
+			public PeerEntry(IMuxPeer peer, IPEndPoint endPoint, bool admittedByFirstContact)
 			{
 				Peer = peer;
 				EndPoint = endPoint;
+				AdmittedByFirstContact = admittedByFirstContact;
 			}
 		}
 	}

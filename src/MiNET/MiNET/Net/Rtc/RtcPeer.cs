@@ -123,10 +123,23 @@ namespace MiNET.Net.Rtc
 		public event Action<RtcDataChannel> OnDataChannel;
 
 		/// <summary>
-		///     Raised at most once, when the transport is lost AFTER a handshake that already
-		///     succeeded: the 30 s ICE consent-freshness timeout firing <see cref="IceSession.OnFailed" />
-		///     is the only source today. It is not raised for a handshake that never came up in the
-		///     first place, that failure is already observed through <see cref="WaitForTransportAsync" />
+		///     Raised at most once (an interlocked guard - see <see cref="RaiseTransportClosed" />),
+		///     when the transport is lost AFTER a handshake that already succeeded, from any of four
+		///     sources: the 30 s ICE consent-freshness timeout (<see cref="IceSession.OnFailed" />), a
+		///     peer ABORT or SHUTDOWN on <see cref="_association" /> (<see cref="OnAssociationAborted" />
+		///     forwards <see cref="SctpAssociation.OnAborted" />, which fires for both - see that event's
+		///     own remarks), and an inbound DTLS close_notify or fatal alert, detected by polling
+		///     <see cref="DtlsSession.IsClosed" /> once per <see cref="_associationTick" /> rather than a
+		///     dedicated event (no such event exists on <see cref="DtlsSession" /> today, and this class's
+		///     own tick already runs every <see cref="UdpMux.OnTick" /> interval, so the extra latency is
+		///     the same 10 ms bound the tick itself already carries). Never raised by this side's own
+		///     <see cref="Dispose" />: that call unsubscribes <see cref="_association" />'s event first
+		///     (residue aside - see <see cref="Dispose" />'s own remarks for that class of window) and
+		///     <see cref="_mux" />'s tick before <see cref="_dtls" /> ever closes, and
+		///     <see cref="RaiseTransportClosed" /> itself additionally refuses to fire once
+		///     <see cref="_disposed" /> is set, closing the residual race a straggler tick invocation could
+		///     otherwise still hit. It is not raised for a handshake that never came up in the first
+		///     place, that failure is already observed through <see cref="WaitForTransportAsync" />
 		///     resolving <see langword="false" />.
 		/// </summary>
 		public event Action OnTransportClosed;
@@ -346,6 +359,13 @@ namespace MiNET.Net.Rtc
 
 			_dtls.OnDecrypted += _association.OnPacketReceived;
 
+			// SctpAssociation.OnAborted fires for a peer ABORT and a peer SHUTDOWN alike (its own
+			// remarks), so this one subscription forwards both terminal outcomes to OnTransportClosed.
+			// It also fires for THIS side's own local Abort() - including the one Dispose() below makes -
+			// but RaiseTransportClosed refuses to run once _disposed is set, so a self-initiated teardown
+			// never turns into a self-notification.
+			_association.OnAborted += OnAssociationAborted;
+
 			// UdpMux.OnTick (UdpMux.cs) is a bare multicast with no per-subscriber isolation, and
 			// HighPrecisionTimer's own catch around invoking it swallows silently - one association
 			// throwing out of OnTick aborts the whole invocation list for that tick, so every OTHER peer
@@ -378,6 +398,12 @@ namespace MiNET.Net.Rtc
 				{
 					Log.Error("SctpAssociation.OnTick threw; this peer's SCTP tick is skipped, the mux keeps serving every other peer.", ex);
 				}
+
+				// DtlsSession raises no event for a peer-driven close (an inbound close_notify or fatal
+				// alert), only the IsClosed flag RequestClose sets - so this polls it once per tick rather
+				// than adding one. Cheap and safe to read every tick: IsClosed never reverts to false, and
+				// RaiseTransportClosed is idempotent, so calling it again once already raised is a no-op.
+				if (_dtls.IsClosed) RaiseTransportClosed();
 			};
 			_mux.OnTick += _associationTick;
 		}
@@ -511,11 +537,39 @@ namespace MiNET.Net.Rtc
 		private void OnIceFailed()
 		{
 			_transportReady.TrySetResult(false);
+			RaiseTransportClosed();
+		}
 
-			if (_transportWasUp && Interlocked.Exchange(ref _transportClosedRaised, 1) == 0)
-			{
-				OnTransportClosed?.Invoke();
-			}
+		/// <summary>
+		///     <see cref="_association" />'s own <see cref="SctpAssociation.OnAborted" /> forwarder - see
+		///     that field's remarks for why a peer ABORT and a peer SHUTDOWN both land here, and
+		///     <see cref="OnTransportClosed" />'s own remarks for why this side's local teardown does not.
+		///     <paramref name="reason" /> is <see cref="SctpAssociation" />'s own diagnostic text (e.g.
+		///     "Peer sent ABORT.", "Peer sent SHUTDOWN.", "Local abort."), logged here since this is the
+		///     first point that knows the teardown reached the application layer at all.
+		/// </summary>
+		private void OnAssociationAborted(string reason)
+		{
+			Log.Debug($"SCTP association torn down ({reason}).");
+			RaiseTransportClosed();
+		}
+
+		/// <summary>
+		///     The single interlocked gate behind <see cref="OnTransportClosed" />, shared by every one of
+		///     its sources (see that event's own remarks): refuses to fire before a handshake ever
+		///     succeeded (<see cref="_transportWasUp" />), after this side's own <see cref="Dispose" /> has
+		///     already started (<see cref="_disposed" /> - closes the tick-poll's residual race, since
+		///     <see cref="_associationTick" /> is unsubscribed from <see cref="_mux" /> before
+		///     <see cref="_dtls" /> ever closes, but a straggler invocation already past that unsubscribe
+		///     could still be running concurrently), and more than once (<see cref="_transportClosedRaised" />).
+		/// </summary>
+		private void RaiseTransportClosed()
+		{
+			if (Volatile.Read(ref _disposed) != 0) return;
+			if (!_transportWasUp) return;
+			if (Interlocked.Exchange(ref _transportClosedRaised, 1) != 0) return;
+
+			OnTransportClosed?.Invoke();
 		}
 
 		/// <summary>
@@ -591,6 +645,12 @@ namespace MiNET.Net.Rtc
 			if (_association != null)
 			{
 				if (_dtls != null) _dtls.OnDecrypted -= _association.OnPacketReceived;
+
+				// Unhooked before Abort() below for the same reason as the OnDecrypted line above: Abort()
+				// fires OnAborted synchronously on this same thread, and _disposed is already set by now
+				// (the Interlocked.Exchange at the top of this method), so RaiseTransportClosed would have
+				// refused it anyway - this unsubscribe just shrinks that residue further, on principle.
+				_association.OnAborted -= OnAssociationAborted;
 
 				_association.Abort();
 				_mux.OnTick -= _associationTick;
