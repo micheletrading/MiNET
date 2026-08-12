@@ -46,8 +46,10 @@ namespace MiNET.Net.Rtc
 	///     moment both the remote fingerprint and (for the offerer) the resolved DTLS role exist.
 	///     The DTLS handshake itself starts automatically once ICE nominates a pair
 	///     (<see cref="IceSession.OnNominated" />): datagrams that arrive on the nominated pair before
-	///     the handshake task is scheduled are still captured, because <see cref="IceSession.OnDtlsDatagram" />
-	///     is wired straight to <see cref="DtlsSession.FeedDatagram" />, which queues unconditionally.
+	///     the handshake task is scheduled are not lost, because <see cref="IceSession.OnDtlsDatagram" />
+	///     is wired straight to <see cref="DtlsSession.FeedDatagram" />, and the <see cref="DtlsEngine" />
+	///     it feeds exists from construction, so any datagram arriving before the handshake driver runs
+	///     is still consumed synchronously.
 	/// </summary>
 	public class RtcPeer : IDisposable
 	{
@@ -269,7 +271,7 @@ namespace MiNET.Net.Rtc
 		/// <summary>
 		///     Throws if a DTLS session already exists: a second <see cref="AcceptOffer" />/
 		///     <see cref="AcceptAnswer" /> call would otherwise overwrite <see cref="_dtls" /> without
-		///     disposing the previous one, leaking its handshake engine, certificate, and pooled buffers.
+		///     disposing the previous one, leaking its handshake engine and pooled buffers.
 		///     There is no renegotiation path in this class.
 		///     <para>
 		///     Also builds the SCTP association and subscribes

@@ -47,7 +47,7 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Fingerprint_IsStable_AndFormatted()
 		{
-			var certificate = RtcCertificate.CreateSelfSigned();
+			using var certificate = RtcCertificate.CreateSelfSigned();
 			StringAssert.Matches(certificate.FingerprintSha256, new Regex("^([0-9A-F]{2}:){31}[0-9A-F]{2}$"));
 		}
 
@@ -67,8 +67,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task Handshake_Completes_AndCarriesApplicationData()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			// Loopback wiring without ICE or sockets: each session's sendToWire feeds the other.
 			DtlsSession server = null, client = null;
@@ -97,9 +97,9 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task Dispose_NeverDisposesTheSharedCertificate_ASecondSessionOverTheSameCertificateStillCompletes()
 		{
-			var sharedServerCert = RtcCertificate.CreateSelfSigned();
-			var firstClientCert = RtcCertificate.CreateSelfSigned();
-			var secondClientCert = RtcCertificate.CreateSelfSigned();
+			using var sharedServerCert = RtcCertificate.CreateSelfSigned();
+			using var firstClientCert = RtcCertificate.CreateSelfSigned();
+			using var secondClientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession firstServer = null, firstClient = null;
 			firstServer = new DtlsSession(sharedServerCert, firstClientCert.FingerprintSha256, isServer: true, bytes => firstClient.FeedDatagram(bytes));
@@ -140,8 +140,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task Handshake_NegotiatesTheKeyBlock_AndItDecryptsARealRecord()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			byte[] lastClientToServer = null;
@@ -231,8 +231,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task Dispose_ZeroesTheCapturedKeyMaterial()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
@@ -260,9 +260,9 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task WrongFingerprint_FailsTheHandshake()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
-			var imposter = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
+			using var imposter = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, true, bytes => client.FeedDatagram(bytes));
@@ -285,9 +285,9 @@ namespace MiNET.Test.Rtc
 		{
 			const byte AlertContentType = 21;
 
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
-			var imposter = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
+			using var imposter = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var clientSentDatagrams = new List<byte[]>();
@@ -321,8 +321,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task MalformedClientKeyExchange_OffCurvePoint_NeverEscapesFeedDatagram_ClosesAndCountsFailure()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			byte[] tamperedFlight = null;
@@ -411,8 +411,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task ReplayedRecord_IsDiscarded_AndSessionKeepsWorking()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			byte[] lastClientToServer = null;
@@ -456,8 +456,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task Cancelling_TheHandshake_ResolvesFalse_WithNoPeerEverAnswering()
 		{
-			var clientCert = RtcCertificate.CreateSelfSigned();
-			var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
 
 			// Nobody on the other end: sendToWire goes nowhere, so the engine's first flight is simply
 			// never answered.
@@ -480,8 +480,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task DoHandshakeAsync_CalledTwice_ReturnsTheSameTask_NeverReenteringTheEngine()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
@@ -512,8 +512,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task DisposeFromWithinOnDecrypted_DoesNotCorruptTheScratchBuffer()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
@@ -561,8 +561,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task SendApplicationData_AfterDispose_IsSilentlyDropped_DoesNotThrow()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			bool clientDisposed = false;
@@ -609,8 +609,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task ConcurrentFeedDatagram_NeverCorrupts_EveryDatagramIsEitherDeliveredOnceOrSafelyDropped()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			bool captureOnly = false;
@@ -695,8 +695,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task NativeRecordLayer_ExchangesOneThousandDatagramsEachWay_AllDeliveredIntact()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
@@ -756,8 +756,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task EpochZeroRecord_TriggersAnEngineResendOfItsLastFlight_WithFreshEpoch1Sequences()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var serverToClientDatagrams = new List<byte[]>();
@@ -842,8 +842,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task EpochZeroRecord_RateLimitsResends_ToAtMostOnePerSecond_AdvancingTheClockReArms()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var clientToServerDatagrams = new List<byte[]>();
@@ -910,8 +910,8 @@ namespace MiNET.Test.Rtc
 		{
 			const byte ApplicationDataContentType = 23;
 
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var clientToServerDatagrams = new List<byte[]>();
@@ -966,8 +966,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task JunkPrefixDatagram_EpochZeroHeaderThenGarbage_HandledFully_AtMostOneResend_ZeroAllocationOnTheDropPath()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
@@ -1028,8 +1028,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task EpochZeroRecord_ClientRole_AlsoTriggersAnEngineResend_OfItsOwnSecondFlight()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var serverToClientDatagrams = new List<byte[]>();
@@ -1084,8 +1084,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task EngineResend_NeverReusesAnEpoch1SequenceTheRecordLayerHasSentOrWillSend()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var serverToClientDatagrams = new List<byte[]>();
@@ -1165,8 +1165,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void OnTick_DrivesHandshakeRetransmission_AtA300MsCadenceOverTheHostsTick()
 		{
-			var clientCert = RtcCertificate.CreateSelfSigned();
-			var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
 
 			int sendCount = 0;
 			using var client = new DtlsSession(clientCert, serverCert.FingerprintSha256, isServer: false, _ => sendCount++);
@@ -1209,8 +1209,8 @@ namespace MiNET.Test.Rtc
 			const byte AlertLevelFatal = 2;
 			const byte AlertDescriptionUnexpectedMessage = 10;
 
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			bool serverClosed = false;
@@ -1273,8 +1273,8 @@ namespace MiNET.Test.Rtc
 			const byte AlertLevelWarning = 1;
 			const byte AlertDescriptionCloseNotify = 0;
 
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			byte[] lastServerToClient = null;
@@ -1345,8 +1345,8 @@ namespace MiNET.Test.Rtc
 			const byte AlertLevelWarning = 1;
 			const byte AlertDescriptionCloseNotify = 0;
 
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));
@@ -1395,8 +1395,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task Dispose_EmitsExactlyOneCloseNotify_NothingElseAfterIt()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var sentByServer = new List<byte[]>();
@@ -1437,8 +1437,8 @@ namespace MiNET.Test.Rtc
 			const byte AlertLevelWarning = 1;
 			const byte AlertDescriptionCloseNotify = 0;
 
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			var sentByServer = new List<byte[]>();
@@ -1522,8 +1522,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task TamperedRecord_IsDroppedAndCounted_SessionStaysAlive_NextCleanRecordDelivers()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			bool interceptOnly = false;
@@ -1596,8 +1596,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task FeedDatagram_ReenteredFromWithinOnDecrypted_IsDroppedAndCounted_OuterDeliveryStillCompletesIntact()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			bool interceptOnly = false;
@@ -1658,8 +1658,8 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public async Task NativeRecordLayer_TenThousandDatagramsBothDirections_AllocatesNothingOnOurSide()
 		{
-			var serverCert = RtcCertificate.CreateSelfSigned();
-			var clientCert = RtcCertificate.CreateSelfSigned();
+			using var serverCert = RtcCertificate.CreateSelfSigned();
+			using var clientCert = RtcCertificate.CreateSelfSigned();
 
 			DtlsSession server = null, client = null;
 			server = new DtlsSession(serverCert, clientCert.FingerprintSha256, isServer: true, bytes => client.FeedDatagram(bytes));

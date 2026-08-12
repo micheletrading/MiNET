@@ -23,6 +23,7 @@
 
 #endregion
 
+using System;
 using MiNET.Net.Rtc.FastDtls;
 
 namespace MiNET.Net.Rtc
@@ -36,9 +37,10 @@ namespace MiNET.Net.Rtc
 	///     <see cref="CreateSelfSigned" />: a <see cref="DtlsSession" /> built from this instance reads
 	///     it but never disposes it, since one certificate is shared across every
 	///     <see cref="DtlsSession" /> a server negotiates - the normal WebRTC shape - and disposing it
-	///     from inside any one of those sessions would break every other peer still using it.
+	///     from inside any one of those sessions would break every other peer still using it. The owner
+	///     releases it by disposing this instance once every session built from it is gone.
 	/// </summary>
-	public class RtcCertificate
+	public sealed class RtcCertificate : IDisposable
 	{
 		internal DtlsCertificate DtlsCertificate { get; }
 		public string FingerprintSha256 { get; }
@@ -54,6 +56,11 @@ namespace MiNET.Net.Rtc
 			DtlsCertificate certificate = DtlsCertificate.Generate();
 			string fingerprint = DtlsCertificate.FormatFingerprint(certificate.Fingerprint);
 			return new RtcCertificate(certificate, fingerprint);
+		}
+
+		public void Dispose()
+		{
+			DtlsCertificate.Dispose();
 		}
 	}
 }

@@ -123,18 +123,20 @@ namespace MiNET.Net.Rtc
 		private readonly byte[] _receiveScratch = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
 		private readonly object _gate = new object();
 
-		// Deliberately separate from _gate, which the receive path holds across OnDecrypted:
-		// serializing SendApplicationData on _gate would block application writes behind whatever
-		// a subscriber does inside OnDecrypted. This lock only ever needs to exclude concurrent
-		// callers of SendApplicationData itself from each other.
+		// Deliberately separate from _gate: the receive path releases _gate around OnDecrypted, so a
+		// subscriber can call SendApplicationData from inside that callback while another thread is
+		// concurrently sending. Serializing SendApplicationData on _gate instead would deadlock that
+		// case. This lock only ever needs to exclude concurrent callers of SendApplicationData itself
+		// from each other.
 		private readonly object _sendGate = new object();
 
 		// Owns the whole handshake; not thread-safe on its own, so every call to it below is made
-		// under _gate (retransmission via Retransmit(), post-establishment, is the one exception - see
-		// HandleEpochZeroRecordLocked, which serializes it on _sendGate instead, alongside the record
-		// layer's own send sequence it shares a key with). Kept alive for the session's whole
-		// lifetime, not just until the handshake completes: a peer that never received our final flight
-		// still needs it to rebuild and re-send that flight. Disposed only from Dispose.
+		// under _gate, including retransmission via Retransmit() post-establishment (reached only from
+		// HandleEpochZeroRecordLocked, itself reached only from FeedDatagram's lock (_gate)); that path
+		// is additionally serialized on _sendGate, alongside the record layer's own send sequence it
+		// shares a key with. Kept alive for the session's whole lifetime, not just until the handshake
+		// completes: a peer that never received our final flight still needs it to rebuild and re-send
+		// that flight. Disposed only from Dispose.
 		private readonly DtlsEngine _engine;
 		private readonly TaskCompletionSource<bool> _handshakeCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -848,13 +850,14 @@ namespace MiNET.Net.Rtc
 		///     or this section runs first and the other call's own disposed check, repeated inside its own
 		///     gate acquisition, bails out before touching the now-freed <see cref="_receiveScratch" />. A
 		///     same-thread <em>reentrant</em> call (Dispose invoked synchronously from an
-		///     <see cref="OnDecrypted" /> subscriber) is different: the gate is already held by this same
-		///     thread, so it does not block, and <see cref="_processing" /> being true means
-		///     <see cref="ProcessApplicationDatagramLocked" />'s walk is still further up this exact call
-		///     stack, still about to touch <see cref="_receiveScratch" /> once this call returns control to
-		///     it. In that case the buffer is not returned here; <see cref="_deferredScratchReturn" /> is
-		///     set instead, and <see cref="FeedDatagram" />'s own <c>finally</c> performs the return once
-		///     that call has actually finished.
+		///     <see cref="OnDecrypted" /> subscriber) is different: the receive path releases
+		///     <see cref="_gate" /> around that callback, so this call acquires it fresh rather than
+		///     blocking on itself, and what actually keeps the buffer safe is <see cref="_processing" />
+		///     being true, which means <see cref="ProcessApplicationDatagramLocked" />'s walk is still
+		///     further up this exact call stack, still about to touch <see cref="_receiveScratch" /> once
+		///     this call returns control to it. In that case the buffer is not returned here;
+		///     <see cref="_deferredScratchReturn" /> is set instead, and <see cref="FeedDatagram" />'s own
+		///     <c>finally</c> performs the return once that call has actually finished.
 		///     <para>
 		///     <c>TrySendCloseNotifyLocked()</c>, <c>_recordCrypto.Dispose()</c>, and
 		///     <c>_engine.Dispose()</c> run inside one nested <c>lock (_sendGate)</c>, in that order (the

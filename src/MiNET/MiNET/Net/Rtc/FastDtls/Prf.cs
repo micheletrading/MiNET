@@ -128,8 +128,8 @@ namespace MiNET.Net.Rtc.FastDtls
 		/// <summary>Hash of everything appended so far, without disturbing the running state.</summary>
 		public byte[] Snapshot()
 		{
-			// IncrementalHash has no clone; rehash is avoided by keeping our own copy of appended data
-			// being unnecessary: GetCurrentHash (netcore3.0+) reads without resetting.
+			// IncrementalHash has no clone, but GetCurrentHash (netcore3.0+) reads the running hash
+			// without resetting it, so no separate copy of the appended data is needed to snapshot it.
 			byte[] hash = new byte[32];
 			_hash.TryGetCurrentHash(hash, out _);
 			return hash;
