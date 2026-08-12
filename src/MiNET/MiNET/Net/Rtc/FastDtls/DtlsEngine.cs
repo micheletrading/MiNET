@@ -90,21 +90,21 @@ namespace MiNET.Net.Rtc.FastDtls
 		/// <summary>
 		///     Outbound MTU probe ladder in UDP-payload bytes, walked downward on retransmission
 		///     timeouts the same way the RakNet offline handshake does it: 1472 is the Ethernet-path
-		///     ceiling, 1200 the RFC 8831 WebRTC-safe size, 576 the classic conservative floor. A rung
+		///     ceiling, 1200 the RFC 8831 WebRTC-safe size, 576 the classic conservative floor. A size
 		///     is only abandoned when the timed-out flight actually contained a datagram larger than
-		///     the next rung, so plain packet loss on small flights never shrinks the MTU.
+		///     the next size down, so plain packet loss on small flights never shrinks the MTU.
 		/// </summary>
 		private static readonly int[] MtuLadder = { 1472, 1200, 576 };
 
-		/// <summary>Tries per rung before stepping down, matching the retransmission cadence MiNET's RakNet layer uses (300ms timer, two tries per size).</summary>
-		private const int TimeoutsPerRung = 2;
+		/// <summary>Tries per ladder step before stepping down, matching the retransmission cadence MiNET's RakNet layer uses (300ms timer, two tries per size).</summary>
+		private const int TimeoutsPerStep = 2;
 
 		private readonly bool _isClient;
 		private readonly DtlsCertificate _certificate;
 		private readonly Action<byte[]> _transmit;
 		private readonly int[] _ladder;
 		private int _ladderIndex;
-		private int _timeoutsAtRung;
+		private int _timeoutsAtStep;
 		private int _lastFlightMaxDatagram;
 		private readonly byte[] _expectedPeerFingerprint;
 
@@ -147,7 +147,7 @@ namespace MiNET.Net.Rtc.FastDtls
 		private readonly byte[] _cookieSecret;
 
 		// the current flight as MESSAGES, not datagrams: every (re)transmission rebuilds records at
-		// the current rung with fresh record sequence numbers, which is what lets a retransmission
+		// the current MTU with fresh record sequence numbers, which is what lets a retransmission
 		// re-fragment smaller (RFC 6347 4.2.3) and stay clear of the peer's anti-replay window
 		private readonly struct FlightEntry
 		{
@@ -171,7 +171,7 @@ namespace MiNET.Net.Rtc.FastDtls
 
 		// per-record overhead: 13-byte record header + 12-byte handshake header, plus the AEAD
 		// explicit nonce and tag on epoch-1 records only; epoch 0 carries no margin so a padded
-		// ClientHello can fill its datagram to exactly the rung under probe
+		// ClientHello can fill its datagram to exactly the size under probe
 		private int MaxFragmentEpoch0 => CurrentMtu - DtlsRecords.HeaderLength - 12;
 		private int MaxFragmentEpoch1 => MaxFragmentEpoch0 - 8 - 16;
 
@@ -204,9 +204,9 @@ namespace MiNET.Net.Rtc.FastDtls
 			_transmit = transmit;
 
 			var ladder = new List<int> { mtu };
-			foreach (int rung in MtuLadder)
+			foreach (int step in MtuLadder)
 			{
-				if (rung < mtu) ladder.Add(rung);
+				if (step < mtu) ladder.Add(step);
 			}
 			_ladder = ladder.ToArray();
 			if (MaxFragmentEpoch1 < 64) throw new ArgumentOutOfRangeException(nameof(mtu));
@@ -226,7 +226,7 @@ namespace MiNET.Net.Rtc.FastDtls
 
 			// padded so the very first datagram is a full-size MTU probe, RakNet-style; the body is
 			// then immutable (it may end up in the transcript), so ladder steps re-FRAGMENT it and the
-			// first fragment's datagram stays the probe for the new rung
+			// first fragment's datagram stays the probe for the new size
 			BeginFlight();
 			Span<byte> body = stackalloc byte[CurrentMtu];
 			int n = HandshakeMessages.WriteClientHello(body, _localRandom, ReadOnlySpan<byte>.Empty, MaxFragmentEpoch0);
@@ -240,24 +240,24 @@ namespace MiNET.Net.Rtc.FastDtls
 			EndFlight();
 		}
 
-		/// <summary>Re-sends the current flight, rebuilt at the current rung with fresh record sequence numbers.</summary>
+		/// <summary>Re-sends the current flight, rebuilt at the current MTU with fresh record sequence numbers.</summary>
 		public void Retransmit()
 		{
 			TransmitFlight();
 		}
 
 		/// <summary>
-		///     The host's retransmission timer entry (300ms cadence): after <see cref="TimeoutsPerRung" />
-		///     tries at a rung whose flight held a datagram too big for a lower rung, steps the ladder
-		///     down and re-fragments, RakNet-style. Small-flight loss just retransmits at the same size.
+		///     The host's retransmission timer entry (300ms cadence): after <see cref="TimeoutsPerStep" />
+		///     tries at a size whose flight held a datagram too big for the next size down, steps the
+		///     ladder down and re-fragments, RakNet-style. Small-flight loss just retransmits at the same size.
 		/// </summary>
 		public void OnTimeout()
 		{
 			if (_state == State.Failed) return;
-			if (_state != State.Complete && ++_timeoutsAtRung >= TimeoutsPerRung)
+			if (_state != State.Complete && ++_timeoutsAtStep >= TimeoutsPerStep)
 			{
-				_timeoutsAtRung = 0;
-				// the biggest rung that would actually shrink the flight's biggest datagram; none
+				_timeoutsAtStep = 0;
+				// the biggest ladder step that would actually shrink the flight's biggest datagram; none
 				// means the loss was not size-related (or the floor is reached), so same size again
 				for (int i = _ladderIndex + 1; i < _ladder.Length; i++)
 				{
@@ -454,7 +454,7 @@ namespace MiNET.Net.Rtc.FastDtls
 
 			BeginFlight();
 			Span<byte> hello = stackalloc byte[CurrentMtu];
-			// same random per RFC 6347 4.2.2; padded to keep probing the current rung
+			// same random per RFC 6347 4.2.2; padded to keep probing the current size
 			int n = HandshakeMessages.WriteClientHello(hello, _localRandom, cookie, MaxFragmentEpoch0);
 			SendHandshakeMessage(HandshakeType.ClientHello, hello.Slice(0, n));
 			EndFlight();

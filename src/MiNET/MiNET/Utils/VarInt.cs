@@ -62,7 +62,7 @@ namespace MiNET.Utils
 		}
 
 		// TODO varint: rework decode to a span-based reader (ReadOnlySpan + index) instead of
-		// Stream.ReadByte per byte; add a first-byte fast path (b < 0x80 => return b). Later rung,
+		// Stream.ReadByte per byte; add a first-byte fast path (b < 0x80 => return b). Later step,
 		// once packet buffers are pooled leases with 8 bytes of slack: branchless SWAR decode
 		// (single unaligned 8-byte load, tzcnt on ~x & 0x8080.. for length, BMI2 PEXT with
 		// 0x7F7F.. to compact payload bits; guard Bmi2.X64.IsSupported, PEXT is microcoded on

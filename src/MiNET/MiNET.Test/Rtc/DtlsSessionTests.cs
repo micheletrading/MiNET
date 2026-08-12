@@ -1183,8 +1183,8 @@ namespace MiNET.Test.Rtc
 			for (int i = 0; i < 29; i++) client.OnTick();
 			Assert.AreEqual(2, sendCount, "expected the tick count to have reset after the previous retransmission");
 
-			// A second consecutive timeout at the same MTU rung is also the engine's own signal (RakNet-
-			// style: two tries per rung) to step the MTU ladder down and re-fragment the still-buffered
+			// A second consecutive timeout at the same MTU is also the engine's own signal (RakNet-
+			// style: two tries per size) to step the MTU ladder down and re-fragment the still-buffered
 			// ClientHello, which can turn this one retransmission into more than one outgoing datagram;
 			// this test only needs to prove OnTick keeps driving the timer on cadence, not pin the
 			// engine's own MTU-probing datagram count, so it asserts growth, not an exact total.

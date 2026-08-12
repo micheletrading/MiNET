@@ -94,7 +94,7 @@ namespace MiNET.Test.Rtc
 		///     A path that silently eats every datagram over 700 bytes. The client's padded ClientHello
 		///     is a genuine 1472-byte probe, so it vanishes and the timeout ladder has to walk the
 		///     client down to 576 before the handshake can start. The server's flights are content-sized
-		///     (they fit under 700), so the server correctly keeps its rung: in-handshake probing covers
+		///     (they fit under 700), so the server correctly keeps its size: in-handshake probing covers
 		///     the client's outbound; the server's outbound is the SCTP layer's PADDING-chunk job later.
 		/// </summary>
 		[TestMethod]
