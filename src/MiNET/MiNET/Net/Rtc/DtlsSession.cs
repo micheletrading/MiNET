@@ -100,7 +100,10 @@ namespace MiNET.Net.Rtc
 		///     receive pipeline this feeds (<see cref="SctpAssociation.OnPacketReceived" />, ultimately
 		///     <see cref="SctpAssociation.OnMessage" />) delivers a <see cref="System.Buffers.ReadOnlySequence{T}" />
 		///     end to end, and a sequence cannot wrap a span. <paramref name="payload" /> is still only
-		///     valid for the duration of the callback: it is a slice of <see cref="_receiveScratch" />, our
+		///     OWNED by the subscriber: it is a slice of a buffer rented from <see cref="ArrayPool{T}.Shared" />
+		///     for this one datagram, so it may cross threads freely, and the owner returns the backing
+		///     array (<see cref="System.Runtime.InteropServices.MemoryMarshal.TryGetArray{T}" />) when
+		///     done; not returning it only costs pool efficiency, never correctness. It is NOT a slice of <see cref="_receiveScratch" />, our
 		///     own pooled array, unchanged from when this was a span.
 		/// </summary>
 		public delegate void DecryptedHandler(ReadOnlyMemory<byte> payload);
@@ -451,13 +454,23 @@ namespace MiNET.Net.Rtc
 				}
 				else if (contentType == ContentTypeApplicationData)
 				{
-					if (!_recordCrypto.TryDecryptRecord(record, _receiveScratch, out _, out int length)) continue;
+					// The plaintext lands directly in a pool-rented buffer the SUBSCRIBER then owns
+					// (the delegate's contract): the cipher writes into the receiving stage's memory
+					// the same way the kernel writes into the receive buffer handed to it, so a
+					// subscriber that hands the datagram to another thread (a per-session lane) does
+					// so with zero copies. Steady state stays GC-free as long as owners return the
+					// buffer to ArrayPool.Shared.
+					byte[] rented = ArrayPool<byte>.Shared.Rent(fragmentLength);
+					if (!_recordCrypto.TryDecryptRecord(record, rented, out _, out int length))
+					{
+						ArrayPool<byte>.Shared.Return(rented);
+						continue;
+					}
 
-					int deliveredLength = length;
 					Monitor.Exit(_gate);
 					try
 					{
-						OnDecrypted?.Invoke(_receiveScratch.AsMemory(0, deliveredLength));
+						OnDecrypted?.Invoke(rented.AsMemory(0, length));
 					}
 					finally
 					{

@@ -289,5 +289,55 @@ namespace MiNET.Test.NetherNet
 				listener.Stop();
 			}
 		}
+
+		/// <summary>
+		///     Both ends ours, end to end: <see cref="NetherNetClient" /> dials the listener
+		///     through real signaling and real loopback UDP, and a Bedrock-shaped payload crosses from
+		///     the connected client session to the server session's handler. This is the full
+		///     integration path a ServiceKiller bot takes, in one process.
+		/// </summary>
+		[TestMethod]
+		public async Task OwnConnector_DialsOwnListener_PayloadCrossesEndToEnd()
+		{
+			NetherNetListener listener = StartListener();
+			NetherNetClient client = null;
+			try
+			{
+				RecordingMessageHandler handler = null;
+				listener.CustomMessageHandlerFactory = session =>
+				{
+					handler = new RecordingMessageHandler();
+					return handler;
+				};
+
+				client = await NetherNetClient.ConnectAsync("127.0.0.1", listener.LocalEndPoint.Port);
+				NetherNetSession clientSession = client.Session;
+
+				// SendPacket routes through the handler's PrepareSend seam and no-ops without one,
+				// exactly like a real client, which always wires its Bedrock handler before sending.
+				clientSession.CustomMessageHandler = new RecordingMessageHandler();
+
+				Assert.IsTrue(await WaitUntilAsync(() => handler != null && handler.ConnectedCalled, TimeSpan.FromSeconds(10)),
+					"the server session never attached and called Connected() on the factory-made handler");
+
+				byte[] payload = new byte[512];
+				new Random(12).NextBytes(payload);
+				McpeWrapper wrapper = McpeWrapper.CreateObject();
+				wrapper.payload = payload;
+				clientSession.SendPacket(wrapper);
+
+				Assert.IsTrue(await WaitUntilAsync(() => { lock (handler.ReceivedPayloads) return handler.ReceivedPayloads.Count > 0; }, TimeSpan.FromSeconds(10)),
+					"the client's payload never reached the server session's handler");
+
+				byte[] received;
+				lock (handler.ReceivedPayloads) received = handler.ReceivedPayloads[0];
+				CollectionAssert.AreEqual(payload, received);
+			}
+			finally
+			{
+				client?.Dispose();
+				listener.Stop();
+			}
+		}
 	}
 }

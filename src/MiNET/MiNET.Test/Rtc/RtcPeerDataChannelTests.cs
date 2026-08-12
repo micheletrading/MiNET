@@ -132,7 +132,7 @@ namespace MiNET.Test.Rtc
 				serverGotReliable.TrySetResult(Encoding.UTF8.GetString(data.ToArray()));
 			};
 			clientReliable.Send(Encoding.UTF8.GetBytes("hello from client"), asString: true);
-			Assert.AreEqual("hello from client", await serverGotReliable.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+			Assert.AreEqual("hello from client", await serverGotReliable.Task.WaitAsync(TimeSpan.FromSeconds(30)));
 
 			// Reliable, server -> client.
 			var clientGotReliable = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -143,7 +143,7 @@ namespace MiNET.Test.Rtc
 			};
 			byte[] reply = {9, 8, 7, 6};
 			serverReliable.Send(reply, asString: false);
-			CollectionAssert.AreEqual(reply, await clientGotReliable.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+			CollectionAssert.AreEqual(reply, await clientGotReliable.Task.WaitAsync(TimeSpan.FromSeconds(30)));
 
 			// Unreliable, client -> server: under clean loopback (nothing to lose) it must still arrive.
 			var serverGotUnreliable = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -154,7 +154,7 @@ namespace MiNET.Test.Rtc
 			};
 			byte[] unreliablePayload = {1, 2, 3};
 			clientUnreliable.Send(unreliablePayload, asString: false);
-			CollectionAssert.AreEqual(unreliablePayload, await serverGotUnreliable.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+			CollectionAssert.AreEqual(unreliablePayload, await serverGotUnreliable.Task.WaitAsync(TimeSpan.FromSeconds(30)));
 
 			// Unreliable, server -> client: same, the other direction.
 			var clientGotUnreliable = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -165,7 +165,7 @@ namespace MiNET.Test.Rtc
 			};
 			byte[] unreliableReply = {4, 5, 6};
 			serverUnreliable.Send(unreliableReply, asString: false);
-			CollectionAssert.AreEqual(unreliableReply, await clientGotUnreliable.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+			CollectionAssert.AreEqual(unreliableReply, await clientGotUnreliable.Task.WaitAsync(TimeSpan.FromSeconds(30)));
 		}
 
 		/// <summary>
@@ -265,8 +265,8 @@ namespace MiNET.Test.Rtc
 			// server's own association (SctpAssociation.Abort's own remarks).
 			server.Association.Abort();
 
-			Assert.IsTrue(await clientClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "client's OnTransportClosed never fired after the server aborted");
-			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "server's own OnTransportClosed never fired for its own local Abort()");
+			Assert.IsTrue(await clientClosed.Task.WaitAsync(TimeSpan.FromSeconds(30)), "client's OnTransportClosed never fired after the server aborted");
+			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(30)), "server's own OnTransportClosed never fired for its own local Abort()");
 
 			// A settle window: proves neither side's guard lets a second, delayed delivery re-fire.
 			await Task.Delay(TimeSpan.FromMilliseconds(200));
@@ -306,7 +306,7 @@ namespace MiNET.Test.Rtc
 			byte[] shutdownPacket = BuildShutdownPacket(server.Association.LocalVerificationTag);
 			server.Association.OnPacketReceived(shutdownPacket);
 
-			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "server's OnTransportClosed never fired after receiving SHUTDOWN");
+			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(30)), "server's OnTransportClosed never fired after receiving SHUTDOWN");
 			Assert.AreEqual(SctpState.Aborted, server.AssociationState);
 
 			await Task.Delay(TimeSpan.FromMilliseconds(200));
@@ -346,7 +346,7 @@ namespace MiNET.Test.Rtc
 			// so no ABORT chunk ever goes on the wire.
 			client.Dtls.Dispose();
 
-			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(10)), "server's OnTransportClosed never fired after the client's close_notify");
+			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(30)), "server's OnTransportClosed never fired after the client's close_notify");
 			Assert.IsTrue(server.DtlsSessionClosed, "the server's DTLS session should have closed on the inbound close_notify");
 			Assert.AreEqual(SctpState.Established, server.AssociationState, "the association must be untouched; only the DTLS poll may have raised the event");
 

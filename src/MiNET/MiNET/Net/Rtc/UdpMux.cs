@@ -81,7 +81,18 @@ namespace MiNET.Net.Rtc
 		// overload a cached address instead of re-serializing the IPEndPoint on every call.
 		private readonly ConcurrentDictionary<IPEndPoint, SocketAddress> _sendAddresses = new();
 
-		private HighPrecisionTimer _timer;
+		// One tick thread for the whole process, however many muxes exist. HighPrecisionTimer is a
+		// dedicated AboveNormal thread that busy-spins the last stretch of every period, priced for
+		// there being ONE of it: a process running many muxes (a bot fleet, one mux per outgoing
+		// connection) must never multiply it, fifty of them starve a 16-thread box outright. All
+		// subscribed muxes' ticks run serially on this single thread, the same shape RakConnection
+		// uses for all its sessions.
+		private static readonly object SharedTimerLock = new object();
+		private static HighPrecisionTimer _sharedTimer;
+		private static event Action SharedTick;
+		private static int _sharedTimerSubscribers;
+
+		private Action _sharedTickHandler;
 		private long _droppedDatagrams;
 		private long _dispatchFailures;
 		private long _admittedEndpointCount;
@@ -137,7 +148,14 @@ namespace MiNET.Net.Rtc
 			if (Interlocked.Exchange(ref _started, 1) != 0) throw new InvalidOperationException("UdpMux.Start already called.");
 
 			_ = ReceiveLoopAsync();
-			_timer = new HighPrecisionTimer(TickIntervalMs, _ => OnTick?.Invoke());
+
+			_sharedTickHandler = () => OnTick?.Invoke();
+			lock (SharedTimerLock)
+			{
+				SharedTick += _sharedTickHandler;
+				_sharedTimerSubscribers++;
+				_sharedTimer ??= new HighPrecisionTimer(TickIntervalMs, _ => SharedTick?.Invoke());
+			}
 		}
 
 		public void RegisterPeer(IPEndPoint remote, IMuxPeer peer)
@@ -361,7 +379,20 @@ namespace MiNET.Net.Rtc
 			if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
 			_cancellation.Cancel();
-			_timer?.Dispose();
+
+			if (_sharedTickHandler != null)
+			{
+				lock (SharedTimerLock)
+				{
+					SharedTick -= _sharedTickHandler;
+					if (--_sharedTimerSubscribers == 0)
+					{
+						_sharedTimer?.Dispose();
+						_sharedTimer = null;
+					}
+				}
+			}
+
 			_socket.Dispose();
 			_cancellation.Dispose();
 		}

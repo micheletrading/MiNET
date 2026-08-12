@@ -28,6 +28,8 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
+using System.Threading.Channels;
+using System.Threading.Tasks;
 using log4net;
 using MiNET.Net.RakNet;
 using MiNET.Net.Rtc;
@@ -66,6 +68,19 @@ namespace MiNET.Net.NetherNet
 		private readonly NetherNetSegmentReassembler _unreliableReassembler = new NetherNetSegmentReassembler();
 
 		private readonly object _sendLock = new object();
+
+		// Decoded-but-not-yet-dispatched packets, consumed by this session's single async reader
+		// (DispatchLoopAsync): no dedicated thread, the reader's WaitToReadAsync parks as a
+		// ValueTask (IValueTaskSource-backed) and runs on the pool only while messages exist.
+		// Single reader preserves per-session ordering; sessions parallelize across each other.
+		// Unbounded: SCTP flow control (a_rwnd) is the backpressure that keeps a peer from growing
+		// it without limit; a local slow handler grows it briefly and drains, which is strictly
+		// better than stalling the shared mux thread.
+		private readonly Channel<Packet> _dispatchQueue = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
+		{
+			SingleReader = true,
+			SingleWriter = true
+		});
 
 		private int _closed;
 		private int _sawUnreliableTraffic;
@@ -123,6 +138,8 @@ namespace MiNET.Net.NetherNet
 			EndPoint = endPoint;
 			NetworkId = networkId;
 			NetworkIdentifier = long.TryParse(networkId, out long id) ? id : networkId?.GetHashCode() ?? 0;
+
+			_ = DispatchLoopAsync();
 
 			// Losing the reliable channel is losing the session. Mojang's guide has the client open
 			// both, so a missing unreliable channel at this point is unexpected but not fatal: it may
@@ -248,12 +265,69 @@ namespace MiNET.Net.NetherNet
 			if (handler == null) return;
 
 			// There is no 0xFE to parse: the reassembled bytes are the wrapper payload itself, starting
-			// at the compressor id byte. So rebuild the wrapper around them and let the message handler
-			// decompress and split the batch exactly as it does for RakNet.
+			// at the compressor id byte. Rebuild the wrapper around them as a VIEW, no copy: the
+			// span-based decode consumes it synchronously right here on the receive thread, and only
+			// the decoded packet objects, which own their memory, cross to the dispatch thread. One
+			// player's login burst or slow handler must never stall every other session's inbound
+			// behind it on the shared mux thread.
 			var wrapper = McpeWrapper.CreateObject();
 			wrapper.payload = payload;
 
-			handler.HandlePacket(wrapper);
+			if (handler is BedrockMessageHandlerBase bedrock)
+			{
+				foreach (Packet msg in bedrock.DecodeBatch(wrapper))
+				{
+					Enqueue(msg);
+				}
+
+				return;
+			}
+
+			// A handler outside the Bedrock base (a test recorder) has no decode/dispatch split;
+			// the payload is copied so the whole wrapper can cross to the dispatch thread intact.
+			wrapper.payload = payload.ToArray();
+			Enqueue(wrapper);
+		}
+
+		private void Enqueue(Packet packet)
+		{
+			// TryWrite on an unbounded channel only ever fails once the writer is completed: the
+			// session closed between the handler check and here. The packet goes back to the pool
+			// instead of leaking.
+			if (!_dispatchQueue.Writer.TryWrite(packet)) packet.PutPool();
+		}
+
+		/// <summary>
+		///     The per-session dispatch loop: everything above the transport (decompression, packet
+		///     decode, login, game logic) runs here, one thread per session, so sessions are isolated
+		///     from each other and the mux receive thread never executes game code. Ordering per
+		///     session is preserved (single consumer); cross-session parallelism is the point.
+		/// </summary>
+		private async Task DispatchLoopAsync()
+		{
+			ChannelReader<Packet> reader = _dispatchQueue.Reader;
+			while (await reader.WaitToReadAsync().ConfigureAwait(false))
+			{
+				while (reader.TryRead(out Packet packet))
+				{
+					try
+					{
+						ICustomMessageHandler handler = CustomMessageHandler;
+						if (handler == null || _closed != 0)
+						{
+							packet.PutPool();
+							continue;
+						}
+
+						if (handler is BedrockMessageHandlerBase bedrock) bedrock.HandleDecoded(packet);
+						else handler.HandlePacket(packet);
+					}
+					catch (Exception e)
+					{
+						Log.Error($"NetherNet dispatch failed for {Username ?? NetworkId}; the session keeps serving.", e);
+					}
+				}
+			}
 		}
 
 		public void SendPacket(Packet packet)
@@ -297,7 +371,7 @@ namespace MiNET.Net.NetherNet
 			{
 				// Kept as a span onto the existing buffer. Materialising it would copy the whole batch
 				// for no reason: the only thing that has to move is the one header byte in front.
-				ReadOnlySpan<byte> encoded = message is McpeWrapper wrapper ? wrapper.payload.Span : message.Encode();
+				ReadOnlySpan<byte> encoded = message is McpeWrapper wrapper ? wrapper.payload.Span : message.EncodeAsMemory().Span;
 				if (encoded.Length == 0) return;
 
 				if (Log.IsDebugEnabled) Log.Debug($"NetherNet send {encoded.Length} bytes: {Packet.HexDump(encoded.Slice(0, Math.Min(32, encoded.Length)).ToArray(), 32)}");
@@ -337,6 +411,10 @@ namespace MiNET.Net.NetherNet
 			if (Interlocked.Exchange(ref _closed, 1) != 0) return;
 
 			CustomMessageHandler = null;
+
+			// Completes the channel: the reader drains what remains to the pool (the handler is
+			// already null) and its loop ends.
+			_dispatchQueue.Writer.TryComplete();
 
 			try
 			{

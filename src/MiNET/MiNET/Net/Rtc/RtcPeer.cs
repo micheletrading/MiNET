@@ -24,10 +24,13 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using log4net;
 
@@ -360,7 +363,13 @@ namespace MiNET.Net.Rtc
 			_channelManager = new RtcChannelManager(_association, _dtlsIsClient);
 			_channelManager.OnDataChannel += channel => OnDataChannel?.Invoke(channel);
 
-			_dtls.OnDecrypted += _association.OnPacketReceived;
+			// The receive thread stops here: decrypt hands over an owned pool-rented buffer, and this
+			// subscriber only enqueues it to the session's inbound lane. Everything SCTP does about a
+			// datagram, including the sends its SACK handling triggers (chunk pumping during a join
+			// burst), runs on the lane's pool-scheduled single reader, this session only, so one
+			// session's protocol work can never stall every other session's inbound behind it.
+			_dtls.OnDecrypted += EnqueueInboundDatagram;
+			_ = InboundLaneAsync();
 
 			// SctpAssociation.OnAborted fires for a peer ABORT and a peer SHUTDOWN alike (its own
 			// remarks), so this one subscription forwards both terminal outcomes to OnTransportClosed.
@@ -537,6 +546,56 @@ namespace MiNET.Net.Rtc
 			return _channelManager.CreateChannel(label, ordered, maxRetransmits);
 		}
 
+		// This session's inbound datagram lane: decrypted, owned buffers in arrival order, consumed
+		// by one async reader (InboundLaneAsync). Same shape as NetherNetSession's dispatch channel,
+		// one protocol layer down. Unbounded: the peer cannot grow it faster than it can send, which
+		// SCTP's own flow control bounds.
+		private readonly Channel<ReadOnlyMemory<byte>> _inboundLane = Channel.CreateUnbounded<ReadOnlyMemory<byte>>(new UnboundedChannelOptions
+		{
+			SingleReader = true,
+			SingleWriter = true
+		});
+
+		private void EnqueueInboundDatagram(ReadOnlyMemory<byte> payload)
+		{
+			// TryWrite only fails once the writer completed (disposal); the rented buffer is returned
+			// rather than leaked, per the OnDecrypted ownership contract.
+			if (!_inboundLane.Writer.TryWrite(payload)) ReturnRented(payload);
+		}
+
+		private async Task InboundLaneAsync()
+		{
+			ChannelReader<ReadOnlyMemory<byte>> reader = _inboundLane.Reader;
+			while (await reader.WaitToReadAsync().ConfigureAwait(false))
+			{
+				while (reader.TryRead(out ReadOnlyMemory<byte> payload))
+				{
+					try
+					{
+						SctpAssociation association = _association;
+						if (Volatile.Read(ref _disposed) == 0 && association != null) association.OnPacketReceived(payload);
+					}
+					catch (Exception e)
+					{
+						Log.Error("Inbound lane processing failed; the datagram is dropped, the lane keeps serving.", e);
+					}
+					finally
+					{
+						ReturnRented(payload);
+					}
+				}
+			}
+		}
+
+		/// <summary>Returns an <see cref="DtlsSession.OnDecrypted" />-owned buffer to the pool; a memory not backed by an array slice at offset zero (never the case for these) is simply left to the GC.</summary>
+		private static void ReturnRented(ReadOnlyMemory<byte> payload)
+		{
+			if (MemoryMarshal.TryGetArray(payload, out ArraySegment<byte> segment) && segment.Array != null && segment.Offset == 0)
+			{
+				ArrayPool<byte>.Shared.Return(segment.Array);
+			}
+		}
+
 		private void OnIceFailed()
 		{
 			_transportReady.TrySetResult(false);
@@ -647,7 +706,8 @@ namespace MiNET.Net.Rtc
 
 			if (_association != null)
 			{
-				if (_dtls != null) _dtls.OnDecrypted -= _association.OnPacketReceived;
+				if (_dtls != null) _dtls.OnDecrypted -= EnqueueInboundDatagram;
+				_inboundLane.Writer.TryComplete();
 
 				// Unhooked before Abort() below for the same reason as the OnDecrypted line above: Abort()
 				// fires OnAborted synchronously on this same thread, and _disposed is already set by now

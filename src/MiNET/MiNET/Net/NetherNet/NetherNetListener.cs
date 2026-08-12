@@ -28,6 +28,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -73,6 +74,10 @@ namespace MiNET.Net.NetherNet
 		private CancellationTokenSource _cancellation;
 		private UdpMux _mux;
 		private RtcCertificate _certificate;
+
+		// The machine's own addresses, enumerated once at Start (EnumerateLocalAddresses): the host
+		// candidate set every answer advertises. The client's ICE checks pick the reachable one.
+		private IReadOnlyList<IPAddress> _localAddresses;
 		private Timer _sweepTimer;
 
 		// Same knob as RakSession's, so the two transports evict a silent client on the same clock.
@@ -158,7 +163,9 @@ namespace MiNET.Net.NetherNet
 			_mux.Start();
 			_certificate = RtcCertificate.CreateSelfSigned();
 
-			Log.Info($"NetherNet gameplay UDP bound to {_mux.LocalEndPoint}");
+			_localAddresses = EnumerateLocalAddresses();
+
+			Log.Info($"NetherNet gameplay UDP bound to {_mux.LocalEndPoint}, advertising host candidates: {string.Join(", ", _localAddresses)}");
 			if (PortMapping.RangeStart.HasValue && PortMapping.RangeEnd.HasValue && PortMapping.RangeEnd.Value > PortMapping.RangeStart.Value)
 			{
 				Log.Warn($"server-udp-ports configures {PortMapping.RangeStart}-{PortMapping.RangeEnd}, but one shared UdpMux binds a single UDP port; only {_mux.LocalEndPoint.Port} is used.");
@@ -320,7 +327,7 @@ namespace MiNET.Net.NetherNet
 					}
 
 					string networkId = route.Groups["networkId"].Value;
-					string answer = Negotiate(networkId, body, IsLoopbackPeer(client));
+					string answer = AnswerOffer(networkId, body);
 
 					await Respond(stream, 200, "application/sdp", answer);
 				}
@@ -357,25 +364,39 @@ namespace MiNET.Net.NetherNet
 		}
 
 		/// <summary>
-		///     Whether the signaling connection came from this machine. Same mapped-address
-		///     normalization as elsewhere: a dual stack listener reports a v4 loopback peer as
-		///     ::ffff:127.0.0.1. Note that a LAN client dialing the public name arrives hairpinned
-		///     with the router's address, so it is correctly NOT loopback.
+		///     The machine's own IPv4 unicast addresses, enumerated ONCE at <see cref="Start" />: the
+		///     mux listens on the wildcard address, so every one of these reaches the same socket, and
+		///     the answer advertises all of them as host candidates. The client's own ICE checks decide
+		///     which one is reachable; the server never guesses. Link-local (169.254/16) is skipped, it
+		///     is never a usable gameplay path; loopback is included last, so a candidate exists even on
+		///     a machine with no network at all.
 		/// </summary>
-		private static bool IsLoopbackPeer(TcpClient client)
+		private static IReadOnlyList<IPAddress> EnumerateLocalAddresses()
 		{
+			var addresses = new List<IPAddress>();
 			try
 			{
-				if (client.Client?.RemoteEndPoint is not IPEndPoint remote) return false;
+				foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+				{
+					if (nic.OperationalStatus != OperationalStatus.Up) continue;
+					if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
 
-				IPAddress address = remote.Address;
-				if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
-				return IPAddress.IsLoopback(address);
+					foreach (UnicastIPAddressInformation unicast in nic.GetIPProperties().UnicastAddresses)
+					{
+						IPAddress address = unicast.Address;
+						if (address.AddressFamily != AddressFamily.InterNetwork) continue;
+						if (address.ToString().StartsWith("169.254.", StringComparison.Ordinal)) continue;
+						if (!addresses.Contains(address)) addresses.Add(address);
+					}
+				}
 			}
-			catch
+			catch (Exception e)
 			{
-				return false;
+				Log.Warn("Enumerating network interfaces for NetherNet candidates failed; falling back to loopback only", e);
 			}
+
+			addresses.Add(IPAddress.Loopback);
+			return addresses;
 		}
 
 		/// <summary>A disposed or reset socket throws on RemoteEndPoint, which must not hide the log line.</summary>
@@ -402,7 +423,7 @@ namespace MiNET.Net.NetherNet
 		///         ahead of this method returning the answer, let alone the caller responding with it.
 		///     </para>
 		/// </summary>
-		private string Negotiate(string networkId, string offerSdp, bool loopbackPeer)
+		private string AnswerOffer(string networkId, string offerSdp)
 		{
 			// The identity assertion is ours to validate or ignore by policy, but it must come out
 			// before the offer is parsed either way: a=identity is not an attribute WebRTC knows,
@@ -425,7 +446,7 @@ namespace MiNET.Net.NetherNet
 				{
 					lock (gate)
 					{
-						if (channel.Label == NetherNetClientConnector.UnreliableChannelLabel)
+						if (channel.Label == NetherNetClient.UnreliableChannelLabel)
 						{
 							// May arrive before or after the reliable channel attaches a session; either
 							// way it is not lost, only its destination differs.
@@ -467,16 +488,58 @@ namespace MiNET.Net.NetherNet
 
 			string answerSdp = peer.AcceptOffer(strippedOffer);
 
-			// Required in every answer, over HTTP and HTTPS alike: a client that finds no valid
-			// a=identity refuses the connection outright.
-			// Rewrite the candidate before signing: the assertion covers the fingerprints, not the
-			// candidate, but the client must receive one coherent answer and the address it dials
-			// has to be the mapped one. Except for a loopback peer: the mux's bound port has no
-			// mapping meaningful to it, and rewriting would hand it a public address it cannot dial.
-			if (!loopbackPeer) answerSdp = PortMapping.Apply(answerSdp);
+			// The mux is bound to the wildcard address and RtcPeer advertises its LocalEndPoint
+			// verbatim, so the raw answer carries one 0.0.0.0 candidate: undialable. Expand it into
+			// one host candidate per machine address (enumerated once at Start); the client's own
+			// ICE checks pick the reachable one. The port mapping then ADDS the public reflexive
+			// candidate beside them (Apply's own contract), so local, LAN and forwarded clients all
+			// find a live pair in the same answer with no per-client guessing here.
+			answerSdp = ExpandHostCandidates(answerSdp, _localAddresses);
+			answerSdp = PortMapping.Apply(answerSdp);
 
+			// Signed last: a client that finds no valid a=identity refuses the connection outright.
 			return NetherNetIdentityAssertion.AddServerAssertionTo(
 				answerSdp, ServerIdentity.Key, ServerIdentity.Domain, ServerIdentity.Issuer);
+		}
+
+		/// <summary>
+		///     Replaces the answer's single wildcard host candidate with one host candidate per local
+		///     address, all on the same muxed port. Foundations are distinct (ICE treats candidates
+		///     sharing one as the same base) and priorities descend in enumeration order, which only
+		///     breaks ties: the client's connectivity checks, not our ordering, decide the pair.
+		/// </summary>
+		private static string ExpandHostCandidates(string sdp, IReadOnlyList<IPAddress> addresses)
+		{
+			var lines = new List<string>();
+			foreach (string raw in sdp.Split('\n'))
+			{
+				string line = raw.TrimEnd('\r');
+
+				if (!line.StartsWith("a=candidate:", StringComparison.Ordinal))
+				{
+					lines.Add(line);
+					continue;
+				}
+
+				// a=candidate:<foundation> <component> <transport> <priority> <ip> <port> typ host ...
+				string[] parts = line.Split(' ');
+				if (parts.Length < 8 || !IPAddress.Any.ToString().Equals(parts[4], StringComparison.Ordinal))
+				{
+					lines.Add(line);
+					continue;
+				}
+
+				string port = parts[5];
+				for (int i = 0; i < addresses.Count; i++)
+				{
+					// Host type preference 126 per RFC 8445 5.1.2.1; the local preference descends
+					// so every candidate's priority is unique.
+					long priority = (126L << 24) | ((65535L - (uint) i) << 8) | 255L;
+					lines.Add($"a=candidate:{i + 1} 1 udp {priority} {addresses[i]} {port} typ host generation 0");
+				}
+			}
+
+			return string.Join("\r\n", lines);
 		}
 
 		private NetherNetSession AttachSession(string networkId, RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable)

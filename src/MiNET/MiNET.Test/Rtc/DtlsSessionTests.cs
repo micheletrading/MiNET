@@ -1670,8 +1670,19 @@ namespace MiNET.Test.Rtc
 			Assert.IsTrue(await clientDone.WaitAsync(TimeSpan.FromSeconds(15)));
 			Assert.IsTrue(await serverDone.WaitAsync(TimeSpan.FromSeconds(15)));
 
-			server.OnDecrypted += _ => { };
-			client.OnDecrypted += _ => { };
+			// The subscriber owns the delivered buffer (OnDecrypted's contract) and returns it; that
+			// return is what keeps the pool primed and the steady state allocation-free, so this test
+			// exercises the ownership loop itself, not just the decrypt.
+			static void ConsumeAndReturn(ReadOnlyMemory<byte> payload)
+			{
+				if (System.Runtime.InteropServices.MemoryMarshal.TryGetArray(payload, out ArraySegment<byte> segment) && segment.Array != null && segment.Offset == 0)
+				{
+					System.Buffers.ArrayPool<byte>.Shared.Return(segment.Array);
+				}
+			}
+
+			server.OnDecrypted += ConsumeAndReturn;
+			client.OnDecrypted += ConsumeAndReturn;
 
 			byte[] payload = {1, 2, 3, 4, 5, 6, 7, 8};
 

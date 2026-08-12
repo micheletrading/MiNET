@@ -75,7 +75,8 @@ namespace MiNET.ServiceKiller
 		/// <param name="processorAffinity">Processor affinity mask represented as an integer.</param>
 		/// <param name="transport">Transport the bots connect over: raknet or nethernet.</param>
 		/// <param name="nameOffset">Offset for bot numbering, so parallel emulator processes get distinct names.</param>
-		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "raknet", int nameOffset = 0)
+		/// <param name="auto">Run unattended: start without a prompt, exit when every bot's duration has elapsed. For scripted/detached runs, where stdin is not a console.</param>
+		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "raknet", int nameOffset = 0, bool auto = false)
 		{
 			NumberOfBots = numberOfBots;
 			DurationOfConnection = TimeSpan.FromSeconds(durationOfConnection);
@@ -115,13 +116,20 @@ namespace MiNET.ServiceKiller
 			try
 			{
 				AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
-				Console.WriteLine("Press <Enter> to start emulation...");
-				Console.ReadLine();
+				if (!auto)
+				{
+					Console.WriteLine("Press <Enter> to start emulation...");
+					Console.ReadLine();
+				}
 
-				// Floor of 4: with few bots a pool sized to the bot count starves the client-side
+				// The pool feeds RakConnection only; the NetherNet path is async end to end and
+				// never touches it, so on that transport it would be numberOfBots parked threads.
+				// Floor of 32: with few bots a pool sized to the bot count starves the client-side
 				// machinery during the join burst (ACK flushes queue behind chunk decode), which
 				// makes the server spuriously retransmit and pollutes the measurements.
-				var threadPool = new DedicatedThreadPool(new DedicatedThreadPoolSettings(Math.Max(32, numberOfBots), "Shared_Thread"));
+				DedicatedThreadPool threadPool = UseNetherNet
+					? null
+					: new DedicatedThreadPool(new DedicatedThreadPoolSettings(Math.Max(32, numberOfBots), "Shared_Thread"));
 
 				var emulator = new Emulator {Running = true};
 				long start = DateTime.UtcNow.Ticks;
@@ -171,13 +179,29 @@ namespace MiNET.ServiceKiller
 					}
 				});
 
-				Console.WriteLine("Press <enter> to stop all clients.");
-				Console.ReadLine();
+				if (auto)
+				{
+					// Unattended: the spawn ramp plus every bot's scripted duration bounds the run;
+					// the margin covers connect/teardown straggling. Killing the process early is the
+					// out-of-band stop.
+					Thread.Sleep(DurationOfConnection + TimeSpan.FromSeconds(60));
+					emulator.Running = false;
+					Thread.Sleep(TimeSpan.FromSeconds(5));
 
-				emulator.Running = false;
+					// Transport plumbing (session dispatch threads, timers) can hold the process open
+					// past Main; an unattended run must never rely on every thread being background.
+					Environment.Exit(0);
+				}
+				else
+				{
+					Console.WriteLine("Press <enter> to stop all clients.");
+					Console.ReadLine();
 
-				Console.WriteLine("Stopping all clients, press <enter> to exit.");
-				Console.ReadLine();
+					emulator.Running = false;
+
+					Console.WriteLine("Stopping all clients, press <enter> to exit.");
+					Console.ReadLine();
+				}
 			}
 			catch (Exception e)
 			{

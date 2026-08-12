@@ -119,6 +119,7 @@ namespace MiNET.Client
 		// one directly, so that takes precedence when it is set.
 		public INetworkHandler Session => _netherNetSession ?? (INetworkHandler) Connection?.ConnectionInfo.RakSessions.Values.FirstOrDefault();
 
+		private NetherNetClient _netherNetClient;
 		private NetherNetSession _netherNetSession;
 
 		public bool IsConnected => _netherNetSession != null || RakSession?.State == ConnectionState.Connected;
@@ -237,9 +238,10 @@ namespace MiNET.Client
 		{
 			WarmUpCrypto();
 
-			_netherNetSession = await NetherNetClientConnector.ConnectAsync(
+			_netherNetClient = await NetherNetClient.ConnectAsync(
 				ServerEndPoint.Address.ToString(), ServerEndPoint.Port,
 				cancellationToken: cancellationToken, identity: XboxIdentity);
+			_netherNetSession = _netherNetClient.Session;
 
 			var handler = ClientMessageHandlerFactory?.Invoke(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this))
 						?? new BedrockClientMessageHandler(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this));
@@ -258,8 +260,9 @@ namespace MiNET.Client
 
 		public bool StopClient()
 		{
-			// Either transport may be live; closing the data channel is the NetherNet disconnect.
-			_netherNetSession?.Close();
+			// Either transport may be live; disposing the client closes the session and its socket.
+			_netherNetClient?.Dispose();
+			_netherNetClient = null;
 			_netherNetSession = null;
 			Connection?.Stop();
 			return true;
