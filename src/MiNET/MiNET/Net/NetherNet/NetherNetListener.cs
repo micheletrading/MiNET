@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -35,9 +35,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using log4net;
 using MiNET.Net.RakNet;
+using MiNET.Net.Rtc;
 using MiNET.Utils;
-using SIPSorcery.Net;
-using SIPSorcery.Sys;
 
 namespace MiNET.Net.NetherNet
 {
@@ -55,6 +54,13 @@ namespace MiNET.Net.NetherNet
 	///         reservation or elevation on Windows for anything but a loopback prefix, and two fixed
 	///         routes do not justify that.
 	///     </para>
+	///     <para>
+	///         The gameplay path runs on one <see cref="UdpMux" /> for the listener's whole lifetime,
+	///         shared by every negotiated peer, and one <see cref="RtcCertificate" /> is the DTLS
+	///         identity every one of them answers with. Negotiating a peer no longer waits on
+	///         anything: <see cref="RtcPeer.AcceptOffer" /> has nothing to gather (the mux is already
+	///         bound, so there is exactly one local candidate) and returns the answer synchronously.
+	///     </para>
 	/// </summary>
 	public class NetherNetListener
 	{
@@ -65,19 +71,39 @@ namespace MiNET.Net.NetherNet
 		private readonly IPEndPoint _endPoint;
 		private TcpListener _listener;
 		private CancellationTokenSource _cancellation;
-		private PortRange _portRange;
-		private Timer _inactivityTimer;
+		private UdpMux _mux;
+		private RtcCertificate _certificate;
+		private Timer _sweepTimer;
 
 		// Same knob as RakSession's, so the two transports evict a silent client on the same clock.
 		private readonly int _inactivityTimeout = Config.GetProperty("InactivityTimeout", 8500);
 
 		// A client that has connected but not yet spoken gets longer: 8.5s here turns a slow join
 		// into a failed one, and a session that never speaks is only holding a port, not a slot in
-		// anyone's game. Matches the 30s spawn budget the emulator itself allows a join.
-		private readonly int _connectingTimeout = Config.GetProperty("NetherNetConnectingTimeout", 30000);
+		// anyone's game. Matches the 30s spawn budget the emulator itself allows a join. Also the
+		// deadline a negotiated-but-not-yet-attached RtcPeer gets in the pending-peer table below.
+		// A constructor override exists so a test can shorten it without touching server.conf.
+		private readonly int _connectingTimeout;
 
 		/// <summary>Live sessions by the client's NetworkID.</summary>
 		public ConcurrentDictionary<string, NetherNetSession> Sessions { get; } = new();
+
+		/// <summary>
+		///     Negotiated peers whose reliable data channel has not opened yet, keyed by the peer
+		///     itself (nothing about a client that never gets this far is worth keying on) with the
+		///     tick each one must attach by. <see cref="AttachSession" /> removes an entry the moment
+		///     it promotes it to a session; <see cref="SweepExpiredPendingPeers" /> disposes whatever
+		///     is left past its deadline, so a negotiation nobody ever finishes - ICE that never
+		///     nominates, DTLS that never completes, a reliable channel that never opens - cannot hold
+		///     its slice of <see cref="_mux" /> forever.
+		/// </summary>
+		private readonly ConcurrentDictionary<RtcPeer, long> _pendingPeers = new();
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): how many negotiated peers are still waiting for their reliable channel to open.</summary>
+		internal int PendingPeerCount => _pendingPeers.Count;
+
+		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the TCP endpoint actually bound, once <see cref="Start" /> has run - lets a test bind an ephemeral port (0) and discover which one the OS chose.</summary>
+		internal IPEndPoint LocalEndPoint => (IPEndPoint) _listener?.LocalEndpoint;
 
 		/// <summary>
 		///     Builds the handler that sits above the transport, exactly as RakConnection does, so
@@ -94,22 +120,16 @@ namespace MiNET.Net.NetherNet
 		/// <summary>Where gameplay UDP binds, and what address clients are told to dial.</summary>
 		public NetherNetPortMapping PortMapping { get; set; }
 
-		public NetherNetListener(IPEndPoint endPoint, NetherNetServerIdentity serverIdentity = null, NetherNetPortMapping portMapping = null)
+		public NetherNetListener(IPEndPoint endPoint, NetherNetServerIdentity serverIdentity = null, NetherNetPortMapping portMapping = null, int? connectingTimeout = null)
 		{
 			_endPoint = endPoint;
 			ServerIdentity = serverIdentity ?? new NetherNetServerIdentity();
 			PortMapping = portMapping ?? NetherNetPortMapping.Parse(Config.GetProperty("server-udp-ports", ""));
+			_connectingTimeout = connectingTimeout ?? Config.GetProperty("NetherNetConnectingTimeout", 30000);
 		}
 
 		public void Start()
 		{
-			// SIPSorcery's ICE liveness defaults (8s to "disconnected", 16s to the terminal
-			// "failed", on missed 3s STUN checks) are tuned for a browser call. A loaded game
-			// server misses checks without being dead, and the inactivity sweep owns real death
-			// detection here, so ICE gets far more patience. Process-wide statics, config-tunable.
-			RtpIceChannel.DISCONNECTED_TIMEOUT_PERIOD = Config.GetProperty("NetherNet.IceDisconnectedTimeout", 60);
-			RtpIceChannel.FAILED_TIMEOUT_PERIOD = Config.GetProperty("NetherNet.IceFailedTimeout", 120);
-
 			_cancellation = new CancellationTokenSource();
 
 			// Dual stack when no specific address was asked for, which is what BDS does: one IPv6
@@ -128,15 +148,23 @@ namespace MiNET.Net.NetherNet
 
 			_listener.Start();
 
-			// One PortRange for the listener's lifetime. SIPSorcery walks it from an internal cursor
-			// and gives up after 25 bind attempts, so a fresh instance per connection re-walks the
-			// same occupied ports from the start of the range and caps the server at 25 sessions no
-			// matter how wide the range is.
-			_portRange = PortMapping.RangeStart.HasValue
-				? new PortRange(PortMapping.RangeStart.Value, PortMapping.RangeEnd.Value)
-				: null;
+			// One UdpMux and one RtcCertificate for the listener's whole lifetime: every RtcPeer
+			// this listener answers with shares both, which is what lets one UDP socket carry every
+			// session (ICE demultiplexes by ufrag, DTLS/SCTP by the nominated remote endpoint).
+			// Bound to the first port of the configured range: unlike a per-connection socket there
+			// is no bind-cursor to walk further into a wider one, port 0 leaves the choice to the OS
+			// when nothing was configured.
+			_mux = new UdpMux(new IPEndPoint(_endPoint.Address, PortMapping.BindPort ?? 0));
+			_mux.Start();
+			_certificate = RtcCertificate.CreateSelfSigned();
 
-			_inactivityTimer = new Timer(_ => SweepInactiveSessions(), null, 2500, 2500);
+			Log.Info($"NetherNet gameplay UDP bound to {_mux.LocalEndPoint}");
+			if (PortMapping.RangeStart.HasValue && PortMapping.RangeEnd.HasValue && PortMapping.RangeEnd.Value > PortMapping.RangeStart.Value)
+			{
+				Log.Warn($"server-udp-ports configures {PortMapping.RangeStart}-{PortMapping.RangeEnd}, but one shared UdpMux binds a single UDP port; only {_mux.LocalEndPoint.Port} is used.");
+			}
+
+			_sweepTimer = new Timer(_ => Sweep(), null, 2500, 2500);
 
 			Log.Info($"NetherNet signaling listening on tcp {_listener.LocalEndpoint} (dual stack: {_listener.Server.DualMode})");
 
@@ -147,18 +175,36 @@ namespace MiNET.Net.NetherNet
 		{
 			_cancellation?.Cancel();
 			_listener?.Stop();
-			_inactivityTimer?.Dispose();
-			_inactivityTimer = null;
+			_sweepTimer?.Dispose();
+			_sweepTimer = null;
 
 			foreach (NetherNetSession session in Sessions.Values) session.Close();
 			Sessions.Clear();
+
+			foreach (RtcPeer peer in _pendingPeers.Keys)
+			{
+				if (_pendingPeers.TryRemove(peer, out _)) DisposePendingPeer(peer);
+			}
+
+			// Every peer above has already released its slice of the mux (RtcPeer.Dispose removes its
+			// own ufrag registration), so the mux and the certificate they all shared can go last.
+			_mux?.Dispose();
+			_mux = null;
+			_certificate?.Dispose();
+			_certificate = null;
+		}
+
+		/// <summary>One timer callback covers both liveness backstops: a live session gone silent, and a negotiation that never attached one at all. Both run off the same clock, so one timer serves both.</summary>
+		private void Sweep()
+		{
+			SweepInactiveSessions();
+			SweepExpiredPendingPeers();
 		}
 
 		/// <summary>
 		///     The backstop that actually notices a vanished client. SCTP surfaces no remote close and
 		///     ICE state can sit in connected forever, but a live client is never silent, so silence
-		///     past the timeout is the one signal that always arrives. Closing the session is also what
-		///     returns its gameplay UDP port to the range.
+		///     past the timeout is the one signal that always arrives.
 		/// </summary>
 		private void SweepInactiveSessions()
 		{
@@ -181,6 +227,32 @@ namespace MiNET.Net.NetherNet
 				string phase = loggedIn ? "" : session.HasReceived ? " (pre-login)" : " (never spoke)";
 				Log.Warn($"NetherNet session for {session.Username ?? session.NetworkId} timed out, no traffic for {timeout}ms{phase}");
 				session.Disconnect("Network timeout", false);
+			}
+		}
+
+		/// <summary>A negotiation whose reliable channel never opened in time never gets a session, so nothing else ever disposes its <see cref="RtcPeer" />; this is the only thing that does.</summary>
+		private void SweepExpiredPendingPeers()
+		{
+			long now = Environment.TickCount64;
+			foreach (KeyValuePair<RtcPeer, long> entry in _pendingPeers)
+			{
+				if (now < entry.Value) continue;
+				if (!_pendingPeers.TryRemove(entry.Key, out _)) continue;
+
+				Log.Warn("NetherNet negotiation timed out before its reliable channel opened, discarding the peer");
+				DisposePendingPeer(entry.Key);
+			}
+		}
+
+		private static void DisposePendingPeer(RtcPeer peer)
+		{
+			try
+			{
+				peer.Dispose();
+			}
+			catch (Exception e)
+			{
+				Log.Debug("Disposing an abandoned NetherNet negotiation", e);
 			}
 		}
 
@@ -248,7 +320,7 @@ namespace MiNET.Net.NetherNet
 					}
 
 					string networkId = route.Groups["networkId"].Value;
-					string answer = await Negotiate(networkId, body, IsLoopbackPeer(client));
+					string answer = Negotiate(networkId, body, IsLoopbackPeer(client));
 
 					await Respond(stream, 200, "application/sdp", answer);
 				}
@@ -319,88 +391,118 @@ namespace MiNET.Net.NetherNet
 			}
 		}
 
-		private async Task<string> Negotiate(string networkId, string offerSdp, bool loopbackPeer)
+		/// <summary>
+		///     Answers an offer synchronously: <see cref="RtcPeer.AcceptOffer" /> has nothing to
+		///     gather (the mux's one local candidate is already known) so there is no wait between
+		///     accepting the offer and having a complete answer to sign and return.
+		///     <para>
+		///         Subscribes <see cref="RtcPeer.OnDataChannel" /> before calling
+		///         <see cref="RtcPeer.AcceptOffer" />: the client can start opening its data channels
+		///         the instant its own ICE/DTLS/SCTP stack comes up, which can race arbitrarily far
+		///         ahead of this method returning the answer, let alone the caller responding with it.
+		///     </para>
+		/// </summary>
+		private string Negotiate(string networkId, string offerSdp, bool loopbackPeer)
 		{
-			// No STUN or TURN: we publish our own addresses and the client dials them, which is what
-			// a directly reachable server needs and what the real client expects on this path.
-			// Pinning the range is what makes the gameplay path forwardable: the default is an
-			// ephemeral port, and you cannot open a hole in a firewall for a port you cannot predict.
-			// A loopback peer (the emulator fleet) needs none of that: it gets an OS-ephemeral port,
-			// which never contends and never exhausts, and leaves the whole pinned range to peers
-			// that actually dial through the firewall.
-			var peerConnection = new RTCPeerConnection(new RTCConfiguration {iceServers = null}, 0, loopbackPeer ? null : _portRange);
-
-			var reliable = new TaskCompletionSource<RTCDataChannel>(TaskCreationOptions.RunContinuationsAsynchronously);
-			RTCDataChannel unreliable = null;
-
-			peerConnection.ondatachannel += channel =>
-			{
-				Log.Debug($"NetherNet data channel opened by {networkId}: {channel.label}");
-
-				if (channel.label == NetherNetClientConnector.UnreliableChannelLabel) unreliable = channel;
-				else reliable.TrySetResult(channel);
-			};
-
-			var gatheringComplete = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-			peerConnection.onicegatheringstatechange += state =>
-			{
-				if (state == RTCIceGatheringState.complete) gatheringComplete.TrySetResult(true);
-			};
-
 			// The identity assertion is ours to validate or ignore by policy, but it must come out
-			// before setRemoteDescription either way: a=identity is not an attribute WebRTC knows,
+			// before the offer is parsed either way: a=identity is not an attribute WebRTC knows,
 			// and implementations reject an SDP carrying attributes they cannot parse.
 			string strippedOffer = StripIdentity(offerSdp, out string assertion);
 			if (assertion != null) Log.Debug($"NetherNet offer from {networkId} carries an identity assertion ({assertion.Length} chars)");
 
-			SetDescriptionResultEnum result = peerConnection.setRemoteDescription(new RTCSessionDescriptionInit
-			{
-				type = RTCSdpType.offer,
-				sdp = strippedOffer
-			});
+			RtcPeer peer = RtcPeer.CreateAnswerer(_mux, _certificate);
+			_pendingPeers[peer] = Environment.TickCount64 + _connectingTimeout;
 
-			if (result != SetDescriptionResultEnum.OK) throw new IOException($"NetherNet offer rejected: {result}");
+			// Guards session/pendingUnreliable below: OnDataChannel and OnTransportClosed can both
+			// run on the mux's own receive/tick threads, concurrently with each other.
+			var gate = new object();
+			NetherNetSession session = null;
+			RtcDataChannel pendingUnreliable = null;
 
-			RTCSessionDescriptionInit answer = peerConnection.createAnswer();
-			await peerConnection.setLocalDescription(answer);
-
-			// Full ICE: the answer has to carry every candidate we will ever offer, because there is
-			// no second message in which to send more.
-			await gatheringComplete.Task;
-
-			_ = Task.Run(async () =>
+			peer.OnDataChannel += channel =>
 			{
 				try
 				{
-					RTCDataChannel channel = await reliable.Task;
-					AttachSession(networkId, peerConnection, channel, unreliable);
+					lock (gate)
+					{
+						if (channel.Label == NetherNetClientConnector.UnreliableChannelLabel)
+						{
+							// May arrive before or after the reliable channel attaches a session; either
+							// way it is not lost, only its destination differs.
+							if (session != null) session.AttachUnreliableChannel(channel);
+							else pendingUnreliable = channel;
+							return;
+						}
+
+						// Anything not labeled unreliable is the reliable channel, matching the two
+						// labels both connectors ever open. A second one, which should never happen,
+						// is ignored rather than replacing an already-attached session.
+						if (session != null) return;
+						if (!_pendingPeers.TryRemove(peer, out _)) return; // already expired or removed
+
+						session = AttachSession(networkId, peer, channel, pendingUnreliable);
+					}
 				}
 				catch (Exception e)
 				{
-					Log.Error($"NetherNet session setup failed for {networkId}", e);
+					Log.Error($"NetherNet data channel handling failed for {networkId}", e);
 				}
-			});
+			};
+
+			// A peer whose transport came up and then tore down again before its reliable channel
+			// ever opened would otherwise sit in the pending table until the sweep's own timeout:
+			// harmless, but pointless. OnTransportClosed never fires for a handshake that never
+			// succeeded in the first place (RtcPeer's own contract), so the sweep is still what
+			// catches those; this only shortens the wait for the ones that did come up.
+			peer.OnTransportClosed += () =>
+			{
+				lock (gate)
+				{
+					if (session != null) return; // NetherNetSession owns teardown from here
+					if (!_pendingPeers.TryRemove(peer, out _)) return;
+				}
+
+				Log.Debug($"NetherNet negotiation for {networkId} tore down before its reliable channel opened");
+			};
+
+			string answerSdp = peer.AcceptOffer(strippedOffer);
 
 			// Required in every answer, over HTTP and HTTPS alike: a client that finds no valid
 			// a=identity refuses the connection outright.
-			// Rewrite candidates before signing: the assertion covers the fingerprints, not the
-			// candidates, but the client must receive one coherent answer and the addresses it dials
-			// have to be the mapped ones. Except for a loopback peer: its ephemeral port has no
-			// mapping, and rewriting would hand it public addresses whose ports are not forwarded.
-			string answerSdp = peerConnection.localDescription.sdp.ToString();
+			// Rewrite the candidate before signing: the assertion covers the fingerprints, not the
+			// candidate, but the client must receive one coherent answer and the address it dials
+			// has to be the mapped one. Except for a loopback peer: the mux's bound port has no
+			// mapping meaningful to it, and rewriting would hand it a public address it cannot dial.
 			if (!loopbackPeer) answerSdp = PortMapping.Apply(answerSdp);
 
 			return NetherNetIdentityAssertion.AddServerAssertionTo(
 				answerSdp, ServerIdentity.Key, ServerIdentity.Domain, ServerIdentity.Issuer);
 		}
 
-		private void AttachSession(string networkId, RTCPeerConnection peerConnection, RTCDataChannel reliable, RTCDataChannel unreliable)
+		private NetherNetSession AttachSession(string networkId, RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable)
 		{
-			// NetherNetSession now takes an RtcPeer/RtcDataChannel pair (the in-house Rtc stack), and
-			// this listener still negotiates over SIPSorcery's RTCPeerConnection/RTCDataChannel. The
-			// listener's own rebuild onto RtcPeer is a separate, later change; until then it cannot
-			// hand NetherNetSession the objects its constructor now requires.
-			throw new NotSupportedException("NetherNetListener still negotiates over SIPSorcery and cannot construct a NetherNetSession until it is rebuilt onto RtcPeer.");
+			// A returning client reuses its NetworkID, so an entry here is a ghost of a dead
+			// connection. Close it rather than overwrite it: overwritten, it would no longer be
+			// swept and its RtcPeer would never dispose.
+			if (Sessions.TryRemove(networkId, out NetherNetSession stale))
+			{
+				Log.Warn($"NetherNet session for {networkId} replaced by a new connection, closing the old one");
+				stale.Close();
+			}
+
+			// The ICE-nominated remote endpoint has no accessor on RtcPeer today, unlike the SIPSorcery
+			// path this replaces (peerConnection.AudioDestinationEndPoint); GetClientEndPoint() on this
+			// session is therefore not the client's real address yet. Logged, not hidden.
+			var session = new NetherNetSession(peer, reliable, unreliable, new IPEndPoint(IPAddress.Any, 0), networkId);
+			session.CustomMessageHandler = CustomMessageHandlerFactory?.Invoke(session) ?? new DefaultMessageHandler();
+			session.OnClosed = closed => Sessions.TryRemove(new KeyValuePair<string, NetherNetSession>(closed.NetworkId, closed));
+
+			Sessions[networkId] = session;
+
+			Log.Info($"NetherNet session accepted from {networkId}");
+			session.CustomMessageHandler.Connected();
+
+			return session;
 		}
 
 		/// <summary>

@@ -35,17 +35,24 @@ namespace MiNET.Net.NetherNet
 	/// <summary>
 	///     Where gameplay UDP binds locally, and what address clients should be told to dial.
 	///     <para>
-	///         Signaling is TCP on the server port, but the gameplay path is a separate UDP socket
-	///         that WebRTC allocates from the ephemeral range by default. Behind a router that is
-	///         unusable: you cannot forward a port you cannot predict, and the candidate we advertise
-	///         is the internal address, which no client outside the LAN can reach. So the range is
-	///         pinned and the advertised candidates are rewritten to the mapped address.
+	///         Signaling is TCP on the server port, but the gameplay path is a separate UDP socket.
+	///         Behind a router that is unusable unless the port is predictable: you cannot forward a
+	///         port you cannot forecast, and the candidate we would otherwise advertise is the internal
+	///         address, which no client outside the LAN can reach. So the configured range names the
+	///         port to bind and the advertised candidates are rewritten to the mapped address.
+	///     </para>
+	///     <para>
+	///         One <see cref="Rtc.UdpMux" /> serves every session for the listener's whole lifetime, so
+	///         only the FIRST port of the configured range is ever bound (<see cref="BindPort" />); a
+	///         wider range parses without error, for config compatibility with a BDS
+	///         <c>server-udp-ports</c> line that names more ports than this model needs, but everything
+	///         past the first is unused.
 	///     </para>
 	///     <para>
 	///         Configured with BDS's <c>server-udp-ports</c> syntax, deliberately, so a working BDS
 	///         configuration can be copied across:
 	///         <list type="bullet">
-	///             <item><c>49152-49200</c> restricts local allocation to that range.</item>
+	///             <item><c>49152-49200</c> restricts local allocation to that range (in practice, its first port).</item>
 	///             <item><c>19132-19232:32000-32100</c> binds locally to 32000-32100 and tells clients 19132-19232.</item>
 	///             <item><c>203.0.113.10:19132-19232:32000-32100</c> also names the public address.</item>
 	///         </list>
@@ -115,10 +122,13 @@ namespace MiNET.Net.NetherNet
 
 		public List<Mapping> Mappings { get; } = new();
 
-		/// <summary>The window gameplay sockets are allocated from, or null to let the OS choose.</summary>
+		/// <summary>The configured window's first port, or null when nothing was configured.</summary>
 		public int? RangeStart { get; private set; }
 
 		public int? RangeEnd { get; private set; }
+
+		/// <summary>The single local port the shared <see cref="Rtc.UdpMux" /> binds, or null to let the OS choose. Always <see cref="RangeStart" />: the mux model has one socket for the listener's whole lifetime, so there is no per-connection cursor to walk further into the range.</summary>
+		public int? BindPort => RangeStart;
 
 		public bool IsConfigured => Mappings.Count > 0 || RangeStart.HasValue;
 
