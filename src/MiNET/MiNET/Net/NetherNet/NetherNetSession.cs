@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -24,12 +24,13 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using log4net;
 using MiNET.Net.RakNet;
-using SIPSorcery.Net;
+using MiNET.Net.Rtc;
 
 namespace MiNET.Net.NetherNet
 {
@@ -45,9 +46,19 @@ namespace MiNET.Net.NetherNet
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(NetherNetSession));
 
-		private readonly RTCPeerConnection _peerConnection;
-		private readonly RTCDataChannel _reliable;
-		private readonly RTCDataChannel _unreliable;
+		// The client-side SCTP association's max-message-size ceiling (libwebrtc's own default).
+		// There is no on-wire negotiation of this value, so it is a fixed constant rather than
+		// something read off a live association, and anything larger has to be split by the segment
+		// layer below.
+		private const int MaxSegmentBytes = 262144;
+
+		private readonly RtcPeer _peer;
+		private readonly RtcDataChannel _reliable;
+
+		// Not readonly: a returning client sometimes opens the unreliable channel after the session
+		// already attached on the reliable one, so this is plugged in later through
+		// AttachUnreliableChannel rather than only ever set from the constructor.
+		private RtcDataChannel _unreliable;
 
 		// One reassembler per channel. The two are independent streams with their own segment
 		// counters, so sharing one would splice a half-built message from one into the other.
@@ -104,54 +115,71 @@ namespace MiNET.Net.NetherNet
 
 		public long NetworkIdentifier { get; }
 
-		public NetherNetSession(RTCPeerConnection peerConnection, RTCDataChannel reliable, RTCDataChannel unreliable, IPEndPoint endPoint, string networkId)
+		public NetherNetSession(RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable, IPEndPoint endPoint, string networkId)
 		{
-			_peerConnection = peerConnection ?? throw new ArgumentNullException(nameof(peerConnection));
+			_peer = peer ?? throw new ArgumentNullException(nameof(peer));
 			_reliable = reliable ?? throw new ArgumentNullException(nameof(reliable));
-			_unreliable = unreliable;
 
 			EndPoint = endPoint;
 			NetworkId = networkId;
 			NetworkIdentifier = long.TryParse(networkId, out long id) ? id : networkId?.GetHashCode() ?? 0;
 
 			// Losing the reliable channel is losing the session. Mojang's guide has the client open
-			// both, so a missing unreliable channel is unexpected but not fatal.
-			_reliable.onmessage += (channel, protocol, data) => OnDataChannelMessage(_reliableReassembler, data, reliableChannel: true);
-			_reliable.onclose += () => Disconnect("Data channel closed", false);
-			_reliable.onerror += error => Log.Warn($"NetherNet reliable channel error for {Username ?? NetworkId}: {error}");
+			// both, so a missing unreliable channel at this point is unexpected but not fatal: it may
+			// still arrive and be wired in through AttachUnreliableChannel.
+			_reliable.OnMessage += (in ReadOnlySequence<byte> data, bool isString) => OnDataChannelMessage(_reliableReassembler, in data, reliableChannel: true);
 
-			if (_unreliable != null)
+			if (unreliable != null)
 			{
-				_unreliable.onmessage += (channel, protocol, data) => OnDataChannelMessage(_unreliableReassembler, data, reliableChannel: false);
-				_unreliable.onclose += () => Log.Info($"NetherNet unreliable channel closed for {Username ?? NetworkId}, session continues");
-				_unreliable.onerror += error => Log.Warn($"NetherNet unreliable channel error for {Username ?? NetworkId}: {error}");
+				AttachUnreliableChannel(unreliable);
 			}
 			else
 			{
-				Log.Warn($"NetherNet client {networkId} opened no unreliable channel");
+				Log.Warn($"NetherNet client {networkId} opened no unreliable channel yet");
 			}
 
-			// The onclose above only ever fires for closes this side initiates: SIPSorcery has no
-			// SCTP stream reset, so a remote's channel close arrives as nothing at all. Connection
-			// state is the transport's own liveness signal; the listener's inactivity sweep is the
-			// backstop for peers that vanish without one. Note that "disconnected" is NOT fatal:
-			// it means missed STUN checks and may recover (under load-test squeeze it regularly
-			// does); killing on it cost ~465 sessions in one 1000-bot run. The sweep decides.
-			_peerConnection.onconnectionstatechange += state =>
+			// OnTransportClosed is the one teardown signal: it fires exactly once for every terminal
+			// outcome after a successful handshake (ICE failure, a peer SCTP ABORT or SHUTDOWN, an
+			// inbound DTLS close_notify or fatal alert), and never for this side's own RtcPeer.Dispose
+			// (see Close() below). There is no transient "disconnected" state to tolerate here: the
+			// listener's inactivity sweep is the only backstop for a peer that goes silent without
+			// ever tearing the transport down cleanly.
+			//
+			// Wrapped: this can run from RtcPeer's own mux tick chain, which has no catch of its own
+			// around raising this event, and Disconnect reaches arbitrary application code
+			// (CustomMessageHandler, Player) through it. An unguarded throw here would not just be
+			// lost, it would abort that whole tick invocation, taking every OTHER peer's RTO/SACK/T3
+			// timers on the same mux down with it for that interval.
+			_peer.OnTransportClosed += () =>
 			{
-				if (state is RTCPeerConnectionState.closed or RTCPeerConnectionState.failed)
+				try
 				{
-					Disconnect($"Connection {state}", false);
+					Disconnect("Connection closed", false);
 				}
-				else if (state == RTCPeerConnectionState.disconnected)
+				catch (Exception e)
 				{
-					Log.Info($"NetherNet connection for {Username ?? NetworkId} reports disconnected; waiting for recovery or the inactivity sweep");
+					Log.Error($"NetherNet OnTransportClosed handler threw for {Username ?? NetworkId}", e);
 				}
 			};
 		}
 
-		private void OnDataChannelMessage(NetherNetSegmentReassembler reassembler, byte[] data, bool reliableChannel)
+		/// <summary>
+		///     Wires the unreliable channel, whether it arrives at construction or later, once a
+		///     returning client's second channel opens after the session already attached on the
+		///     reliable one. Safe to call at most once: a second call for an already-attached channel
+		///     is ignored, so a stray retry can never splice a second reassembler onto it.
+		/// </summary>
+		public void AttachUnreliableChannel(RtcDataChannel unreliable)
 		{
+			if (unreliable == null) return;
+			if (Interlocked.CompareExchange(ref _unreliable, unreliable, null) != null) return;
+
+			unreliable.OnMessage += (in ReadOnlySequence<byte> data, bool isString) => OnDataChannelMessage(_unreliableReassembler, in data, reliableChannel: false);
+		}
+
+		private void OnDataChannelMessage(NetherNetSegmentReassembler reassembler, in ReadOnlySequence<byte> data, bool reliableChannel)
+		{
+			byte[] rented = null;
 			try
 			{
 				_hasReceived = 1;
@@ -165,15 +193,31 @@ namespace MiNET.Net.NetherNet
 					// ours, broadcasting other entities where the next update supersedes the last.
 					// go-nethernet calls this channel's behaviour "less defined" and never uses it.
 					// So an arrival here is a genuine surprise and worth saying out loud once.
-					Log.Warn($"NetherNet client {Username ?? NetworkId} is sending on the UNRELIABLE channel, first message {data.Length} bytes, header byte 0x{(data.Length > 0 ? data[0] : 0):X2}");
+					Log.Warn($"NetherNet client {Username ?? NetworkId} is sending on the UNRELIABLE channel, first message {data.Length} bytes");
 				}
 
-				// False means the message is still being assembled from segments. The payload is a
-				// view onto either the channel's own buffer or the reassembler's pooled one, valid
-				// only for the duration of HandlePayload, which is all it needs.
-				if (Log.IsDebugEnabled) Log.Debug($"NetherNet recv {data.Length} bytes on {(reliableChannel ? "reliable" : "unreliable")}: {Packet.HexDump(data.AsSpan(0, Math.Min(32, data.Length)).ToArray(), 32)}");
+				// Single-segment is the common case (a Bedrock batch under one SCTP fragmentation
+				// window) and costs nothing: a view straight onto the association's own buffer. A
+				// multi-segment sequence needs one contiguous copy because the reassembler's own
+				// contract takes a single memory view, not a sequence.
+				ReadOnlyMemory<byte> framed;
+				if (data.IsSingleSegment)
+				{
+					framed = data.First;
+				}
+				else
+				{
+					rented = ArrayPool<byte>.Shared.Rent((int) data.Length);
+					data.CopyTo(rented);
+					framed = rented.AsMemory(0, (int) data.Length);
+				}
 
-				if (!reassembler.TryAccept(data, out ReadOnlyMemory<byte> payload)) return;
+				if (Log.IsDebugEnabled) Log.Debug($"NetherNet recv {framed.Length} bytes on {(reliableChannel ? "reliable" : "unreliable")}: {Packet.HexDump(framed.Span.Slice(0, Math.Min(32, framed.Length)).ToArray(), 32)}");
+
+				// False means the message is still being assembled from segments. The payload is a
+				// view onto either the buffer above or the reassembler's own pooled one, valid only
+				// for the duration of HandlePayload, which is all it needs.
+				if (!reassembler.TryAccept(framed, out ReadOnlyMemory<byte> payload)) return;
 
 				HandlePayload(payload);
 			}
@@ -191,6 +235,10 @@ namespace MiNET.Net.NetherNet
 				// trustworthy. Dropping it and carrying on would desynchronise everything after it.
 				Log.Error($"NetherNet receive failed for {Username ?? NetworkId}, closing session", e);
 				Disconnect("Malformed packet", false);
+			}
+			finally
+			{
+				if (rented != null) ArrayPool<byte>.Shared.Return(rented);
 			}
 		}
 
@@ -252,17 +300,14 @@ namespace MiNET.Net.NetherNet
 				ReadOnlySpan<byte> encoded = message is McpeWrapper wrapper ? wrapper.payload.Span : message.Encode();
 				if (encoded.Length == 0) return;
 
-				// maxMessageSize is negotiated in the SDP; the sender must split anything larger.
-				int maxMessageSize = (int) Math.Min(int.MaxValue, _peerConnection.sctp?.maxMessageSize ?? 262144);
-
 				if (Log.IsDebugEnabled) Log.Debug($"NetherNet send {encoded.Length} bytes: {Packet.HexDump(encoded.Slice(0, Math.Min(32, encoded.Length)).ToArray(), 32)}");
 
 				lock (_sendLock)
 				{
 					// One pooled buffer, one copy, and send takes an offset and count so the buffer
 					// does not have to be exactly the segment's size.
-					NetherNetSegments.ForEachSegment(encoded, maxMessageSize, _reliable,
-						static (channel, buffer, length) => channel.send(buffer, 0, length));
+					NetherNetSegments.ForEachSegment(encoded, MaxSegmentBytes, _reliable,
+						static (channel, buffer, length) => channel.Send(buffer.AsSpan(0, length), asString: false));
 				}
 			}
 			catch (Exception e)
@@ -287,7 +332,7 @@ namespace MiNET.Net.NetherNet
 
 		public void Close()
 		{
-			// Close arrives from the data channel, from the player and from teardown, so it has to be
+			// Close arrives from the transport, from the player and from teardown, so it has to be
 			// idempotent the way RakSession's is.
 			if (Interlocked.Exchange(ref _closed, 1) != 0) return;
 
@@ -295,21 +340,14 @@ namespace MiNET.Net.NetherNet
 
 			try
 			{
-				_reliable.close();
-				_unreliable?.close();
+				// Disposing the peer tears down ICE, DTLS and the SCTP association together, which
+				// takes both data channels with it. This never re-raises OnTransportClosed: RtcPeer's
+				// own disposed guard refuses to fire it once Dispose has started.
+				_peer.Dispose();
 			}
 			catch (Exception e)
 			{
-				Log.Debug("Closing NetherNet data channels", e);
-			}
-
-			try
-			{
-				_peerConnection.close();
-			}
-			catch (Exception e)
-			{
-				Log.Debug("Closing NetherNet peer connection", e);
+				Log.Debug("Closing NetherNet peer", e);
 			}
 
 			Log.Info($"NetherNet session closed for {Username ?? NetworkId}");

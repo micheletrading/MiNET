@@ -396,25 +396,11 @@ namespace MiNET.Net.NetherNet
 
 		private void AttachSession(string networkId, RTCPeerConnection peerConnection, RTCDataChannel reliable, RTCDataChannel unreliable)
 		{
-			IPEndPoint remote = peerConnection.AudioDestinationEndPoint ?? new IPEndPoint(IPAddress.Any, 0);
-
-			// A returning client reuses its NetworkID, so an entry here is a ghost of a dead
-			// connection. Close it rather than overwrite it: overwritten, it would no longer be
-			// swept and its gameplay port would be held until restart.
-			if (Sessions.TryRemove(networkId, out NetherNetSession stale))
-			{
-				Log.Warn($"NetherNet session for {networkId} replaced by a new connection, closing the old one");
-				stale.Close();
-			}
-
-			var session = new NetherNetSession(peerConnection, reliable, unreliable, remote, networkId);
-			session.CustomMessageHandler = CustomMessageHandlerFactory?.Invoke(session) ?? new DefaultMessageHandler();
-			session.OnClosed = closed => Sessions.TryRemove(new KeyValuePair<string, NetherNetSession>(closed.NetworkId, closed));
-
-			Sessions[networkId] = session;
-
-			Log.Info($"NetherNet session accepted from {networkId} at {remote}");
-			session.CustomMessageHandler.Connected();
+			// NetherNetSession now takes an RtcPeer/RtcDataChannel pair (the in-house Rtc stack), and
+			// this listener still negotiates over SIPSorcery's RTCPeerConnection/RTCDataChannel. The
+			// listener's own rebuild onto RtcPeer is a separate, later change; until then it cannot
+			// hand NetherNetSession the objects its constructor now requires.
+			throw new NotSupportedException("NetherNetListener still negotiates over SIPSorcery and cannot construct a NetherNetSession until it is rebuilt onto RtcPeer.");
 		}
 
 		/// <summary>

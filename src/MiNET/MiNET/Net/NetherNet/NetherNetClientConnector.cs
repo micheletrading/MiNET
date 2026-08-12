@@ -141,7 +141,11 @@ namespace MiNET.Net.NetherNet
 				IPEndPoint remote = ResolveRemote(peerConnection, host, port);
 				Log.Info($"NetherNet connected to {remote} as network id {networkId}");
 
-				return new NetherNetSession(peerConnection, reliable, unreliable, remote, networkId);
+				// NetherNetSession now takes an RtcPeer/RtcDataChannel pair (the in-house Rtc stack),
+				// and this connector still negotiates over SIPSorcery's RTCPeerConnection/RTCDataChannel.
+				// The connector's own rebuild onto RtcPeer is a separate, later change; until then it
+				// cannot hand NetherNetSession the objects its constructor now requires.
+				throw new NotSupportedException("NetherNetClientConnector still negotiates over SIPSorcery and cannot construct a NetherNetSession until it is rebuilt onto RtcPeer.");
 			}
 			catch
 			{
