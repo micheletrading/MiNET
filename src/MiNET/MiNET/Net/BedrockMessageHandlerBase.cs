@@ -105,10 +105,10 @@ namespace MiNET.Net
 
 				var pending = McpeWrapper.CreateObject();
 				pending.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				pending.payload = CompressionEnabled
+				pending.SetPayload(CompressionEnabled
 					? Compression.CompressPacketsForWrapper(sendInBatch)
-					: Compression.PackPacketsForWrapper(sendInBatch);
-				pending.Encode(); // prepare
+					: Compression.PackPacketsForWrapper(sendInBatch));
+				pending.EncodeAsMemory(); // prepare
 				sendList.Add(pending);
 				sendInBatch.Clear();
 			}
@@ -126,10 +126,10 @@ namespace MiNET.Net
 					var wrapper = McpeWrapper.CreateObject();
 					wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 					wrapper.ForceClear = true;
-					wrapper.payload = CompressionEnabled
+					wrapper.SetPayload(CompressionEnabled
 						? Compression.CompressPacketsForWrapper(new List<Packet> {packet})
-						: Compression.PackPacketsForWrapper(new List<Packet> {packet});
-					wrapper.Encode(); // prepare
+						: Compression.PackPacketsForWrapper(new List<Packet> {packet}));
+					wrapper.EncodeAsMemory(); // prepare
 					packet.PutPool();
 					sendList.Add(wrapper);
 					continue;
@@ -182,17 +182,38 @@ namespace MiNET.Net
 		{
 			if (message == null) throw new NullReferenceException();
 
+			if (message is McpeWrapper wrapper)
+			{
+				foreach (Packet msg in DecodeBatch(wrapper))
+				{
+					HandleDecoded(msg);
+				}
+
+				return;
+			}
+
+			HandleNonWrapper(message);
+		}
+
+		/// <summary>
+		///     The transport-thread half of batch handling: decrypt, decompress and decode the wrapper
+		///     into packet objects, consuming the wrapper's payload synchronously (a transport may hand
+		///     in a borrowed view valid only for this call). The returned packets reference only the
+		///     decompression buffer, plain GC-owned memory, so they are safe to hand to another thread;
+		///     <see cref="HandleDecoded" /> is the other half. The wrapper is returned to the pool here.
+		/// </summary>
+		public List<Packet> DecodeBatch(McpeWrapper wrapper)
+		{
 			Volatile.Write(ref _lastIncomingTicks, Environment.TickCount64);
 
-			if (message is McpeWrapper wrapper)
+			var messages = new List<Packet>();
+
 			{
 				if (IgnoreIncoming)
 				{
 					wrapper.PutPool();
-					return;
+					return messages;
 				}
-
-				var messages = new List<Packet>();
 
 				// Get bytes to process
 				ReadOnlyMemory<byte> payload = wrapper.payload;
@@ -311,10 +332,6 @@ namespace MiNET.Net
 
 				foreach (Packet msg in messages)
 				{
-					// Temp fix for performance, take 1.
-					//var interact = msg as McpeInteract;
-					//if (interact?.actionId == 4 && interact.targetRuntimeEntityId == 0) continue;
-
 					msg.ReliabilityHeader = new ReliabilityHeader()
 					{
 						Reliability = wrapper.ReliabilityHeader.Reliability,
@@ -322,21 +339,38 @@ namespace MiNET.Net
 						OrderingChannel = wrapper.ReliabilityHeader.OrderingChannel,
 						OrderingIndex = wrapper.ReliabilityHeader.OrderingIndex,
 					};
-
-					RakOfflineHandler.TraceReceive(Log, msg);
-					try
-					{
-						HandleCustomPacket(msg);
-					}
-					catch (Exception e)
-					{
-						Log.Warn($"Bedrock message handler error", e);
-					}
 				}
 
 				wrapper.PutPool();
 			}
-			else if (message is UnknownPacket unknownPacket)
+
+			return messages;
+		}
+
+		/// <summary>
+		///     The dispatch-thread half: game-logic handling of one packet <see cref="DecodeBatch" />
+		///     produced. Runs wherever the transport wants game code to run; the RakNet path calls it
+		///     straight after decoding on the same thread, the NetherNet path on the session's own
+		///     dispatch thread.
+		/// </summary>
+		public void HandleDecoded(Packet msg)
+		{
+			RakOfflineHandler.TraceReceive(Log, msg);
+			try
+			{
+				HandleCustomPacket(msg);
+			}
+			catch (Exception e)
+			{
+				Log.Warn($"Bedrock message handler error", e);
+			}
+		}
+
+		private void HandleNonWrapper(Packet message)
+		{
+			Volatile.Write(ref _lastIncomingTicks, Environment.TickCount64);
+
+			if (message is UnknownPacket unknownPacket)
 			{
 				if (Log.IsDebugEnabled) Log.Warn($"Received unknown packet 0x{unknownPacket.Id:X2}\n{Packet.HexDump(unknownPacket.Message)}");
 

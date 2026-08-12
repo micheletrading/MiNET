@@ -58,7 +58,17 @@ namespace MiNET
 
 		public MotdProvider MotdProvider { get; set; }
 
-		public static RecyclableMemoryStreamManager MemoryStreamManager { get; set; } = new RecyclableMemoryStreamManager();
+		// Wrapper payloads lease these buffers for as long as the wrapper is in flight, so blocks
+		// are sized for typical batches and the free pools are capped: an unbounded default pool
+		// retains its high-water mark forever.
+		public static RecyclableMemoryStreamManager MemoryStreamManager { get; set; } = new RecyclableMemoryStreamManager(new RecyclableMemoryStreamManager.Options
+		{
+			BlockSize = 16 * 1024,
+			LargeBufferMultiple = 256 * 1024,
+			MaximumBufferSize = 32 * 1024 * 1024,
+			MaximumSmallPoolFreeBytes = 64 * 1024 * 1024,
+			MaximumLargePoolFreeBytes = 128 * 1024 * 1024,
+		});
 
 		public IServerManager ServerManager { get; set; }
 		public LevelManager LevelManager { get; set; }
@@ -260,6 +270,7 @@ namespace MiNET
 			PluginManager?.DisablePlugins();
 			
 			_listener?.Stop();
+			_netherNetListener?.Stop();
 			ConnectionInfo?.Stop();
 
 			var fastThreadPool = FastThreadPool;

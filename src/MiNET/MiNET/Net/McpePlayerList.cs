@@ -24,12 +24,56 @@
 #endregion
 
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace MiNET.Net
 {
 	public partial class McpePlayerList
 	{
+		/// <summary>
+		///     Serializes one Add record as three wire fragments: the fields before the skin
+		///     (led by the record's variant tag so a roster is pure concatenation), the serialized
+		///     skin alone (shared between players via the content-addressed store), and the fields
+		///     after it. Concatenated they are byte-identical to what <see cref="EncodePacket" />
+		///     writes for the same entry, which is what the round-trip test pins.
+		/// </summary>
+		public static (byte[] prefix, byte[] skin, byte[] suffix) EncodeAddRecordSlices(PlayerListAddEntry entry)
+		{
+			var writer = new McpePlayerList();
+			using var scratch = new MemoryStream();
+			writer.BeginFragmentEncode(scratch);
+			try
+			{
+				writer.WriteUnsignedVarInt(1); // variant tag: PlayerListAddEntry
+				writer.Write((byte) entry.action);
+				writer.Write(entry.uuid);
+				writer.WriteSignedVarLong(entry.actorUniqueId);
+				writer.Write(entry.playerName);
+				writer.Write(entry.xblXuid);
+				writer.Write(entry.platformOnlineId);
+				writer.Write((int) entry.buildPlatform);
+				byte[] prefix = scratch.ToArray();
+
+				scratch.SetLength(0);
+				writer.Write(entry.serializedSkin);
+				byte[] skin = scratch.ToArray();
+
+				scratch.SetLength(0);
+				writer.Write(entry.isTeacher);
+				writer.Write(entry.isHost);
+				writer.Write(entry.isSubclient);
+				writer.Write(entry.playerColor);
+				byte[] suffix = scratch.ToArray();
+
+				return (prefix, skin, suffix);
+			}
+			finally
+			{
+				writer.EndFragmentEncode();
+			}
+		}
+
 		/// <summary>The roster entry that announces a player, built from the player itself.</summary>
 		public static PlayerListAddEntry AddEntry(Player player)
 		{

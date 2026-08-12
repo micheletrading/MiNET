@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -36,7 +37,7 @@ namespace MiNET.Utils.IO
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Compression));
 
-		public static byte[] Compress(Memory<byte> input, bool writeLen = false, CompressionLevel compressionLevel = CompressionLevel.Fastest)
+		public static byte[] Compress(ReadOnlyMemory<byte> input, bool writeLen = false, CompressionLevel compressionLevel = CompressionLevel.Fastest)
 		{
 			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
 			{
@@ -55,29 +56,76 @@ namespace MiNET.Utils.IO
 			}
 		}
 
+		/// <summary>
+		///     Wrapper-payload compression into a pooled stream the caller owns: attach it to the
+		///     wrapper with <see cref="Packet.AttachLease" /> so it returns to the pool with the
+		///     packet, and view the bytes via GetBuffer()/Length. Leading compressor-id byte
+		///     included (0x00 = zlib/deflate; a NoCompression deflate stream still inflates
+		///     through the same branch).
+		/// </summary>
+		public static MemoryStream CompressIntoPooledStream(ReadOnlyMemory<byte> input, bool writeLen, CompressionLevel compressionLevel)
+		{
+			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+			stream.WriteByte(0x00);
+			using (var compressStream = new DeflateStream(stream, compressionLevel, true))
+			{
+				if (writeLen)
+				{
+					WriteLength(compressStream, input.Length);
+				}
+
+				compressStream.Write(input.Span);
+			}
+
+			return stream;
+		}
+
+		/// <summary>
+		///     Same wrapper-payload compression fed from a segment chain: deflate consumes
+		///     sequentially, so a roster assembled as a <see cref="ReadOnlySequence{T}" /> of cached
+		///     fragments compresses without ever existing as one contiguous buffer.
+		/// </summary>
+		public static MemoryStream CompressIntoPooledStream(ReadOnlySequence<byte> input, bool writeLen, CompressionLevel compressionLevel)
+		{
+			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+			stream.WriteByte(0x00);
+			using (var compressStream = new DeflateStream(stream, compressionLevel, true))
+			{
+				if (writeLen)
+				{
+					WriteLength(compressStream, (int) input.Length);
+				}
+
+				foreach (ReadOnlyMemory<byte> segment in input)
+				{
+					compressStream.Write(segment.Span);
+				}
+			}
+
+			return stream;
+		}
+
 		// Packets packed with their lengths and nothing else: no deflate framing and no compressor
 		// id byte. Both sides read a wrapper payload as plain bytes until the NetworkSettings
 		// exchange completes, so the two packets that carry out that exchange, one each way, cannot
 		// go through CompressPacketsForWrapper. Deflate at NoCompression is not a substitute: it
 		// copies the bytes but still writes a five byte stored-block header a raw reader would eat.
-		public static byte[] PackPacketsForWrapper(List<Packet> packets)
+		public static MemoryStream PackPacketsForWrapper(List<Packet> packets)
 		{
-			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
+			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+			foreach (Packet packet in packets)
 			{
-				foreach (Packet packet in packets)
+				ReadOnlyMemory<byte> bs = packet.EncodeAsMemory();
+				if (bs.Length > 0)
 				{
-					byte[] bs = packet.Encode();
-					if (bs != null && bs.Length > 0)
-					{
-						BatchUtils.WriteLength(stream, bs.Length);
-						stream.Write(bs, 0, bs.Length);
-					}
-
-					packet.PutPool();
+					BatchUtils.WriteLength(stream, bs.Length);
+					stream.Write(bs.Span);
 				}
 
-				return stream.ToArray();
+				packet.PutPool();
 			}
+
+			return stream;
 		}
 
 		// Every caller sends this after the NetworkSettings exchange, where a wrapper payload leads
@@ -92,37 +140,35 @@ namespace MiNET.Utils.IO
 		// NetherNetSegments.ForEachSegment. With headroom it writes the header in place and sends
 		// the same buffer. RakNet reads the payload from offset zero today, so the offset has to
 		// become part of this method's contract rather than something callers guess at.
-		public static byte[] CompressPacketsForWrapper(List<Packet> packets, CompressionLevel compressionLevel = CompressionLevel.Fastest)
+		public static MemoryStream CompressPacketsForWrapper(List<Packet> packets, CompressionLevel compressionLevel = CompressionLevel.Fastest)
 		{
 			long length = 0;
-			foreach (Packet packet in packets) length += packet.Encode().Length;
+			foreach (Packet packet in packets) length += packet.EncodeAsMemory().Length;
 
 			compressionLevel = length > 1000 ? compressionLevel : CompressionLevel.NoCompression;
 
-			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
+			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+
+			// Ahead of the deflate stream, so this costs one byte on the same pooled buffer.
+			// A NoCompression deflate stream is still deflate, so it inflates through 0x00.
+			stream.WriteByte(0x00);
+
+			using (var compressStream = new DeflateStream(stream, compressionLevel, true))
 			{
-				// Ahead of the deflate stream, so this costs one byte on the same pooled buffer.
-				// A NoCompression deflate stream is still deflate, so it inflates through 0x00.
-				stream.WriteByte(0x00);
-
-				using (var compressStream = new DeflateStream(stream, compressionLevel, true))
+				foreach (Packet packet in packets)
 				{
-					foreach (Packet packet in packets)
+					ReadOnlyMemory<byte> bs = packet.EncodeAsMemory();
+					if (bs.Length > 0)
 					{
-						byte[] bs = packet.Encode();
-						if (bs != null && bs.Length > 0)
-						{
-							BatchUtils.WriteLength(compressStream, bs.Length);
-							compressStream.Write(bs, 0, bs.Length);
-						}
-						packet.PutPool();
+						BatchUtils.WriteLength(compressStream, bs.Length);
+						compressStream.Write(bs.Span);
 					}
-					compressStream.Flush();
+					packet.PutPool();
 				}
-
-				byte[] bytes = stream.ToArray();
-				return bytes;
+				compressStream.Flush();
 			}
+
+			return stream;
 		}
 
 		public static void WriteLength(Stream stream, int lenght)

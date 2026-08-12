@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -309,9 +310,14 @@ namespace MiNET.Worlds
 		///     queued between flushes into a single wrapper, so this is how a packet is kept as its
 		///     own payload. Public because plugins need it for the same reason the server does.
 		/// </summary>
-		public static McpeWrapper CreateMcpeBatch(byte[] bytes)
+		public static McpeWrapper CreateMcpeBatch(ReadOnlyMemory<byte> bytes)
 		{
-			return BatchUtils.CreateBatchPacket(new Memory<byte>(bytes, 0, (int) bytes.Length), CompressionLevel.Optimal, true);
+			return BatchUtils.CreateBatchPacket(bytes, CompressionLevel.Optimal, true);
+		}
+
+		public static McpeWrapper CreateMcpeBatch(ReadOnlySequence<byte> bytes)
+		{
+			return BatchUtils.CreateBatchPacket(bytes, CompressionLevel.Optimal, true);
 		}
 
 		private object _playerWriteLock = new object();
@@ -384,17 +390,19 @@ namespace MiNET.Worlds
 				// sequence: PrepareSend closes the pending batch before it queues a finished wrapper.
 				// That order is not cosmetic. A roster that overtakes StartGame is dropped, and the
 				// joining player then sees the others in the world with no rows in the player list.
-				var playerListMessage = McpePlayerList.CreateObject();
-				playerListMessage.records = McpePlayerList.Added(roster);
-				newPlayer.SendPacket(CreateMcpeBatch(playerListMessage.Encode()));
-				playerListMessage.PutPool();
+				//
+				// Assembled from each player's cached record slices as a segment chain, compressed
+				// straight from the chain: a full roster costs three pointer segments per player
+				// instead of a re-serialization of every record, and the contiguous multi-megabyte
+				// encode a large roster used to require never exists.
+				newPlayer.SendPacket(CreateMcpeBatch(PlayerListRosterBuilder.BuildAdded(roster)));
 
 				// One record, the joiner, to everyone already connected. This is how another client
 				// learns their skin, so it cannot be skipped: AddPlayer below only references the
 				// identity, it does not carry an appearance.
 				var playerList = McpePlayerList.CreateObject();
 				playerList.records = McpePlayerList.Added(newPlayer);
-				RelayBroadcast(newPlayer, roster.ToArray(), CreateMcpeBatch(playerList.Encode()));
+				RelayBroadcast(newPlayer, roster.ToArray(), CreateMcpeBatch(playerList.EncodeAsMemory()));
 				playerList.PutPool();
 
 				newPlayer.SpawnToPlayers(others);
@@ -423,6 +431,9 @@ namespace MiNET.Worlds
 					{
 						entity.DespawnFromPlayers(new[] {removed});
 					}
+
+					// Returns the skin-store refcount this player's cached roster record holds.
+					player.InvalidateRosterSlices();
 				}
 			}
 
@@ -444,13 +455,13 @@ namespace MiNET.Worlds
 
 				McpePlayerList playerListMessage = McpePlayerList.CreateObject();
 				playerListMessage.records = McpePlayerList.Removed(spawnedPlayers);
-				player.SendPacket(CreateMcpeBatch(playerListMessage.Encode()));
+				player.SendPacket(CreateMcpeBatch(playerListMessage.EncodeAsMemory()));
 				playerListMessage.records = null;
 				playerListMessage.PutPool();
 
 				McpePlayerList playerList = McpePlayerList.CreateObject();
 				playerList.records = McpePlayerList.Removed(player);
-				RelayBroadcast(player, CreateMcpeBatch(playerList.Encode()));
+				RelayBroadcast(player, CreateMcpeBatch(playerList.EncodeAsMemory()));
 				playerList.records = null;
 				playerList.PutPool();
 			}
@@ -549,7 +560,9 @@ namespace MiNET.Worlds
 			//	return;
 			//}
 
-			if (Log.IsDebugEnabled && _tickTimer.ElapsedMilliseconds >= 65) Log.Warn($"Time between world tick too long: {_tickTimer.ElapsedMilliseconds} ms. Last processing time={LastTickProcessingTime}, Avarage={AvarageTickProcessingTime}");
+			// Not debug-gated: a late world tick is a real service event (every player perceives it
+			// as a global stall), and it self-rate-limits to at most one line per tick.
+			if (_tickTimer.ElapsedMilliseconds >= 65) Log.Warn($"Time between world tick too long: {_tickTimer.ElapsedMilliseconds} ms. Last processing time={LastTickProcessingTime}, Avarage={AvarageTickProcessingTime}");
 
 			Measurement worldTickMeasurement = _profiler.Begin("World tick");
 
@@ -924,8 +937,8 @@ namespace MiNET.Worlds
 				//McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(stream.GetBuffer(), 0, (int) stream.Length), CompressionLevel.Optimal, false);
 				var batch = McpeWrapper.CreateObject(players.Length);
 				batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				batch.payload = Compression.CompressPacketsForWrapper(movePackets);
-				batch.Encode();
+				batch.SetPayload(Compression.CompressPacketsForWrapper(movePackets));
+				batch.EncodeAsMemory();
 				foreach (Player player in players) MiNetServer.FastThreadPool.QueueUserWorkItem(() => player.SendPacket(batch));
 				_lastBroadcast = DateTime.UtcNow;
 			}

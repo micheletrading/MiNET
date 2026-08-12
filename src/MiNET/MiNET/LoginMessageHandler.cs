@@ -90,8 +90,8 @@ namespace MiNET
 			// packet after this one, in both directions.
 			var wrapper = McpeWrapper.CreateObject();
 			wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-			wrapper.payload = Compression.PackPacketsForWrapper([settings]);
-			wrapper.Encode();
+			wrapper.SetPayload(Compression.PackPacketsForWrapper([settings]));
+			wrapper.EncodeAsMemory();
 			_session.SendPacket(wrapper);
 
 			_bedrockHandler.CompressionEnabled = true;

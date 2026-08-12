@@ -24,12 +24,30 @@
 #endregion
 
 using System;
+using System.IO;
 
 namespace MiNET.Net
 {
 	public partial class McpeWrapper : Packet<McpeWrapper>
 	{
 		public ReadOnlyMemory<byte> payload; // = null;
+
+		/// <summary>
+		///     Sets the payload as a view over a pooled stream and takes ownership of the stream,
+		///     which returns to the pool when this wrapper does.
+		/// </summary>
+		public void SetPayload(MemoryStream pooledStream)
+		{
+			payload = pooledStream.GetBuffer().AsMemory(0, (int) pooledStream.Length);
+			AttachLease(pooledStream);
+		}
+
+		public override void MaterializePooledState()
+		{
+			// The payload may be a view over an attached lease; own it before base disposes them.
+			payload = payload.ToArray();
+			base.MaterializePooledState();
+		}
 
 
 		partial void AfterEncode()

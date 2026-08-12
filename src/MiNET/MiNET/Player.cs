@@ -223,7 +223,41 @@ namespace MiNET
 			pk.oldSkinName = this.Skin.SkinId;
 			pk.skinName = message.skinName;
 			this.Skin = message.skin;
+			InvalidateRosterSlices();
 			this.Level.RelayBroadcast(pk);
+		}
+
+		private PlayerListRecordSlices _rosterSlices;
+
+		/// <summary>
+		///     This player's cached player-list Add record fragments, built on first roster
+		///     inclusion. Two racing builders both produce correct slices; the loser releases its
+		///     skin-store acquisition so refcounts stay exact.
+		/// </summary>
+		public PlayerListRecordSlices GetOrBuildRosterSlices()
+		{
+			PlayerListRecordSlices slices = _rosterSlices;
+			if (slices != null) return slices;
+
+			slices = PlayerListRecordSlices.Build(this);
+			PlayerListRecordSlices raced = Interlocked.CompareExchange(ref _rosterSlices, slices, null);
+			if (raced != null)
+			{
+				slices.Release();
+				return raced;
+			}
+
+			return slices;
+		}
+
+		/// <summary>
+		///     Drops the cached record fragments after anything they encode changes (display name,
+		///     skin) or when the player leaves. Rosters already borrowing the old arrays stay
+		///     valid: the arrays are GC-owned and only the store refcount moves.
+		/// </summary>
+		public void InvalidateRosterSlices()
+		{
+			Interlocked.Exchange(ref _rosterSlices, null)?.Release();
 		}
 
 		public virtual void HandleMcpePhotoTransfer(McpePhotoTransfer message)
@@ -4195,18 +4229,19 @@ namespace MiNET
 		public void SetDisplayName(string displayName)
 		{
 			DisplayName = displayName;
+			InvalidateRosterSlices();
 
 			{
 				var playerList = McpePlayerList.CreateObject();
 				playerList.records = McpePlayerList.Removed(this);
-				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.Encode())); // Replace with records, to remove need for player and encode
+				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.EncodeAsMemory())); // Replace with records, to remove need for player and encode
 				playerList.records = null;
 				playerList.PutPool();
 			}
 			{
 				var playerList = McpePlayerList.CreateObject();
 				playerList.records = McpePlayerList.Added(this);
-				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.Encode())); // Replace with records, to remove need for player and encode
+				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.EncodeAsMemory())); // Replace with records, to remove need for player and encode
 				playerList.records = null;
 				playerList.PutPool();
 			}

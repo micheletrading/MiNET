@@ -2951,6 +2951,14 @@ namespace MiNET.Net
 			Bytes = null;
 			Timer.Restart();
 
+			_encodedLease?.Dispose();
+			_encodedLease = null;
+			if (_attachedLeases != null)
+			{
+				foreach (IDisposable lease in _attachedLeases) lease.Dispose();
+				_attachedLeases = null;
+			}
+
 			_writer?.Close();
 			_reader?.Close();
 			_buffer?.Close();
@@ -2965,8 +2973,121 @@ namespace MiNET.Net
 
 		private object _encodeSync = new object();
 
-		private static RecyclableMemoryStreamManager _streamManager = new RecyclableMemoryStreamManager();
-		private static ConcurrentDictionary<int, bool> _isLob = new ConcurrentDictionary<int, bool>();
+		// Blocks small enough that a tiny packet leasing one is cheap, large-buffer ceiling high
+		// enough that a full 1000-player roster still comes from the pool instead of the LOH.
+		private static RecyclableMemoryStreamManager _streamManager = new RecyclableMemoryStreamManager(new RecyclableMemoryStreamManager.Options
+		{
+			BlockSize = 16 * 1024,
+			LargeBufferMultiple = 256 * 1024,
+			MaximumBufferSize = 32 * 1024 * 1024,
+			MaximumSmallPoolFreeBytes = 32 * 1024 * 1024,
+			MaximumLargePoolFreeBytes = 128 * 1024 * 1024,
+		});
+
+		private MemoryStream _encodedLease;
+		private List<IDisposable> _attachedLeases;
+
+		/// <summary>
+		///     Whether <see cref="EncodeAsMemory" /> may keep the encode output in a pooled buffer.
+		///     Requires a guaranteed <see cref="Reset" /> at end of life, which only pooled,
+		///     non-permanent packets have; everything else materializes to a plain array.
+		/// </summary>
+		public virtual bool UsesEncodeLease => false;
+
+		/// <summary>
+		///     Takes ownership of a pooled resource whose lifetime must match this packet's:
+		///     disposed at <see cref="Reset" />, when the last reference returns to the pool.
+		/// </summary>
+		public void AttachLease(IDisposable lease)
+		{
+			(_attachedLeases ??= new List<IDisposable>()).Add(lease);
+		}
+
+		/// <summary>
+		///     The encoded bytes, backed by a pooled buffer that lives until this packet returns to
+		///     the pool. Never hold the returned memory past PutPool. Falls back to a plain array
+		///     for packets whose end of life cannot release a lease (see <see cref="UsesEncodeLease" />).
+		/// </summary>
+		public ReadOnlyMemory<byte> EncodeAsMemory()
+		{
+			byte[] cache = _encodedMessage;
+			if (cache != null) return cache;
+
+			lock (_encodeSync)
+			{
+				if (_encodedMessage != null) return _encodedMessage;
+
+				if (_encodedLease == null)
+				{
+					if (!UsesEncodeLease) return Encode();
+
+					var stream = _streamManager.GetStream();
+					_buffer = stream;
+					using (_writer = new BinaryWriter(_buffer, Encoding.UTF8, true))
+					{
+						EncodePacket();
+						_writer.Flush();
+					}
+					_writer = null;
+					_buffer = null;
+					_encodedLease = stream;
+				}
+
+				return new ReadOnlyMemory<byte>(_encodedLease.GetBuffer(), 0, (int) _encodedLease.Length);
+			}
+		}
+
+		/// <summary>
+		///     Copies a live encode lease into an owned array and releases the pooled buffer.
+		///     Permanent packets never Reset, so they must never sit on pool memory.
+		/// </summary>
+		protected void MaterializeEncodedLease()
+		{
+			lock (_encodeSync)
+			{
+				if (_encodedLease == null) return;
+				_encodedMessage ??= _encodedLease.ToArray();
+				_encodedLease.Dispose();
+				_encodedLease = null;
+			}
+		}
+
+		/// <summary>
+		///     Converts every pooled resource this packet sits on into owned arrays. Called when a
+		///     packet becomes permanent, which is the one lifetime that never reaches Reset.
+		///     Subclasses holding views over an attached lease (a wrapper's payload) must copy the
+		///     view to an owned array before calling base, which disposes the leases.
+		/// </summary>
+		public virtual void MaterializePooledState()
+		{
+			MaterializeEncodedLease();
+
+			if (_attachedLeases != null)
+			{
+				foreach (IDisposable lease in _attachedLeases) lease.Dispose();
+				_attachedLeases = null;
+			}
+		}
+
+		/// <summary>
+		///     Redirects this packet's write plumbing at a caller-owned stream so the generated
+		///     Write(...) serializers can produce a fragment of wire format outside the normal
+		///     Encode flow. Only valid on a scratch packet instance that is not concurrently
+		///     encoding; end with <see cref="EndFragmentEncode" />.
+		/// </summary>
+		protected void BeginFragmentEncode(Stream target)
+		{
+			_buffer = target;
+			_writer = new BinaryWriter(target, Encoding.UTF8, true);
+		}
+
+		protected void EndFragmentEncode()
+		{
+			_writer.Flush();
+			_writer.Dispose();
+			_writer = null;
+			_buffer = null;
+		}
 
 		public virtual byte[] Encode()
 		{
@@ -2978,25 +3099,21 @@ namespace MiNET.Net
 				// This construct to avoid unnecessary contention and double encoding.
 				if (_encodedMessage != null) return _encodedMessage;
 
-				// Dynamic pooling. If this packet has been registered as a large object in previous
-				// runs, we use the pooled stream for it instead to avoid LOB allocations
-				bool isLob = _isLob.ContainsKey(Id);
-				_buffer = isLob ? _streamManager.GetStream() : new MemoryStream();
+				// Already encoded through the lease path: materialize the owned copy from it.
+				if (_encodedLease != null)
+				{
+					_encodedMessage = _encodedLease.ToArray();
+					return _encodedMessage;
+				}
+
+				_buffer = new MemoryStream();
 				using (_writer = new BinaryWriter(_buffer, Encoding.UTF8, true))
 				{
 					EncodePacket();
 
 					_writer.Flush();
-					// This WILL allocate LOB. Need to convert this to work with array segment and pool it.
-					// then we will use GetBuffer instead.
-					// Also remember to move dispose entirely to Reset (dispose) when that happens.
 					var buffer = (MemoryStream) _buffer;
 					_encodedMessage = buffer.ToArray();
-					if (!isLob && _encodedMessage.Length >= 85_000)
-					{
-						_isLob.TryAdd(Id, true);
-						//Log.Warn($"LOB {GetType().Name} {_encodedMessage.Length}, IsLOB={_isLob}");
-					}
 				}
 				_buffer.Dispose();
 
@@ -3109,10 +3226,15 @@ namespace MiNET.Net
 		}
 
 
+		public override bool UsesEncodeLease => _isPooled && !_isPermanent;
+
 		public T MarkPermanent(bool permanent = true)
 		{
 			if (!_isPooled) throw new Exception("Tried to make non pooled item permanent");
 			_isPermanent = permanent;
+
+			// A permanent packet never Resets, so pooled buffers it sits on would be pinned forever.
+			if (permanent) MaterializePooledState();
 
 			return (T) this;
 		}
