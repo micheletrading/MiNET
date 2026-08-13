@@ -72,7 +72,6 @@ namespace MiNET.Net.Rtc
 		// by one MTU per acking SACK, capped here, and halves on a retransmit timeout.
 		private const uint CwndCap = 131072;
 
-		private readonly uint _queueBudgetBytes;
 		private uint _queuedBytes;
 
 		private PendingChunk _head;
@@ -128,11 +127,6 @@ namespace MiNET.Net.Rtc
 		private long _timeoutCount;
 		private long _sacksDroppedFutureCumAck;
 		private long _sacksDroppedStale;
-
-		public SctpSendQueue(uint queueBudgetBytes)
-		{
-			_queueBudgetBytes = queueBudgetBytes;
-		}
 
 		public uint Cwnd => _cwnd;
 		public long RtoMillis => _rtoMillis;
@@ -202,9 +196,6 @@ namespace MiNET.Net.Rtc
 			_timerArmed = false;
 			_timerDeadlineMillis = 0;
 		}
-
-		/// <summary>Whether <paramref name="totalBytes" /> more resident payload would still fit under the send-queue budget (queued and in-flight, not yet cumulatively acked, together).</summary>
-		public bool HasRoomFor(uint totalBytes) => (ulong) _queuedBytes + totalBytes <= _queueBudgetBytes;
 
 		/// <summary>
 		///     Leases a copy of <paramref name="payload" /> (the caller's span is transient; this copy is
