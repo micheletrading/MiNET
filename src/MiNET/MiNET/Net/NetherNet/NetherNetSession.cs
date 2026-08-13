@@ -297,7 +297,19 @@ namespace MiNET.Net.NetherNet
 			{
 				foreach (Packet msg in bedrock.DecodeBatch(wrapper))
 				{
-					Enqueue(msg);
+					// A handler method the startup scan labeled verified (provably lock-free, no
+					// plugin interceptor) runs right here, no queue hop and no wake - but only
+					// while nothing is queued ahead, so per-session arrival order can never invert
+					// between the two paths. Today no method carries the label and every packet
+					// takes the queue; each handler that earns it drops one wake per packet.
+					if (Volatile.Read(ref _dispatchPending) == 0 && _closed == 0 && bedrock.CanDispatchInline(msg))
+					{
+						bedrock.HandleDecoded(msg);
+					}
+					else
+					{
+						Enqueue(msg);
+					}
 				}
 
 				return;
@@ -309,12 +321,24 @@ namespace MiNET.Net.NetherNet
 			Enqueue(wrapper);
 		}
 
+		// How many packets sit in _dispatchQueue not yet handled: the ordering guard for direct
+		// dispatch (a verified packet may only run inline while this is zero, or it would overtake
+		// queued predecessors). Incremented on enqueue, decremented by the dispatch loop after
+		// each packet is handled.
+		private int _dispatchPending;
+
 		private void Enqueue(Packet packet)
 		{
+			Interlocked.Increment(ref _dispatchPending);
+
 			// TryWrite on an unbounded channel only ever fails once the writer is completed: the
 			// session closed between the handler check and here. The packet goes back to the pool
 			// instead of leaking.
-			if (!_dispatchQueue.Writer.TryWrite(packet)) packet.PutPool();
+			if (!_dispatchQueue.Writer.TryWrite(packet))
+			{
+				Interlocked.Decrement(ref _dispatchPending);
+				packet.PutPool();
+			}
 		}
 
 		/// <summary>
@@ -345,6 +369,12 @@ namespace MiNET.Net.NetherNet
 					catch (Exception e)
 					{
 						Log.Error($"NetherNet dispatch failed for {Username ?? NetworkId}; the session keeps serving.", e);
+					}
+					finally
+					{
+						// After handling, not after read: the direct-dispatch ordering guard reads
+						// this as "queued ahead of you", which a packet still being handled is.
+						Interlocked.Decrement(ref _dispatchPending);
 					}
 				}
 			}

@@ -23,6 +23,7 @@
 
 #endregion
 
+using System;
 using log4net;
 using MiNET.Net.RakNet;
 using MiNET.Plugins;
@@ -41,6 +42,10 @@ namespace MiNET.Net
 			_pluginManager = pluginManager;
 			Handler = new LoginMessageHandler(this, session, serverManager);
 		}
+
+		protected override object HandlerTarget => Handler;
+
+		protected override bool HasPluginInterceptor(Type packetType) => _pluginManager?.HasReceivePacketHandler(packetType) ?? false;
 
 		public override void Connected()
 		{

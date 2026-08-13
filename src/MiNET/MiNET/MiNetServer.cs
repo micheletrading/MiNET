@@ -29,6 +29,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Numerics;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using log4net;
 using Microsoft.IO;
@@ -189,6 +190,27 @@ namespace MiNET
 					// first player to join doesn't pay for it on the login thread (resolving thousands of
 					// recipes takes about a second).
 					Log.Info($"Loaded {RecipeManager.Recipes.Count} recipes");
+
+					// Label every handler method now that the closed world is final (plugins loaded):
+					// verified handlers may dispatch without the queue hop, everything else keeps the
+					// queue, and the warnings this prints are the cleanup worklist. Runs once, ~200ms.
+					var handlerAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+						.Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+						.Where(a =>
+						{
+							string name = a.GetName().Name ?? "";
+							return !name.StartsWith("System") && !name.StartsWith("Microsoft") && name != "mscorlib" && name != "netstandard";
+						})
+						.ToList();
+					var activeHandlerTypes = handlerAssemblies
+						.SelectMany(a =>
+						{
+							try { return a.GetTypes(); }
+							catch (ReflectionTypeLoadException e) { return e.Types.Where(t => t != null); }
+						})
+						.Where(t => typeof(Player).IsAssignableFrom(t) || typeof(LoginMessageHandler).IsAssignableFrom(t))
+						.ToArray();
+					HandlerVerification.ScanAndReport(handlerAssemblies, activeHandlerTypes);
 
 					// Cache - remove
 					LevelManager.GetLevel(null, Dimension.Overworld.ToString());
