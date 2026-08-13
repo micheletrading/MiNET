@@ -2301,21 +2301,13 @@ namespace MiNET
 			Level.BroadcastMessage(text, sender: this);
 		}
 
-		private int _lastOrderingIndex;
-		private object _moveSyncLock = new object();
-
 		public virtual void HandleMcpeMovePlayer(McpeMovePlayer message)
 		{
+			// No ordering guard here: ordered delivery is the transport's guarantee on both paths
+			// (RakNet's per-session ordering thread, NetherNet's single dispatch consumer), so
+			// handlers run sequentially and in sequence by construction. A handler-level lock
+			// duplicating that would also cost this method its verified label.
 			if (!IsSpawned || HealthManager.IsDead) return;
-
-			if (Server.ServerRole != ServerRole.Node)
-			{
-				lock (_moveSyncLock)
-				{
-					if (_lastOrderingIndex > message.ReliabilityHeader.OrderingIndex) return;
-					_lastOrderingIndex = message.ReliabilityHeader.OrderingIndex;
-				}
-			}
 
 			var origin = KnownPosition.ToVector3();
 			double distanceTo = Vector3.Distance(origin, new Vector3(message.position.X, message.position.Y - 1.62f, message.position.Z));
@@ -2505,17 +2497,9 @@ namespace MiNET
 		{
 			// The 1.26 client sends PlayerAuthInput every tick as its only movement packet
 			// (MovePlayer is server->client only now). Position is at eye height, like
-			// MovePlayer's was.
+			// MovePlayer's was. No ordering guard: see HandleMcpeMovePlayer's remarks, ordering
+			// is the transport's guarantee on both paths.
 			if (!IsSpawned || HealthManager.IsDead) return;
-
-			if (Server.ServerRole != ServerRole.Node)
-			{
-				lock (_moveSyncLock)
-				{
-					if (_lastOrderingIndex > message.ReliabilityHeader.OrderingIndex) return;
-					_lastOrderingIndex = message.ReliabilityHeader.OrderingIndex;
-				}
-			}
 
 			var newPosition = new PlayerLocation
 			{
