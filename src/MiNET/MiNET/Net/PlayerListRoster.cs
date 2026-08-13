@@ -142,19 +142,43 @@ namespace MiNET.Net
 	/// </summary>
 	public static class PlayerListRosterBuilder
 	{
-		public static ReadOnlySequence<byte> BuildAdded(IReadOnlyList<Player> players)
+		/// <summary>
+		///     The client refuses a McpePlayerList whose record count exceeds 1000 ("too many input
+		///     elements, expected no more than 1000", a level 2 packet violation that kills the
+		///     connection), so a bigger roster has to arrive as several packets. Observed live at 1001
+		///     players on a 1.26.42 client; the emulator client never enforces it, which is why only a
+		///     real client ever saw it.
+		/// </summary>
+		public const int MaxRecordsPerPacket = 1000;
+
+		/// <summary>
+		///     The joiner's full roster as one sequence per wire packet, each within the client's
+		///     record cap. A roster at or under the cap yields exactly one sequence, the shape
+		///     <see cref="BuildAdded" /> always produced.
+		/// </summary>
+		public static IEnumerable<ReadOnlySequence<byte>> BuildAddedBatches(IReadOnlyList<Player> players)
+		{
+			for (int start = 0; start < players.Count; start += MaxRecordsPerPacket)
+			{
+				yield return BuildAdded(players, start, Math.Min(MaxRecordsPerPacket, players.Count - start));
+			}
+		}
+
+		public static ReadOnlySequence<byte> BuildAdded(IReadOnlyList<Player> players) => BuildAdded(players, 0, players.Count);
+
+		private static ReadOnlySequence<byte> BuildAdded(IReadOnlyList<Player> players, int start, int count)
 		{
 			// Packet id + record count, the only bytes not served from a cache.
 			using var headerStream = new MemoryStream(8);
 			VarInt.WriteInt32(headerStream, 0x3f); // McpePlayerList
-			VarInt.WriteUInt32(headerStream, (uint) players.Count);
+			VarInt.WriteUInt32(headerStream, (uint) count);
 
 			var first = new Segment(headerStream.ToArray(), null);
 			Segment last = first;
 
-			foreach (Player player in players)
+			for (int i = start; i < start + count; i++)
 			{
-				PlayerListRecordSlices slices = player.GetOrBuildRosterSlices();
+				PlayerListRecordSlices slices = players[i].GetOrBuildRosterSlices();
 				last = new Segment(slices.Prefix, last);
 				last = new Segment(slices.Skin.Bytes, last);
 				last = new Segment(slices.Suffix, last);

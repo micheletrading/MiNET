@@ -394,8 +394,13 @@ namespace MiNET.Worlds
 				// Assembled from each player's cached record slices as a segment chain, compressed
 				// straight from the chain: a full roster costs three pointer segments per player
 				// instead of a re-serialization of every record, and the contiguous multi-megabyte
-				// encode a large roster used to require never exists.
-				newPlayer.SendPacket(CreateMcpeBatch(PlayerListRosterBuilder.BuildAdded(roster)));
+				// encode a large roster used to require never exists. Batched because the client
+				// refuses a player list past 1000 records (see MaxRecordsPerPacket) with a packet
+				// violation that kills the connection.
+				foreach (ReadOnlySequence<byte> rosterBatch in PlayerListRosterBuilder.BuildAddedBatches(roster))
+				{
+					newPlayer.SendPacket(CreateMcpeBatch(rosterBatch));
+				}
 
 				// One record, the joiner, to everyone already connected. This is how another client
 				// learns their skin, so it cannot be skipped: AddPlayer below only references the
