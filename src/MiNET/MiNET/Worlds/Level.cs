@@ -867,6 +867,12 @@ namespace MiNET.Worlds
 		private DateTime _lastSendTime = DateTime.UtcNow;
 		private DateTime _lastBroadcast = DateTime.UtcNow;
 
+		// One identity per level for the move roster's CoalesceKey: every roster batch wholly
+		// supersedes the previous one (it carries fresh positions for every mover), so a send lane
+		// that still holds two may drop the older unsent. Per level, not global, so two levels'
+		// rosters can never supersede each other in a lane serving a player mid-transfer.
+		private readonly object _moveRosterCoalesceKey = new object();
+
 		protected virtual void BroadCastMovement(Player[] players, Entity[] entities)
 		{
 			DateTime now = DateTime.UtcNow;
@@ -942,9 +948,14 @@ namespace MiNET.Worlds
 				//McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(stream.GetBuffer(), 0, (int) stream.Length), CompressionLevel.Optimal, false);
 				var batch = McpeWrapper.CreateObject(players.Length);
 				batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
+				batch.CoalesceKey = _moveRosterCoalesceKey;
 				batch.SetPayload(Compression.CompressPacketsForWrapper(movePackets));
 				batch.EncodeAsMemory();
-				foreach (Player player in players) MiNetServer.FastThreadPool.QueueUserWorkItem(() => player.SendPacket(batch));
+
+				// Inline on the tick thread: SendPacket only enqueues on both transports (RakSession
+				// into its send queue, NetherNetSession into its send lane), so a work item per
+				// recipient buys no parallelism and costs an allocation and a pool dispatch each.
+				foreach (Player player in players) player.SendPacket(batch);
 				_lastBroadcast = DateTime.UtcNow;
 			}
 		}

@@ -67,7 +67,19 @@ namespace MiNET.Net.NetherNet
 		private readonly NetherNetSegmentReassembler _reliableReassembler = new NetherNetSegmentReassembler();
 		private readonly NetherNetSegmentReassembler _unreliableReassembler = new NetherNetSegmentReassembler();
 
-		private readonly object _sendLock = new object();
+		// Outgoing packets waiting for the send lane, the send-side mirror of _dispatchQueue: one
+		// consumer per session (SendLoopAsync), so sends are serialized without a contended lock and
+		// producers (broadcast fan-outs, game logic) only ever enqueue. The coalescing matters as
+		// much as the ordering: everything that accumulates while one send is in flight drains into
+		// a single PrepareSend, which batches it into one wrapper, one compress and one syscall,
+		// instead of one of each per packet. Many writers: broadcasts arrive from any thread.
+		private readonly Channel<Packet> _sendQueue = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
+		{
+			SingleReader = true,
+			SingleWriter = false
+		});
+
+		private readonly Task _sendLoop;
 
 		// Decoded-but-not-yet-dispatched packets, consumed by this session's single async reader
 		// (DispatchLoopAsync): no dedicated thread, the reader's WaitToReadAsync parks as a
@@ -83,6 +95,13 @@ namespace MiNET.Net.NetherNet
 		});
 
 		private int _closed;
+
+		// Completed by Close the instant teardown starts, so a send lane parked on the window
+		// signal wakes NOW instead of on its 500ms backstop tick. Without this, closing a session
+		// whose lane is parked against a dead peer's full window costs ~250ms on average - and a
+		// sweep tearing down a thousand such corpses turned that into minutes of blocked pool
+		// threads and starved every joining player's login (the 85-bot loss, 2026-08-13).
+		private readonly TaskCompletionSource _closedSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		private int _sawUnreliableTraffic;
 		private int _hasReceived;
 		private long _lastReceiveTicks = Environment.TickCount64;
@@ -140,6 +159,7 @@ namespace MiNET.Net.NetherNet
 			NetworkIdentifier = long.TryParse(networkId, out long id) ? id : networkId?.GetHashCode() ?? 0;
 
 			_ = DispatchLoopAsync();
+			_sendLoop = SendLoopAsync();
 
 			// Losing the reliable channel is losing the session. Mojang's guide has the client open
 			// both, so a missing unreliable channel at this point is unexpected but not fatal: it may
@@ -334,19 +354,63 @@ namespace MiNET.Net.NetherNet
 		{
 			if (packet == null) return;
 
-			ICustomMessageHandler handler = CustomMessageHandler;
-			if (handler == null || _closed != 0)
+			if (CustomMessageHandler == null || _closed != 0)
 			{
 				packet.PutPool();
 				return;
 			}
 
-			// Same pipeline the RakNet path runs: PrepareSend batches and compresses, HandleOrderedSend
-			// is where encryption would apply and is a no-op here because IsTransportEncrypted is true.
-			foreach (Packet prepared in handler.PrepareSend(new List<Packet> {packet}))
+			// Producers only enqueue; the lane does the batching, compression and transport work.
+			// TryWrite fails only once the writer is completed (the session closed between the check
+			// above and here), and then the packet goes back to the pool instead of leaking.
+			if (!_sendQueue.Writer.TryWrite(packet)) packet.PutPool();
+		}
+
+		/// <summary>
+		///     The per-session send lane: drains whatever has accumulated and runs it through the same
+		///     pipeline the RakNet ticker runs. PrepareSend folds the whole drain into as few wrappers
+		///     as its rules allow (one batch per run of ordinary packets, pre-encoded wrappers pass
+		///     through in order), HandleOrderedSend is where encryption would apply and is a no-op here
+		///     because IsTransportEncrypted is true. Under light traffic each packet still leaves
+		///     immediately; coalescing only kicks in exactly when sends back up, which is when it pays.
+		/// </summary>
+		private async Task SendLoopAsync()
+		{
+			ChannelReader<Packet> reader = _sendQueue.Reader;
+			var pending = new List<Packet>();
+
+			while (await reader.WaitToReadAsync().ConfigureAwait(false))
 			{
-				Packet message = handler.HandleOrderedSend(prepared);
-				SendRaw(message);
+				pending.Clear();
+				while (reader.TryRead(out Packet packet)) pending.Add(packet);
+
+				// The drain-time upsert: everything that accumulated collapses to the last packet per
+				// coalesce key before any of it is encoded or compressed. Consumer-private list, so
+				// this needs no lock; see CoalescePending for why drain time is equivalent to an
+				// in-queue upsert.
+				CoalescePending(pending);
+
+				ICustomMessageHandler handler = CustomMessageHandler;
+				if (handler == null)
+				{
+					foreach (Packet packet in pending) packet.PutPool();
+					continue;
+				}
+
+				try
+				{
+					foreach (Packet prepared in handler.PrepareSend(pending))
+					{
+						Packet message = handler.HandleOrderedSend(prepared);
+						await SendRawAsync(message).ConfigureAwait(false);
+					}
+				}
+				catch (Exception e)
+				{
+					// A throw here has already cost this drain's packets; what it must never cost is
+					// the lane itself, which would silence the session with no error to the client.
+					Log.Error($"NetherNet send lane failed a batch for {Username ?? NetworkId}", e);
+				}
 			}
 		}
 
@@ -358,31 +422,97 @@ namespace MiNET.Net.NetherNet
 		public void SendDirectPacket(Packet packet) => SendPacket(packet);
 
 		/// <summary>
+		///     The drain-time upsert. A packet carrying a <see cref="Packet.CoalesceKey" /> declares
+		///     itself wholly superseded by any later packet with the same key: only the LAST one per key
+		///     survives, in its own queue position; everything unkeyed is untouched. Done here, on the
+		///     lane's private drain, instead of in the queue, because an in-queue upsert is only
+		///     observable when the queue has depth, and the queue only has depth when the lane is behind,
+		///     at which point the next drain collapses exactly the same survivors, with zero added
+		///     synchronization. Superseded packets go back to the pool, which for a shared refcounted
+		///     broadcast batch is this session's own reference, exactly as if it had been sent.
+		/// </summary>
+		internal static void CoalescePending(List<Packet> pending)
+		{
+			if (pending.Count < 2) return;
+
+			Dictionary<object, int> lastIndexByKey = null;
+			for (int i = 0; i < pending.Count; i++)
+			{
+				object key = pending[i].CoalesceKey;
+				if (key == null) continue;
+
+				lastIndexByKey ??= new Dictionary<object, int>();
+				lastIndexByKey[key] = i;
+			}
+
+			if (lastIndexByKey == null) return;
+
+			bool dropped = false;
+			for (int i = 0; i < pending.Count; i++)
+			{
+				object key = pending[i].CoalesceKey;
+				if (key == null || lastIndexByKey[key] == i) continue;
+
+				pending[i].PutPool();
+				pending[i] = null;
+				dropped = true;
+			}
+
+			if (dropped) pending.RemoveAll(p => p == null);
+		}
+
+		/// <summary>
 		///     Sends one prepared batch. The <see cref="McpeWrapper" />'s 0xFE id is deliberately not
 		///     written: it exists to tell a Minecraft batch apart from RakNet's own control messages
 		///     sharing one channel, and NetherNet has nothing to tell it apart from. Confirmed against
 		///     df-mc/go-nethernet, whose Conn implements gophertunnel's BatchHeaderer and returns a nil
 		///     batch header for exactly this reason. So the segment byte is followed straight by the
 		///     wrapper payload: compressor id byte, then the deflated batch.
+		///     <para>
+		///     Before anything is handed to the channel, the lane parks here while the association's
+		///     send window is full: this is where backpressure terminates. Nothing above ever learns
+		///     (SendPacket always succeeds; the game cannot pause), nothing below ever drops (the
+		///     association has no budget to refuse on), the lane just waits for SACKs to open the
+		///     window and the queue absorbs meanwhile, with the upsert keeping supersedable traffic
+		///     flat. A dead peer never parks it forever: teardown signals the same wake, HasSendRoom
+		///     reports true off-Established, and the channel send then fails fast and logs. The
+		///     500ms re-check is belt and braces against a lost wake, not the mechanism.
+		///     </para>
 		/// </summary>
-		private void SendRaw(Packet message)
+		private async Task SendRawAsync(Packet message)
 		{
 			try
 			{
-				// Kept as a span onto the existing buffer. Materialising it would copy the whole batch
-				// for no reason: the only thing that has to move is the one header byte in front.
-				ReadOnlySpan<byte> encoded = message is McpeWrapper wrapper ? wrapper.payload.Span : message.EncodeAsMemory().Span;
+				ReadOnlyMemory<byte> encoded = message is McpeWrapper wrapper ? wrapper.payload : message.EncodeAsMemory();
 				if (encoded.Length == 0) return;
 
-				if (Log.IsDebugEnabled) Log.Debug($"NetherNet send {encoded.Length} bytes: {Packet.HexDump(encoded.Slice(0, Math.Min(32, encoded.Length)).ToArray(), 32)}");
+				if (Log.IsDebugEnabled) Log.Debug($"NetherNet send {encoded.Length} bytes: {Packet.HexDump(encoded.Span.Slice(0, Math.Min(32, encoded.Length)).ToArray(), 32)}");
 
-				lock (_sendLock)
+				// Fast path first: one volatile read, no subscription, no allocation. Only a full
+				// window enters the park loop, and there the order is subscribe-then-check, because
+				// the lazy signal (see SctpAssociation.WhenSendRoom) is consumed by whoever signals:
+				// checking before subscribing could lose a wake that landed in the gap, and then only
+				// the 500ms backstop would save the lane.
+				if (!_reliable.HasSendRoom)
 				{
-					// One pooled buffer, one copy, and send takes an offset and count so the buffer
-					// does not have to be exactly the segment's size.
-					NetherNetSegments.ForEachSegment(encoded, MaxSegmentBytes, _reliable,
-						static (channel, buffer, length) => channel.Send(buffer.AsSpan(0, length), asString: false));
+					while (_closed == 0)
+					{
+						Task roomSignal = _reliable.WhenSendRoom();
+						if (_reliable.HasSendRoom) break;
+
+						// The close signal is what lets Close's drain finish in microseconds on a
+						// dead transport; the 500ms delay stays as the lost-wake backstop only.
+						await Task.WhenAny(roomSignal, _closedSignal.Task, Task.Delay(500)).ConfigureAwait(false);
+					}
 				}
+
+				if (_closed != 0) return; // finally still pools the message
+
+				// No lock: the send lane is the only caller, and one consumer per session is the
+				// serialization. One pooled buffer, one copy, and send takes an offset and count so
+				// the buffer does not have to be exactly the segment's size.
+				NetherNetSegments.ForEachSegment(encoded.Span, MaxSegmentBytes, _reliable,
+					static (channel, buffer, length) => channel.Send(buffer.AsSpan(0, length), asString: false));
 			}
 			catch (Exception e)
 			{
@@ -409,6 +539,26 @@ namespace MiNET.Net.NetherNet
 			// Close arrives from the transport, from the player and from teardown, so it has to be
 			// idempotent the way RakSession's is.
 			if (Interlocked.Exchange(ref _closed, 1) != 0) return;
+
+			// Wake a parked send lane immediately: with _closed set it bails on this wake, so the
+			// drain below returns in microseconds instead of eating the lane's 500ms backstop.
+			_closedSignal.TrySetResult();
+
+			// Drain the send lane while the session can still send, the same lesson RakSession's
+			// Close carries: Player.Disconnect enqueues the McpeDisconnect and calls Close right
+			// behind it, so tearing the peer down before the lane has flushed would eat the kick
+			// reason every time and the client would only ever see a generic transport error.
+			// Completing the writer ends the lane's loop once the queue is empty; the wait is
+			// bounded because a dead transport just makes the remaining sends fail-and-log.
+			_sendQueue.Writer.TryComplete();
+			try
+			{
+				_sendLoop?.Wait(500);
+			}
+			catch (Exception e)
+			{
+				Log.Debug("Draining NetherNet send lane on close", e);
+			}
 
 			CustomMessageHandler = null;
 
