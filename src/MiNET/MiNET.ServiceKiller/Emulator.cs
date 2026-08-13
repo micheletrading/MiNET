@@ -62,6 +62,9 @@ namespace MiNET.ServiceKiller
 
 		public bool Running { get; set; } = true;
 
+		/// <summary>The fleet's one pacing clock; every spawned bot's walk registers here. See <see cref="ServiceKiller.WalkClock" /> for why this replaced a sleeping thread per bot.</summary>
+		public WalkClock WalkClock { get; } = new WalkClock();
+
 		private static bool UseNetherNet = false;
 		private static int NameOffset = 0;
 
@@ -76,7 +79,9 @@ namespace MiNET.ServiceKiller
 		/// <param name="transport">Transport the bots connect over: raknet or nethernet.</param>
 		/// <param name="nameOffset">Offset for bot numbering, so parallel emulator processes get distinct names.</param>
 		/// <param name="auto">Run unattended: start without a prompt, exit when every bot's duration has elapsed. For scripted/detached runs, where stdin is not a console.</param>
-		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "raknet", int nameOffset = 0, bool auto = false)
+		/// <param name="sendIntervalMin">Lower bound (ms) of each bot's fixed movement-send cadence; with max, the per-bot interval is drawn once from this range. Higher = fewer packets = less CPU on both ends.</param>
+		/// <param name="sendIntervalMax">Upper bound (ms) of the cadence range.</param>
+		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "raknet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100)
 		{
 			NumberOfBots = numberOfBots;
 			DurationOfConnection = TimeSpan.FromSeconds(durationOfConnection);
@@ -84,6 +89,8 @@ namespace MiNET.ServiceKiller
 			ConcurrentBatchSize = batchSize;
 			RequestChunkRadius = chunkRadius;
 			NameOffset = nameOffset;
+			RanSleepMin = sendIntervalMin;
+			RanSleepMax = sendIntervalMax;
 
 			switch (transport.ToLowerInvariant())
 			{
@@ -132,6 +139,7 @@ namespace MiNET.ServiceKiller
 					: new DedicatedThreadPool(new DedicatedThreadPoolSettings(Math.Max(32, numberOfBots), "Shared_Thread"));
 
 				var emulator = new Emulator {Running = true};
+				emulator.WalkClock.Start();
 				long start = DateTime.UtcNow.Ticks;
 
 				//IPEndPoint endPoint = new IPEndPoint(Dns.GetHostEntry("yodamine.com").AddressList[0], 19132);
