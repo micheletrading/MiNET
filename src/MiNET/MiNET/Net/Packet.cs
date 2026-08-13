@@ -1230,9 +1230,30 @@ namespace MiNET.Net
 
 			WriteVarInt(stack.RuntimeId); // block_runtime_id
 
-			byte[] extraData = WriteItemExtraData(stack.ExtraData, IsShieldNetworkId(networkId));
+			byte[] extraData = WriteItemExtraData(GetWireExtraData(stack), IsShieldNetworkId(networkId));
 			WriteLength(extraData.Length);
 			Write(extraData);
+		}
+
+		/// <summary>
+		///     The item's extra-data NBT as it goes on the wire. Since 1.16.100 the durability of a
+		///     damageable item lives in the NBT "Damage" tag (a TAG_Int); the metadata varint next to
+		///     the network id is the variant, which the 1.26 client ignores for durability. A damaged
+		///     stack pushed without the tag resets the client's durability tracker to zero - the wear
+		///     bar snaps back to full and its next mine-block prediction starts over from 1 - so the
+		///     tag is merged in here, once, for every encode path. Undamaged items keep the vanilla
+		///     empty blob, and an existing tag is never overwritten, so BDS frames still round-trip
+		///     byte-identical.
+		/// </summary>
+		private static NbtCompound GetWireExtraData(Item stack)
+		{
+			NbtCompound extraData = stack.ExtraData;
+			if (stack.Metadata <= 0 || stack.GetMaxUses() <= 0) return extraData;
+			if (extraData != null && extraData["Damage"] != null) return extraData;
+
+			NbtCompound merged = extraData == null ? new NbtCompound() : (NbtCompound) extraData.Clone();
+			merged["Damage"] = new NbtInt("Damage", stack.Metadata);
+			return merged;
 		}
 
 		private NbtCompound ReadItemExtraData(bool includeBlockingTick)

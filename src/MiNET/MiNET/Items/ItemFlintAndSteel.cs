@@ -189,16 +189,11 @@ namespace MiNET.Items
 				case ItemDamageReason.BlockInteract:
 				{
 					Metadata++;
-					return Metadata >= GetMaxUses() - 1;
+					return Metadata >= GetMaxUses();
 				}
 				default:
 					return false;
 			}
-		}
-
-		protected override int GetMaxUses()
-		{
-			return 65;
 		}
 	}
 }

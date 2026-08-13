@@ -144,7 +144,7 @@ namespace MiNET
 					}
 					case ItemStackRequestMineBlockAction mineBlockAction:
 					{
-						ProcessMineBlockAction(mineBlockAction);
+						ProcessMineBlockAction(mineBlockAction, stackResponses);
 						break;
 					}
 					default:
@@ -182,6 +182,19 @@ namespace MiNET
 			return stackResponses;
 		}
 
+		/// <summary>
+		///     The stack net id a response must reference for a slot: for the player's own storage the
+		///     registry id the client was seeded with (PlayerInventory.GetStackNetId), otherwise the
+		///     item's own id as before. A response carrying an id the client has never seen is
+		///     rejected, which discards the client's prediction and resets e.g. the tool wear bar.
+		/// </summary>
+		private int? StackNetIdFor(ItemStackRequestSlotInfo slotInfo, Item fallback)
+		{
+			SlotBinding binding = _player.Screen.Bind(slotInfo.fullContainerName.containerName, slotInfo.slot);
+			if (binding.Store == SlotStore.Main) return _player.Inventory.GetStackNetId(binding.Index);
+			return fallback.UniqueId > 0 ? fallback.UniqueId : null;
+		}
+
 		protected virtual void ProcessConsumeAction(ItemStackRequestConsumeAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
 			byte count = action.amount;
@@ -205,7 +218,7 @@ namespace MiNET
 						amount = sourceItem.Count,
 						requestedSlot = source.slot,
 						slot = source.slot,
-						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(source, sourceItem)
 					}
 				}
 			});
@@ -246,7 +259,7 @@ namespace MiNET
 						amount = sourceItem.Count,
 						requestedSlot = source.slot,
 						slot = source.slot,
-						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(source, sourceItem)
 					}
 				}
 			});
@@ -275,7 +288,7 @@ namespace MiNET
 						amount = sourceItem.Count,
 						requestedSlot = source.slot,
 						slot = source.slot,
-						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(source, sourceItem)
 					}
 				}
 			});
@@ -308,7 +321,7 @@ namespace MiNET
 						amount = destItem.Count,
 						requestedSlot = source.slot,
 						slot = source.slot,
-						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(destination, destItem)
 					}
 				}
 			});
@@ -322,7 +335,7 @@ namespace MiNET
 						amount = sourceItem.Count,
 						requestedSlot = destination.slot,
 						slot = destination.slot,
-						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(source, sourceItem)
 					}
 				}
 			});
@@ -380,7 +393,7 @@ namespace MiNET
 						amount = sourceItem.Count,
 						requestedSlot = source.slot,
 						slot = source.slot,
-						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(source, sourceItem)
 					}
 				}
 			});
@@ -394,7 +407,57 @@ namespace MiNET
 						amount = destItem.Count,
 						requestedSlot = destination.slot,
 						slot = destination.slot,
-						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(destination, destItem)
+					}
+				}
+			});
+		}
+
+		/// <summary>
+		///     A mine-block stack request accompanies every block break started with a real item in
+		///     hand. The stack net id comes from the per-slot registry (PlayerInventory.GetStackNetId),
+		///     the id the client was seeded with at join; Item.UniqueId is not an id the client knows
+		///     and echoing it rejects the response.
+		///     The durability correction confirms the client's own prediction: the client only
+		///     propagates its predicted damage (the wear bar) when the response matches it exactly,
+		///     so the server adopts the predicted durability as its own, the way PMMP does
+		///     (setDamage(predictedDurability) in MineBlockStackRequestAction). A server-computed
+		///     damage that differs from the prediction rejects the action and the bar resets.
+		/// </summary>
+		protected virtual void ProcessMineBlockAction(ItemStackRequestMineBlockAction action, List<ItemStackResponseContainerInfo> stackResponses)
+		{
+			byte slot = (byte) Math.Clamp(action.slot, 0, 255);
+			Item held = _player.GetContainerItem(FullContainerName.ContainerEnumName.Hotbarcontainer, slot);
+			int stackNetId = _player.Inventory.GetStackNetId(slot);
+
+			int correction = 0;
+			if (held.GetMaxUses() > 0)
+			{
+				if (action.predictedDurability >= 0 && action.predictedDurability <= held.GetMaxUses())
+				{
+					held.Metadata = (short) action.predictedDurability;
+					correction = action.predictedDurability;
+				}
+				else
+				{
+					correction = held.Metadata;
+				}
+			}
+
+			Log.Debug($"ProcessMineBlockAction slot={slot} held={held.Name} meta={held.Metadata} netIdVariant={action.netIdVariant} predictedDurability={action.predictedDurability} correction={correction} stackNetId={stackNetId}");
+
+			stackResponses.Add(new ItemStackResponseContainerInfo
+			{
+				fullContainerName = new FullContainerName {containerName = FullContainerName.ContainerEnumName.Hotbarcontainer},
+				slots = new List<ItemStackResponseSlotInfo>
+				{
+					new ItemStackResponseSlotInfo()
+					{
+						amount = held.Count,
+						requestedSlot = slot,
+						slot = slot,
+						itemStackNetId = stackNetId > 0 ? stackNetId : null,
+						durabilityCorrection = correction
 					}
 				}
 			});
@@ -444,7 +507,7 @@ namespace MiNET
 						amount = sourceItem.Count,
 						requestedSlot = source.slot,
 						slot = source.slot,
-						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(source, sourceItem)
 					}
 				}
 			});
@@ -458,7 +521,7 @@ namespace MiNET
 						amount = destItem.Count,
 						requestedSlot = destination.slot,
 						slot = destination.slot,
-						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
+						itemStackNetId = StackNetIdFor(destination, destItem)
 					}
 				}
 			});
@@ -605,12 +668,6 @@ namespace MiNET
 		/// <summary>Taking one of several outputs a craft produced. The output the client is claiming
 		/// already reached the UI window through the deprecated result action.</summary>
 		protected virtual void ProcessCreateAction(ItemStackRequestCreateAction action)
-		{
-		}
-
-		/// <summary>The client's own durability prediction for the tool it just mined with. The server
-		/// damages the tool itself, so there is nothing to do with the prediction.</summary>
-		protected virtual void ProcessMineBlockAction(ItemStackRequestMineBlockAction action)
 		{
 		}
 	}

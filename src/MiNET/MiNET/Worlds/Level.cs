@@ -1484,6 +1484,7 @@ namespace MiNET.Worlds
 
 			Item inHand = player.Inventory.GetItemInHand();
 			bool canBreak = inHand.BreakBlock(this, player, block, blockEntity);
+			Log.Debug($"BREAKDBG block={block?.Name}@{blockCoordinates} canBreak={canBreak} tool={inHand.Name}");
 
 			if (!canBreak || !AllowBreak || player.GameMode == GameMode.Spectator || !OnBlockBreak(new BlockBreakEventArgs(player, this, block, null)))
 			{
@@ -1534,6 +1535,7 @@ namespace MiNET.Worlds
 			block.BreakBlock(this, face);
 			var drops = new List<Item>();
 			drops.AddRange(block.GetDrops(tool ?? new ItemAir()));
+			Log.Debug($"BREAKDBG drops={string.Join(",", drops.Select(d => d.Name))} count={drops.Count}");
 
 			if (blockEntity != null)
 			{

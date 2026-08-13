@@ -57,6 +57,35 @@ namespace MiNET
 		public Item Chest { get; set; } = new ItemAir();
 		public Item Helmet { get; set; } = new ItemAir();
 
+		// Server-side stack network ids, one per main-inventory slot, the PMMP model. The ids are
+		// assigned incrementally, sent to the client in every content/slot push for the slot, and
+		// echoed in every item-stack response that references the slot. The 1.26 client matches a
+		// response against the stacks it knows by this id; Item.UniqueId (Environment.TickCount) is
+		// not a net id the client ever registered, so it must never leak into a response.
+		private readonly int[] _stackNetIds = new int[InventorySize];
+		private int _nextStackNetId = 1;
+
+		/// <summary>
+		///     The stack network id the client knows for a main-inventory slot, assigning one on
+		///     first use. Empty slots carry no id (0), matching vanilla: an empty stack has no
+		///     stack net id on the wire.
+		/// </summary>
+		public virtual int GetStackNetId(int slot)
+		{
+			if (slot < 0 || slot >= _stackNetIds.Length) return 0;
+			if (Slots[slot].IsAir) return 0;
+			if (_stackNetIds[slot] == 0) _stackNetIds[slot] = _nextStackNetId++;
+			return _stackNetIds[slot];
+		}
+
+		/// <summary>Hands the slot a fresh stack id after its content changed.</summary>
+		public virtual int RefreshStackNetId(int slot)
+		{
+			if (slot < 0 || slot >= _stackNetIds.Length) return 0;
+			_stackNetIds[slot] = Slots[slot].IsAir ? 0 : _nextStackNetId++;
+			return _stackNetIds[slot];
+		}
+
 
 		public PlayerInventory(Player player)
 		{
@@ -77,6 +106,7 @@ namespace MiNET
 			if (Player.GameMode != GameMode.Survival) return;
 
 			var itemInHand = GetItemInHand();
+			short metaBefore = itemInHand.Metadata;
 
 			var unbreakingLevel = itemInHand.GetEnchantingLevel(EnchantingType.Unbreaking);
 			if (unbreakingLevel > 0)
@@ -96,6 +126,7 @@ namespace MiNET
 				Player.Level.RelayBroadcast(sound);
 			}
 
+			Log.Debug($"DamageItemInHand reason={reason} item={itemInHand.Name} meta {metaBefore}->{itemInHand.Metadata} maxUses={itemInHand.GetMaxUses()}");
 			SendSetSlot(InHandSlot);
 		}
 
@@ -122,7 +153,7 @@ namespace MiNET
 
 			item.Metadata++;
 
-			if (item.Metadata >= item.Durability)
+			if (item.Metadata >= item.GetMaxUses())
 			{
 				item = new ItemAir();
 
@@ -154,6 +185,7 @@ namespace MiNET
 			{
 				Slots[slot] = item;
 				existing = item;
+				RefreshStackNetId(slot);
 			}
 
 			existing.UniqueId = item.UniqueId;
@@ -348,8 +380,10 @@ namespace MiNET
 			var sendSlot = McpeInventorySlot.CreateObject();
 			sendSlot.inventoryId = 0;
 			sendSlot.slot = (uint) slot;
-		//	sendSlot.uniqueid = Slots[slot].UniqueId;
-			sendSlot.item = Slots[slot];
+			// The stack net id must be the one the client knows for this slot (see the registry on
+			// PlayerInventory); a random Item.UniqueId is an id the client never saw and rejects.
+			sendSlot.item = (Item) Slots[slot].Clone();
+			sendSlot.item.UniqueId = GetStackNetId(slot);
 			Player.SendPacket(sendSlot);
 		}
 

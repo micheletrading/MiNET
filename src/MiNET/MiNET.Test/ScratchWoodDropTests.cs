@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -23,36 +23,31 @@
 
 #endregion
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Blocks;
-using MiNET.Entities;
+using MiNET.Items;
 
-namespace MiNET.Items
+namespace MiNET.Tests
 {
-	public class ItemPickaxe : Item
+	[TestClass]
+	public class ScratchWoodDropTests
 	{
-		internal ItemPickaxe(string name) : base(name)
+		[TestMethod]
+		public void OakLogDropResolves()
 		{
-			MaxStackSize = 1;
-			ItemType = ItemType.PickAxe;
-		}
+			OakLog log = new OakLog();
+			var drops = log.GetDrops(new ItemAir());
+			Assert.IsNotNull(drops);
+			Assert.AreEqual(1, drops.Length, "oak_log should drop exactly one item");
+			Assert.IsFalse(drops[0].IsAir, "oak_log drop must not be air");
+			Assert.AreEqual("minecraft:oak_log", drops[0].Name);
 
-		public override bool DamageItem(Player player, ItemDamageReason reason, Entity target, Block block)
-		{
-			switch (reason)
-			{
-				case ItemDamageReason.BlockBreak:
-				{
-					Metadata++;
-					return Metadata >= GetMaxUses();
-				}
-				case ItemDamageReason.EntityAttack:
-				{
-					Metadata += 2;
-					return Metadata >= GetMaxUses();
-				}
-				default:
-					return false;
-			}
+			Item byName = ItemFactory.GetItemByName("minecraft:oak_log");
+			Assert.IsFalse(byName.IsAir, "GetItemByName(oak_log) must not be air");
+			Assert.AreEqual("minecraft:oak_log", byName.Name);
+
+			Block resolved = BlockFactory.GetBlockByName("minecraft:oak_log");
+			Assert.IsNotNull(resolved, "GetBlockByName(oak_log) must resolve");
 		}
 	}
 }

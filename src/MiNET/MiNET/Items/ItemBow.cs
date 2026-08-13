@@ -60,11 +60,6 @@ namespace MiNET.Items
 			}
 		}
 
-		protected override int GetMaxUses()
-		{
-			return 385;
-		}
-
 		private long _useTime = 0;
 
 		public override void UseItem(Level world, Player player, BlockCoordinates blockCoordinates)

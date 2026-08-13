@@ -156,7 +156,10 @@ namespace MiNET
 				throw new Exception($"Wrong lenght {message.payload.Length} != {message.payload.Length}");
 			}
 
-			if (Log.IsDebugEnabled) Log.Debug("Lenght: " + message.payload.Length + ", Message: " + buffer.EncodeBase64());
+			// The full payload is ~600KB of base64; logging it writes megabytes per login, and the
+			// console appender blocking on that write stalls the ordering thread past the keepalive
+			// timeout, so the session is kicked mid-login. The length is what the prefix is for.
+			if (Log.IsDebugEnabled) Log.Debug($"Login payload length: {message.payload.Length}");
 
 			string certificateChain;
 			string skinData;
@@ -173,7 +176,7 @@ namespace MiNET
 
 				var countSkinData = reader.ReadInt32();
 				skinData = Encoding.UTF8.GetString(reader.ReadBytes(countSkinData));
-				if (Log.IsDebugEnabled) Log.Debug($"Skin data (Lenght={countSkinData})\n{skinData}");
+				if (Log.IsDebugEnabled) Log.Debug($"Skin data (Lenght={countSkinData})");
 			}
 			catch (Exception e)
 			{
@@ -189,7 +192,7 @@ namespace MiNET
 					ClientData clientData = ClientData.FromJson(clientDataJson);
 
 					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Header: {string.Join(";", headers)}");
-					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT Payload:\n{clientDataJson}");
+					if (Log.IsDebugEnabled) Log.Debug($"Skin JWT payload length: {clientDataJson.Length}");
 
 					// Reverse-engineering aid: dump the full clientData JSON of a real client so
 					// the bot's login (CryptoUtils.EncodeSkinJwt) can be mirrored field by field.

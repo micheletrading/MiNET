@@ -82,7 +82,15 @@ namespace MiNET.Plugins
 			{
 				if (dirPath == null) continue;
 
-				string pluginDirectory = Path.GetFullPath(dirPath);
+				// A relative PluginDirectory is written relative to the exe (that is where the
+				// default points and what the shipped configs assume), but Path.GetFullPath
+				// resolves against the process working directory, which depends on how the
+				// server was started. Root relative entries against the exe so the same config
+				// finds its plugins no matter the launch directory.
+				string pluginDirectory = Path.IsPathRooted(dirPath)
+					? dirPath
+					: Path.Combine(Path.GetDirectoryName(new Uri(Assembly.GetEntryAssembly().Location).LocalPath), dirPath);
+				pluginDirectory = Path.GetFullPath(pluginDirectory);
 
 				Log.Debug($"Looking for plugin assemblies in directory {pluginDirectory}");
 

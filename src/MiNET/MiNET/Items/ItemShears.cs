@@ -46,7 +46,7 @@ namespace MiNET.Items
 					if (block is Web || block is LeavesBase || block.Name.EndsWith("_wool") || block is Vine)
 					{
 						Metadata++;
-						return Metadata >= GetMaxUses() - 1;
+						return Metadata >= GetMaxUses();
 					}
 					return false;
 				}
@@ -55,18 +55,13 @@ namespace MiNET.Items
 					if (target is Sheep)
 					{
 						Metadata++;
-						return Metadata >= GetMaxUses() - 1;
+						return Metadata >= GetMaxUses();
 					}
 					return false;
 				}
 				default:
 					return false;
 			}
-		}
-
-		protected override int GetMaxUses()
-		{
-			return 238;
 		}
 	}
 }

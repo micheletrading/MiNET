@@ -113,7 +113,14 @@ namespace MiNET.Items
 
 		[JsonIgnore] public bool IsStackable => MaxStackSize > 1;
 
-		[JsonIgnore] public int Durability { get; set; }
+		/// <summary>
+		///     How many damage points this item survives before breaking, i.e. the vanilla
+		///     durability: material durability for tools, material-and-slot for armor, and
+		///     the fixed value for the special tools (bow, shears, flint and steel, ...).
+		///     <see cref="Metadata" /> is the damage counter; the item breaks when it reaches
+		///     this value.
+		/// </summary>
+		[JsonIgnore] public int Durability => GetMaxUses();
 
 		[JsonIgnore] public int FuelEfficiency { get; set; }
 
@@ -142,9 +149,46 @@ namespace MiNET.Items
 			return false;
 		}
 
-		protected virtual int GetMaxUses()
+		/// <summary>
+		///     How many damage points this item survives before it breaks. Tiers and values are
+		///     the vanilla ones: <see cref="GetToolDurability" /> for tools,
+		///     <see cref="GetArmorDurability" /> for armor (material and slot both matter), and
+		///     fixed values for the special tools. Virtual so an item that diverges from its
+		///     type/material (e.g. a datapack-like item) can override it.
+		/// </summary>
+		public virtual int GetMaxUses()
 		{
-			switch (ItemMaterial)
+			switch (ItemType)
+			{
+				case ItemType.Helmet:
+				case ItemType.Chestplate:
+				case ItemType.Leggings:
+				case ItemType.Boots:
+					return GetArmorDurability(ItemMaterial, ItemType);
+				case ItemType.Bow:
+					return 384;
+				case ItemType.Sheers:
+					return 239;
+				case ItemType.FlintAndSteel:
+					return 65;
+				case ItemType.FishingRod:
+					return 64;
+				case ItemType.Trident:
+					return 250;
+				case ItemType.CarrotOnAStick:
+					return 25;
+				case ItemType.Elytra:
+					return 432;
+				case ItemType.Shield:
+					return 337;
+				default:
+					return GetToolDurability(ItemMaterial);
+			}
+		}
+
+		private static int GetToolDurability(ItemMaterial material)
+		{
+			switch (material)
 			{
 				case ItemMaterial.Wood:
 					return 60;
@@ -156,9 +200,67 @@ namespace MiNET.Items
 					return 251;
 				case ItemMaterial.Diamond:
 					return 1562;
+				case ItemMaterial.Netherite:
+					return 2031;
 				default:
 					return 0;
 			}
+		}
+
+		private static int GetArmorDurability(ItemMaterial material, ItemType slot)
+		{
+			return material switch
+			{
+				ItemMaterial.Leather => slot switch
+				{
+					ItemType.Helmet => 56,
+					ItemType.Chestplate => 81,
+					ItemType.Leggings => 76,
+					ItemType.Boots => 66,
+					_ => 0
+				},
+				ItemMaterial.Chain => slot switch
+				{
+					ItemType.Helmet => 61,
+					ItemType.Chestplate => 97,
+					ItemType.Leggings => 92,
+					ItemType.Boots => 79,
+					_ => 0
+				},
+				ItemMaterial.Gold => slot switch
+				{
+					ItemType.Helmet => 78,
+					ItemType.Chestplate => 113,
+					ItemType.Leggings => 106,
+					ItemType.Boots => 92,
+					_ => 0
+				},
+				ItemMaterial.Iron => slot switch
+				{
+					ItemType.Helmet => 166,
+					ItemType.Chestplate => 241,
+					ItemType.Leggings => 226,
+					ItemType.Boots => 196,
+					_ => 0
+				},
+				ItemMaterial.Diamond => slot switch
+				{
+					ItemType.Helmet => 364,
+					ItemType.Chestplate => 529,
+					ItemType.Leggings => 496,
+					ItemType.Boots => 430,
+					_ => 0
+				},
+				ItemMaterial.Netherite => slot switch
+				{
+					ItemType.Helmet => 408,
+					ItemType.Chestplate => 592,
+					ItemType.Leggings => 555,
+					ItemType.Boots => 481,
+					_ => 0
+				},
+				_ => 0
+			};
 		}
 
 		public virtual bool Animate(Level world, Player player)
@@ -334,6 +436,7 @@ namespace MiNET.Items
 		Trident,
 		CarrotOnAStick,
 		FishingRod,
+		Shield,
 		Book,
 
 		//Armor

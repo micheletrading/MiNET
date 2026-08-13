@@ -2163,7 +2163,16 @@ namespace MiNET
 
 			var inventoryContent = McpeInventoryContent.CreateObject();
 			inventoryContent.inventoryId = (byte) 0x00;
-			inventoryContent.input = Resize(Inventory.GetSlots(), 36);
+			var mainItems = Resize(Inventory.GetSlots(), 36);
+			// Seed the client's stack-id registry: every main-inventory slot arrives with the
+			// server-side net id it will see echoed in stack responses (PlayerInventory.GetStackNetId).
+			for (int i = 0; i < mainItems.Count; i++)
+			{
+				var clone = (Item) mainItems[i].Clone();
+				clone.UniqueId = Inventory.GetStackNetId(i);
+				mainItems[i] = clone;
+			}
+			inventoryContent.input = mainItems;
 			SendPacket(inventoryContent);
 
 			var armorContent = McpeInventoryContent.CreateObject();
@@ -2662,6 +2671,7 @@ namespace MiNET
 			// same way whichever packet carried it.
 			if (message.itemUseTransaction?.itemUseTransaction != null)
 			{
+				if (Log.IsDebugEnabled) Log.Debug($"PLACEDBG raw authinput:\n{Packet.HexDump(message.Bytes.Span.ToArray(), 16)}");
 				HandleItemUseTransaction(message.itemUseTransaction.itemUseTransaction);
 			}
 
@@ -3217,6 +3227,11 @@ namespace MiNET
 
 		public virtual void HandleMcpeInventoryTransaction(McpeInventoryTransaction message)
 		{
+			if (message.transaction is ItemUseInventoryTransaction && Log.IsDebugEnabled)
+			{
+				Log.Debug($"PLACEDBG raw txn ({message.Bytes.Length} bytes):\n{Packet.HexDump(message.Bytes.ToArray(), 16)}");
+			}
+
 			switch (message.transaction)
 			{
 				case InventoryMismatchData inventoryMismatchTransaction:
@@ -3358,6 +3373,7 @@ namespace MiNET
 		protected virtual void HandleItemUseTransaction(ItemUseInventoryTransaction transaction)
 		{
 			var itemInHand = Inventory.GetItemInHand();
+			Log.Debug($"PLACEDBG actionType={transaction.actionType} position={transaction.position} face={transaction.face} item={itemInHand.Name} fromPos={transaction.fromPosition} clickPos={transaction.clickPosition} targetBlockId={transaction.targetBlockId} slot={transaction.slot} trigger={transaction.triggerType}");
 
 			switch (transaction.actionType)
 			{

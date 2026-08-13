@@ -238,7 +238,7 @@ namespace MiNET.Items
 	public class ItemGunpowder : Item { public ItemGunpowder() : base("minecraft:gunpowder") {} }
 	public class ItemMusicDiscMellohi : Item { public ItemMusicDiscMellohi() : base("minecraft:music_disc_mellohi") {} }
 	public class ItemEnderEye : Item { public ItemEnderEye() : base("minecraft:ender_eye") {} }
-	public class ItemShield : Item { public ItemShield() : base("minecraft:shield") {} }
+	public class ItemShield : Item { public ItemShield() : base("minecraft:shield") { ItemType = ItemType.Shield; MaxStackSize = 1; } }
 	public class ItemFlint : Item { public ItemFlint() : base("minecraft:flint") {} }
 	public class ItemHeartOfTheSea : Item { public ItemHeartOfTheSea() : base("minecraft:heart_of_the_sea") {} }
 	public class ItemMinecart : Item { public ItemMinecart() : base("minecraft:minecart") {} }
@@ -247,13 +247,13 @@ namespace MiNET.Items
 	public class ItemKelp : Item { public ItemKelp() : base("minecraft:kelp") {} }
 	public class ItemBrick : Item { public ItemBrick() : base("minecraft:brick") {} }
 	public class ItemClayBall : Item { public ItemClayBall() : base("minecraft:clay_ball") {} }
-	public class ItemCarrotonastick : Item { public ItemCarrotonastick() : base("minecraft:carrot_on_a_stick") {} }
+	public class ItemCarrotonastick : Item { public ItemCarrotonastick() : base("minecraft:carrot_on_a_stick") { ItemType = ItemType.CarrotOnAStick; MaxStackSize = 1; } }
 	public class ItemReeds : Item { public ItemReeds() : base("minecraft:item.reeds") {} }
 	public class ItemPaper : Item { public ItemPaper() : base("minecraft:paper") {} }
-	public class ItemTrident : Item { public ItemTrident() : base("minecraft:trident") {} }
+	public class ItemTrident : Item { public ItemTrident() : base("minecraft:trident") { ItemType = ItemType.Trident; MaxStackSize = 1; } }
 	public class ItemSlimeBall : Item { public ItemSlimeBall() : base("minecraft:slime_ball") {} }
 	public class ItemChestMinecart : Item { public ItemChestMinecart() : base("minecraft:chest_minecart") {} }
-	public class ItemFishingRod : Item { public ItemFishingRod() : base("minecraft:fishing_rod") {} }
+	public class ItemFishingRod : Item { public ItemFishingRod() : base("minecraft:fishing_rod") { ItemType = ItemType.FishingRod; MaxStackSize = 1; } }
 	public class ItemClock : Item { public ItemClock() : base("minecraft:clock") {} }
 	public class ItemGlowstoneDust : Item { public ItemGlowstoneDust() : base("minecraft:glowstone_dust") {} }
 	public class ItemNameTag : Item { public ItemNameTag() : base("minecraft:name_tag") {} }
