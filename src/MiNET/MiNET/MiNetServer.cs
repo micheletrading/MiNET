@@ -262,6 +262,17 @@ namespace MiNET
 					{
 						_netherNetListener = new NetherNetListener(Endpoint);
 						_netherNetListener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
+
+						// With RakNet running, its offline handler owns UDP 19132 and answers
+						// discovery itself; without it, the mux serves the ping so the server
+						// still shows in the client's server tab. EnableDiscovery=false turns
+						// the legacy responder off entirely.
+						if (!rakNet && Config.GetProperty("EnableDiscovery", true))
+						{
+							NetherNetListener listener = _netherNetListener;
+							_netherNetListener.Discovery = new NetherNetDiscovery(MotdProvider, ConnectionInfo, () => listener.Sessions.Count);
+						}
+
 						_netherNetListener.Start();
 					}
 

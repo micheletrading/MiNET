@@ -94,6 +94,12 @@ namespace MiNET.Net.NetherNet
 		public ConcurrentDictionary<string, NetherNetSession> Sessions { get; } = new();
 
 		/// <summary>
+		///     Set before <see cref="Start" /> to have the mux answer server-list discovery pings on
+		///     the gameplay UDP port; leave null and the legacy format never touches this listener.
+		/// </summary>
+		public NetherNetDiscovery Discovery { get; set; }
+
+		/// <summary>
 		///     Negotiated peers whose reliable data channel has not opened yet, keyed by the peer
 		///     itself (nothing about a client that never gets this far is worth keying on) with the
 		///     tick each one must attach by. <see cref="AttachSession" /> removes an entry the moment
@@ -160,6 +166,16 @@ namespace MiNET.Net.NetherNet
 			// is no bind-cursor to walk further into a wider one, port 0 leaves the choice to the OS
 			// when nothing was configured.
 			_mux = new UdpMux(new IPEndPoint(_endPoint.Address, PortMapping.BindPort ?? 0));
+
+			// Server-list discovery, if the host wired it up: the mux answers RakNet unconnected
+			// pings on the gameplay port so a NetherNet-only server still shows a status line in
+			// the client's server tab. Discovery reaches this port only when the gameplay UDP is
+			// the port clients ping, 19132, so server-udp-ports has to put it there.
+			if (Discovery != null)
+			{
+				_mux.OfflineResponder = Discovery.HandleOffline;
+			}
+
 			_mux.Start();
 			_certificate = RtcCertificate.CreateSelfSigned();
 
