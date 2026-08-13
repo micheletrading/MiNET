@@ -78,7 +78,10 @@ namespace MiNET
 			_playerInfo.ProtocolVersion = message.protocolVersion;
 
 			var settings = McpeNetworkSettings.CreateObject();
-			settings.compressionThreshold = 1;
+			// The same rule both directions: at or below the threshold a batch ships raw under the
+			// 0xff compressor id. Advertising 1 here would order the client to deflate every tiny
+			// input packet it sends us; advertising the real threshold spares both sides.
+			settings.compressionThreshold = Compression.CompressionThresholdBytes;
 			settings.compressionAlgorithm = (ushort) McpeNetworkSettings.Compressionalgorithm.Zlib;
 			settings.clientThrottleEnabled = false;
 			settings.clientThrottleThreshold = 0;
@@ -95,7 +98,7 @@ namespace MiNET
 			_session.SendPacket(wrapper);
 
 			_bedrockHandler.CompressionEnabled = true;
-			_bedrockHandler.CompressionThreshold = 1;
+			_bedrockHandler.CompressionThreshold = Compression.CompressionThresholdBytes;
 		}
 
 		public virtual void HandleMcpeLogin(McpeLogin message)
