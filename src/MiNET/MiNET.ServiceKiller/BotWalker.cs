@@ -55,7 +55,6 @@ namespace MiNET.ServiceKiller
 		private readonly MiNetClient _client;
 		private readonly Emulator _emulator;
 		private readonly TimeSpan _timeToRun;
-		private readonly bool _useNetherNet;
 		private readonly Random _random;
 		private readonly Stopwatch _runningTime = Stopwatch.StartNew();
 
@@ -86,13 +85,12 @@ namespace MiNET.ServiceKiller
 		/// <summary>This walker's cadence in clock ticks, fixed per bot at construction from the configured range, so the fleet keeps its heterogeneous send rates.</summary>
 		public int IntervalTicks { get; }
 
-		public BotWalker(MiNetClient client, Emulator emulator, TimeSpan timeToRun, string name, int ranMin, int ranMax, bool useNetherNet, Random random)
+		public BotWalker(MiNetClient client, Emulator emulator, TimeSpan timeToRun, string name, int ranMin, int ranMax, Random random)
 		{
 			_client = client;
 			_emulator = emulator;
 			_timeToRun = timeToRun;
 			Name = name;
-			_useNetherNet = useNetherNet;
 			_random = random;
 
 			int intervalMillis = ranMin == ranMax ? ranMin : random.Next(ranMin, ranMax);
@@ -244,9 +242,7 @@ namespace MiNET.ServiceKiller
 				if (_client.IsConnected)
 				{
 					_client.SendChat("Shadow gov agent BREXITING!");
-					// RakNet-level goodbye; on NetherNet closing the data channel is the disconnect,
-					// which StopClient below does.
-					if (!_useNetherNet) _client.SendDisconnectionNotification();
+					// Closing the data channel is the disconnect, which StopClient below does.
 				}
 
 				_client.StopClient();

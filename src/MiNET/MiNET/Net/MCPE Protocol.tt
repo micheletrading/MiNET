@@ -47,7 +47,7 @@ using MiNET.Utils;
 using MiNET.Utils.Skins;
 using MiNET.Items;
 using MiNET.Crafting;
-using MiNET.Net.RakNet;
+
 using little = MiNET.Utils.Int24; // friendly name
 using LongString = System.String;
 using MiNET.Utils.Metadata;
@@ -63,7 +63,6 @@ namespace MiNET.Net
 	}
 
 <#
-
 
 Dictionary<string, Tuple<string, string>> constantsLoopup = new Dictionary<string, Tuple<string, string>>();
 foreach (XmlNode constant in doc.SelectNodes("//constant"))
@@ -294,7 +293,6 @@ foreach (XmlNode pdu in doc.SelectNodes("//pdu"))
 		{
 			WriteLine(string.Format("\t\t\t{0} = Read{1}({2});", CodeFieldName(field.Attributes["name"].Value), UpperInitial(field.Attributes["type"].Value), SafeToString(field.Attributes["size"])));
 		} 
-
 
 	} // foreach
 

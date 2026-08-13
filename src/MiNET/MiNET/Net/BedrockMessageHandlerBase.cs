@@ -29,7 +29,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using log4net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.IO;
@@ -66,9 +65,9 @@ namespace MiNET.Net
 
 		/// <summary>
 		///     When set, incoming batches are dropped whole: no decrypt, no decompress, no decode.
-		///     A spawned emulator bot flips this on, because past spawn it only receives and ACKs,
-		///     and the ACK happens below this layer at the RakNet receive. RakNet-level control
-		///     (DisconnectionNotification) is unaffected, so the bot still notices being dropped.
+		///     A spawned emulator bot flips this on, because past spawn it only receives, and the
+		///     acknowledgement happens below this layer in the transport. Transport-level teardown
+		///     is unaffected, so the bot still notices being dropped.
 		/// </summary>
 		public bool IgnoreIncoming { get; set; }
 
@@ -96,7 +95,7 @@ namespace MiNET.Net
 			// The batch is one packet built from many, so it can only be added once the run of
 			// ordinary packets ends. Anything that goes straight to sendList has to close that run
 			// first or it overtakes packets queued before it. Pre-encoded wrappers are the reason
-			// this matters: chunks, player lists and crafting data are packed off the RakNet ticker
+			// this matters: chunks, player lists and crafting data are packed off the send path
 			// and handed over finished, but they are queued in order with everything else and the
 			// client holds them to it. A roster that overtakes StartGame is silently dropped.
 			void FlushBatch()
@@ -349,13 +348,12 @@ namespace MiNET.Net
 
 		/// <summary>
 		///     Game-logic handling of one packet <see cref="DecodeBatch" /> produced. Runs wherever
-		///     the transport wants game code to run; both transports call it straight after decoding
-		///     on the same thread (RakNet on its receive thread, NetherNet on the session's own
-		///     per-connection receive thread).
+		///     the transport wants game code to run; the transport calls it straight after decoding
+		///     on the session's own per-connection receive thread.
 		/// </summary>
 		public void HandleDecoded(Packet msg)
 		{
-			RakOfflineHandler.TraceReceive(Log, msg);
+			PacketTracing.TraceReceive(Log, msg);
 			try
 			{
 				HandleCustomPacket(msg);

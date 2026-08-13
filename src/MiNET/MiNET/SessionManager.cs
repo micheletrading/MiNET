@@ -26,7 +26,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 
 namespace MiNET

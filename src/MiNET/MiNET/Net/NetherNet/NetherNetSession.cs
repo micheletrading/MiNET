@@ -31,18 +31,15 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using log4net;
-using MiNET.Net.RakNet;
 using MiNET.Net.Rtc;
 
 namespace MiNET.Net.NetherNet
 {
 	/// <summary>
-	///     A NetherNet session, the counterpart to <see cref="RakSession" />. Almost everything
-	///     RakSession does is reliability work that SCTP has already done by the time a message
-	///     surfaces here: ordering, retransmission, acknowledgement and datagram splitting all happen
-	///     below. What is left is the part RakNet never owned, which is Bedrock's own batching and
-	///     compression, and that is reached through the same <see cref="ICustomMessageHandler" /> the
-	///     RakNet path uses, so both transports put identical bytes on the wire above the framing.
+	///     A NetherNet session. The transport's reliability work is done by the time a message
+	///     surfaces here: ordering, retransmission, acknowledgement and datagram splitting all
+	///     happen below, in SCTP. What is left is Bedrock's own batching and compression, reached
+	///     through <see cref="ICustomMessageHandler" />.
 	/// </summary>
 	public class NetherNetSession : INetworkHandler
 	{
@@ -136,8 +133,8 @@ namespace MiNET.Net.NetherNet
 		public string TransportName => "NetherNet";
 
 		/// <summary>
-		///     The ICE-nominated remote address. Unlike RakNet this is not known until the connection
-		///     is established, and it can be a relay rather than the player's own address.
+		///     The ICE-nominated remote address: not known until the connection is established, and
+		///     it can be a relay rather than the player's own address.
 		/// </summary>
 		public IPEndPoint EndPoint { get; }
 
@@ -397,8 +394,8 @@ namespace MiNET.Net.NetherNet
 		}
 
 		/// <summary>
-		///     The per-session send lane: drains whatever has accumulated and runs it through the same
-		///     pipeline the RakNet ticker runs. PrepareSend folds the whole drain into as few wrappers
+		///     The per-session send lane: drains whatever has accumulated and runs it through the
+		///     handler pipeline. PrepareSend folds the whole drain into as few wrappers
 		///     as its rules allow (one batch per run of ordinary packets, pre-encoded wrappers pass
 		///     through in order), HandleOrderedSend is where encryption would apply and is a no-op here
 		///     because IsTransportEncrypted is true. Under light traffic each packet still leaves
@@ -445,9 +442,9 @@ namespace MiNET.Net.NetherNet
 		}
 
 		/// <summary>
-		///     There is no direct path on this transport. RakNet distinguishes them because ordered
-		///     sends go through its sequencing machinery and unordered ones bypass it; SCTP orders
-		///     everything on the channel regardless, so both mean the same thing here.
+		///     There is no direct path on this transport: SCTP orders everything on the channel
+		///     regardless, so both mean the same thing here. The distinction is a leftover from
+		///     transports whose unordered sends bypassed their sequencing machinery.
 		/// </summary>
 		public void SendDirectPacket(Packet packet) => SendPacket(packet);
 
@@ -567,17 +564,17 @@ namespace MiNET.Net.NetherNet
 		public void Close()
 		{
 			// Close arrives from the transport, from the player and from teardown, so it has to be
-			// idempotent the way RakSession's is.
+			// idempotent.
 			if (Interlocked.Exchange(ref _closed, 1) != 0) return;
 
 			// Wake a parked send lane immediately: with _closed set it bails on this wake, so the
 			// drain below returns in microseconds instead of eating the lane's 500ms backstop.
 			_closedSignal.TrySetResult();
 
-			// Drain the send lane while the session can still send, the same lesson RakSession's
-			// Close carries: Player.Disconnect enqueues the McpeDisconnect and calls Close right
-			// behind it, so tearing the peer down before the lane has flushed would eat the kick
-			// reason every time and the client would only ever see a generic transport error.
+			// Drain the send lane while the session can still send: Player.Disconnect enqueues the
+			// McpeDisconnect and calls Close right behind it, so tearing the peer down before the
+			// lane has flushed would eat the kick reason every time and the client would only ever
+			// see a generic transport error.
 			// Completing the writer ends the lane's loop once the queue is empty; the wait is
 			// bounded because a dead transport just makes the remaining sends fail-and-log.
 			_sendQueue.Writer.TryComplete();

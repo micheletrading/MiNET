@@ -41,8 +41,6 @@ namespace MiNET.ServiceKiller
 {
 	public class EmulatorClient
 	{
-		private readonly DedicatedThreadPool _threadPool;
-
 		public int RanMin { get; set; }
 		public int RanMax { get; set; }
 		public int ChunkRadius { get; set; }
@@ -55,11 +53,9 @@ namespace MiNET.ServiceKiller
 		public int ClientId { get; set; }
 		public Random Random { get; set; } = new Random();
 		public TimeSpan TimeToRun { get; set; }
-		public bool UseNetherNet { get; set; }
 
-		public EmulatorClient(DedicatedThreadPool threadPool, Emulator emulator, TimeSpan timeToRun, string name, int clientId, IPEndPoint endPoint, int ranMin = 150, int ranMax = 450, int chunkRadius = 8, bool useNetherNet = false)
+		public EmulatorClient(Emulator emulator, TimeSpan timeToRun, string name, int clientId, IPEndPoint endPoint, int ranMin = 150, int ranMax = 450, int chunkRadius = 8)
 		{
-			_threadPool = threadPool;
 			Emulator = emulator;
 			TimeToRun = timeToRun;
 			Name = name;
@@ -68,7 +64,6 @@ namespace MiNET.ServiceKiller
 			RanMin = ranMin;
 			RanMax = ranMax;
 			ChunkRadius = chunkRadius;
-			UseNetherNet = useNetherNet;
 		}
 
 		public void EmulateClient()
@@ -77,39 +72,20 @@ namespace MiNET.ServiceKiller
 			{
 				Console.WriteLine($"Client {Name} connecting...");
 
-				var client = new MiNetClient(EndPoint, Name, _threadPool);
+				var client = new MiNetClient(EndPoint, Name);
 				client.ChunkRadius = ChunkRadius;
 				client.IsEmulator = true;
 				client.UseBlobCache = false;
 				client.ClientId = ClientId;
 
-				if (UseNetherNet)
+				// Signaling plus data channel opening is the whole connection; the login
+				// sequence starts from the handler's Connected() inside ConnectNetherNetAsync.
+				if (!client.ConnectNetherNetAsync().GetAwaiter().GetResult())
 				{
-					// Signaling plus data channel opening is the whole connection; the login
-					// sequence starts from the handler's Connected() inside ConnectNetherNetAsync.
-					if (!client.ConnectNetherNetAsync().GetAwaiter().GetResult())
-					{
-						Console.WriteLine($"Client {Name} failed to connect over NetherNet to {EndPoint}");
-						Emulator.ConcurrentSpawnWaitHandle.Set();
-						client.StopClient();
-						return;
-					}
-				}
-				else
-				{
-					client.StartClient();
-					// Emulator mode: ACK every datagram inline at receive (so the server's RTO never
-					// fires against a bot whose pool is busy decoding chunks) and skip the bot's own
-					// resend tracking. Everything else runs as a real client: decode, ordering, send tick.
-					client.Connection.ConnectionInfo.IsEmulator = true;
-
-					if (!client.Connection.TryConnect(EndPoint, 20))
-					{
-						Console.WriteLine($"Client {Name} failed to connect to {EndPoint}");
-						Emulator.ConcurrentSpawnWaitHandle.Set();
-						client.StopClient();
-						return;
-					}
+					Console.WriteLine($"Client {Name} failed to connect over NetherNet to {EndPoint}");
+					Emulator.ConcurrentSpawnWaitHandle.Set();
+					client.StopClient();
+					return;
 				}
 
 				// Fires on PlayStatus(PlayerSpawn), after the handler has run the real spawn tail:
@@ -127,8 +103,8 @@ namespace MiNET.ServiceKiller
 				Console.WriteLine($"Client {Name} spawned, emulating...");
 
 				// Everything the bot needed to hear (login, chunks, spawn) has been heard. From here
-				// it only receives and ACKs: incoming batches are dropped whole before decrypt and
-				// decompress. RakNet-level disconnects still land, so IsConnected stays honest.
+				// it only receives: incoming batches are dropped whole before decrypt and
+				// decompress. Transport-level teardown still lands, so IsConnected stays honest.
 				client.WrapperHandler.IgnoreIncoming = true;
 
 				// Hold the walk until the join burst has drained: subchunk responses keep streaming
@@ -145,7 +121,7 @@ namespace MiNET.ServiceKiller
 				// sleeping thread per bot is tens of thousands of scheduler wakes per second at
 				// fleet scale, and that scheduling was measured to dwarf the actual protocol work.
 				// Registration is the handoff; this spawn thread's job ends here.
-				Emulator.WalkClock.Register(new BotWalker(client, Emulator, TimeToRun, Name, RanMin, RanMax, UseNetherNet, Random));
+				Emulator.WalkClock.Register(new BotWalker(client, Emulator, TimeToRun, Name, RanMin, RanMax, Random));
 			}
 			catch (Exception e)
 			{

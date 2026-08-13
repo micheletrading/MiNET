@@ -35,14 +35,13 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
-using MiNET.Net.RakNet;
 using MiNET.Net.Rtc;
 using MiNET.Utils;
 
 namespace MiNET.Net.NetherNet
 {
 	/// <summary>
-	///     Accepts NetherNet connections, the counterpart to <see cref="RakConnection" />.
+	///     Accepts NetherNet connections.
 	///     <para>
 	///         Signaling is a single HTTP round trip on a TCP port, so this is a small web server
 	///         rather than a packet loop: <c>GET /v1/join</c> answers whether we speak NetherNet at
@@ -80,7 +79,7 @@ namespace MiNET.Net.NetherNet
 		private IReadOnlyList<IPAddress> _localAddresses;
 		private Timer _sweepTimer;
 
-		// Same knob as RakSession's, so the two transports evict a silent client on the same clock.
+		// The same InactivityTimeout knob the RakNet era used, so configs carry over unchanged.
 		private readonly int _inactivityTimeout = Config.GetProperty("InactivityTimeout", 8500);
 
 		// A client that has connected but not yet spoken gets longer: 8.5s here turns a slow join
@@ -100,6 +99,14 @@ namespace MiNET.Net.NetherNet
 		public NetherNetDiscovery Discovery { get; set; }
 
 		/// <summary>
+		///     Clear this to stop answering join signaling without tearing the socket down. A
+		///     shutdown needs it: transferring or disconnecting players frees the server only if they
+		///     cannot immediately come back, and a Bedrock client reconnects within milliseconds, so
+		///     otherwise the rejoin races the save and lands mid-shutdown.
+		/// </summary>
+		public bool AcceptConnections { get; set; } = true;
+
+		/// <summary>
 		///     Negotiated peers whose reliable data channel has not opened yet, keyed by the peer
 		///     itself (nothing about a client that never gets this far is worth keying on) with the
 		///     tick each one must attach by. <see cref="AttachSession" /> removes an entry the moment
@@ -117,8 +124,8 @@ namespace MiNET.Net.NetherNet
 		internal IPEndPoint LocalEndPoint => (IPEndPoint) _listener?.LocalEndpoint;
 
 		/// <summary>
-		///     Builds the handler that sits above the transport, exactly as RakConnection does, so
-		///     both transports share the batching, compression and login path.
+		///     Builds the handler that sits above the transport: the batching, compression and
+		///     login path.
 		/// </summary>
 		public Func<NetherNetSession, ICustomMessageHandler> CustomMessageHandlerFactory { get; set; }
 
@@ -337,6 +344,14 @@ namespace MiNET.Net.NetherNet
 					// it, so the full exchange is logged. A client that refuses us leaves no other
 					// trace: there is no error packet, it simply stops.
 					Log.Info($"NetherNet signaling <<< {client.Client.RemoteEndPoint}\n{headers}\n{body}");
+
+					if (!AcceptConnections)
+					{
+						// No reply at all: the client concludes the server is down, which is the
+						// truth a shutting-down server wants told. An error response would make it
+						// retry immediately.
+						return;
+					}
 
 					if (method == "GET" && path.StartsWith("/v1/join", StringComparison.Ordinal))
 					{

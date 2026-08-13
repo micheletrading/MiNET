@@ -41,7 +41,6 @@ using Microsoft.IO;
 using MiNET.Blocks;
 using MiNET.Crafting;
 using MiNET.Items;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.IO;
 using MiNET.Utils.Metadata;

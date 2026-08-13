@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -8,41 +8,50 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-//
+// 
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-//
+// 
 // The Original Code is MiNET.
-//
+// 
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-//
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
+// 
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
 
-using System.Net;
-using MiNET.Net.RakNet;
+using MiNET.Utils;
 
-namespace MiNET.Tunnel
+namespace MiNET.Net
 {
-	public class TunnelPlayerFactory : PlayerFactory
+	public class ReliabilityHeader
 	{
-		private readonly IPEndPoint _target;
+		public Reliability Reliability { get; set; } = Reliability.Undefined;
+		public Int24 ReliableMessageNumber { get; set; }
+		public Int24 SequencingIndex { get; set; }
+		public Int24 OrderingIndex { get; set; }
+		public byte OrderingChannel { get; set; }
 
-		public TunnelPlayerFactory(IPEndPoint target)
-		{
-			_target = target;
-		}
+		public bool HasSplit { get; set; }
+		public int PartCount { get; set; }
+		public short PartId { get; set; }
+		public int PartIndex { get;set; }
 
-		public override Player CreatePlayer(MiNetServer server, IPEndPoint endPoint, PlayerInfo playerInfo)
+		public void Reset()
 		{
-			var dump = new TunnelDump(playerInfo?.Username);
-			var player = new TunnelPlayer(server, endPoint, _target, dump);
-			OnPlayerCreated(new PlayerEventArgs(player));
-			return player;
+			Reliability = Reliability.Undefined;
+			ReliableMessageNumber = default;
+			SequencingIndex = default;
+			OrderingIndex = default;
+			OrderingChannel = default;
+
+			HasSplit = false;
+			PartCount = default;
+			PartId = default;
+			PartIndex = default;
 		}
 	}
 }

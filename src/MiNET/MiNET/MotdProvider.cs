@@ -24,15 +24,19 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Net.NetworkInformation;
+using log4net;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 
 namespace MiNET
 {
 	public class MotdProvider
 	{
+		private static readonly ILog Log = LogManager.GetLogger(typeof(MotdProvider));
+
 		public string Motd { get; set; }
 
 		public string SecondLine { get; set; }
@@ -114,9 +118,46 @@ namespace MiNET
 			// own address, and everything else. The client keys on the id, so this is what decides
 			// whether the routes list separately or collapse into one entry.
 			if (IPAddress.IsLoopback(caller.Address)) return ServerId ^ 1;
-			if (RakOfflineHandler.IsThisMachine(caller.Address)) return ServerId ^ 2;
+			if (IsThisMachine(caller.Address)) return ServerId ^ 2;
 
 			return ServerId;
+		}
+
+		/// <summary>
+		///     Every unicast address on this host, loopback aside. Resolved once: an address added
+		///     after startup is not worth a lookup per ping, and pings arrive constantly.
+		/// </summary>
+		private static readonly Lazy<HashSet<IPAddress>> LocalAddresses = new(() =>
+		{
+			var addresses = new HashSet<IPAddress>();
+
+			try
+			{
+				foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+				{
+					foreach (UnicastIPAddressInformation address in adapter.GetIPProperties().UnicastAddresses)
+					{
+						if (!IPAddress.IsLoopback(address.Address)) addresses.Add(address.Address);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				// An empty set answers everything, which is the old behaviour, and is the right way
+				// to fail: enumerating interfaces is not worth losing the server list over.
+				Log.Warn($"Could not enumerate local addresses, pings from this machine will be answered: {e.Message}");
+			}
+
+			return addresses;
+		});
+
+		public static bool IsThisMachine(IPAddress address)
+		{
+			// A dual stack socket hands us "::ffff:192.168.1.10" for a v4 peer, which matches nothing
+			// in a set gathered as v4.
+			if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+
+			return LocalAddresses.Value.Contains(address);
 		}
 
 		public virtual string GetMotd(ConnectionInfo connectionInfo, IPEndPoint caller, bool eduMotd = false)

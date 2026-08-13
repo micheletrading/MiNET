@@ -263,12 +263,12 @@ namespace MiNET.Console
 		private string WaitForSessionsToDrain()
 		{
 			DateTime deadline = DateTime.UtcNow + DrainTimeout;
-			while (_server.ConnectionInfo?.RakSessions.Count > 0 && DateTime.UtcNow < deadline)
+			while (_server.LiveSessionCount > 0 && DateTime.UtcNow < deadline)
 			{
 				Thread.Sleep(100);
 			}
 
-			int remaining = _server.ConnectionInfo?.RakSessions.Count ?? 0;
+			int remaining = _server.LiveSessionCount;
 
 			return remaining == 0 ? "all sessions closed" : $"{remaining} session(s) still open after {DrainTimeout.TotalSeconds:F0}s";
 		}

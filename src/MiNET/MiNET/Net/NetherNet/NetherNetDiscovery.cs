@@ -29,7 +29,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
-using MiNET.Net.RakNet;
 
 namespace MiNET.Net.NetherNet
 {

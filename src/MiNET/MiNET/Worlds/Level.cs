@@ -43,7 +43,6 @@ using MiNET.Entities.Passive;
 using MiNET.Entities.World;
 using MiNET.Items;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Sounds;
 using MiNET.Utils;
 using MiNET.Utils.Diagnostics;
@@ -385,8 +384,8 @@ namespace MiNET.Worlds
 				roster.AddRange(others);
 
 
-				// Encoded and compressed here, on this thread, so the RakNet ticker that services
-				// every session has nothing to do but ship bytes. It still keeps its place in the
+				// Encoded and compressed here, on this thread, so the send lane that services
+				// the session has nothing to do but ship bytes. It still keeps its place in the
 				// sequence: PrepareSend closes the pending batch before it queues a finished wrapper.
 				// That order is not cosmetic. A roster that overtakes StartGame is dropped, and the
 				// joining player then sees the others in the world with no rows in the player list.
@@ -765,16 +764,6 @@ namespace MiNET.Worlds
 				// Send player movements
 				BroadCastMovement(players, entities);
 
-				//TODO: We don't want to trigger sending here. But right now
-				// it seems better for performance since the send-tick is one for all
-				// sessions, so we need to refactor that first.
-				var tasks = new List<Task>();
-				foreach (Player player in players)
-				{
-					if (player.NetworkHandler is RakSession session) tasks.Add(session.SendQueueAsync());
-				}
-				Task.WhenAll(tasks).Wait();
-
 				if (Log.IsDebugEnabled && _tickTimer.ElapsedMilliseconds >= 50) Log.Error($"World tick too too long: {_tickTimer.ElapsedMilliseconds} ms");
 			}
 			catch (Exception e)
@@ -952,9 +941,9 @@ namespace MiNET.Worlds
 				batch.SetPayload(Compression.CompressPacketsForWrapper(movePackets));
 				batch.EncodeAsMemory();
 
-				// Inline on the tick thread: SendPacket only enqueues on both transports (RakSession
-				// into its send queue, NetherNetSession into its send lane), so a work item per
-				// recipient buys no parallelism and costs an allocation and a pool dispatch each.
+				// Inline on the tick thread: SendPacket only enqueues (NetherNetSession's send lane
+				// does the transport work), so a work item per recipient buys no parallelism and
+				// costs an allocation and a pool dispatch each.
 				foreach (Player player in players) player.SendPacket(batch);
 				_lastBroadcast = DateTime.UtcNow;
 			}

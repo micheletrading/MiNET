@@ -110,7 +110,6 @@ public static class RegistryEmitter
 		sb.AppendLine("//");
 		sb.AppendLine();
 		sb.AppendLine("using System;");
-		sb.AppendLine("using MiNET.Net.RakNet;");
 		sb.AppendLine();
 		sb.AppendLine("namespace MiNET.Net");
 		sb.AppendLine("{");

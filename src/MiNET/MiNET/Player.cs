@@ -85,7 +85,7 @@ namespace MiNET
 
 		/// <summary>
 		///     Chunks sent between pauses while streaming, and how long to pause. The pause exists
-		///     to keep a join burst from burying the RakNet send queue under thousands of ordered
+		///     to keep a join burst from burying the session's send queue under thousands of ordered
 		///     datagrams while everything else on the session waits behind them. Measured on a
 		///     radius 32 join: 3209 chunks took 3.4s, of which 2.4s was these sleeps. Set the delay
 		///     to 0 to stream flat out.
@@ -2303,10 +2303,10 @@ namespace MiNET
 
 		public virtual void HandleMcpeMovePlayer(McpeMovePlayer message)
 		{
-			// No ordering guard here: ordered delivery is the transport's guarantee on both paths
-			// (RakNet's per-session ordering thread, NetherNet's single dispatch consumer), so
-			// handlers run sequentially and in sequence by construction. A handler-level lock
-			// duplicating that would also cost this method its verified label.
+			// No ordering guard here: ordered delivery is the transport's guarantee (the session's
+			// single dispatch consumer), so handlers run sequentially and in sequence by
+			// construction. A handler-level lock duplicating that would also cost this method its
+			// verified label.
 			if (!IsSpawned || HealthManager.IsDead) return;
 
 			var origin = KnownPosition.ToVector3();

@@ -73,10 +73,10 @@ namespace MiNET.Net.NetherNet
 			// fix is upstream: have Compression.CompressPacketsForWrapper reserve HeaderSize bytes of
 			// headroom at the front of the buffer it builds, so this can write the header in place
 			// and hand the same buffer straight to send(buffer, offset, count) with no copy at all.
-			// Not done inline because that buffer is shared with the RakNet path, which wants the
-			// payload at offset zero, so the headroom has to become part of the contract rather than
-			// a surprise. Until then this is one pooled buffer and one copy, which is the floor
-			// without touching that contract.
+			// Not done inline because every consumer of that buffer reads the payload from offset
+			// zero, so the headroom has to become part of the contract rather than a surprise.
+			// Until then this is one pooled buffer and one copy, which is the floor without
+			// touching that contract.
 
 			// Every segment but the last is exactly usable bytes, so one buffer of the largest size
 			// serves all of them.

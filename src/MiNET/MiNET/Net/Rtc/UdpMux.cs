@@ -85,8 +85,7 @@ namespace MiNET.Net.Rtc
 		// dedicated AboveNormal thread that busy-spins the last stretch of every period, priced for
 		// there being ONE of it: a process running many muxes (a bot fleet, one mux per outgoing
 		// connection) must never multiply it, fifty of them starve a 16-thread box outright. All
-		// subscribed muxes' ticks run serially on this single thread, the same shape RakConnection
-		// uses for all its sessions.
+		// subscribed muxes' ticks run serially on this single thread.
 		private static readonly object SharedTimerLock = new object();
 		private static HighPrecisionTimer _sharedTimer;
 		private static event Action SharedTick;

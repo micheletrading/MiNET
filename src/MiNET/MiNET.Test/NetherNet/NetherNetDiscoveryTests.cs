@@ -29,8 +29,8 @@ using System.Net;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET;
+using MiNET.Net;
 using MiNET.Net.NetherNet;
-using MiNET.Net.RakNet;
 using MiNET.Net.Rtc;
 
 namespace MiNET.Test.NetherNet
@@ -47,7 +47,7 @@ namespace MiNET.Test.NetherNet
 		private static NetherNetDiscovery MakeDiscovery(out MotdProvider motd)
 		{
 			motd = new MotdProvider();
-			var connectionInfo = new ConnectionInfo(new ConcurrentDictionary<IPEndPoint, RakSession>())
+			var connectionInfo = new ConnectionInfo
 			{
 				MaxNumberOfPlayers = 10
 			};

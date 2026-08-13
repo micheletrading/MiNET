@@ -65,7 +65,6 @@ namespace MiNET.ServiceKiller
 		/// <summary>The fleet's one pacing clock; every spawned bot's walk registers here. See <see cref="ServiceKiller.WalkClock" /> for why this replaced a sleeping thread per bot.</summary>
 		public WalkClock WalkClock { get; } = new WalkClock();
 
-		private static bool UseNetherNet = false;
 		private static int NameOffset = 0;
 
 		/// <summary>
@@ -76,12 +75,12 @@ namespace MiNET.ServiceKiller
 		/// <param name="batchSize">If parallel spawn, how many in each batch.</param>
 		/// <param name="chunkRadius">The chunk radius the bots will request. Server may override.</param>
 		/// <param name="processorAffinity">Processor affinity mask represented as an integer.</param>
-		/// <param name="transport">Transport the bots connect over: raknet or nethernet.</param>
+		/// <param name="transport">Transport the bots connect over: nethernet (raknet is gone).</param>
 		/// <param name="nameOffset">Offset for bot numbering, so parallel emulator processes get distinct names.</param>
 		/// <param name="auto">Run unattended: start without a prompt, exit when every bot's duration has elapsed. For scripted/detached runs, where stdin is not a console.</param>
 		/// <param name="sendIntervalMin">Lower bound (ms) of each bot's fixed movement-send cadence; with max, the per-bot interval is drawn once from this range. Higher = fewer packets = less CPU on both ends.</param>
 		/// <param name="sendIntervalMax">Upper bound (ms) of the cadence range.</param>
-		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "raknet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100)
+		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "nethernet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100)
 		{
 			NumberOfBots = numberOfBots;
 			DurationOfConnection = TimeSpan.FromSeconds(durationOfConnection);
@@ -92,17 +91,10 @@ namespace MiNET.ServiceKiller
 			RanSleepMin = sendIntervalMin;
 			RanSleepMax = sendIntervalMax;
 
-			switch (transport.ToLowerInvariant())
+			if (!string.Equals(transport, "nethernet", StringComparison.OrdinalIgnoreCase))
 			{
-				case "raknet":
-					UseNetherNet = false;
-					break;
-				case "nethernet":
-					UseNetherNet = true;
-					break;
-				default:
-					Console.WriteLine($"Unknown transport '{transport}', expected raknet or nethernet.");
-					return;
+				Console.WriteLine($"Unknown transport '{transport}': nethernet is the only transport (RakNet was removed).");
+				return;
 			}
 
 			var currentProcess = Process.GetCurrentProcess();
@@ -129,15 +121,6 @@ namespace MiNET.ServiceKiller
 					Console.ReadLine();
 				}
 
-				// The pool feeds RakConnection only; the NetherNet path is async end to end and
-				// never touches it, so on that transport it would be numberOfBots parked threads.
-				// Floor of 32: with few bots a pool sized to the bot count starves the client-side
-				// machinery during the join burst (ACK flushes queue behind chunk decode), which
-				// makes the server spuriously retransmit and pollutes the measurements.
-				DedicatedThreadPool threadPool = UseNetherNet
-					? null
-					: new DedicatedThreadPool(new DedicatedThreadPoolSettings(Math.Max(32, numberOfBots), "Shared_Thread"));
-
 				var emulator = new Emulator {Running = true};
 				emulator.WalkClock.Start();
 				long start = DateTime.UtcNow.Ticks;
@@ -152,16 +135,14 @@ namespace MiNET.ServiceKiller
 					{
 						string playerName = $"TheGrey{j + 1 + NameOffset:D3}";
 
-						var client = new EmulatorClient(threadPool,
-							emulator,
+						var client = new EmulatorClient(emulator,
 							DurationOfConnection,
 							playerName,
 							(int) (DateTime.UtcNow.Ticks - start),
 							endPoint,
 							RanSleepMin,
 							RanSleepMax,
-							RequestChunkRadius,
-							UseNetherNet);
+							RequestChunkRadius);
 
 						new Thread(o => { client.EmulateClient(); }) {IsBackground = true}.Start();
 

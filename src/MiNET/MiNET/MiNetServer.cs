@@ -37,7 +37,6 @@ using MiNET.Crafting;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Net.NetherNet;
-using MiNET.Net.RakNet;
 using MiNET.Plugins;
 using MiNET.Utils;
 using MiNET.Utils.IO;
@@ -54,8 +53,7 @@ namespace MiNET
 		private const int DefaultPort = 19132;
 
 		public IPEndPoint Endpoint { get; private set; }
-		private RakConnection _listener;
-		private Net.NetherNet.NetherNetListener _netherNetListener;
+		private NetherNetListener _netherNetListener;
 
 		public MotdProvider MotdProvider { get; set; }
 
@@ -74,7 +72,6 @@ namespace MiNET
 		public IServerManager ServerManager { get; set; }
 		public LevelManager LevelManager { get; set; }
 		public PlayerFactory PlayerFactory { get; set; }
-		public GreyListManager GreyListManager { get; set; }
 
 		public bool IsEdu { get; set; } = Config.GetProperty("EnableEdu", false);
 		public EduTokenManager EduTokenManager { get; set; }
@@ -92,12 +89,15 @@ namespace MiNET
 		/// </summary>
 		public bool AcceptConnections
 		{
-			get => _listener?.AcceptConnections ?? false;
+			get => _netherNetListener?.AcceptConnections ?? false;
 			set
 			{
-				if (_listener != null) _listener.AcceptConnections = value;
+				if (_netherNetListener != null) _netherNetListener.AcceptConnections = value;
 			}
 		}
+
+		/// <summary>Live transport sessions right now, read straight off the listener (ConnectionInfo's count refreshes on a timer and can lag by a second).</summary>
+		public int LiveSessionCount => _netherNetListener?.Sessions.Count ?? 0;
 
 		public ServerRole ServerRole { get; set; }
 
@@ -146,7 +146,7 @@ namespace MiNET
 		{
 			DisplayTimerProperties();
 
-			if (_listener != null) return false; // Already started
+			if (_netherNetListener != null) return false; // Already started
 
 			try
 			{
@@ -216,7 +216,6 @@ namespace MiNET
 					LevelManager.GetLevel(null, Dimension.Overworld.ToString());
 				}
 
-				GreyListManager ??= new GreyListManager();
 				MotdProvider ??= new MotdProvider();
 				if (Endpoint != null)
 				{
@@ -231,54 +230,23 @@ namespace MiNET
 
 				if (ServerRole == ServerRole.Full || ServerRole == ServerRole.Proxy)
 				{
-					// transport takes one or more names: "raknet", "nethernet", or both as
-					// "nethernet;raknet". BDS treats them as exclusive, but they can coexist here
-					// because RakNet is UDP and signaling is TCP on the same port, and running both
-					// is how you see which one a client reaches for when offered the choice.
-					string[] transports = Config.GetProperty("transport", "raknet")
-						.Split(new[] {';', ','}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+					_netherNetListener = new NetherNetListener(Endpoint);
+					_netherNetListener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
 
-					bool netherNet = transports.Contains("nethernet", StringComparer.OrdinalIgnoreCase);
-					bool rakNet = transports.Contains("raknet", StringComparer.OrdinalIgnoreCase);
-
-					if (!netherNet && !rakNet)
-					{
-						// An unrecognised value must not silently leave the server unreachable.
-						Log.Warn($"transport=\"{string.Join(";", transports)}\" names no known transport, falling back to raknet");
-						rakNet = true;
-					}
-
-					_listener = new RakConnection(Endpoint, GreyListManager, MotdProvider);
-					//_listener.ServerInfo.DisableAck = true;
-					_listener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
-
-					//TODO: This is bad design, need to refactor this later.
-					GreyListManager.ConnectionInfo = _listener.ConnectionInfo;
-					ConnectionInfo = _listener.ConnectionInfo;
+					NetherNetListener listener = _netherNetListener;
+					ConnectionInfo = new ConnectionInfo(() => listener.Sessions.Count);
 					ConnectionInfo.MaxNumberOfPlayers = Config.GetProperty("MaxNumberOfPlayers", 10);
 					ConnectionInfo.MaxNumberOfConcurrentConnects = Config.GetProperty("MaxNumberOfConcurrentConnects", ConnectionInfo.MaxNumberOfPlayers);
 
-					if (netherNet)
+					// The mux answers RakNet's legacy unconnected ping on the gameplay UDP port so
+					// the server still shows in the client's server tab; Mojang shipped no NetherNet
+					// replacement for it. EnableDiscovery=false turns the responder off entirely.
+					if (Config.GetProperty("EnableDiscovery", true))
 					{
-						_netherNetListener = new NetherNetListener(Endpoint);
-						_netherNetListener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
-
-						// With RakNet running, its offline handler owns UDP 19132 and answers
-						// discovery itself; without it, the mux serves the ping so the server
-						// still shows in the client's server tab. EnableDiscovery=false turns
-						// the legacy responder off entirely.
-						if (!rakNet && Config.GetProperty("EnableDiscovery", true))
-						{
-							NetherNetListener listener = _netherNetListener;
-							_netherNetListener.Discovery = new NetherNetDiscovery(MotdProvider, ConnectionInfo, () => listener.Sessions.Count);
-						}
-
-						_netherNetListener.Start();
+						_netherNetListener.Discovery = new NetherNetDiscovery(MotdProvider, ConnectionInfo, () => listener.Sessions.Count);
 					}
 
-					if (rakNet) _listener.Start();
-
-					Log.Warn($"Transports live: RakNet(udp)={rakNet}, NetherNet(tcp)={netherNet}. The login line names which one each player arrived on.");
+					_netherNetListener.Start();
 				}
 
 				Log.Info("Server open for business on port " + Endpoint?.Port + " ...");
@@ -288,7 +256,7 @@ namespace MiNET
 			catch (Exception e)
 			{
 				Log.Error("Error during startup!", e);
-				_listener.Stop();
+				_netherNetListener?.Stop();
 			}
 
 			return false;
@@ -302,7 +270,6 @@ namespace MiNET
 			Log.Info("Disabling plugins...");
 			PluginManager?.DisablePlugins();
 			
-			_listener?.Stop();
 			_netherNetListener?.Stop();
 			ConnectionInfo?.Stop();
 

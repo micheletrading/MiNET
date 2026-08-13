@@ -205,8 +205,8 @@ namespace MiNET.Utils.IO
 		// payload offset alongside it. NetherNet has to put a segment header byte in front of this
 		// payload and currently copies the entire batch on every send to do it, see
 		// NetherNetSegments.ForEachSegment. With headroom it writes the header in place and sends
-		// the same buffer. RakNet reads the payload from offset zero today, so the offset has to
-		// become part of this method's contract rather than something callers guess at.
+		// the same buffer. Every consumer reads the payload from offset zero today, so the offset
+		// has to become part of this method's contract rather than something callers guess at.
 		public static MemoryStream CompressPacketsForWrapper(List<Packet> packets, CompressionLevel compressionLevel = CompressionLevel.Fastest)
 		{
 			long length = 0;

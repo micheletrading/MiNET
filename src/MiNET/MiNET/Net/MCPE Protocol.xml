@@ -7,14 +7,10 @@
 				value="{ 0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34, 0x56, 0x78 }" />
 	</constants>
 
-	<pdu namespace="raknet" id="0x00" online="false" client="true" server="true" name="ID_CONNECTED_PING">
-		<field name="SendPingTime" type="long" />
-	</pdu>
-
 	<!--
-	Send a ping to the specified unconnected system.
-	The remote system, if it is Initialized, will respond with ID_UNCONNECTED_PONG.
-	The final ping time will be encoded in the following sizeof(RakNet::TimeMS) bytes.  (Default is 4 bytes - See __GET_TIME_64BIT in RakNetTypes.h
+	The two survivors of the raknet namespace: server-list discovery still speaks RakNet's
+	unconnected ping/pong on the gameplay UDP port (Mojang shipped no NetherNet replacement),
+	answered statelessly by NetherNetDiscovery. Everything else RakNet is gone.
 	-->
 	<pdu namespace="raknet" id="0x01" online="false" client="true" server="false" name="ID_UNCONNECTED_PING" size="">
 		<field name="Ping Id" type="long" exampleData="" />
@@ -22,100 +18,11 @@
 		<field name="GUID" type="long" exampleData="" />
 	</pdu>
 
-	<pdu namespace="raknet" id="0x03" online="false" client="true" server="true" name="ID_CONNECTED_PONG">
-		<field name="SendPingTime" type="long" />
-		<field name="SendPongTime" type="long" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x04" online="false" client="false" server="true" name="ID_DETECT_LOST_CONNECTIONS">
-	</pdu>
-
-	<!--<pdu id="0xc0" online="false" client="true" server="true" name="ACK">
-		<field name="Count" type="short" />
-		<field name="Only One Sequence" type="byte" />
-		<field name="Sequence Number" type="little" />
-	</pdu>
-
-	<pdu id="0xa0" online="false" client="true" server="true" name="NAK">
-		<field name="Count" type="short" />
-		<field name="Only One Sequence" type="byte" />
-		<field name="Sequence Number" type="little" />
-	</pdu>-->
-
 	<pdu namespace="raknet" id="0x1c" client="true" server="false" name="ID_UNCONNECTED_PONG" size="">
 		<field name="Ping Id" type="long" exampleData="" />
 		<field name="Server ID" type="long" />
 		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
 		<field name="Server Name" type="FixedString" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x05" client="true" server="false" name="ID_OPEN_CONNECTION_REQUEST_1" size="">
-		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
-		<field name="RakNet Protocol Version" type="byte" exampleData="0x06" />
-		<!--<field name="Pad to MTU size" type="byte[]" size="0" />-->
-	</pdu>
-
-	<pdu namespace="raknet" id="0x06" client="false" server="true" name="ID_OPEN_CONNECTION_REPLY_1" size="28">
-		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
-		<field name="Server GUID" type="long" exampleData="0x00000000372cdc9e" />
-		<field name="Server Has Security" type="byte" />
-		<!--<field name="Cookie" type="Int32" />-->
-		<field name="MTU Size" type="short" endianess="BE" />
-	</pdu>
-
-
-	<pdu namespace="raknet" id="0x07" client="true" server="false" name="ID_OPEN_CONNECTION_REQUEST_2" size="34">
-		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
-		<field name="Remote Binding Address" type="IPEndPoint" />
-		<field name="MTU Size" type="short" endianess="BE" />
-		<field name="Client GUID" type="long" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x08" client="false" server="true" name="ID_OPEN_CONNECTION_REPLY_2" size="30">
-		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
-		<field name="Server GUID" type="long" exampleData="0x00000000372cdc9e" />
-		<field name="Client Endpoint" type="IPEndPoint" />
-		<field name="MTU Size" type="short" endianess="BE" />
-		<field name="Do security and handshake" type="byte[]" size="0, true" note="Ignored" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x09" online="false" client="false" server="true" name="ID_CONNECTION_REQUEST" size="33">
-		<field name="Client GUID" type="long" />
-		<field name="Timestamp" type="long" />
-		<field name="Do Security" type="byte" />
-		<!--<field name="Proof" type="byte[]" size="32" />-->
-	</pdu>
-
-	<pdu namespace="raknet" id="0x10" online="false" client="false" server="true" name="ID_CONNECTION_REQUEST_ACCEPTED">
-		<field name="System Address" type="IPEndPoint" />
-		<field name="System Index" type="short" endianess="BE" />
-		<field name="System Addresses" type="IPEndPoint[]" size="20" />
-		<field name="Incoming Timestamp" type="long" />
-		<field name="Server Timestamp" type="long" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x13" online="false" client="true" server="false" name="ID_NEW_INCOMING_CONNECTION">
-		<field name="ClientEndpoint" type="IPEndPoint" />
-		<field name="System Addresses" type="IPEndPoint[]" size="20" />
-		<field name="Incoming Timestamp" type="long" />
-		<field name="Server Timestamp" type="long" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x14" online="false" client="true" server="true" name="ID_NO_FREE_INCOMING_CONNECTIONS">
-		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
-		<field name="Server GUID" type="long" exampleData="0x00000000372cdc9e" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x15" online="false" client="true" server="true" name="ID_DISCONNECTION_NOTIFICATION">
-	</pdu>
-
-	<pdu namespace="raknet" id="0x17" online="false" client="true" server="true" name="ID_CONNECTION_BANNED">
-		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
-		<field name="Server GUID" type="long" exampleData="0x00000000372cdc9e" />
-	</pdu>
-
-	<pdu namespace="raknet" id="0x1A" online="false" client="true" server="true" name="ID_IP_RECENTLY_CONNECTED">
-		<field name="Offline Message Data ID" type="OFFLINE_MESSAGE_DATA_ID" />
 	</pdu>
 
 	<pdu id="0x01" online="false" client="true" server="false" name="MCPE_LOGIN">

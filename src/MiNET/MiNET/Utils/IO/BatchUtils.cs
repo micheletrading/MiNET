@@ -28,7 +28,6 @@ using System.Buffers;
 using System.IO;
 using System.IO.Compression;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 
 namespace MiNET.Utils.IO
 {
