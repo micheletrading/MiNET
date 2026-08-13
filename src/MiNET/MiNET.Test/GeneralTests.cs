@@ -217,6 +217,7 @@ namespace MiNET.Test
 		}*/
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10k-iteration palette build timing with no assertions. Run manually when measuring palette encoding.")]
 		public void EncodePaletteChunk()
 		{
 			var blocks = new short[4096];

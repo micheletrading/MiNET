@@ -999,12 +999,14 @@ namespace MiNET.Test.Rtc
 			server.FeedDatagram(junkDatagram);
 
 			const int iterations = 500;
-			long before = GC.GetTotalAllocatedBytes(precise: true);
+			// Per-thread, not process-wide: FeedDatagram's drop path is synchronous on this thread,
+			// and the class-parallel suite would otherwise fail this bracket on a neighbor's garbage.
+			long before = GC.GetAllocatedBytesForCurrentThread();
 			for (int i = 0; i < iterations; i++)
 			{
 				server.FeedDatagram(junkDatagram);
 			}
-			long after = GC.GetTotalAllocatedBytes(precise: true);
+			long after = GC.GetAllocatedBytesForCurrentThread();
 
 			Assert.AreEqual(0L, after - before, "expected zero heap allocation on the rate-limited drop path");
 			Assert.AreEqual(1L, server.ResendsPerformed, "expected at most one resend total across every trigger in this test");
@@ -1693,13 +1695,16 @@ namespace MiNET.Test.Rtc
 				server.SendApplicationData(payload);
 			}
 
-			long before = GC.GetTotalAllocatedBytes(precise: true);
+			// Per-thread, not process-wide: the send-encrypt-feed-decrypt-deliver chain is one
+			// synchronous call stack on this thread, and the class-parallel suite would otherwise
+			// fail this bracket on a neighbor's garbage.
+			long before = GC.GetAllocatedBytesForCurrentThread();
 			for (int i = 0; i < 10000; i++)
 			{
 				client.SendApplicationData(payload);
 				server.SendApplicationData(payload);
 			}
-			long after = GC.GetTotalAllocatedBytes(precise: true);
+			long after = GC.GetAllocatedBytesForCurrentThread();
 
 			Assert.AreEqual(0L, after - before, "expected zero heap allocation across 10k datagrams each way, post-handshake");
 
