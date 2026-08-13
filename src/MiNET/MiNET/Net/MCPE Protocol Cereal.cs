@@ -4687,8 +4687,10 @@ namespace MiNET.Net
 		public void Write(InventorySource data)
 		{
 			WriteUnsignedVarInt((uint) data.sourceType);
+			Write(true);
 			Write(data.containerId != null);
 			if (data.containerId != null) Write((byte) data.containerId.Value);
+			Write(true);
 			Write(data.bitFlags != null);
 			if (data.bitFlags != null) WriteUnsignedVarInt((uint) data.bitFlags.Value);
 		}
@@ -4697,7 +4699,9 @@ namespace MiNET.Net
 		{
 			var data = new InventorySource();
 			data.sourceType = (InventorySource.InventorySourceType) ReadUnsignedVarInt();
+			ReadBool();
 			if (ReadBool()) data.containerId = (sbyte) ReadByte();
+			ReadBool();
 			if (ReadBool()) data.bitFlags = (InventorySource.InventorySourceFlags) ReadUnsignedVarInt();
 			return data;
 		}
