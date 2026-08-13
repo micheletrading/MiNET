@@ -79,6 +79,13 @@ namespace MiNET.Test.Rtc
 			server = new SctpAssociation(false, 5000, 262144, p => client.OnPacketReceived(p.ToArray()));
 			server.OnMessage += (ushort streamId, uint ppid, in ReadOnlySequence<byte> message) => serverReceived.Add((streamId, ppid, message.ToArray()));
 
+			// The receive-only server never has outbound data to carry a piggybacked SACK, so its acks
+			// only leave via the 200ms fallback on OnTick; both clocks are faked and advanced in the
+			// pump loop below so that path runs deterministically instead of on wall time.
+			long fakeNow = 1_000_000;
+			client.ClockNowMillis = () => fakeNow;
+			server.ClockNowMillis = () => fakeNow;
+
 			client.Start();
 			Assert.AreEqual(SctpState.Established, client.State);
 
@@ -87,13 +94,13 @@ namespace MiNET.Test.Rtc
 
 			Assert.IsTrue(client.Send(streamId: 3, ppid: 99, message, unordered: false, maxRetransmits: -1));
 
-			// The congestion window (starts at 4*MTU, grows one MTU per acking SACK) should cascade this
-			// synchronously inside Send() itself via the loopback wiring's reentrant SACK replies; this is
-			// a safety net against real-clock timing assumptions this test does not want to depend on.
-			for (int i = 0; i < 20 && serverReceived.Count == 0; i++)
+			// Each round: advance past the SACK fallback delay, let the server ack what it holds, and
+			// let the client's tick push the next window of chunks.
+			for (int i = 0; i < 40 && serverReceived.Count == 0; i++)
 			{
-				client.OnTick();
+				fakeNow += 250;
 				server.OnTick();
+				client.OnTick();
 			}
 
 			Assert.AreEqual(1, serverReceived.Count);

@@ -29,7 +29,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using log4net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.IO;
@@ -66,9 +65,9 @@ namespace MiNET.Net
 
 		/// <summary>
 		///     When set, incoming batches are dropped whole: no decrypt, no decompress, no decode.
-		///     A spawned emulator bot flips this on, because past spawn it only receives and ACKs,
-		///     and the ACK happens below this layer at the RakNet receive. RakNet-level control
-		///     (DisconnectionNotification) is unaffected, so the bot still notices being dropped.
+		///     A spawned emulator bot flips this on, because past spawn it only receives, and the
+		///     acknowledgement happens below this layer in the transport. Transport-level teardown
+		///     is unaffected, so the bot still notices being dropped.
 		/// </summary>
 		public bool IgnoreIncoming { get; set; }
 
@@ -96,7 +95,7 @@ namespace MiNET.Net
 			// The batch is one packet built from many, so it can only be added once the run of
 			// ordinary packets ends. Anything that goes straight to sendList has to close that run
 			// first or it overtakes packets queued before it. Pre-encoded wrappers are the reason
-			// this matters: chunks, player lists and crafting data are packed off the RakNet ticker
+			// this matters: chunks, player lists and crafting data are packed off the send path
 			// and handed over finished, but they are queued in order with everything else and the
 			// client holds them to it. A roster that overtakes StartGame is silently dropped.
 			void FlushBatch()
@@ -348,14 +347,13 @@ namespace MiNET.Net
 		}
 
 		/// <summary>
-		///     The dispatch-thread half: game-logic handling of one packet <see cref="DecodeBatch" />
-		///     produced. Runs wherever the transport wants game code to run; the RakNet path calls it
-		///     straight after decoding on the same thread, the NetherNet path on the session's own
-		///     dispatch thread.
+		///     Game-logic handling of one packet <see cref="DecodeBatch" /> produced. Runs wherever
+		///     the transport wants game code to run; the transport calls it straight after decoding
+		///     on the session's own per-connection receive thread.
 		/// </summary>
 		public void HandleDecoded(Packet msg)
 		{
-			RakOfflineHandler.TraceReceive(Log, msg);
+			PacketTracing.TraceReceive(Log, msg);
 			try
 			{
 				HandleCustomPacket(msg);
@@ -381,6 +379,38 @@ namespace MiNET.Net
 				Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.GetClientEndPoint().Address}");
 				if (Log.IsDebugEnabled) Log.Warn($"Unknown packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
 			}
+		}
+
+		/// <summary>The object whose HandleMcpe* methods ultimately run a packet (the login handler, then the player), for the direct-dispatch label lookup; null when the transport should always queue.</summary>
+		protected virtual object HandlerTarget => null;
+
+		/// <summary>Whether a plugin [PacketHandler] interceptor would run for this packet type; interceptors are reflection-invoked and invisible to verification, so they force the queue.</summary>
+		protected virtual bool HasPluginInterceptor(Type packetType) => false;
+
+		// Per concrete handler type: packet type -> "may dispatch inline". Static: the labels and
+		// the handler type set are fixed after startup, so every session shares one cache.
+		private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Type HandlerType, Type PacketType), bool> InlineDispatchCache = new();
+
+		/// <summary>
+		///     Whether <paramref name="packet" /> may skip the dispatch queue and run its handler
+		///     directly on the calling (transport) thread: the implementing handler method carries
+		///     the startup scan's verified label and no plugin interceptor exists for the type.
+		///     The caller still owns ordering: direct dispatch is only valid when nothing for this
+		///     session is queued ahead.
+		/// </summary>
+		public bool CanDispatchInline(Packet packet)
+		{
+			object target = HandlerTarget;
+			if (target == null) return false;
+
+			(Type, Type) key = (target.GetType(), packet.GetType());
+			if (InlineDispatchCache.TryGetValue(key, out bool cached)) return cached;
+
+			// Generated convention: packet class McpeX is handled by HandleMcpeX.
+			string methodName = "Handle" + key.Item2.Name;
+			bool inline = HandlerVerification.IsVerified(key.Item1, methodName) && !HasPluginInterceptor(key.Item2);
+			InlineDispatchCache[key] = inline;
+			return inline;
 		}
 
 		public abstract Packet OnSendCustomPacket(Packet message);

@@ -41,7 +41,6 @@ using Microsoft.IO;
 using MiNET.Blocks;
 using MiNET.Crafting;
 using MiNET.Items;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.IO;
 using MiNET.Utils.Metadata;
@@ -62,6 +61,16 @@ namespace MiNET.Net
 
 		[JsonIgnore] public bool ForceClear;
 		[JsonIgnore] public bool NoBatch { get; set; }
+
+		/// <summary>
+		///     Declares this packet wholly superseded by any later queued packet carrying the same key:
+		///     a send lane that still holds both may drop the older one unsent (loss as sender policy,
+		///     never as an accident of load - only the sender knows the semantics). Null, the default,
+		///     means never drop. The key must carry the full identity of what supersedes what: the move
+		///     roster uses one key object per level, a per-entity update would need a per-entity key.
+		///     Reference equality; reset with the packet so a pooled reuse can never inherit one.
+		/// </summary>
+		[JsonIgnore] public object CoalesceKey { get; set; }
 
 		[JsonIgnore] public int Id;
 		[JsonIgnore] public bool IsMcpe;
@@ -2967,6 +2976,7 @@ namespace MiNET.Net
 
 			NoBatch = false;
 			ForceClear = false;
+			CoalesceKey = null;
 
 			_encodedMessage = null;
 			Bytes = null;

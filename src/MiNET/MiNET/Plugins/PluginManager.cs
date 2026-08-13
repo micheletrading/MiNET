@@ -1073,6 +1073,26 @@ namespace MiNET.Plugins
 			return target;
 		}
 
+		/// <summary>
+		///     Whether any plugin registered a receive-side [PacketHandler] that would run for
+		///     <paramref name="packetType" />. The direct-dispatch path consults this: a plugin
+		///     interceptor is reflection-invoked code the IL verification can never see, so any
+		///     packet type with one keeps the dispatch queue regardless of the handler's own label.
+		/// </summary>
+		internal bool HasReceivePacketHandler(Type packetType)
+		{
+			Dictionary<MethodInfo, PacketHandlerAttribute> handlers = _packetHandlerDictionary;
+			if (handlers == null) return false;
+
+			foreach (PacketHandlerAttribute attribute in handlers.Values)
+			{
+				if (attribute?.PacketType == null) continue;
+				if (attribute.PacketType.IsAssignableFrom(packetType)) return true;
+			}
+
+			return false;
+		}
+
 		internal Packet PluginPacketHandler(Packet message, bool isReceiveHandler, Player player)
 		{
 			if (message == null) return null;

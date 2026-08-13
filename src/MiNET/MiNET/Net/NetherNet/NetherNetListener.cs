@@ -35,14 +35,13 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
-using MiNET.Net.RakNet;
 using MiNET.Net.Rtc;
 using MiNET.Utils;
 
 namespace MiNET.Net.NetherNet
 {
 	/// <summary>
-	///     Accepts NetherNet connections, the counterpart to <see cref="RakConnection" />.
+	///     Accepts NetherNet connections.
 	///     <para>
 	///         Signaling is a single HTTP round trip on a TCP port, so this is a small web server
 	///         rather than a packet loop: <c>GET /v1/join</c> answers whether we speak NetherNet at
@@ -80,7 +79,7 @@ namespace MiNET.Net.NetherNet
 		private IReadOnlyList<IPAddress> _localAddresses;
 		private Timer _sweepTimer;
 
-		// Same knob as RakSession's, so the two transports evict a silent client on the same clock.
+		// The same InactivityTimeout knob the RakNet era used, so configs carry over unchanged.
 		private readonly int _inactivityTimeout = Config.GetProperty("InactivityTimeout", 8500);
 
 		// A client that has connected but not yet spoken gets longer: 8.5s here turns a slow join
@@ -92,6 +91,20 @@ namespace MiNET.Net.NetherNet
 
 		/// <summary>Live sessions by the client's NetworkID.</summary>
 		public ConcurrentDictionary<string, NetherNetSession> Sessions { get; } = new();
+
+		/// <summary>
+		///     Set before <see cref="Start" /> to have the mux answer server-list discovery pings on
+		///     the gameplay UDP port; leave null and the legacy format never touches this listener.
+		/// </summary>
+		public NetherNetDiscovery Discovery { get; set; }
+
+		/// <summary>
+		///     Clear this to stop answering join signaling without tearing the socket down. A
+		///     shutdown needs it: transferring or disconnecting players frees the server only if they
+		///     cannot immediately come back, and a Bedrock client reconnects within milliseconds, so
+		///     otherwise the rejoin races the save and lands mid-shutdown.
+		/// </summary>
+		public bool AcceptConnections { get; set; } = true;
 
 		/// <summary>
 		///     Negotiated peers whose reliable data channel has not opened yet, keyed by the peer
@@ -111,8 +124,8 @@ namespace MiNET.Net.NetherNet
 		internal IPEndPoint LocalEndPoint => (IPEndPoint) _listener?.LocalEndpoint;
 
 		/// <summary>
-		///     Builds the handler that sits above the transport, exactly as RakConnection does, so
-		///     both transports share the batching, compression and login path.
+		///     Builds the handler that sits above the transport: the batching, compression and
+		///     login path.
 		/// </summary>
 		public Func<NetherNetSession, ICustomMessageHandler> CustomMessageHandlerFactory { get; set; }
 
@@ -160,6 +173,16 @@ namespace MiNET.Net.NetherNet
 			// is no bind-cursor to walk further into a wider one, port 0 leaves the choice to the OS
 			// when nothing was configured.
 			_mux = new UdpMux(new IPEndPoint(_endPoint.Address, PortMapping.BindPort ?? 0));
+
+			// Server-list discovery, if the host wired it up: the mux answers RakNet unconnected
+			// pings on the gameplay port so a NetherNet-only server still shows a status line in
+			// the client's server tab. Discovery reaches this port only when the gameplay UDP is
+			// the port clients ping, 19132, so server-udp-ports has to put it there.
+			if (Discovery != null)
+			{
+				_mux.OfflineResponder = Discovery.HandleOffline;
+			}
+
 			_mux.Start();
 			_certificate = RtcCertificate.CreateSelfSigned();
 
@@ -201,11 +224,27 @@ namespace MiNET.Net.NetherNet
 			_certificate = null;
 		}
 
+		// Sweep reentrancy guard: System.Threading.Timer fires on schedule regardless of whether
+		// the previous callback finished, and a sweep pass tearing down a large batch of dead
+		// sessions takes real time (each close runs the full player disconnect). Overlapping
+		// passes once stacked dozens of blocked pool threads and starved every joining player's
+		// login (the 85-bot loss, 2026-08-13); a pass that finds the previous one still running
+		// simply yields to it.
+		private int _sweeping;
+
 		/// <summary>One timer callback covers both liveness backstops: a live session gone silent, and a negotiation that never attached one at all. Both run off the same clock, so one timer serves both.</summary>
 		private void Sweep()
 		{
-			SweepInactiveSessions();
-			SweepExpiredPendingPeers();
+			if (Interlocked.Exchange(ref _sweeping, 1) != 0) return;
+			try
+			{
+				SweepInactiveSessions();
+				SweepExpiredPendingPeers();
+			}
+			finally
+			{
+				_sweeping = 0;
+			}
 		}
 
 		/// <summary>
@@ -305,6 +344,14 @@ namespace MiNET.Net.NetherNet
 					// it, so the full exchange is logged. A client that refuses us leaves no other
 					// trace: there is no error packet, it simply stops.
 					Log.Info($"NetherNet signaling <<< {client.Client.RemoteEndPoint}\n{headers}\n{body}");
+
+					if (!AcceptConnections)
+					{
+						// No reply at all: the client concludes the server is down, which is the
+						// truth a shutting-down server wants told. An error response would make it
+						// retry immediately.
+						return;
+					}
 
 					if (method == "GET" && path.StartsWith("/v1/join", StringComparison.Ordinal))
 					{

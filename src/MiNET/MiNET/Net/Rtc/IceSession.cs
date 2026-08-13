@@ -236,16 +236,21 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		private void HandleBindingRequest(StunMessage message, ReadOnlySpan<byte> raw, IPEndPoint from)
 		{
+			// Recorded before the integrity check, not after: the mux admitted this endpoint (and
+			// charged it against the first-contact budget) just to route the packet here, so it must
+			// be handed back at Dispose whatever we think of the request. Recording only verified
+			// senders leaked one admission per rejected request until the budget starved and the
+			// server silently stopped accepting new endpoints.
+			lock (_gate)
+			{
+				_knownEndpoints.Add(from);
+			}
+
 			if (!StunMessage.VerifyIntegrity(raw, _localPasswordBytes))
 			{
 				Interlocked.Increment(ref _integrityFailures);
 				Log.Debug("Ignoring binding request with invalid MESSAGE-INTEGRITY.");
 				return;
-			}
-
-			lock (_gate)
-			{
-				_knownEndpoints.Add(from);
 			}
 
 			RefreshLastSeen();

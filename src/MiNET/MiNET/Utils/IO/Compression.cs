@@ -37,6 +37,42 @@ namespace MiNET.Utils.IO
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Compression));
 
+		/// <summary>
+		///     Below or at this many payload bytes a batch ships uncompressed (compressor id 0xff,
+		///     raw frames): compression is for payloads that need it, not a reflex. The cheap-looking
+		///     alternative, a NoCompression deflate stream, still costs a native zlib handle per
+		///     batch (finalizer pressure at packet rates) plus stored-block framing and a full copy.
+		///     Advertised to the client in NetworkSettings, so the same rule holds in both
+		///     directions.
+		/// </summary>
+		public const int CompressionThresholdBytes = 1000;
+
+		// Codec-input tracing: when MINET_BATCH_DUMP names a directory, every payload that actually
+		// reaches the deflater (all three compression entry points, pre-compression, frames and
+		// all) is written there as <seq>-<len>.bin. This is the exact byte stream a replacement
+		// codec must handle, which the tunnel's post-compression per-frame dumps are not. Empty
+		// counts as unset. Below-threshold batches ship raw and are deliberately not dumped.
+		private static readonly string BatchDumpDir =
+			Environment.GetEnvironmentVariable("MINET_BATCH_DUMP") is {Length: > 0} dir ? dir : null;
+		private static int _batchDumpSeq;
+
+		/// <summary><paramref name="lengthPrefix" /> non-negative means the live stream carried a varint length ahead of the payload (writeLen), and the dump must byte-match what the deflater consumed.</summary>
+		private static void DumpBatch(ReadOnlySpan<byte> payload, int lengthPrefix = -1)
+		{
+			try
+			{
+				int seq = System.Threading.Interlocked.Increment(ref _batchDumpSeq);
+				Directory.CreateDirectory(BatchDumpDir);
+				using FileStream file = File.Create(Path.Combine(BatchDumpDir, $"{seq:D6}-{payload.Length}.bin"));
+				if (lengthPrefix >= 0) WriteLength(file, lengthPrefix);
+				file.Write(payload);
+			}
+			catch (Exception e)
+			{
+				Log.Warn($"Batch dump failed: {e.Message}");
+			}
+		}
+
 		public static byte[] Compress(ReadOnlyMemory<byte> input, bool writeLen = false, CompressionLevel compressionLevel = CompressionLevel.Fastest)
 		{
 			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
@@ -60,12 +96,21 @@ namespace MiNET.Utils.IO
 		///     Wrapper-payload compression into a pooled stream the caller owns: attach it to the
 		///     wrapper with <see cref="Packet.AttachLease" /> so it returns to the pool with the
 		///     packet, and view the bytes via GetBuffer()/Length. Leading compressor-id byte
-		///     included (0x00 = zlib/deflate; a NoCompression deflate stream still inflates
-		///     through the same branch).
+		///     included: 0x00 = zlib/deflate above <see cref="CompressionThresholdBytes" />,
+		///     0xff = raw at or below it, no deflater involved.
 		/// </summary>
 		public static MemoryStream CompressIntoPooledStream(ReadOnlyMemory<byte> input, bool writeLen, CompressionLevel compressionLevel)
 		{
 			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+
+			if (input.Length <= CompressionThresholdBytes)
+			{
+				stream.WriteByte(0xff);
+				if (writeLen) WriteLength(stream, input.Length);
+				stream.Write(input.Span);
+				return stream;
+			}
+
 			stream.WriteByte(0x00);
 			using (var compressStream = new DeflateStream(stream, compressionLevel, true))
 			{
@@ -76,6 +121,8 @@ namespace MiNET.Utils.IO
 
 				compressStream.Write(input.Span);
 			}
+
+			if (BatchDumpDir != null) DumpBatch(input.Span, writeLen ? input.Length : -1);
 
 			return stream;
 		}
@@ -88,6 +135,18 @@ namespace MiNET.Utils.IO
 		public static MemoryStream CompressIntoPooledStream(ReadOnlySequence<byte> input, bool writeLen, CompressionLevel compressionLevel)
 		{
 			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+
+			if (input.Length <= CompressionThresholdBytes)
+			{
+				stream.WriteByte(0xff);
+				if (writeLen) WriteLength(stream, (int) input.Length);
+				foreach (ReadOnlyMemory<byte> segment in input)
+				{
+					stream.Write(segment.Span);
+				}
+				return stream;
+			}
+
 			stream.WriteByte(0x00);
 			using (var compressStream = new DeflateStream(stream, compressionLevel, true))
 			{
@@ -100,6 +159,14 @@ namespace MiNET.Utils.IO
 				{
 					compressStream.Write(segment.Span);
 				}
+			}
+
+			if (BatchDumpDir != null)
+			{
+				// The sequence is consumed above but its segments stay valid until the caller drops
+				// the roster reference; a contiguous copy here keeps the dump exact and simple.
+				byte[] whole = input.ToArray();
+				DumpBatch(whole, writeLen ? whole.Length : -1);
 			}
 
 			return stream;
@@ -138,20 +205,65 @@ namespace MiNET.Utils.IO
 		// payload offset alongside it. NetherNet has to put a segment header byte in front of this
 		// payload and currently copies the entire batch on every send to do it, see
 		// NetherNetSegments.ForEachSegment. With headroom it writes the header in place and sends
-		// the same buffer. RakNet reads the payload from offset zero today, so the offset has to
-		// become part of this method's contract rather than something callers guess at.
+		// the same buffer. Every consumer reads the payload from offset zero today, so the offset
+		// has to become part of this method's contract rather than something callers guess at.
 		public static MemoryStream CompressPacketsForWrapper(List<Packet> packets, CompressionLevel compressionLevel = CompressionLevel.Fastest)
 		{
 			long length = 0;
 			foreach (Packet packet in packets) length += packet.EncodeAsMemory().Length;
 
-			compressionLevel = length > 1000 ? compressionLevel : CompressionLevel.NoCompression;
-
 			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
 
+			// At or below the threshold the batch ships raw under 0xff: no deflater exists at all,
+			// which at input-packet rates is the difference between zero native handles and one
+			// finalizable zlib handle per send.
+			if (length <= CompressionThresholdBytes)
+			{
+				stream.WriteByte(0xff);
+				foreach (Packet packet in packets)
+				{
+					ReadOnlyMemory<byte> bs = packet.EncodeAsMemory();
+					if (bs.Length > 0)
+					{
+						BatchUtils.WriteLength(stream, bs.Length);
+						stream.Write(bs.Span);
+					}
+					packet.PutPool();
+				}
+
+				return stream;
+			}
+
 			// Ahead of the deflate stream, so this costs one byte on the same pooled buffer.
-			// A NoCompression deflate stream is still deflate, so it inflates through 0x00.
 			stream.WriteByte(0x00);
+
+			// Dump mode materializes the frame stream first so the file is byte-identical to what
+			// the deflater consumes; the live path keeps writing straight through.
+			if (BatchDumpDir != null)
+			{
+				using MemoryStream frames = MiNetServer.MemoryStreamManager.GetStream();
+				foreach (Packet packet in packets)
+				{
+					ReadOnlyMemory<byte> bs = packet.EncodeAsMemory();
+					if (bs.Length > 0)
+					{
+						BatchUtils.WriteLength(frames, bs.Length);
+						frames.Write(bs.Span);
+					}
+					packet.PutPool();
+				}
+
+				var payload = new ReadOnlySpan<byte>(frames.GetBuffer(), 0, (int) frames.Length);
+				DumpBatch(payload);
+
+				using (var dumpCompressStream = new DeflateStream(stream, compressionLevel, true))
+				{
+					dumpCompressStream.Write(payload);
+					dumpCompressStream.Flush();
+				}
+
+				return stream;
+			}
 
 			using (var compressStream = new DeflateStream(stream, compressionLevel, true))
 			{

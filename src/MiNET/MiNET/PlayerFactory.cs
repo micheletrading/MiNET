@@ -25,7 +25,6 @@
 
 using System;
 using System.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 
 namespace MiNET

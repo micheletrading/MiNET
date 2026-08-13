@@ -31,6 +31,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Threading.Tasks;
 using log4net;
 
 namespace MiNET.Net.Rtc
@@ -116,13 +117,6 @@ namespace MiNET.Net.Rtc
 		// full-size DATA chunk still leaves headroom for a bundled SACK (16 bytes plus up to 16 bytes of
 		// gap blocks) in the same packet.
 		private const int FragmentThreshold = 1024;
-
-		// The send-side queue budget (bytes of payload resident - queued plus in-flight, not yet
-		// cumulatively acked - across the whole association): the cap on how many bytes a stalled or
-		// slow peer can pin in one association's send queue, and therefore this association's
-		// worst-case resident memory. A send that would push the queue past this budget is refused
-		// (SctpSendQueue.HasRoomFor); callers needing a different budget pass their own value.
-		private const uint DefaultSendQueueBudgetBytes = 4_194_304;
 
 		// An inbound FORWARD-TSN's pair count is already implicitly bounded by SctpPacket.MaxSize (about
 		// 290 pairs' worth fits at all), but HandleForwardTsn's stackalloc sizes stack space straight from
@@ -336,14 +330,14 @@ namespace MiNET.Net.Rtc
 			}
 		}
 
-		public SctpAssociation(bool isClient, ushort sctpPort, uint arwndBudget, PacketSender sendPacket, uint sendQueueBudgetBytes = DefaultSendQueueBudgetBytes)
+		public SctpAssociation(bool isClient, ushort sctpPort, uint arwndBudget, PacketSender sendPacket)
 		{
 			_isClient = isClient;
 			_sctpPort = sctpPort;
 			_arwndBudget = arwndBudget;
 			_sendPacket = sendPacket;
 			_receiveBuffer = new SctpReceiveBuffer(arwndBudget);
-			_sendQueue = new SctpSendQueue(sendQueueBudgetBytes);
+			_sendQueue = new SctpSendQueue();
 		}
 
 		/// <summary>Test visibility only: budget minus buffered bytes, what the next outgoing SACK would carry as a_rwnd.</summary>
@@ -512,19 +506,22 @@ namespace MiNET.Net.Rtc
 		///     Queues <paramref name="message" /> for delivery on <paramref name="streamId" />, fragmenting
 		///     it above <see cref="FragmentThreshold" /> bytes into consecutive-TSN, one-streamSeq B/middle/E
 		///     chunks, and flushes whatever the current send window (<c>min(peer a_rwnd, cwnd)</c>) allows
-		///     right away. Returns false, never blocking, when the association is not
-		///     <see cref="SctpState.Established" /> or the send-queue budget is already spent by
-		///     already-queued data (the caller's problem: back off and retry, this is not itself a
-		///     transport error). <paramref name="maxRetransmits" /> negative means fully reliable; a
-		///     non-negative value is the partial-reliability budget (RFC 3758) before this message's
-		///     remaining unacked chunks are abandoned and FORWARD-TSN carries the peer past them.
+		///     right away. Returns false, never blocking, only when the association is not
+		///     <see cref="SctpState.Established" />: a queued message is never refused and never dropped
+		///     for lack of space. There is deliberately no send-queue budget here - see
+		///     <see cref="HasSendRoom" />: the caller that produces bulk data (the session send lane) is
+		///     the queue, parks on the window signal, and feeds this only what the windows will soon
+		///     carry, so resident bytes stay near one windowful without a second cap that could disagree
+		///     with the windows - and a cap could only ever act by dropping, which on a reliable stream
+		///     poisons everything after the hole. <paramref name="maxRetransmits" /> negative means fully
+		///     reliable; a non-negative value is the partial-reliability budget (RFC 3758) before this
+		///     message's remaining unacked chunks are abandoned and FORWARD-TSN carries the peer past them.
 		/// </summary>
 		public bool Send(ushort streamId, uint ppid, ReadOnlySpan<byte> message, bool unordered, int maxRetransmits)
 		{
 			lock (_gate)
 			{
 				if (_state != SctpState.Established) return false;
-				if (!_sendQueue.HasRoomFor((uint) message.Length)) return false;
 
 				ushort streamSeq = 0;
 				if (!unordered)
@@ -550,6 +547,68 @@ namespace MiNET.Net.Rtc
 				Flush();
 				return true;
 			}
+		}
+
+		// Null whenever nobody is parked on the window, which is the overwhelmingly common state:
+		// signaling then costs one interlocked null-exchange and allocates nothing, per the same
+		// fleet-scale lesson the packet ObjectPool encodes (SACKs arrive tens of thousands of times
+		// a second; a fresh signal object per SACK would be pure gen0 confetti). A waiter installs
+		// the instance in WhenSendRoom; the next signal consumes it. RunContinuationsAsynchronously
+		// is what makes completing it under _gate safe: continuations are scheduled to the pool,
+		// never run inline on the completing (lock-holding) thread.
+		private TaskCompletionSource _sendRoomSignal;
+
+		private static TaskCompletionSource NewSendRoomSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		/// <summary>
+		///     Whether the send lane should hand this association another message now: resident payload
+		///     (queued plus in-flight, not yet cumulatively acked) is below the current send window
+		///     (<c>min(peer a_rwnd, cwnd)</c>), so more data would actually move toward the wire rather
+		///     than sit resident. This is advice for the one bulk producer (the session send lane), not a
+		///     gate <see cref="Send" /> enforces: small control traffic (DCEP, SACK-riding sends) never
+		///     consults it, and a check-then-send race can overshoot by at most the one message the lane
+		///     holds, by design. On any state but <see cref="SctpState.Established" /> this reports true
+		///     so a caller never parks against a dead association: its next <see cref="Send" /> fails
+		///     fast instead.
+		/// </summary>
+		public bool HasSendRoom
+		{
+			get
+			{
+				lock (_gate)
+				{
+					if (_state != SctpState.Established) return true;
+					return _sendQueue.QueuedBytes < Math.Min(_peerArwnd, _sendQueue.Cwnd);
+				}
+			}
+		}
+
+		/// <summary>
+		///     A task that completes when the send window may have opened (or the association tore down,
+		///     so waiting is pointless). Level-triggered, subscribe-then-check: obtain the task FIRST,
+		///     then re-check <see cref="HasSendRoom" /> before awaiting, or a signal landing between the
+		///     check and the subscribe is lost until the caller's own timeout backstop. Wakes can be
+		///     spurious (any accepted SACK completes it); every path that frees queue bytes or kills the
+		///     association signals.
+		/// </summary>
+		public Task WhenSendRoom()
+		{
+			TaskCompletionSource signal = Volatile.Read(ref _sendRoomSignal);
+			if (signal == null)
+			{
+				TaskCompletionSource fresh = NewSendRoomSignal();
+				signal = Interlocked.CompareExchange(ref _sendRoomSignal, fresh, null) ?? fresh;
+			}
+
+			return signal.Task;
+		}
+
+		private void SignalSendRoom()
+		{
+			// Null means nobody parked since the last signal: one interlocked exchange, no
+			// allocation, nothing scheduled. The installed instance is consumed, not replaced, so
+			// the next signal on an idle association is free again.
+			Interlocked.Exchange(ref _sendRoomSignal, null)?.TrySetResult();
 		}
 
 		/// <summary>
@@ -592,7 +651,9 @@ namespace MiNET.Net.Rtc
 
 				// The 200ms SACK fallback (RFC 4960 6.2): role-agnostic, unlike the handshake retransmit
 				// above, since either side of an established association can be sitting on unacked DATA.
-				if (_sackTimerArmed && Environment.TickCount64 - _sackTimerArmedAtTicks >= SackDelayMillis)
+				// Since the piggyback change this is the only path a standalone in-order SACK leaves by,
+				// so it runs on the fakeable clock seam: tests drive the delayed path deterministically.
+				if (_sackTimerArmed && ClockNowMillis() - _sackTimerArmedAtTicks >= SackDelayMillis)
 				{
 					SendSackPacket();
 					_dataPacketsSinceSack = 0;
@@ -878,6 +939,11 @@ namespace MiNET.Net.Rtc
 
 			MaybeSendForwardTsn();
 			Flush();
+
+			// Any accepted SACK can have freed queue bytes (cum-ack advance) or grown the window
+			// (a_rwnd update), so the parked send lane gets a wake to re-check HasSendRoom. Safe
+			// under _gate: the signal's continuations are scheduled, never run inline.
+			SignalSendRoom();
 		}
 
 		/// <summary>
@@ -1038,6 +1104,12 @@ namespace MiNET.Net.Rtc
 			else _receiveBuffer.Reset(_peerInitialTsn);
 
 			_sackTimerArmed = false;
+
+			// A send lane parked on the window signal would otherwise wait on a window that can never
+			// open again; the wake makes it re-check, see the association is gone (HasSendRoom reports
+			// true off-Established precisely for this), and fail its next Send fast instead.
+			SignalSendRoom();
+
 			return reason;
 		}
 
@@ -1287,24 +1359,31 @@ namespace MiNET.Net.Rtc
 		{
 			if (_state != SctpState.Established) return;
 
-			bool sendNow = immediateSackRequested || _receiveBuffer.HasGap;
-
-			if (!sendNow)
-			{
-				_dataPacketsSinceSack++;
-				sendNow = _dataPacketsSinceSack >= 2;
-			}
-
-			if (sendNow)
+			// The two load-bearing immediate cases keep their standalone datagram: a gap means loss
+			// just happened and the sender's retransmit machinery needs to hear it now, and the
+			// I-bit is the sender explicitly asking. Everything else is an ack that can ride.
+			if (immediateSackRequested || _receiveBuffer.HasGap)
 			{
 				SendSackPacket();
 				_dataPacketsSinceSack = 0;
 				_sackTimerArmed = false;
+				return;
 			}
-			else if (!_sackTimerArmed)
+
+			_dataPacketsSinceSack++;
+
+			// An in-order ack never pays its own datagram: it is armed as owed, and Flush bundles
+			// an armed SACK into the first outbound packet it sends, which at steady state (a move
+			// broadcast at most one tick away) means the ack rides existing traffic as a few bytes
+			// instead of costing a standalone compose+encrypt+sendto per second data packet - the
+			// same economics as RakNet batching its ACKs onto the tick. OnTick's 200ms fallback
+			// (RFC 4960 6.2's outer bound) transmits standalone only when nothing outbound showed
+			// up to carry it, which also self-limits a one-way inbound flood: the peer's own cwnd
+			// stalls until the fallback acks, exactly like a delayed-ack TCP receiver.
+			if (!_sackTimerArmed)
 			{
 				_sackTimerArmed = true;
-				_sackTimerArmedAtTicks = Environment.TickCount64;
+				_sackTimerArmedAtTicks = ClockNowMillis();
 			}
 		}
 

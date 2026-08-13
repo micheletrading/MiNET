@@ -29,6 +29,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using log4net;
 
 namespace MiNET.Net.Rtc
@@ -67,8 +68,14 @@ namespace MiNET.Net.Rtc
 		/// <summary>-1 means fully reliable; a non-negative value is the RFC 3758 partial-reliability retransmit budget, passed straight through to <see cref="SctpAssociation.Send" />.</summary>
 		public int MaxRetransmits { get; }
 
-		/// <summary>True once negotiation completed: immediately for an inbound channel (RFC 8832: the OPEN receiver may use the channel right away), or once the peer's ACK arrives for an outbound one.</summary>
+			/// <summary>True once negotiation completed: immediately for an inbound channel (RFC 8832: the OPEN receiver may use the channel right away), or once the peer's ACK arrives for an outbound one.</summary>
 		public bool IsOpen { get; private set; }
+
+		/// <summary>Passthrough to <see cref="SctpAssociation.HasSendRoom" />: whether a bulk producer (the session send lane) should hand this channel another message now, or park on <see cref="WhenSendRoom" /> first. Advice for pacing, not a gate <see cref="Send" /> enforces.</summary>
+		public bool HasSendRoom => _association.HasSendRoom;
+
+		/// <summary>Passthrough to <see cref="SctpAssociation.WhenSendRoom" />: completes when the send window may have opened (or the association tore down). Level-triggered: re-check <see cref="HasSendRoom" /> after every wake.</summary>
+		public Task WhenSendRoom() => _association.WhenSendRoom();
 
 		/// <summary>
 		///     RFC 8832 6 MUST: "the sending side MUST NOT send messages out of order until the
@@ -115,9 +122,12 @@ namespace MiNET.Net.Rtc
 		///     zero-length SCTP DATA chunk, so it is sent as a single zero byte under the matching -empty
 		///     PPID instead (RFC 8831 3.2); the peer's <see cref="RtcChannelManager" /> reconstructs it back
 		///     to an empty sequence on arrival, this padding byte never reaches a consumer's
-		///     <see cref="OnMessage" />. A failed send (association not established, or its send-queue
-		///     budget exhausted) is dropped and logged, matching this method's fixed <see langword="void" />
-		///     signature: the caller has no return value to inspect.
+		///     <see cref="OnMessage" />. The one way a send fails is the association not being
+		///     <see cref="SctpState.Established" /> (never negotiated, or already torn down) - logged and
+		///     dropped, matching this method's fixed <see langword="void" /> signature. An established
+		///     association never refuses a message: there is no send budget (see
+		///     <see cref="SctpAssociation.Send" />), and a slow peer surfaces as
+		///     <see cref="HasSendRoom" /> going false for the producer to pace on, never as loss.
 		///     <para>
 		///     Two different rules govern how a message rides the wire before this channel's own
 		///     pre-negotiation window ends (<see cref="_canUseNegotiatedSemantics" />), and they are NOT the
@@ -160,7 +170,7 @@ namespace MiNET.Net.Rtc
 				sent = _association.Send(StreamId, ppid, data, unordered, maxRetransmits);
 			}
 
-			if (!sent) Log.Warn($"RtcDataChannel '{Label}' (stream {StreamId}): send dropped (association not established, or send-queue budget exhausted).");
+			if (!sent) Log.Warn($"RtcDataChannel '{Label}' (stream {StreamId}): send dropped, association not established (never negotiated, or already torn down).");
 		}
 
 		/// <summary>Called by <see cref="RtcChannelManager" /> for every inbound message on this channel's stream: derives <c>isString</c>/emptiness from <paramref name="ppid" /> and hands <paramref name="message" /> to <see cref="OnMessage" /> unchanged (zero-copy) for the non-empty case, per this codebase's established sequence-validity-during-the-callback contract. Also ends <see cref="Send" />'s pre-negotiation window: RFC 8832 6's MUST is scoped to "until a DATA_CHANNEL_ACK message, or any message, has been received on the channel" - inbound traffic on this stream is proof the peer has already processed the OPEN, exactly like an ACK is.</summary>

@@ -28,7 +28,6 @@ using System.Buffers;
 using System.IO;
 using System.IO.Compression;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 
 namespace MiNET.Utils.IO
 {
@@ -57,8 +56,8 @@ namespace MiNET.Utils.IO
 			batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 
 			// Post-1.19.30 wrapper payloads carry a leading compressor-id byte, written by
-			// CompressIntoPooledStream. This path runs only after compression is negotiated.
-			batch.SetPayload(Compression.CompressIntoPooledStream(input, writeLen, input.Length > 1000 ? compressionLevel : CompressionLevel.NoCompression));
+			// CompressIntoPooledStream, which also owns the compress-or-raw threshold rule.
+			batch.SetPayload(Compression.CompressIntoPooledStream(input, writeLen, compressionLevel));
 
 			batch.EncodeAsMemory(); // prepare
 			return batch;
@@ -74,7 +73,7 @@ namespace MiNET.Utils.IO
 			var batch = McpeWrapper.CreateObject();
 			batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 
-			batch.SetPayload(Compression.CompressIntoPooledStream(input, writeLen, input.Length > 1000 ? compressionLevel : CompressionLevel.NoCompression));
+			batch.SetPayload(Compression.CompressIntoPooledStream(input, writeLen, compressionLevel));
 
 			batch.EncodeAsMemory(); // prepare
 			return batch;

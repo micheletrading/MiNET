@@ -446,13 +446,16 @@ namespace MiNET.Test.Rtc
 			}
 
 			bool allOk = true;
-			long before = GC.GetTotalAllocatedBytes(precise: true);
+			// Per-thread, not process-wide: the loop is fully synchronous on this thread, and the
+			// suite runs test classes in parallel, so a process-wide bracket would count some
+			// unrelated class's allocations and fail this test for a neighbor's garbage.
+			long before = GC.GetAllocatedBytesForCurrentThread();
 			for (int i = 0; i < 10000; i++)
 			{
 				int len = client.EncryptRecord(ApplicationData, payload, wire);
 				allOk &= server.TryDecryptRecord(wire.Slice(0, len), plaintext, out _, out _);
 			}
-			long after = GC.GetTotalAllocatedBytes(precise: true);
+			long after = GC.GetAllocatedBytesForCurrentThread();
 
 			Assert.IsTrue(allOk, "expected every one of the 10k records to decrypt successfully");
 			Assert.AreEqual(0, after - before, "expected zero heap allocation across 10k encrypt+decrypt cycles");

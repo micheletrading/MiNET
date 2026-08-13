@@ -33,7 +33,6 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Net;
 using MiNET.Net.NetherNet;
-using MiNET.Net.RakNet;
 using MiNET.Net.Rtc;
 
 namespace MiNET.Test.NetherNet

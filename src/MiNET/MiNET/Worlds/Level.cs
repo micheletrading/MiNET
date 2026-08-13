@@ -43,7 +43,6 @@ using MiNET.Entities.Passive;
 using MiNET.Entities.World;
 using MiNET.Items;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Sounds;
 using MiNET.Utils;
 using MiNET.Utils.Diagnostics;
@@ -385,8 +384,8 @@ namespace MiNET.Worlds
 				roster.AddRange(others);
 
 
-				// Encoded and compressed here, on this thread, so the RakNet ticker that services
-				// every session has nothing to do but ship bytes. It still keeps its place in the
+				// Encoded and compressed here, on this thread, so the send lane that services
+				// the session has nothing to do but ship bytes. It still keeps its place in the
 				// sequence: PrepareSend closes the pending batch before it queues a finished wrapper.
 				// That order is not cosmetic. A roster that overtakes StartGame is dropped, and the
 				// joining player then sees the others in the world with no rows in the player list.
@@ -394,8 +393,13 @@ namespace MiNET.Worlds
 				// Assembled from each player's cached record slices as a segment chain, compressed
 				// straight from the chain: a full roster costs three pointer segments per player
 				// instead of a re-serialization of every record, and the contiguous multi-megabyte
-				// encode a large roster used to require never exists.
-				newPlayer.SendPacket(CreateMcpeBatch(PlayerListRosterBuilder.BuildAdded(roster)));
+				// encode a large roster used to require never exists. Batched because the client
+				// refuses a player list past 1000 records (see MaxRecordsPerPacket) with a packet
+				// violation that kills the connection.
+				foreach (ReadOnlySequence<byte> rosterBatch in PlayerListRosterBuilder.BuildAddedBatches(roster))
+				{
+					newPlayer.SendPacket(CreateMcpeBatch(rosterBatch));
+				}
 
 				// One record, the joiner, to everyone already connected. This is how another client
 				// learns their skin, so it cannot be skipped: AddPlayer below only references the
@@ -760,16 +764,6 @@ namespace MiNET.Worlds
 				// Send player movements
 				BroadCastMovement(players, entities);
 
-				//TODO: We don't want to trigger sending here. But right now
-				// it seems better for performance since the send-tick is one for all
-				// sessions, so we need to refactor that first.
-				var tasks = new List<Task>();
-				foreach (Player player in players)
-				{
-					if (player.NetworkHandler is RakSession session) tasks.Add(session.SendQueueAsync());
-				}
-				Task.WhenAll(tasks).Wait();
-
 				if (Log.IsDebugEnabled && _tickTimer.ElapsedMilliseconds >= 50) Log.Error($"World tick too too long: {_tickTimer.ElapsedMilliseconds} ms");
 			}
 			catch (Exception e)
@@ -862,6 +856,12 @@ namespace MiNET.Worlds
 		private DateTime _lastSendTime = DateTime.UtcNow;
 		private DateTime _lastBroadcast = DateTime.UtcNow;
 
+		// One identity per level for the move roster's CoalesceKey: every roster batch wholly
+		// supersedes the previous one (it carries fresh positions for every mover), so a send lane
+		// that still holds two may drop the older unsent. Per level, not global, so two levels'
+		// rosters can never supersede each other in a lane serving a player mid-transfer.
+		private readonly object _moveRosterCoalesceKey = new object();
+
 		protected virtual void BroadCastMovement(Player[] players, Entity[] entities)
 		{
 			DateTime now = DateTime.UtcNow;
@@ -937,9 +937,14 @@ namespace MiNET.Worlds
 				//McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(stream.GetBuffer(), 0, (int) stream.Length), CompressionLevel.Optimal, false);
 				var batch = McpeWrapper.CreateObject(players.Length);
 				batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
+				batch.CoalesceKey = _moveRosterCoalesceKey;
 				batch.SetPayload(Compression.CompressPacketsForWrapper(movePackets));
 				batch.EncodeAsMemory();
-				foreach (Player player in players) MiNetServer.FastThreadPool.QueueUserWorkItem(() => player.SendPacket(batch));
+
+				// Inline on the tick thread: SendPacket only enqueues (NetherNetSession's send lane
+				// does the transport work), so a work item per recipient buys no parallelism and
+				// costs an allocation and a pool dispatch each.
+				foreach (Player player in players) player.SendPacket(batch);
 				_lastBroadcast = DateTime.UtcNow;
 			}
 		}

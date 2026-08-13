@@ -255,44 +255,17 @@ namespace MiNET.Client
 				Console.WriteLine($"Authenticated as {client.XboxIdentity.DisplayName}");
 			}
 
-			// MINET_TRANSPORT=nethernet dials over WebRTC instead of RakNet. There is no offline
-			// ping and no connection handshake on that path: signaling is one HTTP round trip and
-			// the data channel opening is the connection.
-			bool netherNet = Environment.GetEnvironmentVariable("MINET_TRANSPORT") == "nethernet";
+			// There is no offline ping and no connection handshake on NetherNet: signaling is one
+			// HTTP round trip and the data channel opening is the connection.
+			Console.WriteLine($"Connecting over NetherNet to {client.ServerEndPoint} ...");
 
-			if (netherNet)
+			if (!client.ConnectNetherNetAsync().GetAwaiter().GetResult())
 			{
-				Console.WriteLine($"Connecting over NetherNet to {client.ServerEndPoint} ...");
-
-				if (!client.ConnectNetherNetAsync().GetAwaiter().GetResult())
-				{
-					Console.WriteLine("Failed to connect over NetherNet");
-					return;
-				}
-
-				Console.WriteLine("NetherNet data channel open, logging in ...");
+				Console.WriteLine("Failed to connect over NetherNet");
+				return;
 			}
-			else
-			{
-				client.StartClient();
-				Log.Warn("Client listening for connecting on: " + client.ClientEndpoint);
 
-				Console.WriteLine("Looking for server...");
-
-				if (!client.Connection.TryLocate(client.ServerEndPoint, out (IPEndPoint serverEndPoint, string serverName) info))
-				{
-					Console.WriteLine($"Failed to locate server at {client.ServerEndPoint}");
-					return;
-				}
-
-				Console.WriteLine($"... YEAH! FOUND SERVER! It's at {info.serverEndPoint}, \"{info.serverName}\"");
-
-				if (!client.Connection.TryConnect(info.serverEndPoint))
-				{
-					Console.WriteLine($"Failed to connect to server at {info.serverEndPoint}");
-					return;
-				}
-			}
+			Console.WriteLine("NetherNet data channel open, logging in ...");
 
 			Console.WriteLine("Waiting for spawn...");
 			client.PlayerStatusChangedWaitHandle.WaitOne();
@@ -427,15 +400,14 @@ namespace MiNET.Client
 			int shuttingDown = 0;
 
 			// The same leave the client does on <Enter>, reachable from a signal so a run with no
-			// console still says goodbye. Without it the server only notices on the RakNet timeout,
-			// which leaves the player standing in the world for another half minute. Idempotent
-			// because several of the hooks below can fire for one stop.
+			// console still says goodbye: closing the session is the goodbye on NetherNet (the
+			// transport teardown tells the server), where an outright kill costs the server its
+			// inactivity timeout instead. Idempotent because several of the hooks below can fire
+			// for one stop.
 			void Shutdown()
 			{
 				if (Interlocked.Exchange(ref shuttingDown, 1) != 0) return;
 
-				if (client.IsConnected) client.SendDisconnectionNotification();
-				Thread.Sleep(50);
 				client.StopClient();
 				stopped.Set();
 			}

@@ -303,10 +303,29 @@ namespace MiNET.Test.Rtc
 				serverClosed.TrySetResult(true);
 			};
 
+			SctpState? stateBeforeShutdown = server.AssociationState;
+			long ignoredBeforeShutdown = server.AssociationIgnoredPacketCount;
+
 			byte[] shutdownPacket = BuildShutdownPacket(server.Association.LocalVerificationTag);
 			server.Association.OnPacketReceived(shutdownPacket);
 
-			Assert.IsTrue(await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(30)), "server's OnTransportClosed never fired after receiving SHUTDOWN");
+			// The forward chain is synchronous on this thread (OnPacketReceived -> Teardown ->
+			// OnAborted -> RaiseTransportClosed), so a timeout here means the SHUTDOWN was dropped or
+			// the once-only raise guard was consumed before this test subscribed. This test has timed
+			// out in full-suite runs without ever reproducing solo, so on timeout it reports the
+			// state that discriminates those causes instead of a bare TimeoutException.
+			try
+			{
+				await serverClosed.Task.WaitAsync(TimeSpan.FromSeconds(30));
+			}
+			catch (TimeoutException)
+			{
+				Assert.Fail(
+					"server's OnTransportClosed never fired after receiving SHUTDOWN. " +
+					$"State before SHUTDOWN: {stateBeforeShutdown}, after: {server.AssociationState}; " +
+					$"association ignored-packet count before: {ignoredBeforeShutdown}, after: {server.AssociationIgnoredPacketCount}.");
+			}
+
 			Assert.AreEqual(SctpState.Aborted, server.AssociationState);
 
 			await Task.Delay(TimeSpan.FromMilliseconds(200));
@@ -333,6 +352,17 @@ namespace MiNET.Test.Rtc
 			(RtcPeer client, RtcPeer server) = await ConnectAsync(offererMux, answererMux);
 			using var clientDisposable = client;
 			using var serverDisposable = server;
+
+			// ConnectAsync gates only on DTLS; the SCTP handshake rides real loopback UDP after it.
+			// This test's whole premise is "the DTLS closes while the association is Established and
+			// untouched", so the handshake must actually have finished before the close_notify goes
+			// out - disposing earlier just races it, and the assertion below would then measure the
+			// race, not the poll path it exists to prove.
+			for (int i = 0; i < 200 && (client.AssociationState != SctpState.Established || server.AssociationState != SctpState.Established); i++)
+			{
+				await Task.Delay(10);
+			}
+			Assert.AreEqual(SctpState.Established, server.AssociationState, "the SCTP handshake never completed after the transport came up");
 
 			int serverClosedCount = 0;
 			var serverClosed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -29,7 +29,6 @@
 //
 
 using System;
-using MiNET.Net.RakNet;
 
 namespace MiNET.Net
 {
@@ -897,38 +896,10 @@ namespace MiNET.Net
 			{
 				switch (messageId)
 				{
-					case 0x00:
-						return ConnectedPing.CreateObject().Decode(buffer);
 					case 0x01:
 						return UnconnectedPing.CreateObject().Decode(buffer);
-					case 0x03:
-						return ConnectedPong.CreateObject().Decode(buffer);
-					case 0x04:
-						return DetectLostConnections.CreateObject().Decode(buffer);
 					case 0x1c:
 						return UnconnectedPong.CreateObject().Decode(buffer);
-					case 0x05:
-						return OpenConnectionRequest1.CreateObject().Decode(buffer);
-					case 0x06:
-						return OpenConnectionReply1.CreateObject().Decode(buffer);
-					case 0x07:
-						return OpenConnectionRequest2.CreateObject().Decode(buffer);
-					case 0x08:
-						return OpenConnectionReply2.CreateObject().Decode(buffer);
-					case 0x09:
-						return ConnectionRequest.CreateObject().Decode(buffer);
-					case 0x10:
-						return ConnectionRequestAccepted.CreateObject().Decode(buffer);
-					case 0x13:
-						return NewIncomingConnection.CreateObject().Decode(buffer);
-					case 0x14:
-						return NoFreeIncomingConnections.CreateObject().Decode(buffer);
-					case 0x15:
-						return DisconnectionNotification.CreateObject().Decode(buffer);
-					case 0x17:
-						return ConnectionBanned.CreateObject().Decode(buffer);
-					case 0x1A:
-						return IpRecentlyConnected.CreateObject().Decode(buffer);
 					case 0xfe:
 						return McpeWrapper.CreateObject().Decode(buffer);
 				}

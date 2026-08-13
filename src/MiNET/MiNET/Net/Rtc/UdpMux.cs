@@ -85,8 +85,7 @@ namespace MiNET.Net.Rtc
 		// dedicated AboveNormal thread that busy-spins the last stretch of every period, priced for
 		// there being ONE of it: a process running many muxes (a bot fleet, one mux per outgoing
 		// connection) must never multiply it, fifty of them starve a 16-thread box outright. All
-		// subscribed muxes' ticks run serially on this single thread, the same shape RakConnection
-		// uses for all its sessions.
+		// subscribed muxes' ticks run serially on this single thread.
 		private static readonly object SharedTimerLock = new object();
 		private static HighPrecisionTimer _sharedTimer;
 		private static event Action SharedTick;
@@ -121,6 +120,21 @@ namespace MiNET.Net.Rtc
 		public long AdmissionCapDrops => Interlocked.Read(ref _admissionCapDrops);
 
 		public event Action OnTick;
+
+		/// <summary>
+		///     Answers a non-STUN datagram from an unknown endpoint. Returns the reply to send, or
+		///     null to fall through to the drop counter.
+		/// </summary>
+		public delegate byte[] OfflineDatagramHandler(ReadOnlySpan<byte> datagram, IPEndPoint from);
+
+		/// <summary>
+		///     Optional stateless answerer for non-STUN datagrams from unknown endpoints, consulted
+		///     before they are dropped. This is where server-list discovery (the RakNet unconnected
+		///     ping) attaches on a NetherNet-only server; leave null and every such datagram just
+		///     drops, exactly as before. Replies are sent directly, no peer is created and nothing
+		///     counts against the first-contact admission budget.
+		/// </summary>
+		public OfflineDatagramHandler OfflineResponder { get; set; }
 
 		public UdpMux(IPEndPoint bindEndPoint)
 		{
@@ -301,9 +315,21 @@ namespace MiNET.Net.Rtc
 		{
 			// Only a STUN binding request can admit an endpoint we have never seen; ICE always
 			// precedes DTLS, so unsolicited DTLS (or anything else) from an unknown endpoint is
-			// dropped rather than routed anywhere.
+			// dropped rather than routed anywhere. The offline responder gets one look first:
+			// server-list discovery pings arrive exactly here, non-STUN and from strangers.
 			if (data.Length == 0 || data[0] > 3 || !TryParseStun(data, out StunMessage message))
 			{
+				OfflineDatagramHandler responder = OfflineResponder;
+				if (responder != null)
+				{
+					byte[] reply = responder(data, (IPEndPoint) LocalEndPoint.Create(from));
+					if (reply != null)
+					{
+						_socket.SendTo(reply, SocketFlags.None, from);
+						return;
+					}
+				}
+
 				Interlocked.Increment(ref _droppedDatagrams);
 				return;
 			}
@@ -334,7 +360,16 @@ namespace MiNET.Net.Rtc
 			int endpointsForUfrag = _ufragEndpointCounts.TryGetValue(ufrag, out int count) ? count : 0;
 			if (endpointsForUfrag >= MaxEndpointsPerUfrag || Interlocked.Read(ref _admittedEndpointCount) >= MaxUnknownEndpointAdmissions)
 			{
-				Interlocked.Increment(ref _admissionCapDrops);
+				long drops = Interlocked.Increment(ref _admissionCapDrops);
+
+				// A saturated admission budget presents as a healthy server that new clients cannot
+				// reach, so it must say so: loud on the first drop, then once per 1000 to survive a
+				// flood without drowning the log.
+				if (drops == 1 || drops % 1000 == 0)
+				{
+					Log.Warn($"First-contact admission dropped (total {drops}): ufrag has {endpointsForUfrag}/{MaxEndpointsPerUfrag} endpoints, {Interlocked.Read(ref _admittedEndpointCount)}/{MaxUnknownEndpointAdmissions} admissions in use.");
+				}
+
 				return;
 			}
 

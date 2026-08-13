@@ -50,7 +50,6 @@ using MiNET.Entities;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Net.NetherNet;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.IO;
@@ -76,13 +75,8 @@ namespace MiNET.Client
 {
 	public class MiNetClient
 	{
-		private readonly DedicatedThreadPool _threadPool;
 		private static readonly ILog Log = LogManager.GetLogger(typeof(MiNetClient));
 
-		
-		private long _clientGuid;
-
-		public IPEndPoint ClientEndpoint { get; set; }
 		public IPEndPoint ServerEndPoint { get; set; }
 
 		public bool IsEmulator { get; set; }
@@ -108,24 +102,16 @@ namespace MiNET.Client
 			0xae, // McpeSubChunkPacket
 		};
 
-		public RakConnection Connection { get; private set; }
-		public bool FoundServer => Connection.FoundServer;
-
-		/// <summary>The wrapper-level handler for the active connection, whichever transport backs
-		/// it. Exposed so the emulator can flip its post-spawn receive-and-ack-only mode.</summary>
+		/// <summary>The wrapper-level handler for the active connection. Exposed so the emulator
+		/// can flip its post-spawn receive-and-ack-only mode.</summary>
 		public BedrockMessageHandlerBase WrapperHandler { get; private set; }
 
-		// Either transport can back the session. RakNet keeps its own registry; NetherNet hands us
-		// one directly, so that takes precedence when it is set.
-		public INetworkHandler Session => _netherNetSession ?? (INetworkHandler) Connection?.ConnectionInfo.RakSessions.Values.FirstOrDefault();
+		public INetworkHandler Session => _netherNetSession;
 
 		private NetherNetClient _netherNetClient;
 		private NetherNetSession _netherNetSession;
 
-		public bool IsConnected => _netherNetSession != null || RakSession?.State == ConnectionState.Connected;
-
-		/// <summary>The RakNet session when that is the transport, otherwise null.</summary>
-		public RakSession RakSession => Connection?.ConnectionInfo.RakSessions.Values.FirstOrDefault();
+		public bool IsConnected => _netherNetSession != null;
 
 		public Vector3 SpawnPoint { get; set; }
 
@@ -155,7 +141,7 @@ namespace MiNET.Client
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
 
 		/// <summary>
-		///     Overrides the ICustomMessageHandler wired onto the session. MiNET.Tunnel uses this to
+		///     Overrides the ICustomMessageHandler wired onto the session, for callers that need to
 		///     intercept raw frames before client-side dispatch; null keeps the default handler.
 		/// </summary>
 		public Func<INetworkHandler, IMcpeClientMessageHandler, BedrockClientMessageHandler> ClientMessageHandlerFactory { get; set; }
@@ -169,21 +155,16 @@ namespace MiNET.Client
 
 		public McpeClientMessageDispatcher MessageDispatcher
 		{
-			get => throw new NotSupportedException("Use Connection.CustomMessageHandlerFactory instead");
-			set => throw new NotSupportedException("Use Connection.CustomMessageHandlerFactory instead");
+			get => throw new NotSupportedException("Use ClientMessageHandlerFactory instead");
+			set => throw new NotSupportedException("Use ClientMessageHandlerFactory instead");
 		}
 
-		public MiNetClient(IPEndPoint endPoint, string username, DedicatedThreadPool threadPool = null)
+		public MiNetClient(IPEndPoint endPoint, string username)
 		{
-			_threadPool = threadPool;
 			Username = username;
 			ClientId = new Random().Next();
 			ServerEndPoint = endPoint;
 			if (ServerEndPoint != null) Log.Info("Connecting to: " + ServerEndPoint);
-			ClientEndpoint = new IPEndPoint(IPAddress.Any, 0);
-			byte[] buffer = new byte[8];
-			new Random().NextBytes(buffer);
-			_clientGuid = BitConverter.ToInt64(buffer, 0);
 		}
 
 		private static bool _cryptoWarmedUp;
@@ -204,35 +185,10 @@ namespace MiNET.Client
 			sha.ComputeHash(new byte[] {0});
 		}
 
-		public void StartClient()
-		{
-			WarmUpCrypto();
-
-			var greyListManager = new GreyListManager();
-			var motdProvider = new MotdProvider();
-
-			Connection = new RakConnection(ClientEndpoint, greyListManager, motdProvider, _threadPool);
-			var handlerFactory = ClientMessageHandlerFactory?.Invoke(Session, MessageHandler ?? new DefaultMessageHandler(this))
-				?? new BedrockClientMessageHandler(Session, MessageHandler ?? new DefaultMessageHandler(this));
-			handlerFactory.ConnectionAction = () => SendRequestNetworkSettings();
-			if (IsEmulator) handlerFactory.DropPacketIds = EmulatorDropPacketIds;
-			WrapperHandler = handlerFactory;
-			Connection.CustomMessageHandlerFactory = session => handlerFactory;
-
-			//TODO: This is bad design, need to refactor this later.
-			greyListManager.ConnectionInfo = Connection.ConnectionInfo;
-			var serverInfo = Connection.ConnectionInfo;
-			serverInfo.MaxNumberOfPlayers = Config.GetProperty("MaxNumberOfPlayers", 10);
-			serverInfo.MaxNumberOfConcurrentConnects = Config.GetProperty("MaxNumberOfConcurrentConnects", serverInfo.MaxNumberOfPlayers);
-
-			Connection.Start();
-		}
-
 		/// <summary>
-		///     Connects over NetherNet instead of RakNet. Everything above the transport is the same
-		///     code path: the session is an INetworkHandler, the BedrockClientMessageHandler on top of
-		///     it batches and compresses identically, and the login sequence that follows is the one
-		///     the RakNet path runs.
+		///     Connects over NetherNet: the session is an INetworkHandler, the
+		///     BedrockClientMessageHandler on top of it batches and compresses, and the login
+		///     sequence follows from the handler's Connected().
 		/// </summary>
 		public async Task<bool> ConnectNetherNetAsync(CancellationToken cancellationToken = default)
 		{
@@ -250,8 +206,7 @@ namespace MiNET.Client
 
 			_netherNetSession.CustomMessageHandler = handler;
 
-			// RakNet fires this when its connection handshake completes. There is no equivalent here,
-			// because the data channel opening is the connection, so the sequence starts now.
+			// The data channel opening is the connection, so the sequence starts now.
 			handler.ConnectionAction = () => SendRequestNetworkSettings();
 			handler.Connected();
 
@@ -260,11 +215,10 @@ namespace MiNET.Client
 
 		public bool StopClient()
 		{
-			// Either transport may be live; disposing the client closes the session and its socket.
+			// Disposing the client closes the session and its socket.
 			_netherNetClient?.Dispose();
 			_netherNetClient = null;
 			_netherNetSession = null;
-			Connection?.Stop();
 			return true;
 		}
 
@@ -747,63 +701,6 @@ namespace MiNET.Client
 		public ConcurrentDictionary<ChunkCoordinates, ChunkColumn> Chunks { get; } = new ConcurrentDictionary<ChunkCoordinates, ChunkColumn>();
 		public IndentedTextWriter _mobWriter;
 
-		private void SendData(byte[] data, IPEndPoint targetEndpoint)
-		{
-			if (Connection == null) return;
-
-			try
-			{
-				Connection.SendData(data, targetEndpoint);
-			}
-			catch (Exception e)
-			{
-				Log.Debug("Send exception", e);
-			}
-		}
-
-		public void SendUnconnectedPing()
-		{
-			var packet = new UnconnectedPing
-			{
-				pingId = Stopwatch.GetTimestamp() /*incoming.pingId*/,
-				guid = _clientGuid
-			};
-
-			var data = packet.Encode();
-
-			if (ServerEndPoint != null)
-			{
-				SendData(data, ServerEndPoint);
-			}
-			else
-			{
-				SendData(data, new IPEndPoint(IPAddress.Broadcast, 19132));
-			}
-		}
-
-		public void SendConnectedPing()
-		{
-			var packet = new ConnectedPing() {sendpingtime = DateTime.UtcNow.Ticks};
-
-			SendPacket(packet);
-		}
-
-		public void SendConnectedPong(long sendpingtime)
-		{
-			var packet = new ConnectedPong
-			{
-				sendpingtime = sendpingtime,
-				sendpongtime = sendpingtime + 200
-			};
-
-			SendPacket(packet);
-		}
-
-		public void SendOpenConnectionRequest1()
-		{
-			Connection.TryConnect(ServerEndPoint, 1);
-		}
-
 		public void SendPacket(Packet packet)
 		{
 			Session?.SendPacket(packet);
@@ -854,12 +751,6 @@ namespace MiNET.Client
 
 			Session.SendPacket(movePlayerPacket);
 			return Task.CompletedTask;
-		}
-
-
-		public void SendDisconnectionNotification()
-		{
-			SendPacket(new DisconnectionNotification());
 		}
 	}
 }

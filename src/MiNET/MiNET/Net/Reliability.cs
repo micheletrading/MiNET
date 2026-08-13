@@ -23,23 +23,18 @@
 
 #endregion
 
-using MiNET.Net.RakNet;
-
 namespace MiNET.Net
 {
-	public partial class OpenConnectionRequest1
+	public enum Reliability
 	{
-		public short mtuSize;
-
-		partial void AfterEncode()
-		{
-			Write(new byte[mtuSize - _buffer.Position - RakOfflineHandler.UdpHeaderSize]);
-		}
-
-		partial void AfterDecode()
-		{
-			mtuSize = (short) (_reader.Length + RakOfflineHandler.UdpHeaderSize);
-			ReadBytes((int) (_reader.Length - _reader.Position));
-		}
+		Undefined = -1,
+		Unreliable = 0,
+		UnreliableSequenced = 1,
+		Reliable = 2,
+		ReliableOrdered = 3,
+		ReliableSequenced = 4,
+		UnreliableWithAckReceipt = 5,
+		ReliableWithAckReceipt = 6,
+		ReliableOrderedWithAckReceipt = 7
 	}
 }

@@ -25,7 +25,6 @@
 
 using System;
 using log4net;
-using MiNET.Net.RakNet;
 
 namespace MiNET.Net
 {

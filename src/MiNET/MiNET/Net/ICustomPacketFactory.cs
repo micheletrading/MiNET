@@ -23,22 +23,17 @@
 
 #endregion
 
-using System.Collections.Generic;
-using System.Net;
-using System.Threading.Tasks;
+using System;
 
-namespace MiNET.Net.RakNet
+namespace MiNET.Net
 {
-	public interface IPacketSender
+	/// <summary>
+	/// A custom packet factory that can be used to override default parsing by MiNET.
+	/// Used only in advanced scenarios where MiNET doesn't yet implement parsing, or
+	/// have faulty parsing.
+	/// </summary>
+	public interface ICustomPacketFactory
 	{
-		//public Task SendPacketAsync(RakSession session, Packet message);
-		//public Task SendDatagramAsync(RakSession session, Datagram datagram);
-
-		public void SendData(byte[] data, IPEndPoint targetEndPoint);
-		public Task SendDataAsync(byte[] data, IPEndPoint targetEndPoint);
-		public Task SendDataAsync(byte[] data, int length, IPEndPoint targetEndPoint);
-		public Task SendPacketAsync(RakSession session, Packet message);
-		public Task SendPacketAsync(RakSession session, List<Packet> message);
-		void Close(RakSession session);
+		public Packet Create(int messageId, ReadOnlyMemory<byte> buffer, string ns);
 	}
 }

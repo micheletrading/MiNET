@@ -54,6 +54,7 @@ namespace MiNET.Test
 		private const int _loops = 10_000_000;
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring encode performance.")]
 		public void McpePlayStatus_encode_perf_test()
 		{
 			long totalAllocatedBytes = GC.GetTotalMemory(true);
@@ -72,6 +73,7 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring encode performance.")]
 		public void McpePlayStatus_pooled_encode_perf_test()
 		{
 			long totalAllocatedBytes = GC.GetTotalMemory(true);
@@ -89,6 +91,7 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring encode performance.")]
 		public void McpePlayStatus_parallel_encode_perf_test()
 		{
 			byte[] result = new byte[0];
@@ -113,6 +116,7 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring stream pooling.")]
 		public void Collections_perf_test()
 		{
 			var streamManager = new RecyclableMemoryStreamManager();
@@ -134,6 +138,7 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 1500-iteration worst-case chunk encode timing with no assertions. Run manually when measuring chunk encoding.")]
 		public void McpeFullChunk_worst_case_encode_test()
 		{
 			int numberOfSubChunks = 16;

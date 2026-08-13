@@ -46,7 +46,7 @@ namespace MiNET
 
 		// The layer above the transport: batching, compression and encryption. Both transports own
 		// one, and callers need to reach it without knowing which transport they are on.
-		Net.RakNet.ICustomMessageHandler CustomMessageHandler { get; set; }
+		Net.ICustomMessageHandler CustomMessageHandler { get; set; }
 
 		void Close();
 

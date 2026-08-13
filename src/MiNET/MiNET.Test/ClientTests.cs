@@ -47,12 +47,11 @@ namespace MiNET.Test
 
 			var endpoint = new IPEndPoint(address, port);
 
-			var client = new MiNetClient(endpoint, username, new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
+			var client = new MiNetClient(endpoint, username);
 			var scraper = new DataScraperTraceHandler(client);
 			client.MessageHandler = new DataScraperTraceHandler(client);
 
-			client.StartClient();
-			client.SendOpenConnectionRequest1();
+			Assert.IsTrue(client.ConnectNetherNetAsync().GetAwaiter().GetResult(), "could not connect over NetherNet");
 
 			while(!scraper.Finished)
 			{
