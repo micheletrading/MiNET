@@ -361,7 +361,16 @@ namespace MiNET.Net.Rtc
 			int endpointsForUfrag = _ufragEndpointCounts.TryGetValue(ufrag, out int count) ? count : 0;
 			if (endpointsForUfrag >= MaxEndpointsPerUfrag || Interlocked.Read(ref _admittedEndpointCount) >= MaxUnknownEndpointAdmissions)
 			{
-				Interlocked.Increment(ref _admissionCapDrops);
+				long drops = Interlocked.Increment(ref _admissionCapDrops);
+
+				// A saturated admission budget presents as a healthy server that new clients cannot
+				// reach, so it must say so: loud on the first drop, then once per 1000 to survive a
+				// flood without drowning the log.
+				if (drops == 1 || drops % 1000 == 0)
+				{
+					Log.Warn($"First-contact admission dropped (total {drops}): ufrag has {endpointsForUfrag}/{MaxEndpointsPerUfrag} endpoints, {Interlocked.Read(ref _admittedEndpointCount)}/{MaxUnknownEndpointAdmissions} admissions in use.");
+				}
+
 				return;
 			}
 

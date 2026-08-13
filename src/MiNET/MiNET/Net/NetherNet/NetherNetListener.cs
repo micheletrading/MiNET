@@ -217,11 +217,27 @@ namespace MiNET.Net.NetherNet
 			_certificate = null;
 		}
 
+		// Sweep reentrancy guard: System.Threading.Timer fires on schedule regardless of whether
+		// the previous callback finished, and a sweep pass tearing down a large batch of dead
+		// sessions takes real time (each close runs the full player disconnect). Overlapping
+		// passes once stacked dozens of blocked pool threads and starved every joining player's
+		// login (the 85-bot loss, 2026-08-13); a pass that finds the previous one still running
+		// simply yields to it.
+		private int _sweeping;
+
 		/// <summary>One timer callback covers both liveness backstops: a live session gone silent, and a negotiation that never attached one at all. Both run off the same clock, so one timer serves both.</summary>
 		private void Sweep()
 		{
-			SweepInactiveSessions();
-			SweepExpiredPendingPeers();
+			if (Interlocked.Exchange(ref _sweeping, 1) != 0) return;
+			try
+			{
+				SweepInactiveSessions();
+				SweepExpiredPendingPeers();
+			}
+			finally
+			{
+				_sweeping = 0;
+			}
 		}
 
 		/// <summary>
