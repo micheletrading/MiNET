@@ -218,18 +218,49 @@ namespace MiNET.Test.Rtc
 			}
 		}
 
-		/// <summary>BC protects a record with its own stack; we decrypt it with nothing but the engine-reported keys.</summary>
+		/// <summary>
+		///     BC protects a record with its own stack; we decrypt it with nothing but the engine-reported
+		///     keys.
+		///     <para>
+		///     Searches for the epoch-1 application-data record rather than asserting on whatever arrives
+		///     first. <see cref="PumpUntilComplete" /> stops the instant the engine reports complete, which
+		///     can leave BC's last handshake flight - or a retransmission of it - still sitting in
+		///     <paramref name="toFast" />; taking that datagram and asserting it is application data is a
+		///     race the test lost only when a full-suite run changed the thread timing, never solo. A
+		///     datagram may also carry several records, so this walks records within one, not just across
+		///     datagrams.
+		///     </para>
+		/// </summary>
 		private static byte[] ReceiveThroughFastKeys(DtlsTransport bcTransport, BlockingCollection<byte[]> toFast, byte[] bcWriteKey, byte[] bcWriteSalt)
 		{
 			bcTransport.Send(ProbePayload, 0, ProbePayload.Length);
-			Assert.IsTrue(toFast.TryTake(out byte[] datagram, 3000), "no record arrived from BC");
-			bool headerOk = DtlsRecords.TryReadHeader(datagram, out ContentType type, out ushort epoch, out ulong seq48, out int payloadLength);
-			Assert.IsTrue(headerOk && type == ContentType.ApplicationData && epoch == 1, "BC record is not epoch-1 application data");
+
 			using var cipher = new RecordCipher(bcWriteKey, bcWriteSalt);
-			byte[] plaintext = new byte[payloadLength];
-			int n = cipher.Decrypt(epoch, seq48, type, datagram.AsSpan(DtlsRecords.HeaderLength, payloadLength), plaintext);
-			Assert.IsTrue(n >= 0, "BC record failed to decrypt under the engine-reported keys");
-			return plaintext.AsSpan(0, n).ToArray();
+			var deadline = Stopwatch.StartNew();
+
+			while (deadline.ElapsedMilliseconds < 5000)
+			{
+				if (!toFast.TryTake(out byte[] datagram, 250)) continue;
+
+				int offset = 0;
+				while (offset < datagram.Length &&
+					DtlsRecords.TryReadHeader(datagram.AsSpan(offset), out ContentType type, out ushort epoch, out ulong seq48, out int payloadLength) &&
+					offset + DtlsRecords.HeaderLength + payloadLength <= datagram.Length)
+				{
+					if (type == ContentType.ApplicationData && epoch == 1)
+					{
+						byte[] plaintext = new byte[payloadLength];
+						int n = cipher.Decrypt(epoch, seq48, type, datagram.AsSpan(offset + DtlsRecords.HeaderLength, payloadLength), plaintext);
+						Assert.IsTrue(n >= 0, "BC record failed to decrypt under the engine-reported keys");
+						return plaintext.AsSpan(0, n).ToArray();
+					}
+
+					offset += DtlsRecords.HeaderLength + payloadLength;
+				}
+			}
+
+			Assert.Fail("no epoch-1 application data record arrived from BC within 5s");
+			return null;
 		}
 
 		/// <summary>We protect a record with nothing but the engine-reported keys; BC's stack must accept it.</summary>

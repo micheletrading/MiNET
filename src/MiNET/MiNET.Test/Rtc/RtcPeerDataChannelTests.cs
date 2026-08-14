@@ -29,6 +29,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -302,6 +303,20 @@ namespace MiNET.Test.Rtc
 				Interlocked.Increment(ref serverClosedCount);
 				serverClosed.TrySetResult(true);
 			};
+
+			// ConnectAsync returns once the CLIENT side is usable; the server's own association reaches
+			// Established a moment later, and a SHUTDOWN that arrives before it does is dropped as an
+			// out-of-state packet (RFC 4960 8.5) rather than tearing anything down. That is the race
+			// this test lost only in full-suite runs: the failure reported state Closed before the
+			// SHUTDOWN and one extra ignored packet after it. Waiting on the actual precondition, not
+			// on a duration.
+			var established = Stopwatch.StartNew();
+			while (server.AssociationState != SctpState.Established && established.ElapsedMilliseconds < 10000)
+			{
+				await Task.Delay(10);
+			}
+
+			Assert.AreEqual(SctpState.Established, server.AssociationState, "server association never reached Established after ConnectAsync");
 
 			SctpState? stateBeforeShutdown = server.AssociationState;
 			long ignoredBeforeShutdown = server.AssociationIgnoredPacketCount;
