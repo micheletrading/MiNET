@@ -88,6 +88,10 @@
 	</appender>
 
 	<root>
+		<!-- ERROR, and never above INFO for a load run. The fleet shares a box with the server,
+		     so anything chattier here is measured as if it were the server: log events are string
+		     formats and writes behind an appender lock, which blocks threads at almost no CPU
+		     cost. Raise it only for a deliberate trace session of the bots themselves. -->
 		<level value="ERROR" />
 		<appender-ref ref="Console" />
 		<appender-ref ref="RollingFile" />

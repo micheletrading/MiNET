@@ -107,7 +107,11 @@
 	</appender>
 
 	<root>
-		<level value="VERBOSE" />
+		<!-- INFO is the floor for anything measured. TRACE/VERBOSE puts ~29k events a second
+		     through two serialized appenders, which blocks threads at almost no CPU cost and
+		     dominates every reading taken through it. Raise it only for a deliberate trace
+		     session, never for a load or performance run. -->
+		<level value="INFO" />
 		<appender-ref ref="Console" />
 		<appender-ref ref="RollingFile" />
 		<!--<appender-ref ref="DebuggerAppender"/>-->
