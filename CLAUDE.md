@@ -87,13 +87,56 @@ Logs, two different files:
 - `temp_auto/minet-server.log` - stdout capture (console appender, TRACE and up).
 - `src/MiNET/MiNET.Console/bin/Debug/net10.0/minetlog.log` - the rolling file appender; the only place VERBOSE lines (datagram/ACK traces) appear. Config in `src/MiNET/MiNET.Console/log4net.xml`; the active server config is `server.nicke.conf` next to the exe (this machine), not `server.conf`.
 
+### Running the bot fleet (MiNET.ServiceKiller)
+
+This exact invocation, from the repo root, every time:
+
+```bash
+src/MiNET/MiNET.ServiceKiller/bin/Debug/net10.0/MiNET.ServiceKiller.exe \
+  --number-of-bots 1000 --duration-of-connection 900 --auto true \
+  > temp_auto/fleet.log 2>&1
+```
+
+Only `--number-of-bots` and `--duration-of-connection` ever change. Every other knob (batch
+size 5, chunk radius 5, send interval 40-100ms, concurrent spawn on) stays default, because
+the runs are compared against each other and a changed knob silently invalidates the
+comparison: a spawn-batch and send-interval change once produced a "huge difference" that was
+the knob, not the code. If a cadence itself is what is being measured, that is a deliberate
+experiment, said out loud, not folded into a normal run.
+
+- The built exe directly, never `dotnet run` (a run wrapper cannot be killed cleanly; `taskkill /F /T` the exe).
+- `--auto true` skips the "Press Enter" prompt, which is what makes it work detached.
+- `--name-offset N` when a second fleet process runs alongside, so bot names cannot collide.
+- Long runs go to the background and the log gets read; never watch a stream.
+
+Count the result BOTH ways, they are opposite failures:
+
+```bash
+grep -c "spawned, emulating" temp_auto/fleet.log        # made it into the world
+grep -c "connected but never spawned" temp_auto/fleet.log  # transport up, join never finished
+```
+
+**N launched means N spawned and staying.** 987 of 1000 is not a pass, it is a defect that
+halts the line until the cause is known (see the 85-bot loss: overlapping sweeps starved
+logins). Never report a run without both counts read.
+
+Server side is already configured for this in `server.nicke.conf`: `MaxNumberOfPlayers=5000`
+and `InactivityTimeout=60000` (a thousand bots starve threads long enough that healthy
+sessions look silent on the default 8.5s and get swept).
+
+**NEVER measure anything with the log root above INFO.** At TRACE/VERBOSE the two appenders
+take ~29000 events a second, each a string format and a write behind an appender lock, and
+per-datagram hex dumps on top. That blocks threads while burning almost no CPU, so the box
+reads as idle while the world tick starves: 4ms of tick work arriving 72-118ms apart. Every
+number measured that way is the logging harness, not the server. `log4net.xml` root is INFO;
+raise it only for a deliberate trace session and never for a load run.
+
 ## Projects
 
 - `MiNET` - the core server library and the NuGet package. Everything below refers to this project.
 - `MiNET.Console` - console host that boots `MiNetServer`. Configured via `server.conf` (key=value, read through `MiNET.Utils.Config`).
 - `MiNET.Client` - a Bedrock client/bot used to trace and reverse-engineer the protocol against a real server (e.g. vanilla BDS). `BedrockTraceHandler` dumps packets; this is the main tool when updating protocol versions. `MINET_TARGET=host:port` aims it somewhere other than the local BDS, `MINET_PACKET_DUMP=<dir>` writes every received frame as `<seq>-<name>.bin`, `MINET_BLOB_CACHE=1` makes it announce the client-side cache the way a real client does.
-- `MiNET.Tunnel` - MITM proxy for capturing a real client's session against a real server: client -> tunnel -> BDS. Each leg handles only its own login and crypto and forwards every other frame verbatim, dumping both directions into one interleaved sequence (`MINET_TUNNEL_TARGET`, `MINET_TUNNEL_DUMP`). Point it at MiNET instead of BDS to capture our own output in the identical format for diffing.
-- `MiNET.ServiceKiller` - load-test emulator that spawns many fake clients.
+- `MiNET.ServiceKiller` - load-test emulator that spawns many fake clients. See "Running the bot fleet" below; never invent an invocation for it.
 - `TestPlugin`, `MiNET.Plotter`, `MiNET.BuilderBase` - example/real plugins loaded at runtime (see plugin system below).
 - `MiNETTests`, `MiNET.BuilderBase.Tests` - MSTest projects.
 
