@@ -26,12 +26,14 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using log4net;
 using MiNET.Net.Rtc;
+using MiNET.Utils.Diagnostics;
 
 namespace MiNET.Net.NetherNet
 {
@@ -103,6 +105,11 @@ namespace MiNET.Net.NetherNet
 		private int _hasReceived;
 		private long _lastReceiveTicks = Environment.TickCount64;
 
+		// Session lifetime, for transport.sessions.duration. Stopwatch rather than TickCount because
+		// the counter-discipline rule is that every DURATION comes off the monotonic timestamp; only
+		// coarse arrival stamps, like _lastReceiveTicks above, use the tick count.
+		private readonly long _openedAt = Stopwatch.GetTimestamp();
+
 		public ICustomMessageHandler CustomMessageHandler { get; set; }
 
 		/// <summary>How long ago the last bytes arrived from this client, for the listener's
@@ -120,6 +127,17 @@ namespace MiNET.Net.NetherNet
 		public Action<NetherNetSession> OnClosed { get; set; }
 
 		public bool IsClosed => _closed != 0;
+
+		// Counted rather than read off the channel: an unbounded channel with SingleReader uses the
+		// single-consumer implementation, whose Reader.Count throws NotSupportedException. Mirrors
+		// _dispatchPending's shape on the receive side.
+		private int _sendPending;
+
+		/// <summary>Packets accepted for send and not yet drained by this session's lane.</summary>
+		public int SendQueueDepth => Volatile.Read(ref _sendPending);
+
+		/// <summary>Packets decoded and not yet handled. This is the same field the direct-dispatch ordering guard reads.</summary>
+		public int DispatchQueueDepth => Volatile.Read(ref _dispatchPending);
 
 		public string Username { get; set; }
 
@@ -294,6 +312,11 @@ namespace MiNET.Net.NetherNet
 			{
 				foreach (Packet msg in bedrock.DecodeBatch(wrapper))
 				{
+					// The transport.messages.in counting point: one complete game packet, post-reassembly
+					// and post-ordering, counted before the inline/queued split so the number is the same
+					// whichever path it takes.
+					TransportMetrics.MessageIn();
+
 					// A handler method the startup scan labeled verified (provably lock-free, no
 					// plugin interceptor) runs right here, no queue hop and no wake - but only
 					// while nothing is queued ahead, so per-session arrival order can never invert
@@ -316,6 +339,7 @@ namespace MiNET.Net.NetherNet
 
 			// A handler outside the Bedrock base (a test recorder) has no decode/dispatch split;
 			// the payload is copied so the whole wrapper can cross to the dispatch thread intact.
+			TransportMetrics.MessageIn();
 			wrapper.payload = payload.ToArray();
 			Enqueue(wrapper);
 		}
@@ -392,7 +416,14 @@ namespace MiNET.Net.NetherNet
 			// Producers only enqueue; the lane does the batching, compression and transport work.
 			// TryWrite fails only once the writer is completed (the session closed between the check
 			// above and here), and then the packet goes back to the pool instead of leaking.
-			if (!_sendQueue.Writer.TryWrite(packet)) packet.PutPool();
+			if (!_sendQueue.Writer.TryWrite(packet))
+			{
+				packet.PutPool();
+				return;
+			}
+
+			Interlocked.Increment(ref _sendPending);
+			TransportMetrics.MessageOut();
 		}
 
 		/// <summary>
@@ -412,6 +443,7 @@ namespace MiNET.Net.NetherNet
 			{
 				pending.Clear();
 				while (reader.TryRead(out Packet packet)) pending.Add(packet);
+				if (pending.Count > 0) Interlocked.Add(ref _sendPending, -pending.Count);
 
 				// The drain-time upsert: everything that accumulated collapses to the last packet per
 				// coalesce key before any of it is encoded or compressed. Consumer-private list, so
@@ -606,6 +638,8 @@ namespace MiNET.Net.NetherNet
 			{
 				Log.Debug("Closing NetherNet peer", e);
 			}
+
+			TransportMetrics.SessionClosed((Stopwatch.GetTimestamp() - _openedAt) / (double) Stopwatch.Frequency);
 
 			Log.Info($"NetherNet session closed for {Username ?? NetworkId}");
 

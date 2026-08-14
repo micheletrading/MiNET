@@ -39,6 +39,7 @@ using MiNET.Net;
 using MiNET.Net.NetherNet;
 using MiNET.Plugins;
 using MiNET.Utils;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.IO;
 using MiNET.Worlds;
 
@@ -235,6 +236,24 @@ namespace MiNET
 
 					NetherNetListener listener = _netherNetListener;
 					ConnectionInfo = new ConnectionInfo(() => listener.Sessions.Count);
+
+					// The same live count the console line reads, handed to the meter so
+					// transport.sessions.active is the denominator for every per-session rate a
+					// collector computes. The two queue depths walk the same table; both run on the
+					// collector's scrape thread, once an interval, never on a transport thread.
+					TransportMetrics.SessionCountProvider = () => listener.Sessions.Count;
+					TransportMetrics.SendQueueDepthProvider = () =>
+					{
+						long depth = 0;
+						foreach (NetherNetSession session in listener.Sessions.Values) depth += session.SendQueueDepth;
+						return depth;
+					};
+					TransportMetrics.DispatchQueueDepthProvider = () =>
+					{
+						long depth = 0;
+						foreach (NetherNetSession session in listener.Sessions.Values) depth += session.DispatchQueueDepth;
+						return depth;
+					};
 					ConnectionInfo.MaxNumberOfPlayers = Config.GetProperty("MaxNumberOfPlayers", 10);
 					ConnectionInfo.MaxNumberOfConcurrentConnects = Config.GetProperty("MaxNumberOfConcurrentConnects", ConnectionInfo.MaxNumberOfPlayers);
 

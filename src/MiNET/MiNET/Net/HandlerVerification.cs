@@ -104,6 +104,14 @@ namespace MiNET.Net
 			"System.Console::Read",
 		};
 
+		// Deliberately NOT on the list above: INetworkHandler::SendPacket. Sending from a handler
+		// looks like the violation and is not the cost - it is a channel write, an interlocked and a
+		// counter, and every expensive thing (wrapper build, compression, fragmentation, syscalls)
+		// happens on the far side of that queue on the send lane. Disqualifying on it once cost
+		// PlayerAuthInput its inline path and caught McpeSubChunkRequestPacket only by coincidence.
+		// What actually disqualifies a slow handler is measured duration; see EngineMetrics's
+		// demotion, which this scan feeds rather than replaces.
+
 		// Namespaces treated as leaves: never traversed into, assumed non-blocking unless a method
 		// there is itself on the blocking list. Keeps the walk inside our own code plus the edges
 		// that matter; a BCL method that blocks and is not listed is a gap in the list, not a

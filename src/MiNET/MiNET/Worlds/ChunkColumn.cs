@@ -27,6 +27,7 @@ using System;
 using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
@@ -36,6 +37,7 @@ using fNbt;
 using log4net;
 using MiNET.Blocks;
 using MiNET.Net;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.IO;
 using MiNET.Worlds.BlobCache;
 using MiNET.Utils.Vectors;
@@ -513,6 +515,10 @@ namespace MiNET.Worlds
 			{
 				if (!DisableCache && !IsDirty && _cachedBatch != null) return _cachedBatch;
 
+				// Past the cache check, so world.chunk.encode measures only real encode work: a served
+				// cache hit never reaches here and so never dilutes the distribution.
+				long startedAt = Stopwatch.GetTimestamp();
+
 				ClearCache();
 
 				int topEmpty = GetTopEmpty();
@@ -532,6 +538,8 @@ namespace MiNET.Worlds
 
 				_cachedBatch = batch;
 				IsDirty = false;
+
+				EngineMetrics.RecordChunkEncode(startedAt);
 
 				return _cachedBatch;
 			}

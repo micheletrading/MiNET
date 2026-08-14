@@ -49,6 +49,7 @@ using MiNET.Net;
 using MiNET.Particles;
 using MiNET.UI;
 using MiNET.Utils;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.Metadata;
 using MiNET.Utils.Nbt;
 using MiNET.Utils.Skins;
@@ -171,6 +172,19 @@ namespace MiNET
 			NoAi = false;
 		}
 
+		// The join clock and how far this join has got. Started when the player object exists, which
+		// is the first moment the server owns the join; everything before it is the transport's and
+		// is measured there. _joinStage is what join.abandoned is tagged with, so a join that dies
+		// names the stage it died after rather than only that it died.
+		private readonly long _joinStartedAt = Stopwatch.GetTimestamp();
+		private JoinStage _joinStage = JoinStage.None;
+
+		private void CompleteJoinStage(JoinStage stage)
+		{
+			_joinStage = stage;
+			EngineMetrics.RecordJoinStage(stage, Username, _joinStartedAt);
+		}
+
 		public virtual void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
 		{
 			// Beware that message might be null here.
@@ -183,6 +197,8 @@ namespace MiNET
 			{
 				SendResourcePacksInfo();
 			}
+
+			CompleteJoinStage(JoinStage.Handshake);
 
 			//MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
 		}
@@ -404,6 +420,8 @@ namespace MiNET
 			}
 			else if (message.response is ResourcePackClientResponseResourcePackStackFinished)
 			{
+				CompleteJoinStage(JoinStage.Packs);
+
 				//if (_serverHaveResources)
 				{
 					MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
@@ -1077,6 +1095,7 @@ namespace MiNET
 				// a failed sequence can't leave the chunk task waiting forever.
 				_loginSequenceCompleted.Set();
 				Interlocked.Decrement(ref serverInfo.ConnectionsInConnectPhase);
+				CompleteJoinStage(JoinStage.Burst);
 			}
 
 			LastUpdatedTime = DateTime.UtcNow;
@@ -1369,6 +1388,10 @@ namespace MiNET
 
 		public virtual void InitializePlayer()
 		{
+			// Reaching here means chunk streaming published enough for the client to initialize; the
+			// rest of this method is the spawn itself.
+			CompleteJoinStage(JoinStage.Chunks);
+
 			// Vanilla join tail: a ready-state respawn during chunk streaming, then set health,
 			// the spawn play-status, and entity data. No SetTime and no MovePlayer here; the
 			// client has the position from StartGame.
@@ -1393,6 +1416,9 @@ namespace MiNET
 
 			LastUpdatedTime = DateTime.UtcNow;
 			_haveJoined = true;
+
+			CompleteJoinStage(JoinStage.Spawn);
+			EngineMetrics.RecordJoinCompleted(_joinStartedAt);
 
 			OnPlayerJoin(new PlayerEventArgs(this));
 
@@ -2274,6 +2300,7 @@ namespace MiNET
 					string levelId = Level == null ? "Unknown" : Level.LevelId;
 					if (!_haveJoined)
 					{
+						EngineMetrics.RecordJoinAbandoned(_joinStage, Username, _joinStartedAt);
 						Log.WarnFormat("Disconnected crashed player {0}/{1} from level <{3}>, reason: {2}", Username, EndPoint.Address, reason, levelId);
 					}
 					else

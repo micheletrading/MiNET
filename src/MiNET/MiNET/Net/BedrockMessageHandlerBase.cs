@@ -25,12 +25,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using log4net;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.IO;
 
 namespace MiNET.Net
@@ -354,6 +356,15 @@ namespace MiNET.Net
 		public void HandleDecoded(Packet msg)
 		{
 			PacketTracing.TraceReceive(Log, msg);
+
+			// The one seam both dispatch paths cross, so this measures the inline path and the queued
+			// one alike. Timing is always taken (two timestamp reads); nothing is recorded unless the
+			// handler breaches the threshold, so the fast case stays off the histogram machinery.
+			// This is the enforcement arm of the dispatch contract - a verified handler running inline
+			// sits ahead of that packet's own SACK, so a slow one delays the whole association.
+			Type packetType = msg.GetType();
+			long startedAt = Stopwatch.GetTimestamp();
+
 			try
 			{
 				HandleCustomPacket(msg);
@@ -361,6 +372,10 @@ namespace MiNET.Net
 			catch (Exception e)
 			{
 				Log.Warn($"Bedrock message handler error", e);
+			}
+			finally
+			{
+				EngineMetrics.RecordHandler(packetType, _session.Username, startedAt);
 			}
 		}
 
@@ -397,16 +412,23 @@ namespace MiNET.Net
 		///     the startup scan's verified label and no plugin interceptor exists for the type.
 		///     The caller still owns ordering: direct dispatch is only valid when nothing for this
 		///     session is queued ahead.
+		///     <para>
+		///     The static label is the NECESSARY condition, never the sufficient one. It proves a
+		///     handler is lock-free and touches no IO; it cannot prove the handler is fast, and a
+		///     verified handler runs ahead of its own packet's SACK, so slow is as harmful here as
+		///     blocking. Measured duration decides the rest: a type <see cref="EngineMetrics.IsDemoted" />
+		///     has seen breach the handler threshold is refused the inline path from then on, whatever
+		///     the scan said about it.
+		///     </para>
 		/// </summary>
-		/// <remarks>
-		///     No caller today: the direct-dispatch call site in NetherNetSession.HandlePayload is
-		///     commented out, so every packet takes the dispatch queue. Kept because the labels it
-		///     reads are still produced and reported at startup.
-		/// </remarks>
 		public bool CanDispatchInline(Packet packet)
 		{
 			object target = HandlerTarget;
 			if (target == null) return false;
+
+			// Ahead of the cache, not inside it: demotion happens while the process runs, and a cached
+			// "true" from before the breach must not outlive it.
+			if (EngineMetrics.IsDemoted(packet.GetType())) return false;
 
 			(Type, Type) key = (target.GetType(), packet.GetType());
 			if (InlineDispatchCache.TryGetValue(key, out bool cached)) return cached;

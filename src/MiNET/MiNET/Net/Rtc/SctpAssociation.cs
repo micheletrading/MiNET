@@ -27,12 +27,14 @@ using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
+using MiNET.Utils.Diagnostics;
 
 namespace MiNET.Net.Rtc
 {
@@ -519,7 +521,7 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		public bool Send(ushort streamId, uint ppid, ReadOnlySpan<byte> message, bool unordered, int maxRetransmits)
 		{
-			lock (_gate)
+			using (new MeasuredGate(_gate, GateCaller.Send))
 			{
 				if (_state != SctpState.Established) return false;
 
@@ -623,7 +625,7 @@ namespace MiNET.Net.Rtc
 		{
 			string abortReason = null;
 
-			lock (_gate)
+			using (new MeasuredGate(_gate, GateCaller.Tick))
 			{
 				if (_isClient && (_state == SctpState.CookieWait || _state == SctpState.CookieEchoed))
 				{
@@ -724,7 +726,7 @@ namespace MiNET.Net.Rtc
 			}
 
 			bool dropWholePacketForWrongTag;
-			lock (_gate)
+			using (new MeasuredGate(_gate, GateCaller.Receive))
 			{
 				dropWholePacketForWrongTag = (_state == SctpState.Established || _state == SctpState.Aborted) && verificationTag != _localTag;
 			}
@@ -752,7 +754,7 @@ namespace MiNET.Net.Rtc
 				ReadOnlyMemory<byte> zcPayload = default;
 				string teardownReason = null;
 
-				lock (_gate)
+				using (new MeasuredGate(_gate, GateCaller.Receive))
 				{
 					switch (type)
 					{
@@ -849,7 +851,7 @@ namespace MiNET.Net.Rtc
 
 			if (packetHadData)
 			{
-				lock (_gate)
+				using (new MeasuredGate(_gate, GateCaller.Receive))
 				{
 					MaybeSendSack(immediateSackRequested);
 				}
@@ -1163,6 +1165,13 @@ namespace MiNET.Net.Rtc
 			if (_flushing) return;
 			if (_sendQueue.PeekReadyToSend(_sendQueue.AvailableWindowBytes(_peerArwnd)) == null) return;
 
+			// Everything below runs with the gate held, checksum and one sendto per packet included,
+			// so this span IS the hold every other path waits behind. Measured only past the two early
+			// returns above, so a flush that had nothing to do costs nothing to measure.
+			long startedAt = Stopwatch.GetTimestamp();
+			int packetsSent = 0;
+			long sendingTicks = 0;
+
 			_flushing = true;
 			try
 			{
@@ -1202,7 +1211,16 @@ namespace MiNET.Net.Rtc
 						}
 
 						SctpPacket.FinishChecksum(packet.Slice(0, used));
+
+						// Bracketed on its own so the hold splits into build and send. Measured at 1000
+						// sessions: the send is 84% of the hold. Moving it outside the gate was tried
+						// (temp_auto/SctpAssociation.with-flush-split.cs) and does collapse the hold, but
+						// it introduced T3-rtx retransmits the baseline did not have. Not shipped.
+						long sendStartedAt = Stopwatch.GetTimestamp();
 						_sendPacket(packet.Slice(0, used));
+						sendingTicks += Stopwatch.GetTimestamp() - sendStartedAt;
+
+						packetsSent++;
 					}
 				}
 				finally
@@ -1214,7 +1232,12 @@ namespace MiNET.Net.Rtc
 			{
 				_flushing = false;
 			}
+
+			if (packetsSent > 0) TransportMetrics.FlushSent(packetsSent);
+			TransportMetrics.GateHeld(startedAt);
+			TransportMetrics.SendDuration(sendingTicks);
 		}
+
 
 		/// <summary>
 		///     <paramref name="pairs" /> is already capped at <see cref="MaxOutboundForwardTsnPairs" /> by
@@ -1283,7 +1306,7 @@ namespace MiNET.Net.Rtc
 		private void DeliverLeasedMessages()
 		{
 			List<SctpReceiveBuffer.LeasedDelivery> snapshot;
-			lock (_gate)
+			using (new MeasuredGate(_gate, GateCaller.Receive))
 			{
 				if (_receiveBuffer.Deliveries.Count == 0) return;
 
@@ -1304,13 +1327,13 @@ namespace MiNET.Net.Rtc
 					}
 					finally
 					{
-						lock (_gate) _receiveBuffer.ReleaseDelivery(delivery);
+						using (new MeasuredGate(_gate, GateCaller.Receive)) _receiveBuffer.ReleaseDelivery(delivery);
 					}
 				}
 			}
 			finally
 			{
-				lock (_gate)
+				using (new MeasuredGate(_gate, GateCaller.Receive))
 				{
 					_drainInFlight = false;
 					if (_pendingReset)
@@ -1772,6 +1795,7 @@ namespace MiNET.Net.Rtc
 		private void CountIgnored()
 		{
 			Interlocked.Increment(ref _ignoredPacketCount);
+			TransportMetrics.Dropped(DropReason.Ignored);
 		}
 
 		private static uint RandomUInt32()

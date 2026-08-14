@@ -27,6 +27,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Threading;
+using MiNET.Utils.Diagnostics;
 
 namespace MiNET.Net.Rtc
 {
@@ -369,7 +370,7 @@ namespace MiNET.Net.Rtc
 			{
 				if (n.Abandoned) continue;
 				if (n.SentAtTicks == 0) continue; // never sent yet: nothing to time out
-				MarkForRetransmitOrAbandon(n);
+				MarkForRetransmitOrAbandon(n, RetransmitCause.Timeout);
 				if (!n.Abandoned) anyOutstanding = true;
 			}
 
@@ -491,7 +492,7 @@ namespace MiNET.Net.Rtc
 					Interlocked.Increment(ref _fastRetransmitCount);
 					if (_head != null && !_head.Abandoned)
 					{
-						MarkForRetransmitOrAbandon(_head);
+						MarkForRetransmitOrAbandon(_head, RetransmitCause.Fast);
 
 						// This can make _head due again (PendingRetransmit), same as HandleTimeout and the
 						// cumulative-ack removal loop above - PeekReadyToSend must resume scanning from
@@ -533,12 +534,13 @@ namespace MiNET.Net.Rtc
 		///     reached) zeroes <see cref="PendingChunk.Length" />; the <c>wasInFlight</c> check below is
 		///     belt-and-suspenders against that invariant ever being violated, not load-bearing today.
 		/// </summary>
-		private void MarkForRetransmitOrAbandon(PendingChunk n)
+		private void MarkForRetransmitOrAbandon(PendingChunk n, RetransmitCause cause)
 		{
 			bool wasInFlight = n.SentAtTicks != 0 && !n.PendingRetransmit && !n.Abandoned;
 
 			n.RetransmitCount++;
 			Interlocked.Increment(ref _retransmitCount);
+			TransportMetrics.Retransmits(cause, 1);
 			if (wasInFlight) _inFlightBytes -= (uint) n.Length;
 
 			if (n.MaxRetransmits >= 0 && n.RetransmitCount > n.MaxRetransmits) AbandonChunk(n);

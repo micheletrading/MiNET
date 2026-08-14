@@ -52,7 +52,7 @@ using MiNET.Utils.Vectors;
 
 namespace MiNET.Worlds
 {
-	public class Level : IBlockAccess
+	public class Level : IBlockAccess, ILevelMetricsSource
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Level));
 
@@ -239,10 +239,32 @@ namespace MiNET.Worlds
 
 			StartTimeInTicks = DateTime.UtcNow.Ticks;
 
+			// Registered here rather than in the constructor: the tags read Dimension and
+			// WorldProvider, and both are settled by the time a level starts ticking, not by the time
+			// it is constructed.
+			_metricTags = new TagList {{"levelType", LevelType}, {"dimension", DimensionName}};
+			_levelTickTags = new TagList {{"level", LevelId}};
+			EngineMetrics.RegisterLevel(this);
+
 			_tickTimer = new Stopwatch();
 			_tickTimer.Restart();
 			_tickerHighPrecisionTimer = new HighPrecisionTimer(50, WorldTick, false, false);
 		}
+
+		private TagList _metricTags;
+		private TagList _levelTickTags;
+
+		/// <inheritdoc />
+		public string LevelType => WorldProvider?.GetType().Name ?? "None";
+
+		/// <inheritdoc />
+		public string DimensionName => Dimension.ToString();
+
+		/// <inheritdoc />
+		public int MetricPlayerCount => PlayerCount;
+
+		/// <inheritdoc />
+		public int MetricEntityCount => Entities.Count;
 
 		private void _tickerHighPrecisionTimer_Tick()
 		{
@@ -260,6 +282,8 @@ namespace MiNET.Worlds
 
 			_tickerHighPrecisionTimer?.Dispose();
 			_tickerHighPrecisionTimer = null;
+
+			EngineMetrics.UnregisterLevel(this);
 
 			foreach (var entity in Entities.Values.ToArray())
 			{
@@ -568,6 +592,10 @@ namespace MiNET.Worlds
 			// as a global stall), and it self-rate-limits to at most one line per tick.
 			if (_tickTimer.ElapsedMilliseconds >= 65) Log.Warn($"Time between world tick too long: {_tickTimer.ElapsedMilliseconds} ms. Last processing time={LastTickProcessingTime}, Avarage={AvarageTickProcessingTime}");
 
+			// Drift, not duration: how late this tick STARTED against its 50ms schedule. A slow timer
+			// and a slow tick body are opposite faults, and one duration number conflates them.
+			EngineMetrics.RecordTickLag(_tickTimer.Elapsed.TotalMilliseconds - 50, _metricTags);
+
 			Measurement worldTickMeasurement = _profiler.Begin("World tick");
 
 			_tickTimer.Restart();
@@ -592,7 +620,9 @@ namespace MiNET.Worlds
 				// Save dirty chunks
 				if (TickTime % (SaveInterval * 20) == 0)
 				{
+					long saveStartedAt = Stopwatch.GetTimestamp();
 					WorldProvider.SaveChunks();
+					EngineMetrics.RecordSave(saveStartedAt, _metricTags);
 				}
 
 				// Unload chunks not needed
@@ -775,6 +805,12 @@ namespace MiNET.Worlds
 				LastTickProcessingTime = _tickTimer.ElapsedMilliseconds;
 				AvarageTickProcessingTime = (AvarageTickProcessingTime * 9 + _tickTimer.ElapsedMilliseconds) / 10L;
 
+				// MSPT, twice: aggregated by level type for percentiles across the server, and by level
+				// identity so one misbehaving world is nameable rather than merely visible.
+				double tickMillis = _tickTimer.Elapsed.TotalMilliseconds;
+				EngineMetrics.RecordTick(tickMillis, _metricTags);
+				EngineMetrics.RecordLevelTick(tickMillis, _levelTickTags);
+
 				worldTickMeasurement?.End();
 			}
 		}
@@ -875,6 +911,10 @@ namespace MiNET.Worlds
 			DateTime lastSendTime = _lastSendTime;
 			_lastSendTime = DateTime.UtcNow;
 
+			// Stamped before the roster is walked, so broadcast.build covers everything the tick thread
+			// spends here: building the records, compressing them, and encoding the wrapper.
+			long buildStartedAt = Stopwatch.GetTimestamp();
+
 			//using (MemoryStream stream = new MemoryStream())
 			{
 				int playerMoveCount = 0;
@@ -940,6 +980,10 @@ namespace MiNET.Worlds
 				batch.CoalesceKey = _moveRosterCoalesceKey;
 				batch.SetPayload(Compression.CompressPacketsForWrapper(movePackets));
 				batch.EncodeAsMemory();
+
+				// The compressed size is what decides the fragment count, and so the datagram rate:
+				// this batch goes to every player, so bytes here multiply by players.Length on the wire.
+				EngineMetrics.RecordBroadcast(playerMoveCount + entiyMoveCount, batch.payload.Length, buildStartedAt, _metricTags);
 
 				// Inline on the tick thread: SendPacket only enqueues (NetherNetSession's send lane
 				// does the transport work), so a work item per recipient buys no parallelism and
@@ -1244,7 +1288,10 @@ namespace MiNET.Worlds
 
 		public ChunkColumn GetChunk(ChunkCoordinates chunkCoordinates, bool cacheOnly = false)
 		{
+			long startedAt = Stopwatch.GetTimestamp();
 			var chunk = WorldProvider.GenerateChunkColumn(chunkCoordinates, cacheOnly);
+			EngineMetrics.RecordChunkLoad(startedAt, _metricTags);
+
 			if (chunk == null) Log.Debug($"Got <null> chunk at {chunkCoordinates}");
 			return chunk;
 		}
