@@ -297,8 +297,10 @@ namespace MiNET.Net.NetherNet
 					// A handler method the startup scan labeled verified (provably lock-free, no
 					// plugin interceptor) runs right here, no queue hop and no wake - but only
 					// while nothing is queued ahead, so per-session arrival order can never invert
-					// between the two paths. Today no method carries the label and every packet
-					// takes the queue; each handler that earns it drops one wake per packet.
+					// between the two paths.
+					//
+					// It does run inside SctpAssociation.OnPacketReceived, ahead of that packet's
+					// SACK, so a handler that earns the label must stay short as well as lock-free.
 					if (Volatile.Read(ref _dispatchPending) == 0 && _closed == 0 && bedrock.CanDispatchInline(msg))
 					{
 						bedrock.HandleDecoded(msg);
