@@ -270,19 +270,27 @@ namespace MiNET.Crafting
 			{
 				if (_recipes != null) return;
 
-				_recipes = new Recipes();
-				_byNetworkId = new Dictionary<int, Recipe>();
+				var recipes = new Recipes();
+				var byNetworkId = new Dictionary<int, Recipe>();
 
 				RecipeDataFile file = RecipeLoader.Load();
 
 				foreach (Recipe recipe in RecipeLoader.CreateVanillaRecipes(file))
 				{
-					AddLocked(recipe);
+					recipe.NetworkId = _nextNetworkId++;
+					recipes.Add(recipe);
+					byNetworkId[recipe.NetworkId] = recipe;
 				}
 
 				_potionTypeRecipes = RecipeLoader.CreatePotionTypeRecipes(file);
 				_potionContainerRecipes = RecipeLoader.CreatePotionContainerRecipes(file);
 				_materialReducerRecipes = RecipeLoader.CreateMaterialReducerRecipes(file);
+
+				// Published last. The early `_recipes != null` check is what a racing reader
+				// passes, so it has to mean the mix arrays above are filled in too - otherwise
+				// a reader between the two sees an empty mix list and no brew matches.
+				_recipes = recipes;
+				_byNetworkId = byNetworkId;
 
 				Log.Info($"Recipe registry loaded: {_recipes.Count} recipes, {_potionTypeRecipes.Length} potion mixes, {_potionContainerRecipes.Length} container mixes, {_materialReducerRecipes.Length} material reducers");
 			}

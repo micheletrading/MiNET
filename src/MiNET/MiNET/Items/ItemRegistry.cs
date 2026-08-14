@@ -96,6 +96,29 @@ namespace MiNET.Items
 			_byNetworkId[networkId] = entry;
 		}
 
+		/// <summary>
+		///     Replaces an entry added by the generated data, in place, so the packet order and the
+		///     dictionary lookups stay consistent. Hand-written overrides for items whose generated
+		///     component blob is missing or wrong go through here.
+		/// </summary>
+		public void Replace(string name, short networkId, bool componentBased, int version, string componentNbtBase64)
+		{
+			byte[] nbt = componentNbtBase64 == null ? null : Convert.FromBase64String(componentNbtBase64);
+			var entry = new ItemRegistryEntry(name, networkId, componentBased, version, nbt);
+
+			_byName[name] = entry;
+			_byNetworkId[networkId] = entry;
+
+			for (int i = 0; i < _entries.Count; i++)
+			{
+				if (string.Equals(_entries[i].Name, name, StringComparison.OrdinalIgnoreCase))
+				{
+					_entries[i] = entry;
+					return;
+				}
+			}
+		}
+
 		public int Count => _entries.Count;
 
 		public ItemRegistryEntry this[int index] => _entries[index];

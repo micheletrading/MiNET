@@ -25,8 +25,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using MiNET.Blocks;
+using MiNET.Entities;
 using MiNET.Entities.World;
 using MiNET.Net;
 using MiNET.Utils;
@@ -140,43 +143,27 @@ namespace MiNET
 
 		private bool SecondaryExplosion()
 		{
-			//Vector3 source = new Vector3(_centerCoordinates.X, _centerCoordinates.Y, _centerCoordinates.Z).Floor();
-			//var yield = (1/_size)*100;
-			//var explosionSize = _size*2;
-			//var minX = Math.Floor(_centerCoordinates.X - explosionSize - 1);
-			//var maxX = Math.Floor(_centerCoordinates.X + explosionSize + 1);
-			//var minY = Math.Floor(_centerCoordinates.Y - explosionSize - 1);
-			//var maxY = Math.Floor(_centerCoordinates.Y + explosionSize + 1);
-			//var minZ = Math.Floor(_centerCoordinates.Z - explosionSize - 1);
-			//var maxZ = Math.Floor(_centerCoordinates.Z + explosionSize + 1);
-			//var explosionBB = new BoundingBox(new Vector3(minX, minY, minZ), new Vector3(maxX, maxY, maxZ));
+			// The client-side shockwave and debris: the huge-explosion particle event, then the
+			// individual block updates below.
+			var explodeParticle = McpeLevelEvent.CreateObject();
+			explodeParticle.eventId = (int) LevelEventType.ParticleGreenThingy;
+			explodeParticle.position = _centerCoordinates;
+			_world.RelayBroadcast(explodeParticle);
 
-			var records = new Records();
-			foreach (Block block in _afectedBlocks.Values)
-			{
-				records.Add(block.Coordinates - _centerCoordinates);
-			}
-
-			//new Task(() =>
-			//{
-			//	var mcpeExplode = McpeExplode.CreateObject();
-			//	mcpeExplode.position = _centerCoordinates;
-			//	mcpeExplode.radius = (int) (_size * 32);
-			//	mcpeExplode.records = records;
-			//	_world.RelayBroadcast(mcpeExplode);
-			//}).Start();
+			// The boom. LevelSoundEvent Explode, at the explosion centre.
+			_world.BroadcastSound(_centerCoordinates, LevelSoundEventType.Explode);
 
 			foreach (Block block in _afectedBlocks.Values)
 			{
 				Block block1 = block;
 				_world.SetAir(block1.Coordinates);
-				//new Task(() => _world.SetBlock(new Air {Coordinates = block1.Coordinates})).Start();
-				//new Task(() => block1.BreakBlock(_world)).Start();
 				if (block is Tnt)
 				{
 					new Task(() => SpawnTNT(block1.Coordinates, _world)).Start();
 				}
 			}
+
+			DamageEntities();
 
 			// Set stuff on fire
 			if (Fire)
@@ -197,6 +184,29 @@ namespace MiNET
 			}
 
 			return true;
+		}
+
+		/// <summary>
+		///     Explosion damage: every entity in range takes the full force scaled by its distance
+		///     from the centre, like vanilla's (1 - distance / radius) falloff.
+		/// </summary>
+		private void DamageEntities()
+		{
+			float radius = _size * 2;
+			var center = new Vector3(_centerCoordinates.X + 0.5f, _centerCoordinates.Y + 0.5f, _centerCoordinates.Z + 0.5f);
+
+			foreach (Entity entity in _world.Entities.Values.Concat(_world.GetSpawnedPlayers()).ToArray())
+			{
+				if (entity.HealthManager.IsInvulnerable) continue;
+
+				float distance = Vector3.Distance(entity.KnownPosition.ToVector3(), center);
+				if (distance > radius) continue;
+
+				float damage = (float) Math.Ceiling((1.0 - distance / radius) * 6.0 * _size);
+				if (damage <= 0) continue;
+
+				entity.HealthManager.TakeHit(null, (int) damage, DamageCause.BlockExplosion);
+			}
 		}
 
 		private void SpawnTNT(BlockCoordinates blockCoordinates, Level world)

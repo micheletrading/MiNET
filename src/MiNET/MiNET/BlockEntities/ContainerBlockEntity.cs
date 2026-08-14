@@ -144,18 +144,6 @@ namespace MiNET.BlockEntities
 		}
 	}
 
-	/// <summary>Three bottles, an ingredient and the fuel. Which index is which is unverified, and
-	/// nothing here depends on it: the client's own slot numbers address the list.</summary>
-	public class BrewingStandBlockEntity : ContainerBlockEntity
-	{
-		public BrewingStandBlockEntity() : base("BrewingStand", 5,
-			new NbtShort("CookTime", 0),
-			new NbtShort("FuelAmount", 0),
-			new NbtShort("FuelTotal", 0))
-		{
-		}
-	}
-
 	public class HopperBlockEntity : ContainerBlockEntity
 	{
 		public HopperBlockEntity() : base("Hopper", 5, new NbtInt("TransferCooldown", 0))

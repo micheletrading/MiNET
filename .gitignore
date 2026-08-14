@@ -202,8 +202,12 @@ keys/
 
 # Server world data and analysis archives (not source).
 archive/
-World/
+/World/
 src/MiNET/World/
 src/MiNET/MiNET.Console/World/
+
+# Local session scratch: server logs, test output, generated protocol schemas.
+temp_auto/
+src/MiNET/MiNET.BlockGen/ProtocolDocs/
 
 src/MiNET/TestPlugin/StarterKitPlugin.cs

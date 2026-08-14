@@ -135,6 +135,15 @@ namespace MiNET.Items
 		{
 		}
 
+		/// <summary>
+		///     The client finished using the item (EntityEvent 57 arrives after the eat/drink
+		///     animation, since the modern client no longer sends a second Use press). Defaults to
+		///     nothing; consumables complete their consumption here.
+		/// </summary>
+		public virtual void CompleteUse(Player player)
+		{
+		}
+
 		public virtual void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
 		}

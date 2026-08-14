@@ -148,10 +148,16 @@ namespace MiNET
 		public SlotStore Store { get; }
 		public int Index { get; }
 
-		public SlotBinding(SlotStore store, int index)
+		/// <summary>Added to the client's slot number when the client addresses the container by its
+		/// window slot rather than by its own index, e.g. the brewing stand's ingredient and bottle
+		/// slots. Zero for pass-through.</summary>
+		public int Offset { get; }
+
+		public SlotBinding(SlotStore store, int index, int offset = 0)
 		{
 			Store = store;
 			Index = index;
+			Offset = offset;
 		}
 	}
 
@@ -177,13 +183,14 @@ namespace MiNET
 			[Container.Barrelcontainer] = new SlotBinding(SlotStore.Block, -1),
 			[Container.Crafterlevelentitycontainer] = new SlotBinding(SlotStore.Block, -1),
 
-			// Brewing stand. Three names over one five-slot block entity, and which slot each name
-			// counts from is unverified: the client's own numbering is taken as given, so a bottle
-			// landing in the ingredient slot is what tells us the layout, rather than a silent write
-			// to a slot we guessed at.
-			[Container.Brewingstandinputcontainer] = new SlotBinding(SlotStore.Block, -1),
+			// Brewing stand. The client addresses the screen by window slots: the ingredient is
+			// window slot 0, the three bottles are 1-3 and the fuel is 4, while the block entity
+			// stores bottles first (0-2), then the ingredient (3) and the fuel (4), so the window
+			// number has to be translated per container. The offsets were read off a real client's
+			// item stack requests: input arrived as slot 0, fuel as slot 4.
+			[Container.Brewingstandinputcontainer] = new SlotBinding(SlotStore.Block, -1, 3),
+			[Container.Brewingstandresultcontainer] = new SlotBinding(SlotStore.Block, -1, -1),
 			[Container.Brewingstandfuelcontainer] = new SlotBinding(SlotStore.Block, -1),
-			[Container.Brewingstandresultcontainer] = new SlotBinding(SlotStore.Block, -1),
 
 			// Furnace family. Each name is one slot, and the index is the block entity's own
 			// ordering: 0 smelts, 1 burns, 2 holds the result.
@@ -308,7 +315,7 @@ namespace MiNET
 					throw new InvalidOperationException($"Container {container} addressed with no block inventory open (screen is {Kind})");
 			}
 
-			if (binding.Index < 0) return new SlotBinding(binding.Store, slot);
+			if (binding.Index < 0) return new SlotBinding(binding.Store, slot + binding.Offset);
 
 			// A single-slot container is addressed by name, so the client's slot number is redundant
 			// and ignored. Whether the client counts within the container or across the window is

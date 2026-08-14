@@ -127,6 +127,11 @@ namespace MiNET
 
 		public ConcurrentDictionary<EffectType, Effect> Effects { get; set; } = new ConcurrentDictionary<EffectType, Effect>();
 
+		/// <summary>The item whose use is in progress (a drink, a meal). The state lives here and
+		/// not on the item because the client's own MobEquipment can replace the item instance
+		/// between the Use transaction and the EntityEvent 57 that completes it.</summary>
+		public Item ItemInUse { get; set; }
+
 		public HungerManager HungerManager { get; set; }
 		public ExperienceManager ExperienceManager { get; set; }
 		public CameraManager CameraManager { get; set; }
@@ -692,14 +697,15 @@ namespace MiNET
 				case PlayerAction.StartBreak:
 				case PlayerAction.ContinueDestroyBlock: // same as StartBreak, sent when block breaking is server authoritative
 				{
-					if (message.face == (int) BlockFace.Up)
+					// Fire is replaceable, so the client may address either the fire itself or the
+					// block it sits on when the player punches it. Either way punching puts it out.
+					Block punched = Level.GetBlock(message.coordinates);
+					if (punched is Fire || Level.GetBlock(message.coordinates.BlockUp()) is Fire)
 					{
-						Block block = Level.GetBlock(message.coordinates.BlockUp());
-						if (block is Fire)
-						{
-							Level.BreakBlock(this, message.coordinates.BlockUp());
-							break;
-						}
+						Block fire = punched is Fire ? punched : Level.GetBlock(message.coordinates.BlockUp());
+						Level.BreakBlock(this, fire.Coordinates);
+						Level.BroadcastSound(fire.Coordinates, LevelSoundEventType.Fizz);
+						break;
 					}
 
 
@@ -3162,9 +3168,44 @@ namespace MiNET
 
 				var containerSetContent = McpeInventoryContent.CreateObject();
 				containerSetContent.inventoryId = inventory.WindowsId;
-				containerSetContent.input = inventory.Slots;
+				containerSetContent.input = ContentInWindowOrder(inventory);
 				SendPacket(containerSetContent);
 			}
+		}
+
+		/// <summary>
+		///     The content the client expects is in window order. For the brewing stand the window runs
+		///     the ingredient first (0), then the three bottles (1-3) and the fuel (4), while the block
+		///     entity stores the bottles first (0-2) and the ingredient at 3 - vanilla's own world
+		///     format. Sending the entity order puts the ingredient in the third bottle slot on the
+		///     client's screen and the first bottle in the ingredient slot.
+		/// </summary>
+		private static ItemStacks ContentInWindowOrder(Inventory inventory)
+		{
+			if (inventory.BlockEntity is not BrewingStandBlockEntity) return inventory.Slots;
+
+			var ordered = new ItemStacks();
+			ordered.Add(inventory.Slots[3]);
+			ordered.Add(inventory.Slots[0]);
+			ordered.Add(inventory.Slots[1]);
+			ordered.Add(inventory.Slots[2]);
+			ordered.Add(inventory.Slots[4]);
+			return ordered;
+		}
+
+		/// <summary>The brewing stand's entity slot for the client's window slot, both directions.</summary>
+		private static byte BrewingWindowSlot(Inventory inventory, byte entitySlot)
+		{
+			if (inventory.BlockEntity is not BrewingStandBlockEntity) return entitySlot;
+
+			return entitySlot switch
+			{
+				0 => 1,
+				1 => 2,
+				2 => 3,
+				3 => 0,
+				_ => entitySlot
+			};
 		}
 
 		/// <summary>The barrel's open lid, which is a block state rather than the block event a chest
@@ -3192,7 +3233,7 @@ namespace MiNET
 			{
 				var sendSlot = McpeInventorySlot.CreateObject();
 				sendSlot.inventoryId = inventory.WindowsId;
-				sendSlot.slot = slot;
+				sendSlot.slot = BrewingWindowSlot(inventory, slot);
 				//sendSlot.uniqueid = itemStack.UniqueId;
 				sendSlot.item = itemStack;
 				SendPacket(sendSlot);
@@ -3368,6 +3409,13 @@ namespace MiNET
 				}
 				case ItemUseInventoryTransaction.ItemUseActionType.Use:
 				{
+					if (itemInHand is FoodItem or ItemPotion)
+					{
+						// Other players see the eat/drink animation while it lasts. The event data
+						// is the item the way the client encodes it: network id, count and meta.
+						BroadcastEntityEvent(57, (itemInHand.NetworkId << 16) | (itemInHand.Count << 8) | itemInHand.Metadata);
+					}
+
 					itemInHand.UseItem(Level, this, transaction.position);
 					break;
 				}
@@ -3754,6 +3802,11 @@ namespace MiNET
 				{
 					int data = message.data;
 					if (data != 0) BroadcastEntityEvent(57, data);
+
+					// The client's "finished consuming" event: completes the eat/drink the Use
+					// transaction started (data carries the consumed item, e.g. 0x01ae0105 is a
+					// night vision potion: network id 430, count 1, metadata 5).
+					Inventory.GetItemInHand()?.CompleteUse(this);
 					break;
 				}
 			}

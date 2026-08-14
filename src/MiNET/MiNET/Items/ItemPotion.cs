@@ -35,7 +35,25 @@ namespace MiNET.Items
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemPotion));
 
-		public ItemPotion(short metadata) : base("minecraft:potion", metadata)
+		/// <summary>
+		///     Parameterless so the typed-item factory can build the class by reflection (it skips
+		///     classes without one and falls back to a generic Item, which is why a potion in hand
+		///     behaved like a plain item). The factory sets Metadata right after construction.
+		/// </summary>
+		public ItemPotion() : this(0)
+		{
+		}
+
+		/// <summary>Shared by the thrown variants, which are the same item with another name.</summary>
+		protected ItemPotion(string name, short metadata) : base(name, metadata)
+		{
+			// Potions are unstackable: the item declares no max_stack_size component, which the
+			// client reads as one per slot, and a bigger stack is an item the client refuses to
+			// touch. The default Item.MaxStackSize of 64 is wrong for every potion kind.
+			MaxStackSize = 1;
+		}
+
+		public ItemPotion(short metadata) : this("minecraft:potion", metadata)
 		{
 		}
 
@@ -43,32 +61,65 @@ namespace MiNET.Items
 
 		public override void UseItem(Level world, Player player, BlockCoordinates blockCoordinates)
 		{
-			if (_isUsing)
-			{
-				Consume(player);
-
-				if (player.GameMode == GameMode.Survival || player.GameMode == GameMode.Adventure)
-				{
-					player.Inventory.ClearInventorySlot((byte) player.Inventory.InHandSlot);
-					player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName("minecraft:glass_bottle"), true);
-				}
-				_isUsing = false;
-				return;
-			}
+			// The client finishes a drink with EntityEvent 57, not a second Use press, and its own
+			// MobEquipment can replace this instance mid-drink, so the in-use state lives on the
+			// player. Every press starts a fresh drink client-side; only the event completes one.
+			if (player.ItemInUse != null) return;
 
 			_isUsing = true;
+			player.ItemInUse = this;
+		}
+
+		public override void CompleteUse(Player player)
+		{
+			Log.Debug($"CompleteUse {this} gamemode={player.GameMode} handSlot={player.Inventory.InHandSlot}");
+			Consume(player);
+			_isUsing = false;
+			player.ItemInUse = null;
 		}
 
 		public override void Release(Level world, Player player, BlockCoordinates blockCoordinates)
 		{
+			if (player.ItemInUse == this) player.ItemInUse = null;
 			_isUsing = false;
 		}
 
 
 		public virtual void Consume(Player player)
 		{
+			if (player.GameMode == GameMode.Survival || player.GameMode == GameMode.Adventure)
+			{
+				player.Inventory.ClearInventorySlot((byte) player.Inventory.InHandSlot);
+				player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName("minecraft:glass_bottle"), true);
+				// The per-slot updates above are not applied by the 1.26 client to its own
+				// inventory (the ItemStackNetManager owns it), so the drink would complete
+				// server-side while the potion stays in the client's hand. A full content sync
+				// is the path the client always honours.
+				player.SendPlayerInventory();
+			}
+
+			Effect e = GetPotionEffect(Metadata);
+
+			if (e != null)
+			{
+				Log.Debug($"Consume applies {e}");
+				player.SetEffect(e);
+			}
+			else
+			{
+				Log.Debug($"Consume found no effect for metadata {Metadata}");
+			}
+		}
+
+		/// <summary>
+		///     The effect a potion of the given metadata carries, or null for water and the mundane
+		///     types. Shared by the drink and the thrown potion, so a splash applies the same
+		///     effect it would have given as a drink.
+		/// </summary>
+		internal static Effect GetPotionEffect(short metadata)
+		{
 			Effect e = null;
-			switch (Metadata)
+			switch (metadata)
 			{
 				case 5:
 					e = new NightVision
@@ -289,10 +340,7 @@ namespace MiNET.Items
 					break;
 			}
 
-			if (e != null)
-			{
-				player.SetEffect(e);
-			}
+			return e;
 		}
 	}
 }

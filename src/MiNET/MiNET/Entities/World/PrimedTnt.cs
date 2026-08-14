@@ -75,6 +75,13 @@ namespace MiNET.Entities.World
 			}
 			else
 			{
+				// The vanilla hop: the primed TNT bounces every 10 ticks while the fuse burns.
+				if (Fuse % 10 == 0)
+				{
+					Velocity = new Vector3((float) ((Level.Random.NextDouble() - 0.5) * 0.2), 0.3f, (float) ((Level.Random.NextDouble() - 0.5) * 0.2));
+					_checkPosition = true;
+				}
+
 				PositionCheck();
 
 				if (KnownPosition.Y > -1 && _checkPosition)
@@ -82,6 +89,21 @@ namespace MiNET.Entities.World
 					Velocity -= new Vector3(0, (float) Gravity, 0);
 					Velocity *= (float) (1.0f - Drag);
 				}
+
+				if (LastSentPosition != null)
+				{
+					var move = McpeMoveEntityDelta.CreateObject();
+					move.runtimeEntityId = EntityId;
+					move.prevSentPosition = LastSentPosition;
+					move.currentPosition = (PlayerLocation) KnownPosition.Clone();
+					move.isOnGround = false;
+					if (move.SetFlags())
+					{
+						Level.RelayBroadcast(move);
+					}
+				}
+
+				LastSentPosition = (PlayerLocation) KnownPosition.Clone();
 
 				var entityData = McpeSetEntityData.CreateObject();
 				entityData.runtimeEntityId = EntityId;

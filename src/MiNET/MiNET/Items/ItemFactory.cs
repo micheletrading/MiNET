@@ -62,6 +62,7 @@ namespace MiNET.Items
 		{
 			var registry = new ItemRegistry();
 			ItemRegistryData.Create(registry);
+			ItemRegistryData.CreateOverrides(registry);
 			return registry;
 		}
 
@@ -218,7 +219,6 @@ namespace MiNET.Items
 	public class ItemComparator : Item { public ItemComparator() : base("minecraft:comparator") {} }
 	public class ItemRottenFlesh : Item { public ItemRottenFlesh() : base("minecraft:rotten_flesh") {} }
 	public class ItemRabbitFoot : Item { public ItemRabbitFoot() : base("minecraft:rabbit_foot") {} }
-	public class ItemLingeringPotion : Item { public ItemLingeringPotion() : base("minecraft:lingering_potion") {} }
 	public class ItemCampfire : Item { public ItemCampfire() : base("minecraft:campfire") {} }
 	public class ItemMusicDiscFar : Item { public ItemMusicDiscFar() : base("minecraft:music_disc_far") {} }
 	public class ItemSpiderEye : Item { public ItemSpiderEye() : base("minecraft:spider_eye") {} }
@@ -267,7 +267,6 @@ namespace MiNET.Items
 	public class ItemBrewingStand : Item { public ItemBrewingStand() : base("minecraft:brewing_stand") {} }
 	public class ItemRapidFertilizer : Item { public ItemRapidFertilizer() : base("minecraft:rapid_fertilizer") {} } // what is this?
 	public class ItemGlisteningMelonSlice : Item { public ItemGlisteningMelonSlice() : base("minecraft:glistering_melon_slice") {} }
-	public class ItemExperienceBottle : Item { public ItemExperienceBottle() : base("minecraft:experience_bottle") {} }
 	public class ItemFireCharge : Item { public ItemFireCharge() : base("minecraft:fire_charge") {} }
 	public class ItemWritableBook : Item { public ItemWritableBook() : base("minecraft:writable_book") {} }
 	public class ItemEmerald : Item { public ItemEmerald() : base("minecraft:emerald") {} }
@@ -297,7 +296,6 @@ namespace MiNET.Items
 	public class ItemChorusFruit : Item { public ItemChorusFruit() : base("minecraft:chorus_fruit") {} }
 	public class ItemSuspiciousStew : Item { public ItemSuspiciousStew() : base("minecraft:suspicious_stew") {} }
 	public class ItemPoppedChorusFruit : Item { public ItemPoppedChorusFruit() : base("minecraft:popped_chorus_fruit") {} }
-	public class ItemSplashPotion : Item { public ItemSplashPotion() : base("minecraft:splash_potion") {} }
 	public class ItemPrismarineShard : Item { public ItemPrismarineShard() : base("minecraft:prismarine_shard") {} }
 	public class ItemShulkerShell : Item { public ItemShulkerShell() : base("minecraft:shulker_shell") {} }
 	public class ItemTotemOfUndying : Item { public ItemTotemOfUndying() : base("minecraft:totem_of_undying") {} }

@@ -46,22 +46,32 @@ namespace MiNET.Items
 		{
 			if (player.GameMode == GameMode.Survival || player.GameMode == GameMode.Adventure)
 			{
-				if (_isUsing)
+				// The modern client finishes eating with EntityEvent 57, not a second Use press;
+				// the in-use state lives on the player (see ItemPotion).
+				if (player.ItemInUse != null) return;
+
+				if (player.HungerManager.CanEat())
 				{
-					Consume(player);
-
-					Count--;
-					player.Inventory.SetInventorySlot(player.Inventory.InHandSlot, this);
-					_isUsing = false;
-					return;
+					_isUsing = true;
+					player.ItemInUse = this;
 				}
-
-				if (player.HungerManager.CanEat()) _isUsing = true;
 			}
+		}
+
+		public override void CompleteUse(Player player)
+		{
+			Consume(player);
+
+			Count--;
+			player.Inventory.SetInventorySlot(player.Inventory.InHandSlot, this);
+			player.SendPlayerInventory();
+			_isUsing = false;
+			player.ItemInUse = null;
 		}
 
 		public override void Release(Level world, Player player, BlockCoordinates blockCoordinates)
 		{
+			if (player.ItemInUse == this) player.ItemInUse = null;
 			_isUsing = false;
 		}
 
