@@ -45,7 +45,7 @@ namespace MiNET.Utils.IO
 		///     Advertised to the client in NetworkSettings, so the same rule holds in both
 		///     directions.
 		/// </summary>
-		public const int CompressionThresholdBytes = 1000;
+		public const int CompressionThresholdBytes = 1;
 
 		// Codec-input tracing: when MINET_BATCH_DUMP names a directory, every payload that actually
 		// reaches the deflater (all three compression entry points, pre-compression, frames and
