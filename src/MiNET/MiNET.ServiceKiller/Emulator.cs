@@ -26,7 +26,9 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -80,7 +82,14 @@ namespace MiNET.ServiceKiller
 		/// <param name="auto">Run unattended: start without a prompt, exit when every bot's duration has elapsed. For scripted/detached runs, where stdin is not a console.</param>
 		/// <param name="sendIntervalMin">Lower bound (ms) of each bot's fixed movement-send cadence; with max, the per-bot interval is drawn once from this range. Higher = fewer packets = less CPU on both ends.</param>
 		/// <param name="sendIntervalMax">Upper bound (ms) of the cadence range.</param>
-		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "nethernet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100)
+		/// <param name="host">
+		///     Server to connect to. Loopback keeps the bots on the same machine, which is fast but
+		///     makes every send also pay the receiving side's delivery on the same box, so the CPU
+		///     numbers it produces are not the server's alone. Naming the public host instead
+		///     (yodamine.com) sends the traffic out to the router and back, a real network path,
+		///     which is what a measurement run wants.
+		/// </param>
+		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "nethernet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100, string host = "127.0.0.1")
 		{
 			NumberOfBots = numberOfBots;
 			DurationOfConnection = TimeSpan.FromSeconds(durationOfConnection);
@@ -125,8 +134,12 @@ namespace MiNET.ServiceKiller
 				emulator.WalkClock.Start();
 				long start = DateTime.UtcNow.Ticks;
 
-				//IPEndPoint endPoint = new IPEndPoint(Dns.GetHostEntry("yodamine.com").AddressList[0], 19132);
-				var endPoint = new IPEndPoint(IPAddress.Loopback, 19132);
+				// A name resolves to whatever the router hands back, so pointing the fleet at the
+				// public host bounces every datagram out and back instead of short-circuiting in the
+				// loopback adapter. Same server, real network path.
+				IPAddress address = IPAddress.TryParse(host, out IPAddress parsed) ? parsed : Dns.GetHostEntry(host).AddressList.First(a => a.AddressFamily == AddressFamily.InterNetwork);
+				var endPoint = new IPEndPoint(address, 19132);
+				Console.WriteLine($"Target: {host} -> {endPoint}");
 
 				Task.Run(() =>
 				{
