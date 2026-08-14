@@ -51,6 +51,25 @@ namespace MiNET.Net.Rtc
 		// SIO_UDP_CONNRESET: stop an ICMP port-unreachable from a dead peer aborting the socket.
 		private const int SioUdpConnReset = -1744830452;
 		private const int SocketBufferSize = 1024 * 1024;
+
+		// UDP Segmentation Offload (ws2ipdef.h): with UDP_SEND_MSG_SIZE set, one SendTo of a buffer
+		// holding several back-to-back segments leaves as one datagram per segment, so a run of
+		// same-size fragments to one peer costs one syscall instead of one each. Windows 10 1709+,
+		// and verified honoured on loopback (a 10000 byte send arrives as 8x1200 plus a 400 tail).
+		// Every segment must be exactly SegmentSize except the last, so only uniform full-size
+		// fragments may share a send; a short control packet (SACK, heartbeat) ends the run.
+		private const int IpprotoUdp = 17;
+		private const int UdpSendMsgSize = 2;
+
+		/// <summary>
+		///     Segment size for <see cref="UdpSendMsgSize" />: exactly one full wire datagram, a
+		///     max-size SCTP packet plus the DTLS record it is wrapped in. Derived, not literal,
+		///     because it MUST NOT be smaller than a single datagram we emit - the kernel would then
+		///     split that datagram, and each piece would be an invalid DTLS record. At this value a
+		///     lone send is never segmented, and only a deliberate concatenation of N full-size
+		///     datagrams leaves as N.
+		/// </summary>
+		private const int SendSegmentSize = SctpPacket.MaxSize + DtlsRecordCrypto.RecordOverhead;
 		private const int ReceiveBufferSize = 2048;
 		private const int TickIntervalMs = 10;
 
@@ -150,7 +169,24 @@ namespace MiNET.Net.Rtc
 			{
 				_socket.IOControl(SioUdpConnReset, new byte[] {0}, null);
 			}
+
+			// Enables segmentation for sends larger than SendSegmentSize; sends at or below it are
+			// unchanged, so this is inert until a caller actually hands over a multi-segment buffer.
+			// Best effort: an older Windows build, or a platform without the option, just refuses it
+			// and every send stays one datagram.
+			try
+			{
+				_socket.SetRawSocketOption(IpprotoUdp, UdpSendMsgSize, BitConverter.GetBytes(SendSegmentSize));
+				SegmentedSendEnabled = true;
+			}
+			catch (SocketException e)
+			{
+				Log.Warn($"UDP_SEND_MSG_SIZE not available, sends stay one datagram each: {e.SocketErrorCode}");
+			}
 		}
+
+		/// <summary>Whether the socket accepted <see cref="UdpSendMsgSize" />, so a buffer of several <see cref="SendSegmentSize" /> segments may be handed to one <see cref="Send" />.</summary>
+		public bool SegmentedSendEnabled { get; private set; }
 
 		/// <summary>
 		///     Not idempotent by design: a second call would spawn a second receive loop on the same
