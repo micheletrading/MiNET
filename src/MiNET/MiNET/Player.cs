@@ -793,28 +793,27 @@ namespace MiNET
 		}
 
 		private float _baseSpeed;
-		private object _sprintLock = new object();
 
+		// No lock: only this player's own handlers call it (PlayerAction and PlayerAuthInput),
+		// and the session's single dispatch consumer serializes them, so the base/boosted-speed
+		// read-modify-write below cannot interleave.
 		public void SetSprinting(bool isSprinting)
 		{
-			lock (_sprintLock)
+			if (isSprinting == IsSprinting) return;
+
+			if (isSprinting)
 			{
-				if (isSprinting == IsSprinting) return;
-
-				if (isSprinting)
-				{
-					IsSprinting = true;
-					_baseSpeed = MovementSpeed;
-					MovementSpeed += MovementSpeed * 0.3f;
-				}
-				else
-				{
-					IsSprinting = false;
-					MovementSpeed = _baseSpeed;
-				}
-
-				SendUpdateAttributes();
+				IsSprinting = true;
+				_baseSpeed = MovementSpeed;
+				MovementSpeed += MovementSpeed * 0.3f;
 			}
+			else
+			{
+				IsSprinting = false;
+				MovementSpeed = _baseSpeed;
+			}
+
+			SendUpdateAttributes();
 		}
 
 		public virtual void HandleMcpeBlockEntityData(McpeBlockEntityData message)
@@ -2567,14 +2566,23 @@ namespace MiNET
 			// movement tick, and NOT as its own McpeInventoryTransaction: the client sends one or the
 			// other, never both. Same transaction, same handler, so a right-click reaches a chest the
 			// same way whichever packet carried it.
+			//
+			// Hesitate, then thread: the transaction branch reaches world locks (Level.Interact,
+			// UI screens), so it runs as a pool work item instead of on the movement path. A click
+			// lands a beat later; the 20/s movement tail stays provably lock-free.
 			if (message.itemUseTransaction?.itemUseTransaction != null)
 			{
-				HandleItemUseTransaction(message.itemUseTransaction.itemUseTransaction);
+				ItemUseInventoryTransaction transaction = message.itemUseTransaction.itemUseTransaction;
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() => HandleItemUseTransaction(transaction));
 			}
 
 			if (message.itemStackRequest != null)
 			{
-				HandleSingleItemStackRequest(message.itemStackRequest);
+				// Hesitate, then thread, same as the transaction above: crafting resolution takes
+				// the recipe-manager lock, so an inventory click folded into a movement tick runs
+				// as a pool work item too.
+				ItemStackRequest request = message.itemStackRequest;
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() => HandleSingleItemStackRequest(request));
 			}
 
 			if (message.playerBlockActions != null)

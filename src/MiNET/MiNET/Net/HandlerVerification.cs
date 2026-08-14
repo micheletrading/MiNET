@@ -298,7 +298,7 @@ namespace MiNET.Net
 				MethodBodyBlock body = module.Pe.GetMethodBody(method.RelativeVirtualAddress);
 				byte[] il = body.GetILBytes() ?? Array.Empty<byte>();
 
-				foreach (int token in EnumerateCallTokens(il))
+				foreach ((int token, bool isVirtualCall) in EnumerateCallTokens(il))
 				{
 					var handle = MetadataTokens.EntityHandle(token);
 					(string typeName, string methodName, int paramCount, Module targetModule, MethodDefinitionHandle targetHandle) = ResolveCallTarget(module, handle);
@@ -317,11 +317,13 @@ namespace MiNET.Net
 
 					if (LeafNamespacePrefixes.Any(ns => typeName.StartsWith(ns, StringComparison.Ordinal))) continue;
 
-					// Resolve to definitions to traverse: the direct target plus, for virtuals,
-					// every override the closed world holds.
+					// Resolve to definitions to traverse: the direct target plus, for callvirt,
+					// every override the closed world holds. A plain call to a virtual slot is a
+					// base call (base.Method()) and runs exactly its direct target; fanning it out
+					// would chain every override into one walk and blow the depth limit.
 					var targets = new List<(Module, MethodDefinitionHandle)>();
 					if (targetModule != null) targets.Add((targetModule, targetHandle));
-					if (_overridesBySlot.TryGetValue($"{typeName}::{methodName}/{paramCount}", out List<(Module, MethodDefinitionHandle)> overrides))
+					if (isVirtualCall && _overridesBySlot.TryGetValue($"{typeName}::{methodName}/{paramCount}", out List<(Module, MethodDefinitionHandle)> overrides))
 					{
 						foreach ((Module, MethodDefinitionHandle) o in overrides)
 						{
@@ -353,8 +355,8 @@ namespace MiNET.Net
 				return result;
 			}
 
-			/// <summary>Walks the IL byte stream, yielding the metadata token of every call, callvirt and newobj operand. Operand sizes for every other opcode are skipped by table so token offsets stay exact.</summary>
-			private static IEnumerable<int> EnumerateCallTokens(byte[] il)
+			/// <summary>Walks the IL byte stream, yielding the metadata token of every call, callvirt and newobj operand, flagged with whether the dispatch is virtual. Operand sizes for every other opcode are skipped by table so token offsets stay exact.</summary>
+			private static IEnumerable<(int Token, bool IsVirtualCall)> EnumerateCallTokens(byte[] il)
 			{
 				int i = 0;
 				while (i < il.Length)
@@ -396,7 +398,7 @@ namespace MiNET.Net
 					if (op == 0x28 || op == 0x6F || op == 0x73)
 					{
 						if (i + 4 > il.Length) yield break;
-						yield return BitConverter.ToInt32(il, i);
+						yield return (BitConverter.ToInt32(il, i), op == 0x6F);
 						i += 4;
 						continue;
 					}
@@ -553,13 +555,55 @@ namespace MiNET.Net
 						TypeReference reference = module.Reader.GetTypeReference((TypeReferenceHandle) handle);
 						string ns = module.Reader.GetString(reference.Namespace);
 						string name = module.Reader.GetString(reference.Name);
+
+						// A nested type's reference carries its declaring type as the resolution
+						// scope and no namespace of its own; without the prefix, List`1+Enumerator
+						// would read as bare "Enumerator" and evade the leaf-namespace check.
+						if (reference.ResolutionScope.Kind == HandleKind.TypeReference)
+						{
+							string declaring = ResolveTypeName(module, reference.ResolutionScope);
+							return declaring == null ? null : $"{declaring}+{name}";
+						}
+
 						return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
 					}
 
 					case HandleKind.TypeSpecification:
-						// A constructed generic; the open type's name is enough for the leaf check,
-						// and generic game-handler targets do not exist on this surface.
+					{
+						// A constructed generic (Dictionary<string, X>, our own generic types): the
+						// open type's full name is what the leaf check and the definition lookup key
+						// on, so decode the signature down to it. Receivers that are themselves
+						// generic parameters stay unresolvable, which keeps the verdict conservative.
+						TypeSpecification spec = module.Reader.GetTypeSpecification((TypeSpecificationHandle) handle);
+						BlobReader blob = module.Reader.GetBlobReader(spec.Signature);
+						return ResolveTypeSpecName(module, ref blob);
+					}
+
+					default:
 						return null;
+				}
+			}
+
+			/// <summary>The open-type name behind a TypeSpec signature: GENERICINST resolves to its generic type definition, arrays to System.Array (their accessors are pure), everything else (generic parameters, pointers, byrefs) to null.</summary>
+			private string ResolveTypeSpecName(Module module, ref BlobReader blob)
+			{
+				SignatureTypeCode code = blob.ReadSignatureTypeCode();
+				switch (code)
+				{
+					case SignatureTypeCode.GenericTypeInstance:
+					{
+						// GENERICINST (CLASS | VALUETYPE) TypeDefOrRef GenArgCount Type*; the reader
+						// folds CLASS/VALUETYPE into TypeHandle and the args are irrelevant here.
+						SignatureTypeCode kind = blob.ReadSignatureTypeCode();
+						return kind == SignatureTypeCode.TypeHandle ? ResolveTypeName(module, blob.ReadTypeHandle()) : null;
+					}
+
+					case SignatureTypeCode.TypeHandle:
+						return ResolveTypeName(module, blob.ReadTypeHandle());
+
+					case SignatureTypeCode.SZArray:
+					case SignatureTypeCode.Array:
+						return "System.Array";
 
 					default:
 						return null;

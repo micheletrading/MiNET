@@ -398,6 +398,11 @@ namespace MiNET.Net
 		///     The caller still owns ordering: direct dispatch is only valid when nothing for this
 		///     session is queued ahead.
 		/// </summary>
+		/// <remarks>
+		///     No caller today: the direct-dispatch call site in NetherNetSession.HandlePayload is
+		///     commented out, so every packet takes the dispatch queue. Kept because the labels it
+		///     reads are still produced and reported at startup.
+		/// </remarks>
 		public bool CanDispatchInline(Packet packet)
 		{
 			object target = HandlerTarget;
