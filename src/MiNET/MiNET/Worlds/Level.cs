@@ -1973,9 +1973,9 @@ namespace MiNET.Worlds
 		{
 			var packet = McpeLevelSoundEvent.CreateObject();
 			packet.position = position;
-			// TODO: Wire format is a sound name string since protocol 993; verify the
-			// name mapping against BDS traces when the server side is brought to 1001.
-			packet.soundId = sound.ToString();
+			// Sound names are lowercase dotted wire names since protocol 993 (see
+			// LevelSoundEventTypeExtensions.ToWireName); the C# enum names are not the wire names.
+			packet.soundId = sound.ToWireName();
 			packet.blockId = blockId;
 			RelayBroadcast(sender, packet);
 		}

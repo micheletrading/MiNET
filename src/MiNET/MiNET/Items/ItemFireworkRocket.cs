@@ -65,18 +65,28 @@ namespace MiNET.Items
 			}
 		}
 
-		//TODO: Enable this when we can figure out the difference between placing a block, and use item transactions :-(
-		//
-		//public override void UseItem(Level world, Player player, BlockCoordinates blockCoordinates)
-		//{
-		//	Random random = new Random();
-		//	var rocket = new FireworksRocket(player, world, this, random);
-		//	rocket.KnownPosition = (PlayerLocation) player.KnownPosition.Clone();
-		//	rocket.KnownPosition.Y += 1.62f;
-		//	rocket.BroadcastMovement = true;
-		//	rocket.DespawnOnImpact = true;
-		//	rocket.SpawnEntity();
-		//}
+		// Right-clicking in the air (ItemUseActionType.Use, Player.HandleItemUseTransaction) launches
+		// the rocket from the player's position, straight up with a small random spread. Right-clicking
+		// a block goes through PlaceBlock above.
+		public override void UseItem(Level world, Player player, BlockCoordinates blockCoordinates)
+		{
+			Random random = new Random();
+			var rocket = new FireworksRocket(player, world, this, random);
+			rocket.KnownPosition = (PlayerLocation) player.KnownPosition.Clone();
+			rocket.KnownPosition.Y += 1.62f;
+			rocket.KnownPosition.Yaw = random.Next(360);
+			rocket.KnownPosition.Pitch = -1 * (float) (90f + (random.NextDouble() * Spread - Spread / 2));
+			rocket.BroadcastMovement = true;
+			rocket.DespawnOnImpact = true;
+			rocket.SpawnEntity();
+
+			if (player.GameMode == GameMode.Survival)
+			{
+				var itemInHand = player.Inventory.GetItemInHand();
+				itemInHand.Count--;
+				player.Inventory.SetInventorySlot(player.Inventory.InHandSlot, itemInHand);
+			}
+		}
 
 		//TAG_Compound: 1 entries {
 		//	TAG_Compound("Fireworks"): 2 entries {

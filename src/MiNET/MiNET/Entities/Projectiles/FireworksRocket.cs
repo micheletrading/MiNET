@@ -24,6 +24,8 @@
 #endregion
 
 using System;
+using System.Linq;
+using System.Numerics;
 using fNbt;
 using log4net;
 using MiNET.Items;
@@ -78,7 +80,14 @@ namespace MiNET.Entities.Projectiles
 		public override MetadataDictionary GetMetadata()
 		{
 			var metadata = base.GetMetadata();
-			//metadata[(int) MetadataFlags.FireworksType] = new MetadataSlot(Fireworks);
+			// The client renders the rocket (and the burst colors) from the firework item NBT under
+			// key 16 (FIREWORK_ITEM). Without it the rocket spawns blank and never bursts. The item's
+			// ExtraData is exactly the {Fireworks:{Explosions:[...],Flight:N}} compound vanilla sends.
+			if (Fireworks?.ExtraData != null)
+			{
+				metadata[(int) MetadataFlags.FireworksType] = new MetadataNbt(Fireworks.ExtraData);
+			}
+
 			return metadata;
 		}
 
@@ -89,7 +98,7 @@ namespace MiNET.Entities.Projectiles
 			KnownPosition.Pitch = (float) Velocity.GetPitch();
 
 			var sound = McpeLevelSoundEvent.CreateObject();
-			sound.soundId = LevelSoundEventType.BreakBlock.ToString();
+			sound.soundId = LevelSoundEventType.Launch.ToWireName();
 			sound.blockId = -1;
 			sound.position = KnownPosition;
 			Level.RelayBroadcast(sound);
@@ -99,6 +108,7 @@ namespace MiNET.Entities.Projectiles
 
 		public override void DespawnEntity()
 		{
+			// The burst: the client renders the firework colors from the FIREWORK_EXPLODE actor event.
 			McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 			entityEvent.runtimeEntityId = EntityId;
 			entityEvent.eventId = 25;
@@ -107,11 +117,89 @@ namespace MiNET.Entities.Projectiles
 
 			base.DespawnEntity();
 
-			var sound = McpeLevelSoundEvent.CreateObject();
-			sound.soundId = LevelSoundEventType.Launch.ToString();
-			sound.blockId = -1;
-			sound.position = KnownPosition;
-			Level.RelayBroadcast(sound);
+			Burst();
+		}
+
+		/// <summary>
+		///     The blast itself: sound and damage, like vanilla. Damage scales with the number of
+		///     explosions on the firework (force = count * 2 + 5) and falls off with distance
+		///     (force * sqrt((5 - distance) / 5)) inside the 5-block radius, per pmmp's reference.
+		/// </summary>
+		private void Burst()
+		{
+			int explosionCount = 0;
+			bool twinkle = false;
+			try
+			{
+				if (Fireworks?.ExtraData?["Fireworks"] is NbtCompound fireworks
+					&& fireworks["Explosions"] is NbtList explosions)
+				{
+					explosionCount = explosions.Count;
+					foreach (NbtTag tag in explosions)
+					{
+						if (tag is NbtCompound explosion && explosion["FireworkFlicker"] is NbtByte flicker && flicker.ByteValue != 0)
+						{
+							twinkle = true;
+						}
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				Log.Debug(e);
+			}
+
+			var burst = McpeLevelSoundEvent.CreateObject();
+			burst.soundId = LevelSoundEventType.Blast.ToWireName();
+			burst.blockId = -1;
+			burst.position = KnownPosition;
+			Level.RelayBroadcast(burst);
+
+			if (twinkle)
+			{
+				var twinkleSound = McpeLevelSoundEvent.CreateObject();
+				twinkleSound.soundId = LevelSoundEventType.Twinkle.ToWireName();
+				twinkleSound.blockId = -1;
+				twinkleSound.position = KnownPosition;
+				Level.RelayBroadcast(twinkleSound);
+			}
+
+			if (explosionCount == 0) return;
+
+			float force = explosionCount * 2 + 5;
+			const float radius = 5.0f;
+			var center = KnownPosition.ToVector3();
+
+			foreach (Entity entity in Level.Entities.Values.Concat(Level.GetSpawnedPlayers()).ToArray())
+			{
+				if (entity.HealthManager.IsInvulnerable) continue;
+
+				float distance = Vector3.Distance(entity.KnownPosition.ToVector3(), center);
+				if (distance > radius) continue;
+
+				float damage = force * (float) Math.Sqrt((radius - distance) / radius);
+				if (damage > 0)
+				{
+					entity.HealthManager.TakeHit(null, (int) Math.Ceiling(damage), DamageCause.EntityExplosion);
+				}
+
+				// The blast push, strongest at the centre.
+				Vector3 offset = entity.KnownPosition.ToVector3() - center;
+				Vector3 push = offset.LengthSquared() < 0.0001f ? Vector3.UnitY : Vector3.Normalize(offset);
+				push *= (1.0f - distance / radius) * 2f;
+
+				if (entity is Player)
+				{
+					var motion = McpeSetEntityMotion.CreateObject();
+					motion.runtimeEntityId = entity.EntityId;
+					motion.velocity = push;
+					Level.RelayBroadcast(motion);
+				}
+				else
+				{
+					entity.Velocity += push;
+				}
+			}
 		}
 
 		public override void OnTick(Entity[] entities)

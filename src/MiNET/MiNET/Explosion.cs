@@ -143,11 +143,11 @@ namespace MiNET
 
 		private bool SecondaryExplosion()
 		{
-			// The client-side shockwave and debris: the huge-explosion particle event, then the
-			// individual block updates below.
+			// The client-side shockwave: the huge-explosion level event, then the individual
+			// block-break debris particles and block updates below.
 			var explodeParticle = McpeLevelEvent.CreateObject();
-			explodeParticle.eventId = (int) LevelEventType.ParticleGreenThingy;
-			explodeParticle.position = _centerCoordinates;
+			explodeParticle.eventId = (int) LevelEventType.ParticleHugeExplosion; // 2026, the TNT blast
+			explodeParticle.position = new Vector3(_centerCoordinates.X + 0.5f, _centerCoordinates.Y + 0.5f, _centerCoordinates.Z + 0.5f);
 			_world.RelayBroadcast(explodeParticle);
 
 			// The boom. LevelSoundEvent Explode, at the explosion centre.
@@ -156,6 +156,15 @@ namespace MiNET
 			foreach (Block block in _afectedBlocks.Values)
 			{
 				Block block1 = block;
+
+				// Debris: one destroy-block particle per broken block, carrying the block's
+				// runtime id so the client renders the right shards.
+				var debris = McpeLevelEvent.CreateObject();
+				debris.eventId = (int) LevelEventType.ParticleDestroy;
+				debris.position = block1.Coordinates;
+				debris.data = block1.GetRuntimeId();
+				_world.RelayBroadcast(debris);
+
 				_world.SetAir(block1.Coordinates);
 				if (block is Tnt)
 				{
@@ -188,7 +197,8 @@ namespace MiNET
 
 		/// <summary>
 		///     Explosion damage: every entity in range takes the full force scaled by its distance
-		///     from the centre, like vanilla's (1 - distance / radius) falloff.
+		///     from the centre, like vanilla's (1 - distance / radius) falloff. Survivors are blasted
+		///     away from the centre: mobs get server-side velocity, players get the motion packet.
 		/// </summary>
 		private void DamageEntities()
 		{
@@ -199,13 +209,31 @@ namespace MiNET
 			{
 				if (entity.HealthManager.IsInvulnerable) continue;
 
-				float distance = Vector3.Distance(entity.KnownPosition.ToVector3(), center);
+				Vector3 offset = entity.KnownPosition.ToVector3() - center;
+				float distance = offset.Length();
 				if (distance > radius) continue;
 
 				float damage = (float) Math.Ceiling((1.0 - distance / radius) * 6.0 * _size);
-				if (damage <= 0) continue;
+				if (damage > 0)
+				{
+					entity.HealthManager.TakeHit(null, (int) damage, DamageCause.BlockExplosion);
+				}
 
-				entity.HealthManager.TakeHit(null, (int) damage, DamageCause.BlockExplosion);
+				// Blast knockback, strongest at the centre.
+				float force = (1.0f - distance / radius) * 4f;
+				Vector3 blast = offset.LengthSquared() < 0.0001f ? Vector3.UnitY * force : Vector3.Normalize(offset) * force;
+
+				if (entity is Player)
+				{
+					var motion = McpeSetEntityMotion.CreateObject();
+					motion.runtimeEntityId = entity.EntityId;
+					motion.velocity = blast;
+					_world.RelayBroadcast(motion);
+				}
+				else
+				{
+					entity.Velocity += blast;
+				}
 			}
 		}
 

@@ -24,6 +24,7 @@
 #endregion
 
 using MiNET.Items;
+using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
@@ -37,6 +38,26 @@ namespace MiNET.Blocks
 		public override Item[] GetDrops(Item tool)
 		{
 			return new Item[0];
+		}
+
+		/// <summary>
+		///     Fire dies like vanilla: each random tick ages it, and at age 15 it burns out. The age
+		///     rides the block state (fire:age 0-15), so it survives in the chunk and the client
+		///     renders the shrinking flame. Honours the doFireTick game rule.
+		/// </summary>
+		public override void OnTick(Level level, bool isRandom)
+		{
+			if (!isRandom || !level.DoFiretick) return;
+
+			if (Age >= 15)
+			{
+				level.SetAir(Coordinates);
+				level.BroadcastSound(Coordinates, LevelSoundEventType.ExtinguishFire);
+			}
+			else
+			{
+				level.SetBlock(new Fire {Coordinates = Coordinates, Age = Age + 1});
+			}
 		}
 	}
 }

@@ -23,6 +23,9 @@
 
 #endregion
 
+using System.Collections.Generic;
+using System.Text;
+
 namespace MiNET
 {
 	public enum LevelEventType : short
@@ -74,6 +77,8 @@ namespace MiNET
 		ParticleProjectileHit = 2009,
 		ParticleEndermanTeleport = 2013,
 		ParticlePunchBlock = 2014,
+		ParticleExplosion = 2025,
+		ParticleHugeExplosion = 2026,
 
 		StartRain = 3001,
 		StartThunder = 3002,
@@ -367,5 +372,143 @@ namespace MiNET
 		RaidHorn = 272,
 		BlockLoomUse = 273,
 		Undefined = 274
+	}
+
+	/// <summary>
+	///     McpeLevelSoundEvent carries the sound as a name string since protocol 993. Mojang's
+	///     LevelSoundEvent schema enumerates the wire names (lowercase, dotted/snake_case), which
+	///     do not match the PascalCase C# member names. The dictionary covers every sound the
+	///     server sends today; the fallback approximates the camelCase to dotted-lowercase
+	///     conversion for anything not listed (still closer to the wire than ToString()).
+	/// </summary>
+	public static class LevelSoundEventTypeExtensions
+	{
+		private static readonly Dictionary<LevelSoundEventType, string> WireNames = new Dictionary<LevelSoundEventType, string>
+		{
+			{ LevelSoundEventType.Explode, "explode" },
+			{ LevelSoundEventType.Fuse, "fuse" },
+			{ LevelSoundEventType.Ignite, "ignite" },
+			{ LevelSoundEventType.Launch, "launch" },
+			{ LevelSoundEventType.Blast, "blast" },
+			{ LevelSoundEventType.LargeBlast, "large.blast" },
+			{ LevelSoundEventType.Twinkle, "twinkle" },
+			{ LevelSoundEventType.Break, "break" },
+			{ LevelSoundEventType.BreakBlock, "break.block" },
+			{ LevelSoundEventType.Place, "place" },
+			{ LevelSoundEventType.Fizz, "fizz" },
+			{ LevelSoundEventType.Glass, "glass" },
+			{ LevelSoundEventType.Throw, "throw" },
+			{ LevelSoundEventType.ItemUseOn, "item.use.on" },
+			{ LevelSoundEventType.PotionBrewed, "potion.brewed" },
+			{ LevelSoundEventType.ExtinguishFire, "extinguish.fire" },
+			{ LevelSoundEventType.CameraTakePicture, "camera.take_picture" },
+			{ LevelSoundEventType.BucketFillWater, "bucket.fill.water" },
+			{ LevelSoundEventType.BucketEmptyWater, "bucket.empty.water" },
+			{ LevelSoundEventType.BucketFillLava, "bucket.fill.lava" },
+			{ LevelSoundEventType.BucketEmptyLava, "bucket.empty.lava" },
+			{ LevelSoundEventType.ArmorEquipChain, "armor.equip_chain" },
+			{ LevelSoundEventType.ArmorEquipDiamond, "armor.equip_diamond" },
+			{ LevelSoundEventType.ArmorEquipGeneric, "armor.equip_generic" },
+			{ LevelSoundEventType.ArmorEquipGold, "armor.equip_gold" },
+			{ LevelSoundEventType.ArmorEquipIron, "armor.equip_iron" },
+			{ LevelSoundEventType.ArmorEquipLeather, "armor.equip_leather" },
+			{ LevelSoundEventType.ArmorEquipElytra, "armor.equip_elytra" },
+			{ LevelSoundEventType.Record13, "record.13" },
+			{ LevelSoundEventType.RecordCat, "record.cat" },
+			{ LevelSoundEventType.RecordBlocks, "record.blocks" },
+			{ LevelSoundEventType.RecordChirp, "record.chirp" },
+			{ LevelSoundEventType.RecordFar, "record.far" },
+			{ LevelSoundEventType.RecordMall, "record.mall" },
+			{ LevelSoundEventType.RecordMellohi, "record.mellohi" },
+			{ LevelSoundEventType.RecordStal, "record.stal" },
+			{ LevelSoundEventType.RecordStrad, "record.strad" },
+			{ LevelSoundEventType.RecordWard, "record.ward" },
+			{ LevelSoundEventType.Record11, "record.11" },
+			{ LevelSoundEventType.RecordWait, "record.wait" },
+			{ LevelSoundEventType.ImitateCaveSpider, "imitate.cave_spider" },
+			{ LevelSoundEventType.ImitateElderGuardian, "imitate.elder_guardian" },
+			{ LevelSoundEventType.ImitateEnderDragon, "imitate.ender_dragon" },
+			{ LevelSoundEventType.ImitateEvocationIllager, "imitate.evocation_illager" },
+			{ LevelSoundEventType.ImitateHusk, "imitate.husk" },
+			{ LevelSoundEventType.ImitateIllusionIllager, "imitate.illusion_illager" },
+			{ LevelSoundEventType.ImitatePolarBear, "imitate.polar_bear" },
+			{ LevelSoundEventType.ImitateShulker, "imitate.shulker" },
+			{ LevelSoundEventType.ImitateSilverfish, "imitate.silverfish" },
+			{ LevelSoundEventType.ImitateSkeleton, "imitate.skeleton" },
+			{ LevelSoundEventType.ImitateSpider, "imitate.spider" },
+			{ LevelSoundEventType.ImitateStray, "imitate.stray" },
+			{ LevelSoundEventType.ImitateVex, "imitate.vex" },
+			{ LevelSoundEventType.ImitateVindicationIllager, "imitate.vindication_illager" },
+			{ LevelSoundEventType.ImitateWitch, "imitate.witch" },
+			{ LevelSoundEventType.ImitateWither, "imitate.wither" },
+			{ LevelSoundEventType.ImitateWitherSkeleton, "imitate.wither_skeleton" },
+			{ LevelSoundEventType.ImitateWolf, "imitate.wolf" },
+			{ LevelSoundEventType.ImitateZombie, "imitate.zombie" },
+			{ LevelSoundEventType.ImitateZombiePigman, "imitate.zombie_pigman" },
+			{ LevelSoundEventType.ImitateZombieVillager, "imitate.zombie_villager" },
+			{ LevelSoundEventType.MobWarning, "mob.warning" },
+			{ LevelSoundEventType.MobWarningBaby, "mob.warning.baby" },
+			{ LevelSoundEventType.ElderguardianCurse, "elderguardian.curse" },
+			{ LevelSoundEventType.HaggleYes, "haggle.yes" },
+			{ LevelSoundEventType.HaggleNo, "haggle.no" },
+			{ LevelSoundEventType.HaggleIdle, "haggle.idle" },
+			{ LevelSoundEventType.BlockEndPortalFrameFill, "block.end_portal_frame.fill" },
+			{ LevelSoundEventType.BlockEndPortalSpawn, "block.end_portal.spawn" },
+			{ LevelSoundEventType.BottleDragonbreath, "bottle.dragonbreath" },
+			{ LevelSoundEventType.ItemTridentHit, "item.trident.hit" },
+			{ LevelSoundEventType.ItemTridentReturn, "item.trident.return" },
+			{ LevelSoundEventType.ItemTridentRiptide1, "item.trident.riptide_1" },
+			{ LevelSoundEventType.ItemTridentRiptide2, "item.trident.riptide_2" },
+			{ LevelSoundEventType.ItemTridentRiptide3, "item.trident.riptide_3" },
+			{ LevelSoundEventType.ItemTridentThrow, "item.trident.throw" },
+			{ LevelSoundEventType.ItemTridentThunder, "item.trident.thunder" },
+			{ LevelSoundEventType.ItemTridentHitGround, "item.trident.hit_ground" },
+			{ LevelSoundEventType.BlockFletchingTableUse, "block.fletching_table.use" },
+			{ LevelSoundEventType.LtReactionIcebomb, "lt.reaction.icebomb" },
+			{ LevelSoundEventType.LtReactionBleach, "lt.reaction.bleach" },
+			{ LevelSoundEventType.LtReactionEpaste, "lt.reaction.epaste" },
+			{ LevelSoundEventType.LtReactionEpaste2, "lt.reaction.epaste2" },
+			{ LevelSoundEventType.LtReactionFertilizer, "lt.reaction.fertilizer" },
+			{ LevelSoundEventType.LtReactionFireball, "lt.reaction.fireball" },
+			{ LevelSoundEventType.LtReactionMgsalt, "lt.reaction.mgsalt" },
+			{ LevelSoundEventType.LtReactionMiscfire, "lt.reaction.miscfire" },
+			{ LevelSoundEventType.LtReactionFire, "lt.reaction.fire" },
+			{ LevelSoundEventType.LtReactionMiscexplosion, "lt.reaction.miscexplosion" },
+			{ LevelSoundEventType.LtReactionMiscmystical, "lt.reaction.miscmystical" },
+			{ LevelSoundEventType.LtReactionMiscmystical2, "lt.reaction.miscmystical2" },
+			{ LevelSoundEventType.LtReactionProduct, "lt.reaction.product" },
+			{ LevelSoundEventType.ConvertToDrowned, "convert_to_drowned" },
+			{ LevelSoundEventType.BlockTurtleEggBreak, "block.turtle_egg.break" },
+			{ LevelSoundEventType.BlockTurtleEggCrack, "block.turtle_egg.crack" },
+			{ LevelSoundEventType.BlockTurtleEggHatch, "block.turtle_egg.hatch" },
+			{ LevelSoundEventType.BlockTurtleEggAttack, "block.turtle_egg.attack" },
+			{ LevelSoundEventType.DeathMinVolume, "death.min.volume" },
+			{ LevelSoundEventType.DeathMidVolume, "death.mid.volume" },
+			{ LevelSoundEventType.HurtBaby, "hurt.baby" },
+			{ LevelSoundEventType.DeathBaby, "death.baby" },
+			{ LevelSoundEventType.StepBaby, "step.baby" },
+			{ LevelSoundEventType.BucketFillFish, "bucket.fill.fish" },
+			{ LevelSoundEventType.BucketEmptyFish, "bucket.empty.fish" },
+			{ LevelSoundEventType.BubbleUp, "bubble.up" },
+			{ LevelSoundEventType.BubbleDown, "bubble.down" },
+			{ LevelSoundEventType.BubblePop, "bubble.pop" },
+			{ LevelSoundEventType.LeashknotPlace, "leashknot.place" },
+			{ LevelSoundEventType.LeashknotBreak, "leashknot.break" },
+		};
+
+		public static string ToWireName(this LevelSoundEventType sound)
+		{
+			if (WireNames.TryGetValue(sound, out var name)) return name;
+
+			StringBuilder sb = new StringBuilder();
+			for (int i = 0; i < sound.ToString().Length; i++)
+			{
+				char c = sound.ToString()[i];
+				if (char.IsUpper(c) && i > 0) sb.Append('.');
+				sb.Append(char.ToLowerInvariant(c));
+			}
+
+			return sb.ToString();
+		}
 	}
 }

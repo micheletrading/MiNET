@@ -120,7 +120,7 @@ namespace MiNET
 				Slots[InHandSlot] = new ItemAir();
 
 				var sound = McpeLevelSoundEvent.CreateObject();
-				sound.soundId = LevelSoundEventType.Break.ToString();
+				sound.soundId = LevelSoundEventType.Break.ToWireName();
 				sound.blockId = -1;
 				sound.position = Player.KnownPosition;
 				Player.Level.RelayBroadcast(sound);
@@ -158,7 +158,7 @@ namespace MiNET
 				item = new ItemAir();
 
 				var sound = McpeLevelSoundEvent.CreateObject();
-				sound.soundId = LevelSoundEventType.Break.ToString();
+				sound.soundId = LevelSoundEventType.Break.ToWireName();
 				sound.blockId = -1;
 				sound.position = Player.KnownPosition;
 				Player.Level.RelayBroadcast(sound);

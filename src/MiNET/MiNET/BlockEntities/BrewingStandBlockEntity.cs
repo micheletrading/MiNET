@@ -239,8 +239,11 @@ namespace MiNET.BlockEntities
 
 		private void BroadcastBrewed(Level level)
 		{
-			McpeLevelEvent levelEvent = McpeLevelEvent.CreateObject();
-			levelEvent.eventId = (int) LevelSoundEventType.PotionBrewed;
+			// A sound event, not a level event: PotionBrewed (128) is a LevelSoundEventType value and
+			// has no meaning as a level event id. The client plays "potion.brewed" from the name.
+			McpeLevelSoundEvent levelEvent = McpeLevelSoundEvent.CreateObject();
+			levelEvent.soundId = LevelSoundEventType.PotionBrewed.ToWireName();
+			levelEvent.blockId = -1;
 			levelEvent.position = Coordinates;
 			level.RelayBroadcast(levelEvent);
 		}

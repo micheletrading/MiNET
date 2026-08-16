@@ -106,6 +106,19 @@
 
 	</appender>
 
+	<logger name="MiNET.Net.NetherNet">
+		<level value="WARN" />
+	</logger>
+	<logger name="MiNET.Net.RakNet">
+		<level value="WARN" />
+	</logger>
+	<logger name="MiNET.Net.BedrockMessageHandlerBase">
+		<level value="INFO" />
+	</logger>
+	<logger name="MiNET.Utils.IO.HighPrecisionTimer">
+		<level value="ERROR" />
+	</logger>
+
 	<root>
 		<level value="VERBOSE" />
 		<appender-ref ref="Console" />
