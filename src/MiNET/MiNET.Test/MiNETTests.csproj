@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MiNET.Client\MiNET.Client.csproj" />
+    <ProjectReference Include="..\MiNET.Parking\MiNET.Parking.csproj" />
     <ProjectReference Include="..\MiNET\MiNET.csproj" />
     <ProjectReference Include="..\TestPlugin\TestPlugin.csproj" />
   </ItemGroup>

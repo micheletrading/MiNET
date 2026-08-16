@@ -16,13 +16,13 @@ For a developer working against a server on their own machine, the entire integr
 
 1. Send your player to `yodamine.info:19132`. They are parked.
 2. Restart your server, take as long as you need.
-3. They come home by typing `/back`, which sends them to `127.0.0.1:19132`, their own machine. Or pull them home yourself, by name:
+3. They come home by typing `/back`, which sends them to `127.0.0.1:19132`, their own machine. Or pull them home over the API, with a personal key from `/token` (see below):
 
 ```
-curl -X POST http://yodamine.info/transfer/19132/YourName
+curl "http://yodamine.info/transfer/19132/YourName?key=park_..."
 ```
 
-No registration, no account, no configuration. The front entrance always leads back to localhost, because a visitor without a door can only honestly have come from their own machine. (On the front entrance the API takes player names only; `*` works only on a door of your own, below.)
+No registration, no configuration. The front entrance always leads back to localhost, because a visitor without a door can only honestly have come from their own machine.
 
 ## But wait, there is more: doors
 
@@ -82,6 +82,7 @@ All of these are typed in the parking lot itself.
 | `/deny <port> <name>` | Refuses a name at your door. A denial always wins over an allowance. |
 | `/unlist <port> <name>` | Removes a name from both lists. When the allow list empties, the door is open to everyone again. |
 | `/release [port]` | Closes one of your doors, or all of them. |
+| `/token` | Your personal API key, in chat. One at a time; asking again replaces and invalidates the old one. |
 | `/back` | Leave now: sends you to your door's destination. |
 
 You can only manage doors you registered.
@@ -91,28 +92,35 @@ You can only manage doors you registered.
 One HTTP call brings your players home:
 
 ```
-POST http://yodamine.info/transfer/<your port>/<player>
+GET http://yodamine.info/transfer/<port>/<player>
 ```
 
-Use a player's name to move one player, or `*` to move everyone who came through your door. For example, after a restart:
+It needs your personal key. Type `/token` in the parking lot and you get one in chat; send it as an `Authorization: Bearer` header, or simply in the URL, which makes the whole call a clickable link:
 
 ```
-curl -X POST http://yodamine.info/transfer/19507/*
+curl "http://yodamine.info/transfer/19507/*?key=park_..."
 ```
 
 ```
 Transferred 3 to mc.example.com:19132
 ```
 
-The destination is fixed to what your door was registered with; the API cannot send players anywhere else. Your door's port number is the whole credential, so treat it like a token: anyone who knows it can send your parked players home (and nothing more).
+What your key opens, and nothing else:
+
+- through **doors you own**: any player name, or `*` for everyone who came through that door;
+- through the **front entrance** (`19132`): exactly your own name, back to localhost.
+
+You hold one key at a time. Typing `/token` again hands you a fresh one and the old one stops working on the spot, which is also how you revoke a leaked key. The destination of a transfer is never the caller's to choose: door arrivals go where the door was registered, front arrivals go home to localhost.
 
 | Reply | Meaning |
 |---|---|
 | `200 Transferred N to ...` | N players on their way. |
+| `401 A personal access key is required` | Missing or dead key. `/token` for a fresh one. |
+| `403 That door is not yours` / `... only your own name ...` | Valid key, but outside its scope. |
 | `404 No door on port X` | That port is not a door. |
 | `404 Nobody matching ...` | Door exists, but no such player is parked there. |
 
-Players who are still mid-join are included on purpose; if you transfer everyone the moment your server dies, the stragglers still get caught.
+Players who are still mid-join are included on purpose; if you transfer everyone the moment your server dies, the stragglers still get caught. POST works too, if GET offends you.
 
 ## Good to know
 

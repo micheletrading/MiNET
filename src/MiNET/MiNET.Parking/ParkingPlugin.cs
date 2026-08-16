@@ -65,6 +65,7 @@ namespace MiNET.Parking
 		private Timer _pluginTimer;
 
 		private DoorRegistry _doors;
+		private TokenRegistry _tokens;
 
 		/// <summary>
 		///     Midnight on day 4. The moon phase is not a setting, it is the day count: phase is
@@ -132,6 +133,7 @@ namespace MiNET.Parking
 			int last = bounds.Length > 1 ? int.Parse(bounds[1]) : first;
 
 			_doors = new DoorRegistry(Path.Combine(AppContext.BaseDirectory, "doors.json"), first, last, Config.GetProperty("Parking.MaxDoorsPerUser", 10));
+			_tokens = new TokenRegistry(Path.Combine(AppContext.BaseDirectory, "tokens.json"));
 
 			_suppressed = new HashSet<string>(
 				Config.GetProperty("Parking.Suppress", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
@@ -371,20 +373,23 @@ namespace MiNET.Parking
 		}
 
 		/// <summary>
-		///     Sends players back through a door, over HTTP, so whatever put them here can take them
-		///     back without a console on this machine.
+		///     Sends players back, over HTTP, so whatever put them here can take them back without a
+		///     console on this machine.
 		///     <para>
-		///         <c>POST /transfer/{port}/{player}</c>, where the port is one handed out at
-		///         registration and <c>*</c> as the player moves everyone who came through it. The
-		///         destination is the door's own; a caller cannot name one, so this can only ever
-		///         return players to where their door already says.
+		///         <c>POST /transfer/{port}/{player}</c> with <c>Authorization: Bearer</c> carrying
+		///         a key from <c>/token</c>. Through a door the caller owns, a name moves one player
+		///         and <c>*</c> moves everyone who came through it; on the front entrance the key
+		///         moves exactly its own name. The destination is never the caller's to choose: a
+		///         door's arrivals go where the door says, front arrivals go to
+		///         <c>Parking.DefaultBack</c>.
 		///     </para>
 		///     <para>
-		///         The port is the credential, and it is the only one: it is learned by registering
-		///         in world, which is already an authenticated act. The server port is not a door,
-		///         so no request here can move a player who arrived by the front entrance.
+		///         The key is the credential, issued in world, which is already an authenticated
+		///         act, and it doubles as the scope: the token record says which doors are the
+		///         caller's and which one name is theirs to move.
 		///     </para>
 		/// </summary>
+		[HttpHandler("GET", "/transfer/{port}/{player}")]
 		[HttpHandler("POST", "/transfer/{port}/{player}")]
 		public HttpResponse TransferRequest(HttpRequest request)
 		{
@@ -392,14 +397,23 @@ namespace MiNET.Parking
 
 			string name = request.RouteValues["player"];
 
-			// The front entrance answers too, so a developer who never registered can still pull
-			// their player home by name. Names only: the front port is public knowledge where a
-			// door port had to be earned, so the wildcard would let anyone bounce every parked
-			// stranger at once. A name moves one player, to their own machine, nothing more.
+			// The key from /token is the caller. Without one the API answers nobody: the token
+			// record carries both the scope (which doors are theirs) and the one name they may
+			// move on the front entrance, so authentication and authorization are the same lookup.
+			// The header is the proper carrier; ?key= exists so the whole call fits in a clickable
+			// URL, at the price every query credential pays (history, logs, referrers). At worst a
+			// leaked key transfers its owner's players to where they were going anyway.
+			string bearer = request.Header("Authorization");
+			string key = bearer != null && bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? bearer.Substring(7).Trim() : QueryKey(request.Query);
+			AccessToken token = _tokens.Find(key);
+			if (token == null) return HttpResponse.Text("A personal access key is required: type /token in the parking lot, then send Authorization: Bearer <key> (or append ?key=<key>)", 401);
+
 			int frontPort = Config.GetProperty("port", 19132);
 			Door door = _doors.ByPort(port);
 			if (door == null && port != frontPort) return HttpResponse.Text($"No door on port {port}", 404);
-			if (door == null && name == "*") return HttpResponse.Text("The front entrance takes player names only, not *", 403);
+
+			string refusal = token.RefusalFor(door, name);
+			if (refusal != null) return HttpResponse.Text(refusal, 403);
 
 			Level level = Context.Server.LevelManager.Levels.FirstOrDefault();
 			if (level == null) return HttpResponse.Text("No level", 503);
@@ -416,7 +430,7 @@ namespace MiNET.Parking
 
 			foreach (Player player in moving) SendTo(player, destination);
 
-			Log.Info($"HTTP transfer of {name} through door {port} to {destination} from {request.RemoteEndPoint}, moved {moving.Length}.");
+			Log.Info($"HTTP transfer of {name} through {(door != null ? $"door {port}" : "the front entrance")} to {destination} by {token.OwnerName} from {request.RemoteEndPoint}, moved {moving.Length}.");
 
 			return moving.Length == 0
 				? HttpResponse.Text($"Nobody matching {name} came through door {port}", 404)
@@ -452,6 +466,26 @@ namespace MiNET.Parking
 			if (door.AutoSeconds > 0) player.SendMessage($"They also leave on their own after {door.AutoSeconds}s");
 
 			Log.Info($"{player.Username} registered door {door}.");
+		}
+
+		/// <summary>
+		///     Hands out the caller's personal API key. Asking again is the revocation mechanism:
+		///     there is one key per account and the new one takes the old one's place, so a leaked
+		///     key dies the moment its owner types this again. The chat message is the only
+		///     plaintext copy that will ever exist; the registry keeps hashes.
+		/// </summary>
+		[Command(Name = "token", Description = "Get your personal API key. Replaces and invalidates your previous one")]
+		public void TokenCommand(Player player)
+		{
+			string key = _tokens.Issue(OwnerIdOf(player), player.Username);
+
+			player.SendMessage("Your personal API key. Your previous one, if any, just stopped working:");
+			player.SendMessage(key);
+			player.SendMessage("Send it as a header, Authorization: Bearer <key>, or right in the URL:");
+			player.SendMessage($"http://{Config.GetProperty("Parking.PublicAddress", "127.0.0.1")}/transfer/<port>/<player>?key=...");
+			player.SendMessage($"It moves {player.Username} home from the front entrance, and anyone through doors you own.");
+
+			Log.Info($"{player.Username} issued themselves a fresh API key.");
 		}
 
 		[Command(Name = "mydoors", Description = "List the doors you registered")]
@@ -671,6 +705,17 @@ namespace MiNET.Parking
 		{
 			_traffic.Clear();
 			player.SendMessage("Traffic tally cleared.");
+		}
+
+		/// <summary>The key= value out of a raw query string, or null. The only query parsing this plugin needs, so no framework.</summary>
+		private static string QueryKey(string query)
+		{
+			foreach (string pair in (query ?? "").Split('&', StringSplitOptions.RemoveEmptyEntries))
+			{
+				if (pair.StartsWith("key=", StringComparison.Ordinal)) return Uri.UnescapeDataString(pair.Substring(4));
+			}
+
+			return null;
 		}
 
 		private static string OwnerIdOf(Player player)
