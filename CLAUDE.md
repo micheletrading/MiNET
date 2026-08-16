@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -44,13 +44,11 @@ warning. Stop it through the remote console instead.
 
 After every code change, this exact loop, nothing else:
 
-1. `MiNET.Console remote restart` when the server is coming straight back. It transfers everyone to
-   `RemoteConsole.TransferAddress` and shuts down cleanly, saving the level, and they reconnect on
-   their own. But the transfer starts a 22 second clock, so if a build or tests sit in the gap the
-   window is blown and transferring is WORSE than disconnecting: the client burns the window
-   retrying and ends on a generic multiplayer-services error rather than a clean shutdown message.
-   For that case, warn people first and use `remote stop`. Decide on how long the server will be
-   down, not on who is online.
+1. `MiNET.Console remote restart`, always. It transfers everyone to
+   `RemoteConsole.TransferAddress`, which is `yodamine.info`, the OVH box whose parking server is
+   always up, then shuts down cleanly and saves the level. Players land on the box immediately and
+   stay there, so how long this server is down does not matter. They are parked, not queued:
+   nothing sends them back, `/back` on the parking server does.
 2. Build the SOLUTION: `dotnet build src/MiNET/MiNET.sln`. Not the project. `dotnet run` builds only
    the console and its references, and the plugins (`TestPlugin`, `MiNET.Plotter`,
    `MiNET.BuilderBase`) are loaded at runtime from `PluginDirectory`, so they are NOT references and
@@ -65,20 +63,18 @@ After every code change, this exact loop, nothing else:
 `.claude/skills/restart-server/restart-minet.sh` is this loop in one script and prints the
 downtime; pass `--build` to include step 2.
 
-**The downtime budget is real.** A transferred client retries for about 22 seconds and then gives
-up with `InitialConnection-13`, losing the player.
+**There is no downtime budget any more**, because the transfer target is a different machine.
+Restart with `--build`, run the tests, take as long as the work takes.
 
-Without a build, restart is ~6s and always fits. With `--build`, assume it does NOT: measured
-downtimes are 19s, 40s and 48s, and the 48s was a one-file change in `MiNET.Console` alone, so
-"small edit" is not a reliable predictor. Build time dominates and varies far more than the source
-change suggests. So when players are on and code has changed, tell them first; do not assume the
-transfer will carry them. The script prints the downtime, which is the only honest measure.
+That holds only while `RemoteConsole.TransferAddress` points off-box. A client transferred to an
+address on THIS machine retries for about 22 seconds against a listener that is down, then gives
+up with `InitialConnection-13` and is lost. So it must be `yodamine.info` (the box), never
+`yodamine.com` (this machine) and never `127.0.0.1` (the player's own machine). The address is
+resolved by the CLIENT, so it has to be a name the client can reach.
 
-Never assume, and never let anyone assume, that a `--build` restart is transparent to players.
-
-`RemoteConsole.TransferAddress` must be resolvable by the CLIENT. Once anyone joins from outside
-this machine it has to be the public name (`yodamine.com` here), never `127.0.0.1`, which would
-send them to their own machine.
+For reference, since the script prints it: a plain restart is ~6s, and with `--build` it has
+measured 19s, 40s and 48s. The 48s was a one-file change in `MiNET.Console` alone, so "small edit"
+predicts nothing.
 
 Falling back without the remote console: create `temp_auto/stop-server`, which the host watches and
 which stops it the same way pressing enter does. `SIGINT`/`SIGTERM` work too.
