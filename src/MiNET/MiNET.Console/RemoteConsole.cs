@@ -192,10 +192,45 @@ namespace MiNET.Console
 		{
 			_server.AcceptConnections = false;
 
+			int transferred = TransferEveryone(address, port);
+
+			string state = WaitForSessionsToDrain();
+
+			Log.Info($"Remote console restart: refused new connections, transferred {transferred} player(s) to {address}:{port}, {state}");
+
+			return $"Restarting: transferred {transferred} player(s) to {address}:{port}, {state}. Saving the level. Start the server again and they will reconnect on their own.";
+		}
+
+		/// <summary>
+		///     Sends every spawned player to another server and changes nothing else: this server keeps
+		///     accepting, keeps its level loaded, and stays up.
+		///     <para>
+		///     That is what makes a parking server work. A transfer across a RESTART cannot hold anyone
+		///     on NetherNet: signaling hands the client a ufrag and DTLS fingerprint belonging to the
+		///     process that answered, so once that process exits the client is probing credentials
+		///     nothing will ever recognise, and a dead listener refuses its next signaling attempt
+		///     outright rather than making it wait. A second process that stays up has none of those
+		///     problems - it answers immediately with credentials of its own.
+		///     </para>
+		/// </summary>
+		private string Transfer(string address, int port)
+		{
+			int transferred = TransferEveryone(address, port);
+
+			Log.Info($"Remote console transfer: sent {transferred} player(s) to {address}:{port}, still accepting");
+
+			return $"Transferred {transferred} player(s) to {address}:{port}. This server is still up and still accepting.";
+		}
+
+		private int TransferEveryone(string address, int port)
+		{
 			int transferred = 0;
 			foreach (Level level in _server.LevelManager?.Levels.ToArray() ?? Array.Empty<Level>())
 			{
-				foreach (Player player in level.GetSpawnedPlayers())
+				// Everyone, not only the spawned: a player mid-join, or one sitting on a death screen,
+				// is not "spawned" and would be silently left behind by a transfer that is trying to
+				// empty the server. Found by parking a player in a world with no floor.
+				foreach (Player player in level.GetAllPlayers())
 				{
 					McpeTransfer transfer = McpeTransfer.CreateObject();
 					transfer.serverAddress = address;
@@ -210,11 +245,7 @@ namespace MiNET.Console
 				}
 			}
 
-			string state = WaitForSessionsToDrain();
-
-			Log.Info($"Remote console restart: refused new connections, transferred {transferred} player(s) to {address}:{port}, {state}");
-
-			return $"Restarting: transferred {transferred} player(s) to {address}:{port}, {state}. Saving the level. Start the server again and they will reconnect on their own.";
+			return transferred;
 		}
 
 		/// <summary>
@@ -296,6 +327,17 @@ namespace MiNET.Console
 
 			if (string.Equals(line, "accept off", StringComparison.OrdinalIgnoreCase)) return SetAccepting(false);
 			if (string.Equals(line, "accept on", StringComparison.OrdinalIgnoreCase)) return SetAccepting(true);
+
+			// "transfer [address] [port]" - move everyone elsewhere and stay up. Same defaults as
+			// restart, so a parking server configured with the dev box's address needs no arguments.
+			if (line.StartsWith("transfer", StringComparison.OrdinalIgnoreCase))
+			{
+				string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+				string target = parts.Length > 1 ? parts[1] : Config.GetProperty("RemoteConsole.TransferAddress", "127.0.0.1");
+				int targetPort = parts.Length > 2 ? int.Parse(parts[2]) : _server.Endpoint?.Port ?? 19132;
+
+				return Transfer(target, targetPort);
+			}
 
 			Level level = _server.LevelManager?.Levels.FirstOrDefault();
 			if (level == null) return "No level is loaded yet";

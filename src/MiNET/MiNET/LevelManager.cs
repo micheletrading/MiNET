@@ -45,7 +45,22 @@ namespace MiNET
 		{
 		}
 
-		public IWorldGenerator Generator { get; set; } = new SuperflatGenerator(Dimension.Overworld);
+		/// <summary>
+		///     Fills chunks the world provider has nothing on disk for. Superflat by default, unchanged.
+		///     <para>
+		///     <c>WorldGenerator=air</c> gives a world that is nothing but air, which is what a parking
+		///     server wants: somewhere to hold players for the seconds a development server is
+		///     restarting, costing no disk, no generation and no chunk data. A transfer cannot hold
+		///     anyone across a NetherNet restart - the client is left probing ICE credentials belonging
+		///     to a process that has exited - but a second server that stays up answers immediately,
+		///     and <c>remote transfer</c> sends them home once the real one is listening again.
+		///     </para>
+		/// </summary>
+		public IWorldGenerator Generator { get; set; } = Config.GetProperty("WorldGenerator", "superflat").Trim().ToLowerInvariant() switch
+		{
+			"air" or "void" or "empty" => new AirWorldGenerator(),
+			_ => new SuperflatGenerator(Dimension.Overworld)
+		};
 
 		public virtual Level GetLevel(Player player, string name)
 		{

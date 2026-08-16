@@ -53,8 +53,18 @@ namespace MiNET.Utils
 		}
 
 		protected abstract void OnInitialize();
-		
+
 		public abstract string ReadString(string property);
+
+		/// <summary>
+		///     Every property whose name starts with <paramref name="prefix" />, keyed by the remainder
+		///     of the name. For config that is a table rather than a setting, where the keys are data
+		///     and so cannot be asked for by name. Providers that cannot enumerate return nothing.
+		/// </summary>
+		public virtual IEnumerable<KeyValuePair<string, string>> ReadStartingWith(string prefix)
+		{
+			return Enumerable.Empty<KeyValuePair<string, string>>();
+		}
 	}
 
 	public class DefaultConfigProvider : ConfigProvider
@@ -143,6 +153,21 @@ namespace MiNET.Utils
 		{
 			return !KeyValues.ContainsKey(property) ? null : KeyValues[property];
 		}
+
+		/// <inheritdoc />
+		public override IEnumerable<KeyValuePair<string, string>> ReadStartingWith(string prefix)
+		{
+			// Keys are lowercased on load, so the prefix has to be too, and what comes back is
+			// lowercase as well. Fine for the host names this exists for; those are case insensitive.
+			prefix = prefix.ToLower();
+
+			foreach (KeyValuePair<string, string> pair in KeyValues)
+			{
+				if (!pair.Key.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+				yield return new KeyValuePair<string, string>(pair.Key.Substring(prefix.Length), pair.Value);
+			}
+		}
 	}
 	
 	public class Config
@@ -181,23 +206,12 @@ namespace MiNET.Utils
 			string value = ReadString(property);
 			if (value == null) return defaultValue;
 
-			switch (value.ToLower())
-			{
-				case "0":
-				case "survival":
-					return GameMode.Survival;
-				case "1":
-				case "creative":
-					return GameMode.Creative;
-				case "2":
-				case "adventure":
-					return GameMode.Adventure;
-				case "3":
-				case "spectator":
-					return GameMode.Spectator;
-				default:
-					return defaultValue;
-			}
+			// Names and numbers both, and a number is the enum's own value: 3 is SurvivalSpectator
+			// and the modern spectator is 6. IsDefined because TryParse accepts any integer.
+			if (Enum.TryParse(value, true, out GameMode gameMode) && Enum.IsDefined(gameMode)) return gameMode;
+
+			Log.Warn($"Config property {property}={value} is not a game mode. Using {defaultValue}.");
+			return defaultValue;
 		}
 
 		public static Boolean GetProperty(string property, bool defaultValue)
@@ -294,11 +308,23 @@ namespace MiNET.Utils
 			return ReadString(property) ?? defaultValue;
 		}
 
+		/// <summary>
+		///     The properties under <paramref name="prefix" />, keyed by the rest of the name, for
+		///     config that is a lookup table rather than a fixed set of settings.
+		/// </summary>
+		public static IEnumerable<KeyValuePair<string, string>> GetProperties(string prefix)
+		{
+			if (!Provider.Initialized)
+				Provider.Initialize();
+
+			return Provider.ReadStartingWith(prefix);
+		}
+
 		private static string ReadString(string property)
 		{
 			if (!Provider.Initialized)
 				Provider.Initialize();
-			
+
 			property = property.ToLower();
 			return Provider.ReadString(property);
 		}

@@ -55,6 +55,13 @@ namespace MiNET.Plugins
 		private readonly Dictionary<MethodInfo, PacketHandlerAttribute> _packetSendHandlerDictionary = new Dictionary<MethodInfo, PacketHandlerAttribute>();
 		private readonly Dictionary<MethodInfo, CommandAttribute> _pluginCommands = new Dictionary<MethodInfo, CommandAttribute>();
 
+		/// <summary>
+		///     Routes in registration order, which is also match order: the first template that fits
+		///     wins, so a plugin loaded earlier keeps its path. Read on signaling threads and written
+		///     on load, hence the copy-on-write list rather than a lock on every request.
+		/// </summary>
+		private volatile List<HttpRoute> _httpRoutes = new List<HttpRoute>();
+
 		public List<object> Plugins
 		{
 			get { return _plugins; }
@@ -190,6 +197,7 @@ namespace MiNET.Plugins
 			LoadCommands(type);
 			Commands = GenerateCommandSet(_pluginCommands.Keys.ToArray());
 			LoadPacketHandlers(type);
+			LoadHttpHandlers(type);
 			Log.Debug($"Loaded plugin {type}");
 		}
 
@@ -265,6 +273,112 @@ namespace MiNET.Plugins
 			var content = JsonConvert.SerializeObject(Commands, settings);
 
 			Log.Debug($"Commmands\n{content}");
+		}
+
+		/// <summary>One <c>[HttpHandler]</c>, with its template pre-split into segments.</summary>
+		private class HttpRoute
+		{
+			public string Method { get; init; }
+			public string[] Template { get; init; }
+			public MethodInfo Handler { get; init; }
+
+			public bool TryMatch(string method, string path, out Dictionary<string, string> values)
+			{
+				values = null;
+				if (!string.Equals(method, Method, StringComparison.OrdinalIgnoreCase)) return false;
+
+				string[] segments = SplitPath(path);
+				if (segments.Length != Template.Length) return false;
+
+				for (int i = 0; i < Template.Length; i++)
+				{
+					string expected = Template[i];
+
+					if (expected.Length > 1 && expected[0] == '{' && expected[^1] == '}')
+					{
+						values ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+						values[expected[1..^1]] = Uri.UnescapeDataString(segments[i]);
+						continue;
+					}
+
+					if (!string.Equals(expected, segments[i], StringComparison.OrdinalIgnoreCase)) return false;
+				}
+
+				values ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				return true;
+			}
+		}
+
+		private static string[] SplitPath(string path) => (path ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+		/// <summary>
+		///     Registers every <c>[HttpHandler]</c> on the type. A method whose shape is wrong is
+		///     reported and skipped rather than left to fail on the first request that reaches it,
+		///     because that request comes from outside and its author is not watching this log.
+		/// </summary>
+		public void LoadHttpHandlers(Type type)
+		{
+			var routes = new List<HttpRoute>(_httpRoutes);
+
+			foreach (MethodInfo method in type.GetMethods())
+			{
+				foreach (HttpHandlerAttribute attribute in method.GetCustomAttributes<HttpHandlerAttribute>(false))
+				{
+					ParameterInfo[] parameters = method.GetParameters();
+					if (method.ReturnType != typeof(HttpResponse) || parameters.Length != 1 || parameters[0].ParameterType != typeof(HttpRequest))
+					{
+						Log.Warn($"Ignoring [HttpHandler] on {type.Name}.{method.Name}: it must be HttpResponse {method.Name}(HttpRequest request)");
+						continue;
+					}
+
+					var route = new HttpRoute
+					{
+						Method = attribute.Method,
+						Template = SplitPath(attribute.Path),
+						Handler = method
+					};
+
+					routes.Add(route);
+					Log.Info($"Plugin route {attribute.Method.ToUpperInvariant()} {attribute.Path} -> {type.Name}.{method.Name}");
+				}
+			}
+
+			_httpRoutes = routes;
+		}
+
+		/// <summary>
+		///     Runs the first plugin route matching the request, or returns null when none does so the
+		///     caller can answer 404 itself. Runs on the connection's own thread, never the tick.
+		/// </summary>
+		public HttpResponse HandleHttpRequest(HttpRequest request)
+		{
+			foreach (HttpRoute route in _httpRoutes)
+			{
+				if (!route.TryMatch(request.Method, request.Path, out Dictionary<string, string> values)) continue;
+
+				object instance = _plugins.FirstOrDefault(plugin => route.Handler.DeclaringType != null && route.Handler.DeclaringType.IsInstanceOfType(plugin));
+				if (instance == null && !route.Handler.IsStatic)
+				{
+					Log.Warn($"Plugin route {request.Method} {request.Path} has no live instance of {route.Handler.DeclaringType?.Name}");
+					return HttpResponse.Empty(500);
+				}
+
+				request.RouteValues = values;
+
+				try
+				{
+					return (HttpResponse) route.Handler.Invoke(route.Handler.IsStatic ? null : instance, new object[] {request}) ?? HttpResponse.Empty(204);
+				}
+				catch (Exception e)
+				{
+					// The handler is a plugin's, so its failure is its own. It must not reach the
+					// accept loop, where it would drop a connection the client cannot retry.
+					Log.Error($"Plugin route {request.Method} {request.Path} threw", e.InnerException ?? e);
+					return HttpResponse.Empty(500);
+				}
+			}
+
+			return null;
 		}
 
 		public void LoadCommands(Type type)
@@ -579,6 +693,10 @@ namespace MiNET.Plugins
 			{
 				_pluginCommands.Remove(method);
 			}
+
+			// Routes go with it. Left behind, the next request matching one would look for an
+			// instance that is no longer there and answer 500 forever.
+			_httpRoutes = _httpRoutes.Where(route => route.Handler.DeclaringType != instance.GetType()).ToList();
 
 			Commands = GenerateCommandSet(_pluginCommands.Keys.ToArray());
 		}
@@ -1098,6 +1216,13 @@ namespace MiNET.Plugins
 
 				if (packetHandlers == null) return message;
 
+				// REFCT: live reflection on a per-packet path. Every packet, for every registered
+				// handler, this does a GetParameters() (a fresh ParameterInfo[] each call), a LINQ scan
+				// of the plugin list with a capturing closure to find the instance, an object[] for the
+				// arguments, and a MethodInfo.Invoke. All of it is fixed at registration time: the
+				// instance, the arity and the parameter shape cannot change per packet. Resolve them
+				// once into the handler record and store a delegate, and this becomes a call. It also
+				// scales with plugin count today, since the instance scan runs per handler per packet.
 				foreach (var handler in packetHandlers)
 				{
 					if (handler.Value == null) continue;

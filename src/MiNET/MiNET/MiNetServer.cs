@@ -100,6 +100,12 @@ namespace MiNET
 		/// <summary>Live transport sessions right now, read straight off the listener (ConnectionInfo's count refreshes on a timer and can lag by a second).</summary>
 		public int LiveSessionCount => _netherNetListener?.Sessions.Count ?? 0;
 
+		/// <summary>The transport, for a plugin that needs to open its own signaling ports. Null until the server starts.</summary>
+		public NetherNetListener NetherNetListener => _netherNetListener;
+
+		/// <summary>Raised once the server is listening and <see cref="NetherNetListener" /> exists.</summary>
+		public event EventHandler ServerStarted;
+
 		public ServerRole ServerRole { get; set; }
 
 		internal static DedicatedThreadPool FastThreadPool { get; set; }
@@ -234,6 +240,9 @@ namespace MiNET
 					_netherNetListener = new NetherNetListener(Endpoint);
 					_netherNetListener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
 
+					// Plugins serve the server port for anything NetherNet does not claim itself.
+					_netherNetListener.RequestHandler = PluginManager.HandleHttpRequest;
+
 					NetherNetListener listener = _netherNetListener;
 					ConnectionInfo = new ConnectionInfo(() => listener.Sessions.Count);
 
@@ -269,6 +278,11 @@ namespace MiNET
 				}
 
 				Log.Info("Server open for business on port " + Endpoint?.Port + " ...");
+
+				// After the transport exists, which is the whole point: plugins are enabled long
+				// before this, and LevelCreated fires earlier still, so anything needing the
+				// listener had nowhere to hook until here.
+				ServerStarted?.Invoke(this, EventArgs.Empty);
 
 				return true;
 			}
