@@ -1,4 +1,4 @@
-﻿#region LICENSE
+﻿﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -23,14 +23,15 @@
 
 #endregion
 
-using System.Numerics;
+using System.Drawing;
 
-namespace MiNET.Sounds
+namespace MiNET.Effects
 {
-	public class ExperienceOrbSound : Sound
+	public class Infested : Effect
 	{
-		public ExperienceOrbSound(Vector3 position, int pitch = 0) : base((short) LevelEventType.SoundExperienceOrbPickup, position, pitch)
+		public Infested() : base(EffectType.Infested)
 		{
+			ParticleColor = Color.FromArgb(0x8C, 0x9B, 0x8C);
 		}
 	}
 }

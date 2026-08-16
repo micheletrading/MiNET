@@ -56,7 +56,7 @@ namespace MiNET.Entities.Projectiles
 
 			McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 			entityEvent.runtimeEntityId = EntityId;
-			entityEvent.eventId = 39;
+			entityEvent.eventId = (byte) ActorEventType.Shake;
 			entityEvent.data = 14;
 			Level.RelayBroadcast(entityEvent);
 		}

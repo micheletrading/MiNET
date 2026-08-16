@@ -60,7 +60,7 @@ namespace MiNET.Entities.Behaviors
 
 			McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 			entityEvent.runtimeEntityId = _entity.EntityId;
-			entityEvent.eventId = 10;
+			entityEvent.eventId = (byte) ActorEventType.EatGrass;
 			_entity.Level.RelayBroadcast(entityEvent);
 
 			return true;

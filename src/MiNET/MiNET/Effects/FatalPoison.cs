@@ -1,4 +1,4 @@
-﻿#region LICENSE
+﻿﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -23,14 +23,30 @@
 
 #endregion
 
-using System.Numerics;
+using System.Drawing;
 
-namespace MiNET.Sounds
+namespace MiNET.Effects
 {
-	public class ExperienceOrbSound : Sound
+	public class FatalPoison : Effect
 	{
-		public ExperienceOrbSound(Vector3 position, int pitch = 0) : base((short) LevelEventType.SoundExperienceOrbPickup, position, pitch)
+		public FatalPoison() : base(EffectType.FatalPoison)
 		{
+			ParticleColor = Color.FromArgb(0x4E, 0x93, 0x31);
+		}
+
+		/// <summary>
+		///     Poison's cadence without Poison's floor. Ordinary poison stops taking hits once the
+		///     player is low enough to die from one; this is the variant that does not, which is the
+		///     only thing separating the two.
+		/// </summary>
+		public override void OnTick(Player player)
+		{
+			if (Duration % (Level == 1 ? 25 : 50) == 0)
+			{
+				player.HealthManager.TakeHit(null, 2, DamageCause.Magic);
+			}
+
+			base.OnTick(player);
 		}
 	}
 }

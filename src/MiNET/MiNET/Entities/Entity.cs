@@ -124,7 +124,7 @@ namespace MiNET.Entities
 			PotionColor = 8,
 			EatingHaystack = 16,
 			FireworksType = 16,
-			MaybeAge = 24,
+			EntityAge = 24,
 			PlayerFlags = 26,
 			BedPosition = 28,
 			Scale = 38,
@@ -399,7 +399,89 @@ namespace MiNET.Entities
 			AffectedByGravity,
 			FireImmune,
 			Dancing,
-			Enchanted
+			Enchanted,
+
+			// Backfill from Mojang's ActorFlags, explicit values so the tail can never shift
+			// the way CanDash's absence once shifted it. Bits 64 and up belong to the SECOND
+			// flags long (metadata index 92, EntityFlags2), which GetFlags() does not emit yet;
+			// setting one of those through the current 64-bit path is an out-of-range write.
+			ReturnTrident = 53,
+			ContainerIsPrivate = 54,
+			IsTransforming = 55,
+			DamageNearbyMobs = 56,
+			Swimming = 57,
+			Bribed = 58,
+			IsPregnant = 59,
+			LayingEgg = 60,
+			PassengerCanPick = 61,
+			TransitionSitting = 62,
+			Eating = 63,
+			LayingDown = 64,
+			Sneezing = 65,
+			Trusting = 66,
+			Rolling = 67,
+			Scared = 68,
+			InScaffolding = 69,
+			OverScaffolding = 70,
+			DescendThroughBlock = 71,
+			Blocking = 72,
+			TransitionBlocking = 73,
+			BlockedUsingShield = 74,
+			BlockedUsingDamagedShield = 75,
+			Sleeping = 76,
+			WantsToWake = 77,
+			TradeInterest = 78,
+			DoorBreaker = 79,
+			BreakingObstruction = 80,
+			DoorOpener = 81,
+			IsIllagerCaptain = 82,
+			Stunned = 83,
+			Roaring = 84,
+			DelayedAttack = 85,
+			IsAvoidingMobs = 86,
+			IsAvoidingBlock = 87,
+			FacingTargetToRangeAttack = 88,
+			HiddenWhenInvisible = 89,
+			IsInUi = 90,
+			Stalking = 91,
+			Emoting = 92,
+			Celebrating = 93,
+			Admiring = 94,
+			CelebratingSpecial = 95,
+			OutOfControl = 96,
+			RamAttack = 97,
+			PlayingDead = 98,
+			InAscendableBlock = 99,
+			OverDescendableBlock = 100,
+			Croaking = 101,
+			EatMob = 102,
+			JumpGoalJump = 103,
+			Emerging = 104,
+			Sniffing = 105,
+			Digging = 106,
+			SonicBoom = 107,
+			HasDashCooldown = 108,
+			PushTowardsClosestSpace = 109,
+			Deprecated1 = 110,
+			Deprecated2 = 111,
+			Deprecated3 = 112,
+			Searching = 113,
+			Crawling = 114,
+			TimerFlag1 = 115,
+			TimerFlag2 = 116,
+			TimerFlag3 = 117,
+			BodyRotationBlocked = 118,
+			RendersWhenInvisible = 119,
+			RotationAxisAligned = 120,
+			Collidable = 121,
+			WasdFreeCameraControlled = 122,
+			DoesServerAuthOnlyDismount = 123,
+			BodyRotationAlwaysFollowsHead = 124,
+			CanUseVerticalMovementAction = 125,
+			RotationLockedToVehicle = 126,
+			UsesLegacyFriction = 127,
+			UsesUniformAirDrag = 128,
+			NameplateDepthTested = 129
 		}
 
 		protected virtual BitArray GetFlags()
@@ -583,7 +665,7 @@ namespace MiNET.Entities
 		{
 			var entityEvent = McpeEntityEvent.CreateObject();
 			entityEvent.runtimeEntityId = EntityId;
-			entityEvent.eventId = (byte) (HealthManager.Health <= 0 ? 3 : 2);
+			entityEvent.eventId = (byte) (HealthManager.Health <= 0 ? ActorEventType.Death : ActorEventType.Hurt);
 			Level.RelayBroadcast(entityEvent);
 		}
 

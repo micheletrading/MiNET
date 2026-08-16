@@ -39,39 +39,76 @@ using MiNET.Worlds;
 
 namespace MiNET
 {
+	// Values mirror Mojang's ActorDamageCause (protocol 1001) so a future wire use cannot
+	// misreport the cause. Unknown sits on the reference's Override slot; Custom is MiNET's
+	// own and lives above the reference range.
 	public enum DamageCause
 	{
-		[Description("{0} went MIA")] Unknown,
+		[Description("{0} went MIA")] Unknown = 0,
 
 		[Description("{0} was pricked  to death")]
-		Contact,
-		[Description("{0} was slain by {1}")] EntityAttack,
-		[Description("{0} was shot by {1}")] Projectile,
+		Contact = 1,
+		[Description("{0} was slain by {1}")] EntityAttack = 2,
+		[Description("{0} was shot by {1}")] Projectile = 3,
 
 		[Description("{0} suffocated in a wall")]
-		Suffocation,
+		Suffocation = 4,
 
 		[Description("{0} hit the ground too hard")]
-		Fall,
-		[Description("{0} went up in flames")] Fire,
-		[Description("{0} burned to death")] FireTick,
+		Fall = 5,
+		[Description("{0} went up in flames")] Fire = 6,
+		[Description("{0} burned to death")] FireTick = 7,
 
 		[Description("{0} tried to swim in lava")]
-		Lava,
-		[Description("{0} drowned")] Drowning,
-		[Description("{0} blew up")] BlockExplosion,
-		[Description("{0} blew up")] EntityExplosion,
+		Lava = 8,
+		[Description("{0} drowned")] Drowning = 9,
+		[Description("{0} blew up")] BlockExplosion = 10,
+		[Description("{0} blew up")] EntityExplosion = 11,
 
 		[Description("{0} fell out of the world")]
-		Void,
-		[Description("{0} died")] Suicide,
+		Void = 12,
+		[Description("{0} died")] Suicide = 13,
 
 		[Description("{0} was killed by magic")]
-		Magic,
-		[Description("{0} starved to death")] Starving,
+		Magic = 14,
+		[Description("{0} withered away")] Wither = 15,
+		[Description("{0} starved to death")] Starving = 16,
+
+		[Description("{0} was squashed by a falling anvil")]
+		Anvil = 17,
+
+		[Description("{0} was killed while trying to hurt {1}")]
+		Thorns = 18,
+
+		[Description("{0} was squashed by a falling block")]
+		FallingBlock = 19,
+		[Description("{0} was squished too much")] Piston = 20,
+
+		[Description("{0} experienced kinetic energy")]
+		FlyIntoWall = 21,
+
+		[Description("{0} discovered the floor was lava")]
+		Magma = 22,
+		[Description("{0} went off with a bang")] Fireworks = 23,
+		[Description("{0} was struck by lightning")] Lightning = 24,
+		[Description("{0} was killed by {1}")] Charging = 25,
+		[Description("{0} froze to death")] Temperature = 26,
+		[Description("{0} froze to death")] Freezing = 27,
+
+		[Description("{0} was skewered by a falling stalactite")]
+		Stalactite = 28,
+
+		[Description("{0} was impaled on a stalagmite")]
+		Stalagmite = 29,
+		[Description("{0} was rammed by {1}")] RamAttack = 30,
+
+		[Description("{0} was obliterated by a sonically-charged shriek")]
+		SonicBoom = 31,
+		[Description("{0} went up in flames")] Campfire = 32,
+		[Description("{0} went up in flames")] SoulCampfire = 33,
 
 		[Description("{0} died a customized death")]
-		Custom
+		Custom = 100
 	}
 
 	public class HealthManager
