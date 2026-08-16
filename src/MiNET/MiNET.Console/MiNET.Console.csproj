@@ -29,7 +29,8 @@
     <Content Include="server.conf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="server.nicke.conf">
+    <!-- Personal config, git-ignored, so a clone that is not this machine will not have it. -->
+    <Content Include="server.nicke.conf" Condition="Exists('server.nicke.conf')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
