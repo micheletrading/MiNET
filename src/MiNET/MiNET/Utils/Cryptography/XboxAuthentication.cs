@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -33,16 +33,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
+using System.Security.Cryptography;
 using MiNET.Net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Org.BouncyCastle.Asn1;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Pkcs;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.X509;
 
 namespace MiNET.Utils.Cryptography
 {
@@ -57,7 +51,7 @@ namespace MiNET.Utils.Cryptography
 		///     and the encryption handshake must both use this key: the token says who you are, the
 		///     key proves the connection is yours.
 		/// </summary>
-		public AsymmetricCipherKeyPair IdentityKey { get; init; }
+		public ECDsa IdentityKey { get; init; }
 
 		/// <summary>The signed login token, for the authentication envelope's Token field.</summary>
 		public string LoginToken { get; init; }
@@ -96,8 +90,8 @@ namespace MiNET.Utils.Cryptography
 		private readonly IXboxSessionStore _store;
 		private readonly HttpClient _http;
 
-		private AsymmetricCipherKeyPair _authKey;
-		private AsymmetricCipherKeyPair _identityKey;
+		private ECDsa _authKey;
+		private ECDsa _identityKey;
 		private string _proofX, _proofY;
 
 		/// <summary>
@@ -392,9 +386,9 @@ namespace MiNET.Utils.Cryptography
 
 		private void SetProofKey()
 		{
-			var pub = (ECPublicKeyParameters) _authKey.Public;
-			_proofX = Base64Url(pub.Q.AffineXCoord.GetEncoded());
-			_proofY = Base64Url(pub.Q.AffineYCoord.GetEncoded());
+			ECParameters pub = _authKey.ExportParameters(false);
+			_proofX = Base64Url(pub.Q.X);
+			_proofY = Base64Url(pub.Q.Y);
 		}
 
 		/// <summary>
@@ -420,15 +414,15 @@ namespace MiNET.Utils.Cryptography
 			buffer.Write(body);
 			buffer.WriteByte(0);
 
-			ISigner signer = SignerUtilities.GetSigner("SHA-256withPLAIN-ECDSA");
-			signer.Init(true, _authKey.Private);
+			// Xbox calls this PLAIN-ECDSA: the fixed-width r||s pair, not the ASN.1 DER default,
+			// which is exactly what IeeeP1363FixedFieldConcatenation produces.
 			byte[] input = buffer.ToArray();
-			signer.BlockUpdate(input, 0, input.Length);
+			byte[] signature = _authKey.SignData(input, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
 			using var final = new MemoryStream();
 			final.Write(new byte[] {0, 0, 0, 1});
 			final.Write(stamp);
-			final.Write(signer.GenerateSignature());
+			final.Write(signature);
 
 			request.Headers.Add("Signature", Convert.ToBase64String(final.ToArray()));
 		}
@@ -502,27 +496,25 @@ namespace MiNET.Utils.Cryptography
 			public const string P384 = "1.3.132.0.34";
 		}
 
-		private static AsymmetricCipherKeyPair GenerateKey(string curveOid)
+		private static ECDsa GenerateKey(string curveOid)
 		{
-			var generator = new ECKeyPairGenerator("ECDSA");
-			generator.Init(new ECKeyGenerationParameters(new DerObjectIdentifier(curveOid), new SecureRandom()));
-			return generator.GenerateKeyPair();
+			return ECDsa.Create(ECCurve.CreateFromValue(curveOid));
 		}
 
-		/// <summary>Rebuilds a keypair from its private half. The public point is derivable: Q = G * d.</summary>
-		private static AsymmetricCipherKeyPair RestoreKey(string base64Pkcs8)
+		/// <summary>Rebuilds a key from its private half. The public point is derivable: Q = G * d.</summary>
+		private static ECDsa RestoreKey(string base64Pkcs8)
 		{
-			var priv = (ECPrivateKeyParameters) PrivateKeyFactory.CreateKey(Convert.FromBase64String(base64Pkcs8));
-			var pub = new ECPublicKeyParameters(priv.AlgorithmName, priv.Parameters.G.Multiply(priv.D).Normalize(), priv.Parameters);
+			var key = ECDsa.Create();
+			key.ImportPkcs8PrivateKey(Convert.FromBase64String(base64Pkcs8), out _);
 
-			return new AsymmetricCipherKeyPair(pub, priv);
+			return key;
 		}
 
-		private static string PrivateKeyBase64(AsymmetricCipherKeyPair pair) =>
-			Convert.ToBase64String(PrivateKeyInfoFactory.CreatePrivateKeyInfo(pair.Private).GetEncoded());
+		private static string PrivateKeyBase64(ECDsa key) =>
+			Convert.ToBase64String(key.ExportPkcs8PrivateKey());
 
-		public static string PublicKeyBase64(AsymmetricCipherKeyPair pair) =>
-			Convert.ToBase64String(SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(pair.Public).GetEncoded());
+		public static string PublicKeyBase64(ECDsa key) =>
+			Convert.ToBase64String(key.ExportSubjectPublicKeyInfo());
 
 		private static string Base64Url(byte[] data) =>
 			Convert.ToBase64String(data).Replace('+', '-').Replace('/', '_').TrimEnd('=');

@@ -50,8 +50,10 @@ using Org.BouncyCastle.X509;
 namespace MiNET.Test.Rtc
 {
 	/// <summary>
-	///     Interop proof against BouncyCastle's DTLS stack, the reference implementation the production
-	///     code uses elsewhere. Self-interop cannot catch a mirrored wire bug (both sides sharing the
+	///     Interop proof against BouncyCastle's DTLS stack, an independent reference implementation.
+	///     This is the only thing left in the repository that uses BouncyCastle: production code is
+	///     free of it, and the package is referenced by the test project alone, for exactly this
+	///     comparison. Self-interop cannot catch a mirrored wire bug (both sides sharing the
 	///     same wrong idea still agree); a handshake against an independent stack can. Each direction
 	///     ends with an application-data record crossing the boundary: BC protects with its negotiated
 	///     keys, the FastDtls side decrypts with the keys its engine reports, and vice versa.

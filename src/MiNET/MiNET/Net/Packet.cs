@@ -58,7 +58,6 @@ namespace MiNET.Net
 		private byte[] _encodedMessage;
 
 
-		[JsonIgnore] public bool ForceClear;
 		[JsonIgnore] public bool NoBatch { get; set; }
 
 		/// <summary>
@@ -2947,7 +2946,6 @@ namespace MiNET.Net
 			ResetPacket();
 
 			NoBatch = false;
-			ForceClear = false;
 			CoalesceKey = null;
 
 			_encodedMessage = null;

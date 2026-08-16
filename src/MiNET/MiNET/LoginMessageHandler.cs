@@ -39,14 +39,6 @@ using MiNET.Utils.Cryptography;
 using MiNET.Utils.IO;
 using MiNET.Utils.Skins;
 using Newtonsoft.Json.Linq;
-using Org.BouncyCastle.Crypto.Agreement;
-using Org.BouncyCastle.Crypto.Engines;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Crypto.Modes;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.X509;
-using SicStream;
 
 namespace MiNET
 {
@@ -439,16 +431,11 @@ namespace MiNET
 							Log.Debug("Derived Key is ok");
 						}
 
-						ECPublicKeyParameters x5KeyParam = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(x5u.DecodeBase64());
-						var signParam = new ECParameters
-						{
-							Curve = ECCurve.NamedCurves.nistP384,
-							Q =
-							{
-								X = x5KeyParam.Q.AffineXCoord.GetEncoded(),
-								Y = x5KeyParam.Q.AffineYCoord.GetEncoded()
-							},
-						};
+						// x5u is a DER SubjectPublicKeyInfo, which ECDsa imports directly; the curve and
+						// the point come out of the encoding rather than being restated here.
+						using var x5Key = ECDsa.Create();
+						x5Key.ImportSubjectPublicKeyInfo(x5u.DecodeBase64(), out _);
+						ECParameters signParam = x5Key.ExportParameters(false);
 						signParam.Validate();
 
 						// REFCT: Jose-JWT takes and returns strings, and Newtonsoft deserializes from a
@@ -529,116 +516,15 @@ namespace MiNET
 						if (Log.IsDebugEnabled) Log.Debug($"Connecting user {_playerInfo.Username} with identity={identity} on protocol version={_playerInfo.ProtocolVersion}");
 						_playerInfo.ClientUuid = new UUID(identity);
 
-						_bedrockHandler.CryptoContext = new CryptoContext
-						{
-							// A transport that already encrypts below us wins over any config here: a
-							// second cipher would leave the peer reading ciphertext it never expected.
-							UseEncryption = !_session.IsTransportEncrypted
-											&& (Config.GetProperty("UseEncryptionForAll", false) || (Config.GetProperty("UseEncryption", true) && !string.IsNullOrWhiteSpace(_playerInfo.CertificateData.ExtraData.Xuid))),
-						};
-
-						if (_bedrockHandler.CryptoContext.UseEncryption)
-						{
-							// Use bouncy to parse the DER key
-							ECPublicKeyParameters remotePublicKey = (ECPublicKeyParameters)
-								PublicKeyFactory.CreateKey(_playerInfo.CertificateData.IdentityPublicKey.DecodeBase64());
-
-							var b64RemotePublicKey = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(remotePublicKey).GetEncoded().EncodeBase64();
-							Debug.Assert(_playerInfo.CertificateData.IdentityPublicKey == b64RemotePublicKey);
-							Debug.Assert(remotePublicKey.PublicKeyParamSet.Id == "1.3.132.0.34");
-							Log.Debug($"{remotePublicKey.PublicKeyParamSet}");
-
-							var generator = new ECKeyPairGenerator("ECDH");
-							generator.Init(new ECKeyGenerationParameters(remotePublicKey.PublicKeyParamSet, SecureRandom.GetInstance("SHA256PRNG")));
-							var keyPair = generator.GenerateKeyPair();
-
-							ECPublicKeyParameters pubAsyKey = (ECPublicKeyParameters) keyPair.Public;
-							ECPrivateKeyParameters privAsyKey = (ECPrivateKeyParameters) keyPair.Private;
-
-							// Per-session nonce. It seeds the key derivation below and is handed to the client
-							// so it derives the same key. This used to be the literal string "RANDOM SECRET",
-							// which was neither: the same 13 bytes on every MiNET server and every session,
-							// where vanilla sends 16 fresh random bytes. The session key stayed unpredictable
-							// (the ECDH pair above is ephemeral) but a constant here is a MiNET fingerprint on
-							// the wire and gives up the defence in depth a real nonce is there for.
-							byte[] salt = RandomNumberGenerator.GetBytes(16);
-
-							ECDHBasicAgreement agreement = new ECDHBasicAgreement();
-							agreement.Init(keyPair.Private);
-							byte[] secret;
-							using (var sha = SHA256.Create())
-							{
-								secret = sha.ComputeHash(salt.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
-							}
-
-							Debug.Assert(secret.Length == 32);
-
-							if (Log.IsDebugEnabled) Log.Debug($"SECRET KEY (b64):\n{secret.EncodeBase64()}");
-
-							var encryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-							var decryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-							decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-							encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-
-							//IBufferedCipher decryptor = CipherUtilities.GetCipher("AES/CFB8/NoPadding");
-							//decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(16).ToArray()));
-
-							//IBufferedCipher encryptor = CipherUtilities.GetCipher("AES/CFB8/NoPadding");
-							//encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(16).ToArray()));
-
-							_bedrockHandler.CryptoContext.Key = secret;
-							_bedrockHandler.CryptoContext.Decryptor = decryptor;
-							_bedrockHandler.CryptoContext.Encryptor = encryptor;
-
-							var signParam = new ECParameters
-							{
-								Curve = ECCurve.NamedCurves.nistP384,
-								Q =
-								{
-									X = pubAsyKey.Q.AffineXCoord.GetEncoded(),
-									Y = pubAsyKey.Q.AffineYCoord.GetEncoded()
-								}
-							};
-							signParam.D = CryptoUtils.FixDSize(privAsyKey.D.ToByteArrayUnsigned(), signParam.Q.X.Length);
-							signParam.Validate();
-
-							string signedToken = null;
-							//if (_session.Server.IsEdu)
-							//{
-							//	EduTokenManager tokenManager = _session.Server.EduTokenManager;
-							//	signedToken = tokenManager.GetSignedToken(_playerInfo.TenantId);
-							//}
-
-							var signKey = ECDsa.Create(signParam);
-							var b64PublicKey = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(pubAsyKey).GetEncoded().EncodeBase64();
-							// Only the claims vanilla sends. signedToken is Edu-only, and serializing it as an
-							// explicit null put 19 bytes on the wire that BDS never sends. It cannot be left to
-							// the serializer to drop: NewtonsoftMapper does set NullValueHandling.Ignore, but it
-							// installs itself from a static constructor nothing on the server side ever runs, so
-							// jose-jwt's own mapper is what serializes this.
-							var handshakeJson = new Dictionary<string, object> {{"salt", salt.EncodeBase64()}};
-							if (signedToken != null) handshakeJson["signedToken"] = signedToken;
-							string val = JWT.Encode(handshakeJson, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64PublicKey}});
-
-							Log.Debug($"Headers:\n{string.Join(";", JWT.Headers(val))}");
-							Log.Debug($"Return salt:\n{JWT.Payload(val)}");
-							Log.Debug($"JWT:\n{val}");
-
-
-							var response = McpeServerToClientHandshake.CreateObject();
-							response.ForceClear = true; // Must be!
-							response.token = val;
-
-							_session.SendPacket(response);
-
-							if (Log.IsDebugEnabled) Log.Warn($"Encryption enabled for {_session.Username}");
-						}
+						// No application-layer encryption handshake. The transport is DTLS, so the link
+						// is already encrypted, and running Bedrock's AES-CTR over it would encrypt
+						// twice. The ECDH exchange, the ServerToClientHandshake and the ClientToServer
+						// reply it waited for belonged to RakNet, which is gone: the client is told
+						// nothing and the login continues straight to the handshake handler.
 					}
 				}
-				if (!_bedrockHandler.CryptoContext.UseEncryption)
-				{
-					_bedrockHandler.Handler.HandleMcpeClientToServerHandshake(null);
-				}
+
+				_bedrockHandler.Handler.HandleMcpeClientToServerHandshake(null);
 			}
 			catch (Exception e)
 			{
@@ -648,7 +534,7 @@ namespace MiNET
 
 		public void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
 		{
-			Log.Warn($"{(_bedrockHandler.CryptoContext == null ? "C" : $"Encrypted c")}onnection established with {_playerInfo.Username} using MC version {_playerInfo.GameVersion} with protocol version {_playerInfo.ProtocolVersion}");
+			Log.Warn($"Connection established with {_playerInfo.Username} using MC version {_playerInfo.GameVersion} with protocol version {_playerInfo.ProtocolVersion}");
 
 			IServer server = _serverManager.GetServer();
 

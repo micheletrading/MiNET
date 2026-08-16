@@ -40,12 +40,6 @@ using Jose;
 using log4net;
 using MiNET.Net;
 using MiNET.Utils.Skins;
-using Org.BouncyCastle.Asn1;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.X509;
 
 namespace MiNET.Utils.Cryptography
 {
@@ -102,45 +96,12 @@ namespace MiNET.Utils.Cryptography
 			return inKey;
 		}
 
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Encrypt(ReadOnlyMemory<byte> payload, CryptoContext cryptoContext)
-		{
-			// hash
-			int hashPoolLen = 8 + payload.Length + cryptoContext.Key.Length;
-			var hashBufferPooled = ArrayPool<byte>.Shared.Rent(hashPoolLen);
-			Span<byte> hashBuffer = hashBufferPooled.AsSpan();
-			BitConverter.GetBytes(Interlocked.Increment(ref cryptoContext.SendCounter)).CopyTo(hashBuffer.Slice(0, 8));
-			payload.Span.CopyTo(hashBuffer.Slice(8));
-			cryptoContext.Key.CopyTo(hashBuffer.Slice(8 + payload.Length));
-			using var hasher =  SHA256.Create();
-			Span<byte> validationCheckSum = hasher.ComputeHash(hashBufferPooled, 0, hashPoolLen).AsSpan(0, 8);
-			ArrayPool<byte>.Shared.Return(hashBufferPooled);
-
-			IBufferedCipher cipher = cryptoContext.Encryptor;
-			var encrypted = new byte[payload.Length + 8];
-			int length = cipher.ProcessBytes(payload.ToArray(), encrypted, 0);
-			cipher.ProcessBytes(validationCheckSum.ToArray(), encrypted, length);
-
-			return encrypted;
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ReadOnlyMemory<byte> Decrypt(ReadOnlyMemory<byte> payload, CryptoContext cryptoContext)
-		{
-			IBufferedCipher cipher = cryptoContext.Decryptor;
-
-			ReadOnlyMemory<byte> clear = cipher.ProcessBytes(payload.ToArray());
-			//TODO: Verify hash!
-			return clear.Slice(0, clear.Length - 8);
-		}
-
 		// CLIENT TO SERVER STUFF
 
-		public static AsymmetricCipherKeyPair GenerateClientKey()
+		/// <summary>The P-384 key a client identifies itself with in its login chain.</summary>
+		public static ECDsa GenerateClientKey()
 		{
-			var generator = new ECKeyPairGenerator("ECDH");
-			generator.Init(new ECKeyGenerationParameters(new DerObjectIdentifier("1.3.132.0.34"), SecureRandom.GetInstance("SHA256PRNG")));
-			return generator.GenerateKeyPair();
+			return ECDsa.Create(ECCurve.NamedCurves.nistP384);
 		}
 
 		/// <summary>
@@ -167,13 +128,13 @@ namespace MiNET.Utils.Cryptography
 
 		// Protocol 944+ offline login: identity moves out of the certificate chain into the
 		// envelope's Token field, as a self-signed OIDC-style JWT.
-		public static string EncodeOfflineMultiplayerToken(string username, AsymmetricCipherKeyPair newKey)
+		public static string EncodeOfflineMultiplayerToken(string username, ECDsa newKey)
 		{
 			long iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 			long exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
 
-			ECDsa signKey = ConvertToSingKeyFormat(newKey);
-			string b64Key = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(newKey.Public).GetEncoded().EncodeBase64();
+			ECDsa signKey = newKey;
+			string b64Key = newKey.ExportSubjectPublicKeyInfo().EncodeBase64();
 
 			var payload = new Dictionary<string, object>
 			{
@@ -198,13 +159,13 @@ namespace MiNET.Utils.Cryptography
 			return JWT.Encode(payload, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64Key}});
 		}
 
-		public static byte[] EncodeJwt(string username, AsymmetricCipherKeyPair newKey, bool isEmulator)
+		public static byte[] EncodeJwt(string username, ECDsa newKey, bool isEmulator)
 		{
 			long iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 			long exp = DateTimeOffset.UtcNow.AddDays(1).ToUnixTimeSeconds();
 
-			ECDsa signKey = ConvertToSingKeyFormat(newKey);
-			string b64Key = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(newKey.Public).GetEncoded().EncodeBase64();
+			ECDsa signKey = newKey;
+			string b64Key = newKey.ExportSubjectPublicKeyInfo().EncodeBase64();
 
 			var certificateData = new CertificateData
 			{
@@ -326,7 +287,7 @@ namespace MiNET.Utils.Cryptography
 			clientData.SkinId = $"{DeriveStableIdentity(username)}.{Convert.ToHexString(MD5.HashData(identity)).ToLowerInvariant().Substring(0, 16)}";
 		}
 
-		public static byte[] EncodeSkinJwt(AsymmetricCipherKeyPair newKey, string username)
+		public static byte[] EncodeSkinJwt(ECDsa newKey, string username)
 		{
 			// The bot's appearance is a real Character Creator skin, captured from a live 1.26 client
 			// and shipped as MiNET.Client/Data/persona_skin.json. It used to be a hand-built classic
@@ -348,58 +309,12 @@ namespace MiNET.Utils.Cryptography
 
 			string skinData = JsonConvert.SerializeObject(clientData);
 
-			ECDsa signKey = ConvertToSingKeyFormat(newKey);
-			string b64Key = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(newKey.Public).GetEncoded().EncodeBase64();
+			ECDsa signKey = newKey;
+			string b64Key = newKey.ExportSubjectPublicKeyInfo().EncodeBase64();
 
 			string val = JWT.Encode(skinData, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64Key}});
 
 			return Encoding.UTF8.GetBytes(val);
-		}
-
-		public static ECDsa ConvertToSingKeyFormat(AsymmetricCipherKeyPair key)
-		{
-			ECPublicKeyParameters pubAsyKey = (ECPublicKeyParameters) key.Public;
-			ECPrivateKeyParameters privAsyKey = (ECPrivateKeyParameters) key.Private;
-
-			var signParam = new ECParameters
-			{
-				Curve = ECCurve.NamedCurves.nistP384,
-				Q =
-				{
-					X = pubAsyKey.Q.AffineXCoord.GetEncoded(),
-					Y = pubAsyKey.Q.AffineYCoord.GetEncoded()
-				}
-			};
-			signParam.D = FixDSize(privAsyKey.D.ToByteArrayUnsigned(), signParam.Q.X.Length);
-			signParam.Validate();
-
-			return ECDsa.Create(signParam);
-		}
-
-		public static byte[] FixDSize(byte[] input, int expectedSize)
-		{
-			if (input.Length == expectedSize)
-			{
-				return input;
-			}
-
-			byte[] tmp;
-
-			if (input.Length < expectedSize)
-			{
-				tmp = new byte[expectedSize];
-				Buffer.BlockCopy(input, 0, tmp, expectedSize - input.Length, input.Length);
-				return tmp;
-			}
-
-			if (input.Length > expectedSize + 1 || input[0] != 0)
-			{
-				throw new InvalidOperationException();
-			}
-
-			tmp = new byte[expectedSize];
-			Buffer.BlockCopy(input, 1, tmp, 0, expectedSize);
-			return tmp;
 		}
 
 		public static byte[] CompressJwtBytes(byte[] certChain, byte[] skinData, CompressionLevel compressionLevel)

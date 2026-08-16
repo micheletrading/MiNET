@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -53,7 +53,9 @@ namespace MiNET.Net
 
 		private protected readonly INetworkHandler _session;
 
-		public CryptoContext CryptoContext { get; set; }
+		// There is no encryption state here either, and no encryption at all: the transport is DTLS
+		// and encrypting a second time would leave the peer reading ciphertext it never expected.
+		// The application-layer AES-CTR handshake belonged to RakNet, which is gone.
 
 		// There is no compression state here on purpose. Every batch this class builds carries a
 		// compressor id byte (0x00=zlib, 0xff=none, chosen by size), and every batch it reads has its
@@ -115,23 +117,6 @@ namespace MiNET.Net
 
 			foreach (Packet packet in packetsToSend)
 			{
-				// We must send forced clear messages in single message batch because
-				// we can't mix them with un-encrypted messages for obvious reasons.
-				// If need be, we could put these in a batch of it's own, but too rare 
-				// to bother.
-				if (packet.ForceClear)
-				{
-					FlushBatch();
-
-					var wrapper = McpeWrapper.CreateObject();
-					wrapper.ForceClear = true;
-					wrapper.SetPayload(Compression.CompressPacketsForWrapper(new List<Packet> {packet}));
-					wrapper.EncodeAsMemory(); // prepare
-					packet.PutPool();
-					sendList.Add(wrapper);
-					continue;
-				}
-
 				if (packet is McpeWrapper)
 				{
 					FlushBatch();
@@ -167,15 +152,6 @@ namespace MiNET.Net
 
 		public Packet HandleOrderedSend(Packet packet)
 		{
-			if (!packet.ForceClear && CryptoContext != null && CryptoContext.UseEncryption && packet is McpeWrapper wrapper)
-			{
-				var encryptedWrapper = McpeWrapper.CreateObject();
-				encryptedWrapper.payload = CryptoUtils.Encrypt(wrapper.payload, CryptoContext);
-				encryptedWrapper.Encode();
-
-				return encryptedWrapper;
-			}
-
 			return packet;
 		}
 
@@ -241,15 +217,6 @@ namespace MiNET.Net
 			try
 			{
 				if (IgnoreIncoming) return messages;
-
-				// Decrypt bytes
-
-				if (CryptoContext != null && CryptoContext.UseEncryption)
-				{
-					// This call copies the entire buffer, but what can we do? It is kind of compensated by not
-					// creating a new buffer when parsing the packet (only a mem-slice)
-					payload = CryptoUtils.Decrypt(payload, CryptoContext);
-				}
 
 				// Decompress bytes
 

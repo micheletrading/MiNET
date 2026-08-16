@@ -34,8 +34,6 @@ using MiNET.Net;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.Vectors;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
 
 namespace MiNET.Client
 {
@@ -96,26 +94,18 @@ namespace MiNET.Client
 
 			if (Log.IsDebugEnabled) Log.Debug($"JWT payload:\n{JWT.Payload(token)}");
 
-			var remotePublicKey = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(x5u.DecodeBase64());
-
-			var signParam = new ECParameters
-			{
-				Curve = ECCurve.NamedCurves.nistP384,
-				Q =
-				{
-					X = remotePublicKey.Q.AffineXCoord.GetEncoded(),
-					Y = remotePublicKey.Q.AffineYCoord.GetEncoded()
-				},
-			};
-			signParam.Validate();
-
-			var signKey = ECDsa.Create(signParam);
+			// x5u is a DER SubjectPublicKeyInfo; the curve and the point come out of the encoding.
+			using var signKey = ECDsa.Create();
+			signKey.ImportSubjectPublicKeyInfo(x5u.DecodeBase64(), out _);
 
 			try
 			{
-				var data = JWT.Decode<HandshakeData>(token, signKey);
+				// Decoded to prove the token really is signed by the key it names. The salt it carries
+				// seeded the Bedrock session cipher, which nothing runs any more: the transport is
+				// DTLS, so the handshake is acknowledged and nothing is enciphered.
+				JWT.Decode<HandshakeData>(token, signKey);
 
-				Client.InitiateEncryption(Base64Url.Decode(x5u), Base64Url.Decode(data.salt));
+				Client.AcknowledgeHandshake();
 			}
 			catch (Exception e)
 			{
