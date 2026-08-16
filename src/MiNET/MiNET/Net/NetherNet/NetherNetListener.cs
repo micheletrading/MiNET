@@ -30,6 +30,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -148,6 +149,23 @@ namespace MiNET.Net.NetherNet
 		///     <c>/v1/*</c> to itself, checked before this, so no route can shadow the protocol.
 		/// </summary>
 		public Func<HttpRequest, HttpResponse> RequestHandler { get; set; }
+
+		/// <summary>
+		///     Consulted when a client opens with TLS instead of plaintext: given the ClientHello's
+		///     SNI host (null when absent, which is every real Bedrock client) and the connection's
+		///     source address, returns the certificate context to complete the handshake with, or
+		///     null to refuse the way BDS does so the client falls back to plaintext. Null provider
+		///     means TLS is always refused, the behavior before certificates existed.
+		/// </summary>
+		public Func<string, IPAddress, SslStreamCertificateContext> TlsCertificateProvider { get; set; }
+
+		/// <summary>
+		///     Answers ACME HTTP-01 validation on this port: given the token from
+		///     <c>GET /.well-known/acme-challenge/{token}</c>, returns the key authorization body, or
+		///     null for 404. The route is only claimed while a handler is set, so plugins keep the
+		///     path when no certificate machinery runs.
+		/// </summary>
+		public Func<string, string> AcmeChallengeHandler { get; set; }
 
 		/// <summary>
 		///     The long-lived key clients pin us by. Persisted, because regenerating it makes every
@@ -423,16 +441,24 @@ namespace MiNET.Net.NetherNet
 			{
 				try
 				{
-					NetworkStream stream = client.GetStream();
-
-					// The real client tries TLS before plaintext. It must be told no in a way it
-					// understands, or it never falls back: a reset or silence leaves it with a broken
-					// handshake rather than a refusal. BDS answers a ClientHello with an alert 40,
-					// handshake_failure, and closes, which is what makes the client retry in the
-					// clear and reach the trust-on-first-use path.
-					if (await RefuseTlsIfOffered(stream)) return;
+					Stream stream = await NegotiateTransportAsync(client.GetStream());
+					if (stream == null) return;
+					await using Stream _ = stream;
 
 					(string method, string path, string headers, string body) = await ReadRequest(stream);
+
+					// A peer that closed before completing its headers left nothing to route. Seen
+					// live from the real client: it completes a TLS handshake, sends nothing, and
+					// hangs up, then rejoins in plaintext. Reaching here means the read returned a
+					// clean end-of-stream, which for TLS is a proper close_notify: the client's
+					// application chose to leave an intact channel, its stack did not abort (an
+					// abort surfaces as an exception, logged in the catch below).
+					if (method == null || path == null)
+					{
+						if (stream is SslStream) Log.Info($"NetherNet signaling TLS connection from {SafePeer(client)} closed cleanly (close_notify) without sending a request");
+						else Log.Debug($"NetherNet signaling connection from {SafePeer(client)} closed before a complete request");
+						return;
+					}
 
 					// Signaling is one round trip per connection and the whole negotiation lives in
 					// it, so the full exchange is logged. A client that refuses us leaves no other
@@ -454,6 +480,18 @@ namespace MiNET.Net.NetherNet
 					{
 						// Any 2xx means "yes, we speak NetherNet". The body is ignored by the client.
 						await Respond(stream, 200, "text/plain", "");
+						return;
+					}
+
+					// ACME HTTP-01 validation (and the issue-preflight probe), claimed ahead of the
+					// plugin routes only while certificate machinery runs, so plugins keep the path
+					// otherwise. Let's Encrypt's validators dial port 80 on the domain; a forward
+					// from there is what lands them here.
+					Func<string, string> acme = AcmeChallengeHandler;
+					if (acme != null && method == "GET" && path.StartsWith(AcmeChallengePrefix, StringComparison.Ordinal))
+					{
+						string keyAuthorization = acme(path.Substring(AcmeChallengePrefix.Length));
+						await Respond(stream, keyAuthorization != null ? 200 : 404, "text/plain", keyAuthorization ?? "");
 						return;
 					}
 
@@ -494,32 +532,71 @@ namespace MiNET.Net.NetherNet
 			}
 		}
 
+		private const string AcmeChallengePrefix = "/.well-known/acme-challenge/";
+
 		/// <summary>
-		///     Peeks at the first byte and, if it is a TLS handshake record, answers with a fatal
-		///     handshake_failure alert and gives up the connection. Mirrors BDS, which does exactly
-		///     this rather than serving TLS or ignoring it.
+		///     Sorts out how the connection opens. A plaintext request passes straight through
+		///     untouched. The real client tries TLS before plaintext, and the ClientHello is answered
+		///     one of two ways: a completed handshake when <see cref="TlsCertificateProvider" />
+		///     supplies a certificate for the offered SNI, or a fatal handshake_failure alert (null
+		///     return, connection done). The refusal mirrors BDS: it must be a refusal the client
+		///     understands, because a reset or silence leaves it with a broken handshake and it never
+		///     falls back to plaintext and the trust-on-first-use path.
 		/// </summary>
-		private static async Task<bool> RefuseTlsIfOffered(NetworkStream stream)
+		private async Task<Stream> NegotiateTransportAsync(NetworkStream stream)
 		{
 			// Peek rather than read, so a plain HTTP request keeps its bytes. Enough for a whole
 			// ClientHello, which is the only record worth looking at here.
 			var head = new byte[4096];
 			int peeked = stream.Socket.Receive(head, SocketFlags.Peek);
-			if (peeked == 0 || head[0] != 0x16) return false;
+			if (peeked == 0 || head[0] != 0x16) return stream;
 
 			// The client resolves a transfer's host name before it builds its HTTP request, so the
-			// Host header is always an address. The ClientHello is the one place a NAME could still
-			// be, which decides whether anything name-routed can sit in front of signaling.
+			// Host header is always an address. The ClientHello is the one place a NAME survives,
+			// so SNI is the only thing a certificate can be matched against: a client that dialled
+			// by address offers no name and gets the refusal, whatever certificates are held.
 			string serverName = ReadSni(head, peeked);
+			IPAddress remoteAddress = (stream.Socket.RemoteEndPoint as IPEndPoint)?.Address;
 
-			Log.Info($"NetherNet signaling: client offered TLS (SNI {serverName ?? "absent"}), refusing with handshake_failure so it falls back to plaintext");
+			// The full anatomy of the offer, every time: the real client completes a handshake and
+			// then abandons the connection, and what its stack asked for is the evidence trail.
+			Log.Info($"NetherNet signaling TLS offer from {remoteAddress}: {DescribeClientHello(head, peeked)}");
 
-			// Alert record: content type 21, TLS 1.0 version for maximum compatibility with a peer
-			// whose negotiated version is not yet known, length 2, level fatal (2), handshake_failure (40).
-			await stream.WriteAsync(new byte[] {0x15, 0x03, 0x01, 0x00, 0x02, 0x02, 0x28});
-			await stream.FlushAsync();
+			SslStreamCertificateContext certificate = TlsCertificateProvider?.Invoke(serverName, remoteAddress);
+			if (certificate == null)
+			{
+				Log.Info($"NetherNet signaling: client offered TLS (SNI {serverName ?? "absent"}), refusing with handshake_failure so it falls back to plaintext");
 
-			return true;
+				// Alert record: content type 21, TLS 1.0 version for maximum compatibility with a peer
+				// whose negotiated version is not yet known, length 2, level fatal (2), handshake_failure (40).
+				await stream.WriteAsync(new byte[] {0x15, 0x03, 0x01, 0x00, 0x02, 0x02, 0x28});
+				await stream.FlushAsync();
+
+				return null;
+			}
+
+			var ssl = new SslStream(stream, leaveInnerStreamOpen: false);
+			try
+			{
+				await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+				{
+					ServerCertificateContext = certificate,
+					// http/1.1 only, deliberately: the reader above this stream speaks nothing else,
+					// so the negotiation must land there even for a client that would prefer h2.
+					// Inert for clients that offer no ALPN.
+					ApplicationProtocols = new List<SslApplicationProtocol> {SslApplicationProtocol.Http11},
+				});
+			}
+			catch
+			{
+				await ssl.DisposeAsync();
+				throw;
+			}
+
+			SslApplicationProtocol negotiated = ssl.NegotiatedApplicationProtocol;
+			Log.Info($"NetherNet signaling TLS established (SNI {serverName ?? "absent"}, source {remoteAddress}): "
+					+ $"{ssl.SslProtocol}, cipher {ssl.NegotiatedCipherSuite}, alpn {(negotiated.Protocol.IsEmpty ? "none" : negotiated.ToString())}");
+			return ssl;
 		}
 
 		/// <summary>
@@ -621,6 +698,105 @@ namespace MiNET.Net.NetherNet
 
 			return parsed;
 		}
+
+		/// <summary>
+		///     A one-line forensic description of a TLS ClientHello: offered versions, cipher-suite
+		///     count, ALPN protocols, SNI, and the raw extension id list. Exists because the real
+		///     Bedrock client completes a handshake and then abandons the connection, and what its
+		///     stack asked for is the only clue to why. Hostile-input rules as
+		///     <see cref="ReadSni" />: any malformed length degrades the description, never throws.
+		/// </summary>
+		internal static string DescribeClientHello(byte[] hello, int length)
+		{
+			try
+			{
+				int at = 5;
+				if (length < at + 4 || hello[at] != 0x01) return "not a ClientHello";
+
+				// legacy_version predates 1.3's supported_versions extension; both are reported.
+				at += 4;
+				string legacyVersion = length >= at + 2 ? VersionName((hello[at] << 8) | hello[at + 1]) : "?";
+				at += 2 + 32; // legacy_version, random
+
+				if (length < at + 1) return $"truncated (legacy {legacyVersion})";
+				at += 1 + hello[at]; // legacy_session_id
+
+				if (length < at + 2) return $"truncated (legacy {legacyVersion})";
+				int cipherCount = ((hello[at] << 8) | hello[at + 1]) / 2;
+				at += 2 + ((hello[at] << 8) | hello[at + 1]); // cipher_suites
+
+				if (length < at + 1) return $"truncated (legacy {legacyVersion}, {cipherCount} ciphers)";
+				at += 1 + hello[at]; // legacy_compression_methods
+
+				if (length < at + 2) return $"truncated (legacy {legacyVersion}, {cipherCount} ciphers)";
+				int extensionsEnd = at + 2 + ((hello[at] << 8) | hello[at + 1]);
+				at += 2;
+
+				var versions = new List<string>();
+				var alpn = new List<string>();
+				var extensionIds = new List<int>();
+				string sni = null;
+
+				while (at + 4 <= Math.Min(length, extensionsEnd))
+				{
+					int type = (hello[at] << 8) | hello[at + 1];
+					int size = (hello[at + 2] << 8) | hello[at + 3];
+					at += 4;
+					extensionIds.Add(type);
+					int end = Math.Min(length, at + size);
+
+					if (type == 0 && at + 5 <= end && hello[at + 2] == 0)
+					{
+						int nameLength = (hello[at + 3] << 8) | hello[at + 4];
+						if (at + 5 + nameLength <= end) sni = Encoding.ASCII.GetString(hello, at + 5, nameLength);
+					}
+					else if (type == 16 && at + 2 <= end)
+					{
+						// ALPN: a u16 list of length-prefixed protocol names.
+						int walk = at + 2;
+						while (walk < end)
+						{
+							int nameLength = hello[walk];
+							if (walk + 1 + nameLength > end) break;
+							alpn.Add(Encoding.ASCII.GetString(hello, walk + 1, nameLength));
+							walk += 1 + nameLength;
+						}
+					}
+					else if (type == 43 && at + 1 <= end)
+					{
+						// supported_versions: a u8-length list of u16 versions.
+						int walk = at + 1;
+						while (walk + 2 <= Math.Min(end, at + 1 + hello[at]))
+						{
+							versions.Add(VersionName((hello[walk] << 8) | hello[walk + 1]));
+							walk += 2;
+						}
+					}
+
+					at += size;
+				}
+
+				return $"versions=[{(versions.Count > 0 ? string.Join(",", versions) : legacyVersion)}]"
+					+ $" ciphers={cipherCount}"
+					+ $" alpn=[{string.Join(",", alpn)}]"
+					+ $" sni={sni ?? "absent"}"
+					+ $" extensions=[{string.Join(",", extensionIds)}]";
+			}
+			catch (Exception e)
+			{
+				Log.Debug("Could not describe a TLS ClientHello", e);
+				return "unparseable";
+			}
+		}
+
+		private static string VersionName(int wire) => wire switch
+		{
+			0x0304 => "1.3",
+			0x0303 => "1.2",
+			0x0302 => "1.1",
+			0x0301 => "1.0",
+			_ => $"0x{wire:x4}",
+		};
 
 		/// <summary>
 		///     The server_name extension of a TLS ClientHello, or null if the record is truncated,
@@ -877,7 +1053,7 @@ namespace MiNET.Net.NetherNet
 			return kept.ToString();
 		}
 
-		private static async Task<(string method, string path, string headers, string body)> ReadRequest(NetworkStream stream)
+		private static async Task<(string method, string path, string headers, string body)> ReadRequest(Stream stream)
 		{
 			var buffer = new byte[64 * 1024];
 			var raw = new StringBuilder();
@@ -928,7 +1104,7 @@ namespace MiNET.Net.NetherNet
 			return (requestLine[0], requestLine.Length > 1 ? requestLine[1] : "", headers, request.Substring(headerEnd + 4));
 		}
 
-		private static async Task Respond(NetworkStream stream, int status, string contentType, string body)
+		private static async Task Respond(Stream stream, int status, string contentType, string body)
 		{
 			byte[] payload = Encoding.UTF8.GetBytes(body);
 			string head = $"HTTP/1.1 {status} {(status == 200 ? "OK" : status == 404 ? "Not Found" : "Bad Request")}\r\n"
