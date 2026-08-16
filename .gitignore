@@ -199,3 +199,9 @@ FakesAssemblies/
 # NetherNet server identity: clients pin this key, and it must never be committed.
 keys/
 *.pem
+
+# Local test worlds and schematics: multi-hundred-megabyte map downloads, personal to
+# whoever is running the server, and never part of the build. Anchored to the repo root:
+# unanchored it matches at any depth, and Windows matches ignore rules without case, so
+# "worlds/" also swallowed the src/MiNET/MiNET/Worlds source folder.
+/worlds/
