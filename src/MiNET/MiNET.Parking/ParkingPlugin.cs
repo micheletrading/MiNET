@@ -390,10 +390,17 @@ namespace MiNET.Parking
 		{
 			if (!int.TryParse(request.RouteValues["port"], out int port)) return HttpResponse.Text("Port must be a number", 400);
 
-			Door door = _doors.ByPort(port);
-			if (door == null) return HttpResponse.Text($"No door on port {port}", 404);
-
 			string name = request.RouteValues["player"];
+
+			// The front entrance answers too, so a developer who never registered can still pull
+			// their player home by name. Names only: the front port is public knowledge where a
+			// door port had to be earned, so the wildcard would let anyone bounce every parked
+			// stranger at once. A name moves one player, to their own machine, nothing more.
+			int frontPort = Config.GetProperty("port", 19132);
+			Door door = _doors.ByPort(port);
+			if (door == null && port != frontPort) return HttpResponse.Text($"No door on port {port}", 404);
+			if (door == null && name == "*") return HttpResponse.Text("The front entrance takes player names only, not *", 403);
+
 			Level level = Context.Server.LevelManager.Levels.FirstOrDefault();
 			if (level == null) return HttpResponse.Text("No level", 503);
 
@@ -405,7 +412,7 @@ namespace MiNET.Parking
 				.Where(player => name == "*" || string.Equals(player.Username, name, StringComparison.OrdinalIgnoreCase))
 				.ToArray();
 
-			string destination = $"{door.Address}:{door.ReturnPort}";
+			string destination = door != null ? $"{door.Address}:{door.ReturnPort}" : Config.GetProperty("Parking.DefaultBack", "127.0.0.1:19132");
 
 			foreach (Player player in moving) SendTo(player, destination);
 
