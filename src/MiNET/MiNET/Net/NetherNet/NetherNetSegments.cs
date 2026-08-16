@@ -133,9 +133,11 @@ namespace MiNET.Net.NetherNet
 		///     assembled from segments, true with the complete payload once the last one arrives.
 		///     <para>
 		///         The returned memory is a view, never a copy, so it is valid only until the next
-		///         call on this reassembler. That is enough because the caller hands it straight to
-		///         <c>HandlePacket</c>, which reads it through a <see cref="Utils.IO.MemoryStreamReader" />
-		///         and copies out before returning. Nothing downstream slices it into a packet.
+		///         call on this reassembler. That is enough, and it is enough for a reason worth
+		///         stating rather than assuming: a session's messages arrive on one mux receive loop
+		///         and are drained by one SingleReader lane, so the next call cannot begin until the
+		///         caller has finished with this one. The buffer stays rented between messages
+		///         precisely because that holds; a fragmenting peer then costs no rent per message.
 		///     </para>
 		/// </summary>
 		public bool TryAccept(ReadOnlyMemory<byte> framed, out ReadOnlyMemory<byte> message)
@@ -147,9 +149,8 @@ namespace MiNET.Net.NetherNet
 
 			// The common case by far, and the only one on a Bedrock batch under 256KB. The header is
 			// skipped by an offset rather than by moving the batch, so this costs nothing at all:
-			// no copy, no allocation, just a view onto the buffer the data channel already handed us.
-			// _expected, not _pending, says whether a message is in progress: the buffer is kept
-			// rented between messages so a fragmenting peer does not re-rent on every one.
+			// no copy, no allocation, just a view onto the buffer the data channel already handed us,
+			// which that caller owns and keeps alive for the whole call.
 			if (remaining == 0 && _expected < 0)
 			{
 				message = payload;
@@ -207,7 +208,14 @@ namespace MiNET.Net.NetherNet
 			_pending = bigger;
 		}
 
-		private void Reset()
+		/// <summary>
+		///     Abandons whatever is half assembled. Every path that gives up on a message has to call
+		///     this, because the alternative is that the bytes and the countdown survive it: the next
+		///     message is then either killed by the counter check or, when its segment count happens to
+		///     match the leftover, appended to the abandoned bytes and delivered as one message longer
+		///     than anyone sent.
+		/// </summary>
+		public void Reset()
 		{
 			if (_pending != null) ArrayPool<byte>.Shared.Return(_pending);
 			_pending = null;

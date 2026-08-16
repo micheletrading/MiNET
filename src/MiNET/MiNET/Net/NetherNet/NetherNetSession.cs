@@ -162,15 +162,32 @@ namespace MiNET.Net.NetherNet
 		/// </summary>
 		public string NetworkId { get; }
 
+		/// <summary>
+		///     The <c>Host</c> header of the signaling request, verbatim: the address string the client
+		///     was told to dial, not the address it resolved to. A transfer names its destination as a
+		///     bare host, so this is the one value that crosses a transfer under the sender's control,
+		///     and it is what lets a server tell arrivals apart by where they came in.
+		/// </summary>
+		public string SignalingHost { get; }
+
+		/// <summary>
+		///     Which signaling port this session arrived on. The server port for an ordinary join, or
+		///     one handed out to somebody who registered: a port is only learned by being given it,
+		///     so it says who sent this player far more precisely than the address ever can.
+		/// </summary>
+		public int SignalingPort { get; }
+
 		public long NetworkIdentifier { get; }
 
-		public NetherNetSession(RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable, IPEndPoint endPoint, string networkId)
+		public NetherNetSession(RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable, IPEndPoint endPoint, string networkId, string signalingHost = null, int signalingPort = 0)
 		{
 			_peer = peer ?? throw new ArgumentNullException(nameof(peer));
 			_reliable = reliable ?? throw new ArgumentNullException(nameof(reliable));
 
 			EndPoint = endPoint;
 			NetworkId = networkId;
+			SignalingHost = signalingHost;
+			SignalingPort = signalingPort;
 			NetworkIdentifier = long.TryParse(networkId, out long id) ? id : networkId?.GetHashCode() ?? 0;
 
 			_ = DispatchLoopAsync();
@@ -275,10 +292,14 @@ namespace MiNET.Net.NetherNet
 			}
 			catch (Exception e)
 			{
+				// Whatever went wrong, this channel's half-assembled message goes with it. Left in
+				// place, its bytes and its countdown outlive the failure, and the next message on the
+				// channel is appended to them the moment its segment count happens to match.
+				reassembler.Reset();
+
 				if (!reliableChannel)
 				{
-					// Loss is expected here, so a broken message says nothing about the session. The
-					// reassembler has already dropped its half-built buffer.
+					// Loss is expected here, so a broken message says nothing about the session.
 					Log.Warn($"NetherNet unreliable message discarded for {Username ?? NetworkId}: {e.Message}");
 					return;
 				}
@@ -299,18 +320,16 @@ namespace MiNET.Net.NetherNet
 			ICustomMessageHandler handler = CustomMessageHandler;
 			if (handler == null) return;
 
-			// There is no 0xFE to parse: the reassembled bytes are the wrapper payload itself, starting
-			// at the compressor id byte. Rebuild the wrapper around them as a VIEW, no copy: the
-			// span-based decode consumes it synchronously right here on the receive thread, and only
-			// the decoded packet objects, which own their memory, cross to the dispatch thread. One
-			// player's login burst or slow handler must never stall every other session's inbound
-			// behind it on the shared mux thread.
-			var wrapper = McpeWrapper.CreateObject();
-			wrapper.payload = payload;
-
+			// There is no 0xFE to parse: the reassembled bytes are the batch payload itself, starting
+			// at the compressor id byte, so they go straight to the decoder. No wrapper is built for
+			// them; one would be an object per inbound batch existing only to carry a field the next
+			// line reads. The decode consumes the view synchronously right here on the receive
+			// thread, and only the decoded packet objects, which own their memory, cross to the
+			// dispatch thread. One player's login burst or slow handler must never stall every other
+			// session's inbound behind it on the shared mux thread.
 			if (handler is BedrockMessageHandlerBase bedrock)
 			{
-				foreach (Packet msg in bedrock.DecodeBatch(wrapper))
+				foreach (Packet msg in bedrock.DecodeBatch(payload))
 				{
 					// The transport.messages.in counting point: one complete game packet, post-reassembly
 					// and post-ordering, counted before the inline/queued split so the number is the same
@@ -337,11 +356,11 @@ namespace MiNET.Net.NetherNet
 				return;
 			}
 
-			// A handler outside the Bedrock base (a test recorder) has no decode/dispatch split;
-			// the payload is copied so the whole wrapper can cross to the dispatch thread intact.
+			// Any other handler gets the same view, and owns the decision to copy it. The transport
+			// does not copy on its behalf: that put a per-datagram allocation on the production path
+			// to serve a handler that does not exist in production.
 			TransportMetrics.MessageIn();
-			wrapper.payload = payload.ToArray();
-			Enqueue(wrapper);
+			handler.HandlePayload(payload);
 		}
 
 		// How many packets sit in _dispatchQueue not yet handled: the ordering guard for direct

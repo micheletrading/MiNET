@@ -91,13 +91,9 @@ namespace MiNET
 			// expecting them with the packet after this one. Compression starts with the first
 			// packet after this one, in both directions.
 			var wrapper = McpeWrapper.CreateObject();
-			wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 			wrapper.SetPayload(Compression.PackPacketsForWrapper([settings]));
 			wrapper.EncodeAsMemory();
 			_session.SendPacket(wrapper);
-
-			_bedrockHandler.CompressionEnabled = true;
-			_bedrockHandler.CompressionThreshold = Compression.CompressionThresholdBytes;
 		}
 
 		public virtual void HandleMcpeLogin(McpeLogin message)
@@ -455,6 +451,12 @@ namespace MiNET
 						};
 						signParam.Validate();
 
+						// REFCT: Jose-JWT takes and returns strings, and Newtonsoft deserializes from a
+						// string, so a login chain materializes its base64 and its JSON as strings. Those
+						// are what reach the LOH on a join burst (traced: [LOH] System.String and
+						// [LOH] System.Char[], nothing else). System.Text.Json reads UTF8 straight off a
+						// span (Utf8JsonReader), and Microsoft.IdentityModel.JsonWebTokens is the JWT
+						// reader built on it, so the strings never have to exist.
 						CertificateData data = JWT.Decode<CertificateData>(token.ToString(), ECDsa.Create(signParam));
 
 						// Validate

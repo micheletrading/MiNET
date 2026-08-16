@@ -37,6 +37,18 @@ namespace MiNET.Net
 
 		void HandlePacket(Packet message);
 
+		/// <summary>
+		///     One complete batch payload as it came off the transport, starting at its compressor id
+		///     byte. A VIEW onto memory the transport owns for the duration of this call and reuses
+		///     afterwards, so an implementation that keeps any of it has to copy it here.
+		///     <para>
+		///         The payload rather than a wrapper packet, because the transport has nothing to wrap:
+		///         building one would be an object per inbound batch carrying a field the callee reads
+		///         immediately.
+		///     </para>
+		/// </summary>
+		void HandlePayload(ReadOnlyMemory<byte> payload);
+
 		Packet HandleOrderedSend(Packet packet);
 		List<Packet> PrepareSend(List<Packet> packetsToSend);
 	}
@@ -54,6 +66,11 @@ namespace MiNET.Net
 		}
 
 		public void HandlePacket(Packet message)
+		{
+			Log.Warn($"Default custom message handler. Probably not what you want!");
+		}
+
+		public void HandlePayload(ReadOnlyMemory<byte> payload)
 		{
 			Log.Warn($"Default custom message handler. Probably not what you want!");
 		}

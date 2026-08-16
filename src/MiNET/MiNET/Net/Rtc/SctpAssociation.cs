@@ -148,10 +148,28 @@ namespace MiNET.Net.Rtc
 		// before ever retaining it.
 		private const int MaxCookieEchoCookieLength = SctpPacket.MaxSize - 12 - 4;
 
-		// RFC 4960 6.2 SACK policy: a SACK goes out on the second packet carrying DATA, or 200ms after
-		// the first unacked one, whichever comes first (plus the immediate triggers HandleData/MaybeSendSack
-		// check for separately).
+		// RFC 4960 6.2 SACK policy: a SACK goes out on the second packet carrying DATA, or this long
+		// after the first unacked one, whichever comes first (plus the immediate triggers
+		// HandleData/MaybeSendSack check for separately).
+		//
+		// The RFC's own ceiling, and it stays there. This is the fallback that fires off OnTick when
+		// nothing outbound turned up to carry the ack, so shortening it does not make acknowledgement
+		// prompt, it makes the tick do more work: at 20ms the timer wakes ten times as often to send
+		// standalone SACKs, which is the syscall cost the delayed policy exists to avoid in the first
+		// place. Prompt acknowledgement is what AcknowledgeImmediately below is for.
 		private const long SackDelayMillis = 200;
+
+		private enum SackDelivery
+		{
+			/// <summary>Sent on the spot, its own datagram, on the receive thread.</summary>
+			Unqueued,
+
+			/// <summary>Left owed for the next outbound packet to carry.</summary>
+			Piggyback
+		}
+
+		/// <summary>Where a due SACK goes out. Nothing else: when one is due is decided elsewhere.</summary>
+		private static readonly SackDelivery Delivery = SackDelivery.Unqueued;
 
 		// RFC 4960 3.2 defines COOKIE-ACK as chunk type 11, empty value. SctpChunks.cs has no struct
 		// for it (there is nothing to parse or write beyond the shared 4-byte chunk header), so it is
@@ -1078,7 +1096,7 @@ namespace MiNET.Net.Rtc
 		///     buffered out-of-turn ordered messages, the out-of-order TSN set - via
 		///     <see cref="SctpReceiveBuffer.Reset" />, reusing <see cref="_peerInitialTsn" /> since the exact
 		///     value no longer matters (this buffer will never process another chunk). Also disarms the
-		///     200ms delayed-SACK fallback (<see cref="_sackTimerArmed" />): that timer is not gated by
+		///     delayed-SACK fallback (<see cref="_sackTimerArmed" />): that timer is not gated by
 		///     <see cref="_state" /> in <see cref="OnTick" />, so left armed it would otherwise fire a stray
 		///     SACK off a dead association. Returns <paramref name="reason" /> unchanged, for the caller to
 		///     raise <see cref="OnAborted" /> with once <see cref="_gate" /> is released (the established
@@ -1193,6 +1211,10 @@ namespace MiNET.Net.Rtc
 							sackBundled = true;
 							_sackTimerArmed = false;
 							_dataPacketsSinceSack = 0;
+
+							// Free ack: it rode a packet that was leaving anyway. The delay recorded is
+							// how long the peer waited for its send window to reopen.
+							TransportMetrics.SackSent(SackKind.Piggybacked, ClockNowMillis() - _sackTimerArmedAtTicks);
 						}
 
 						long now = ClockNowMillis();
@@ -1371,7 +1393,8 @@ namespace MiNET.Net.Rtc
 		///     RFC 4960 6.2 SACK policy, called under <see cref="_gate" /> once per received packet that
 		///     carried at least one DATA chunk: sends immediately when <paramref name="immediateSackRequested" />
 		///     (the I-flag was set on some DATA chunk in the packet) or a gap is outstanding; otherwise
-		///     every second such packet, with the 200ms fallback armed here and enforced by <see cref="OnTick" />.
+		///     one per two such packets, counted rather than timed, with the 200ms fallback armed here
+		///     and enforced by <see cref="OnTick" />.
 		///     Gated on <see cref="SctpState.Established" />: a DATA or FORWARD-TSN chunk arriving on an
 		///     association that is not (yet, or no longer) Established must never provoke a SACK off
 		///     <see cref="_receiveBuffer" /> state that may be stale, reset, or not yet negotiated.
@@ -1382,10 +1405,38 @@ namespace MiNET.Net.Rtc
 		{
 			if (_state != SctpState.Established) return;
 
-			// The two load-bearing immediate cases keep their standalone datagram: a gap means loss
-			// just happened and the sender's retransmit machinery needs to hear it now, and the
-			// I-bit is the sender explicitly asking. Everything else is an ack that can ride.
+			// One SACK per two received packets carrying DATA, counted, not timed. A gap or the
+			// sender's I-bit makes one due at once instead. The 200ms timer is the outer bound on an
+			// owed ack, for the case where a second packet never arrives.
 			if (immediateSackRequested || _receiveBuffer.HasGap)
+			{
+				DeliverSack();
+				return;
+			}
+
+			_dataPacketsSinceSack++;
+
+			if (_dataPacketsSinceSack < 2)
+			{
+				if (!_sackTimerArmed)
+				{
+					_sackTimerArmed = true;
+					_sackTimerArmedAtTicks = ClockNowMillis();
+				}
+
+				return;
+			}
+
+			DeliverSack();
+		}
+
+		/// <summary>
+		///     Sends a due SACK, or leaves it owed for the next outbound packet to carry. Where only:
+		///     the caller has already decided that one is due.
+		/// </summary>
+		private void DeliverSack()
+		{
+			if (Delivery == SackDelivery.Unqueued)
 			{
 				SendSackPacket();
 				_dataPacketsSinceSack = 0;
@@ -1393,16 +1444,6 @@ namespace MiNET.Net.Rtc
 				return;
 			}
 
-			_dataPacketsSinceSack++;
-
-			// An in-order ack never pays its own datagram: it is armed as owed, and Flush bundles
-			// an armed SACK into the first outbound packet it sends, which at steady state (a move
-			// broadcast at most one tick away) means the ack rides existing traffic as a few bytes
-			// instead of costing a standalone compose+encrypt+sendto per second data packet - the
-			// same economics as RakNet batching its ACKs onto the tick. OnTick's 200ms fallback
-			// (RFC 4960 6.2's outer bound) transmits standalone only when nothing outbound showed
-			// up to carry it, which also self-limits a one-way inbound flood: the peer's own cwnd
-			// stalls until the fallback acks, exactly like a delayed-ack TCP receiver.
 			if (!_sackTimerArmed)
 			{
 				_sackTimerArmed = true;
@@ -1729,6 +1770,11 @@ namespace MiNET.Net.Rtc
 			n += WriteSackChunkInto(buffer.Slice(n));
 			SctpPacket.FinishChecksum(buffer.Slice(0, n));
 			_sendPacket(buffer.Slice(0, n));
+
+			// Its own datagram, because nothing was going out to carry it. Counted separately from the
+			// piggybacked case: a high standalone share means acks are waiting on a timer, and the peer
+			// is waiting on those acks before it can send more.
+			TransportMetrics.SackSent(SackKind.Standalone, _sackTimerArmed ? ClockNowMillis() - _sackTimerArmedAtTicks : -1);
 		}
 
 		/// <summary>Shared by <see cref="SendSackPacket" /> and <see cref="Flush" />'s bundling case: writes one SACK chunk (current cumulative ack, gap blocks, duplicate TSNs) into <paramref name="destination" />, returning the padded length written. Goes straight through <see cref="SackChunk" />'s span-taking static <c>WriteTo</c> overload rather than boxing the stack-allocated spans below into a <see cref="SackChunk" /> instance first: this runs on every SACK (RFC 4960 6.2's every-other-packet cadence makes that steady-state, not occasional), so the two <c>ToArray()</c> calls that shape would cost here would be a real per-message heap allocation, not a one-time cost.</summary>

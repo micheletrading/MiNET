@@ -161,8 +161,6 @@ namespace MiNET.Client
 
 		public override void HandleMcpeResourcePacksInfo(McpeResourcePacksInfo message)
 		{
-			Log.Warn($"HEX: \n{Packet.HexDump(message.Bytes)}");
-
 			var sb = new StringBuilder();
 			sb.AppendLine();
 

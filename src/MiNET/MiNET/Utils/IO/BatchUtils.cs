@@ -53,7 +53,6 @@ namespace MiNET.Utils.IO
 		public static McpeWrapper CreateBatchPacket(ReadOnlyMemory<byte> input, CompressionLevel compressionLevel, bool writeLen)
 		{
 			var batch = McpeWrapper.CreateObject();
-			batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 
 			// Post-1.19.30 wrapper payloads carry a leading compressor-id byte, written by
 			// CompressIntoPooledStream, which also owns the compress-or-raw threshold rule.
@@ -71,7 +70,6 @@ namespace MiNET.Utils.IO
 		public static McpeWrapper CreateBatchPacket(ReadOnlySequence<byte> input, CompressionLevel compressionLevel, bool writeLen)
 		{
 			var batch = McpeWrapper.CreateObject();
-			batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 
 			batch.SetPayload(Compression.CompressIntoPooledStream(input, writeLen, compressionLevel));
 

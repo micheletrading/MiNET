@@ -87,10 +87,8 @@ namespace MiNET.Net.Rtc
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(DtlsSession));
 
-		// 1500 (typical path MTU) - 20 (IPv4) - 8 (UDP) = 1472. The scratch buffer is sized above
-		// that to accommodate more than one plaintext record per receive.
+		// 1500 (typical path MTU) - 20 (IPv4) - 8 (UDP) = 1472.
 		private const int WireMtu = 1472;
-		private const int ScratchBufferSize = 4096;
 
 		// 300ms retransmission cadence over a 10ms host tick (UdpMux.TickIntervalMs): see OnTick.
 		private const int TicksPerRetransmit = 30;
@@ -123,7 +121,6 @@ namespace MiNET.Net.Rtc
 		private readonly RtcCertificate _localCertificate;
 		private readonly bool _isServer;
 		private readonly WireSender _sendToWire;
-		private readonly byte[] _receiveScratch = ArrayPool<byte>.Shared.Rent(ScratchBufferSize);
 		private readonly object _gate = new object();
 
 		// Deliberately separate from _gate: the receive path releases _gate around OnDecrypted, so a
@@ -231,7 +228,6 @@ namespace MiNET.Net.Rtc
 		// so neither needs volatile or Interlocked: _gate's acquire/release already provides the
 		// necessary visibility across the two threads that can ever reach either field.
 		private bool _processing;
-		private bool _deferredScratchReturn;
 
 		public DtlsSession(RtcCertificate localCertificate, string expectedRemoteFingerprint, bool isServer, WireSender sendToWire)
 		{
@@ -308,11 +304,6 @@ namespace MiNET.Net.Rtc
 				finally
 				{
 					_processing = false;
-					if (_deferredScratchReturn)
-					{
-						_deferredScratchReturn = false;
-						ArrayPool<byte>.Shared.Return(_receiveScratch);
-					}
 				}
 			}
 		}
@@ -481,16 +472,30 @@ namespace MiNET.Net.Rtc
 				}
 				else if (contentType == ContentTypeAlert)
 				{
-					if (!_recordCrypto.TryDecryptRecord(record, _receiveScratch, out _, out int length)) continue;
-
-					if (length < 2)
+					// Rented and returned inside this branch. An alert is two bytes read once, which
+					// never justified a buffer living as long as the session: a field outlives the read
+					// and then needs a handshake to decide who returns it and when, and that handshake
+					// is what returned it twice.
+					byte[] alertBuffer = ArrayPool<byte>.Shared.Rent(fragmentLength);
+					byte level;
+					byte description;
+					try
 					{
-						Interlocked.Increment(ref _droppedRecords);
-						continue;
-					}
+						if (!_recordCrypto.TryDecryptRecord(record, alertBuffer, out _, out int length)) continue;
 
-					byte level = _receiveScratch[0];
-					byte description = _receiveScratch[1];
+						if (length < 2)
+						{
+							Interlocked.Increment(ref _droppedRecords);
+							continue;
+						}
+
+						level = alertBuffer[0];
+						description = alertBuffer[1];
+					}
+					finally
+					{
+						ArrayPool<byte>.Shared.Return(alertBuffer);
+					}
 
 					// RFC 5246 7.2.1: close_notify ends the connection in both directions immediately,
 					// and the recipient must send its own close_notify back before closing. The response
@@ -909,15 +914,6 @@ namespace MiNET.Net.Rtc
 						CryptographicOperations.ZeroMemory(CapturedKeys.ClientWriteSalt);
 						CryptographicOperations.ZeroMemory(CapturedKeys.ServerWriteSalt);
 					}
-				}
-
-				if (_processing)
-				{
-					_deferredScratchReturn = true;
-				}
-				else
-				{
-					ArrayPool<byte>.Shared.Return(_receiveScratch);
 				}
 			}
 		}

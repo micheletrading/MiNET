@@ -226,7 +226,14 @@ namespace MiNET.Client
 		{
 			var packet = McpeRequestNetworkSettings.CreateObject();
 			packet.protocolVersion = McpeProtocolInfo.ProtocolVersion;
-			SendPacket(packet);
+
+			// Pre-wrapped raw, exactly as the server pre-wraps its NetworkSettings reply. This is one
+			// half of the exchange that decides compression, so it cannot carry a compressor id byte:
+			// the receiver has no way to know one is there yet.
+			var wrapper = McpeWrapper.CreateObject();
+			wrapper.SetPayload(Compression.PackPacketsForWrapper([packet]));
+			wrapper.EncodeAsMemory();
+			SendPacket(wrapper);
 		}
 
 		public void SendLogin(string username)
@@ -741,7 +748,6 @@ namespace MiNET.Client
 			if (CurrentLocation.Y < 0) CurrentLocation.Y = 64f;
 
 			var movePlayerPacket = McpeMovePlayer.CreateObject();
-			movePlayerPacket.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 			movePlayerPacket.runtimeEntityId = EntityId;
 			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
 			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);

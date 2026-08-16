@@ -244,6 +244,51 @@ namespace MiNET.Utils.Diagnostics
 			}
 		}
 
+		// The chunk pipeline, which is two halves with opposite failure modes. The server PUSHES a
+		// skeleton per column; the client then PULLS blocks per section. A column whose skeleton never
+		// arrives is invisible rather than late, because the client never learns it exists and so never
+		// asks - so "we never pushed it" and "we pushed it and the pull failed" need telling apart, and
+		// nothing could tell them apart before these.
+		private static readonly Counter<long> SkeletonsSent = Meter.CreateCounter<long>(
+			"chunk.skeletons.sent", "{column}", "Skeleton LevelChunk columns pushed to clients. Each is its own pre-compressed wrapper and so its own transport message.");
+
+		private static readonly Counter<long> ChunkPassDropped = Meter.CreateCounter<long>(
+			"chunk.pass.dropped", "{pass}", "Chunk streaming passes abandoned because one was already running (the TryEnter miss). A dropped pass is not retried until the player moves far enough to trigger another.");
+
+		private static readonly Histogram<int> ChunkPassColumns = Meter.CreateHistogram<int>(
+			"chunk.pass.columns", "{column}", "Columns pushed by one streaming pass.");
+
+		private static readonly Counter<long> SubChunkResults = Meter.CreateCounter<long>(
+			"chunk.subchunk.results", "{section}", "Sub-chunk request outcomes by result: success, successallair, levelchunkdoesntexist, indexoutofbounds, wrongdimension.");
+
+		private static readonly Histogram<int> SubChunkResponseBytes = Meter.CreateHistogram<int>(
+			"chunk.subchunk.bytes", "By", "Serialized size of one sub-chunk section handed to the client, before batching and compression.");
+
+		private static readonly Histogram<double> ChunkRequestLatency = Meter.CreateHistogram<double>(
+			"chunk.request.latency", "ms", "From pushing a column's skeleton to the client asking for its first sub-chunk. This is the client's own turnaround, the half of the pipeline we do not control and could not previously see.");
+
+		private static readonly Histogram<int> ChunkNeverRequested = Meter.CreateHistogram<int>(
+			"chunk.never.requested", "{column}", "Columns whose skeleton was pushed and which the client has still not asked a single sub-chunk for. A hole in the world looks exactly like this.");
+
+		private static readonly Counter<long> ChunkAbandonedCounter = Meter.CreateCounter<long>(
+			"chunk.abandoned", "{column}", "Columns pushed, still inside the player's radius, and left unrequested for longer than that client's own turnaround distribution allows. Not queued work: work nobody is coming back for.");
+
+		public static void ChunkAbandoned(long columns) => ChunkAbandonedCounter.Add(columns);
+
+		public static void RecordChunkRequestLatency(double millis) => ChunkRequestLatency.Record(millis);
+
+		public static void ChunkNeverAsked(int columns) => ChunkNeverRequested.Record(columns);
+
+		public static void SkeletonSent() => SkeletonsSent.Add(1);
+
+		public static void ChunkPassSkipped() => ChunkPassDropped.Add(1);
+
+		public static void ChunkPassCompleted(int columns) => ChunkPassColumns.Record(columns);
+
+		public static void SubChunkResult(string result) => SubChunkResults.Add(1, new KeyValuePair<string, object>("result", result));
+
+		public static void SubChunkBytes(int bytes) => SubChunkResponseBytes.Record(bytes);
+
 		// The tick-stall suspects. All low-rate, so a histogram per event costs nothing worth counting,
 		// and a regression in any of them shows up here before it shows up as a tick overrun.
 		private static readonly Histogram<double> ChunkLoad = Meter.CreateHistogram<double>(

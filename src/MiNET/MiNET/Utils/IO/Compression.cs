@@ -25,11 +25,14 @@
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using log4net;
 using MiNET.Net;
+using MiNET.Net.Rtc;
+using MiNET.Utils;
 
 namespace MiNET.Utils.IO
 {
@@ -45,7 +48,7 @@ namespace MiNET.Utils.IO
 		///     Advertised to the client in NetworkSettings, so the same rule holds in both
 		///     directions.
 		/// </summary>
-		public const int CompressionThresholdBytes = 1;
+		public const int CompressionThresholdBytes = 1000;
 
 		// Codec-input tracing: when MINET_BATCH_DUMP names a directory, every payload that actually
 		// reaches the deflater (all three compression entry points, pre-compression, frames and
@@ -124,6 +127,7 @@ namespace MiNET.Utils.IO
 
 			if (BatchDumpDir != null) DumpBatch(input.Span, writeLen ? input.Length : -1);
 
+
 			return stream;
 		}
 
@@ -169,6 +173,7 @@ namespace MiNET.Utils.IO
 				DumpBatch(whole, writeLen ? whole.Length : -1);
 			}
 
+
 			return stream;
 		}
 
@@ -180,6 +185,7 @@ namespace MiNET.Utils.IO
 		public static MemoryStream PackPacketsForWrapper(List<Packet> packets)
 		{
 			MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+
 			foreach (Packet packet in packets)
 			{
 				ReadOnlyMemory<byte> bs = packet.EncodeAsMemory();
@@ -191,6 +197,7 @@ namespace MiNET.Utils.IO
 
 				packet.PutPool();
 			}
+
 
 			return stream;
 		}
@@ -264,6 +271,7 @@ namespace MiNET.Utils.IO
 				compressStream.Write(payload);
 				compressStream.Flush();
 			}
+
 
 			return stream;
 		}

@@ -57,6 +57,20 @@ namespace MiNET.Utils.Diagnostics
 	}
 
 	/// <summary>
+	///     How an acknowledgement reached the peer. Piggybacked is free, riding a packet that was
+	///     leaving anyway; standalone costs its own datagram and, worse, means the ack waited for a
+	///     timer because nothing was going out to carry it.
+	/// </summary>
+	public enum SackKind
+	{
+		/// <summary>Bundled into the first packet of a flush that had DATA to send.</summary>
+		Piggybacked,
+
+		/// <summary>Sent on its own, from the RFC 4960 6.2 cadence rule or the delayed-SACK fallback.</summary>
+		Standalone
+	}
+
+	/// <summary>
 	///     Why a datagram or chunk was thrown away. Bounded set: this is a metric tag, so it obeys the
 	///     cardinality law (see the observability plan's domain taxonomy) and may only ever grow by
 	///     adding a named member here.
@@ -164,6 +178,12 @@ namespace MiNET.Utils.Diagnostics
 		private static readonly Counter<long> SendMicros = Meter.CreateCounter<long>(
 			"transport.sctp.send.duration", "us", "Microseconds spent in the send callback, summed. Measured at 83% of the gate hold before the send was moved out of the gate.");
 
+		private static readonly Counter<long> SackCounter = Meter.CreateCounter<long>(
+			"transport.sctp.sacks", "{sack}", "Acknowledgements sent, by how they travelled. A high standalone share means acks are waiting on a timer instead of riding outgoing data.");
+
+		private static readonly Histogram<double> SackDelay = Meter.CreateHistogram<double>(
+			"transport.sctp.sack.delay", "ms", "How long an acknowledgement sat armed before it went out. This is latency added to the peer's send window, and so to how fast it can ask for the next thing.");
+
 		private static readonly Histogram<double> SessionDuration = Meter.CreateHistogram<double>(
 			"transport.sessions.duration", "s", "Session lifetime, recorded once at close.");
 
@@ -174,6 +194,7 @@ namespace MiNET.Utils.Diagnostics
 		private static readonly KeyValuePair<string, object>[] DropTags = BuildTags<DropReason>("reason");
 		private static readonly KeyValuePair<string, object>[] GateCallerTags = BuildTags<GateCaller>("caller");
 		private static readonly KeyValuePair<string, object>[] RetransmitCauseTags = BuildTags<RetransmitCause>("cause");
+		private static readonly KeyValuePair<string, object>[] SackKindTags = BuildTags<SackKind>("kind");
 
 		/// <summary>
 		///     Supplies the live session count for <c>transport.sessions.active</c>. Set once by whatever
@@ -247,6 +268,13 @@ namespace MiNET.Utils.Diagnostics
 
 		/// <summary><paramref name="stopwatchTicks" /> is a raw <see cref="Stopwatch" /> tick total for one batch's sends, converted once here rather than per packet.</summary>
 		public static void SendDuration(long stopwatchTicks) => SendMicros.Add(stopwatchTicks * 1_000_000 / Stopwatch.Frequency);
+
+		/// <summary><paramref name="armedForMillis" /> is how long the SACK sat pending; negative means it was never armed and went out on the spot.</summary>
+		public static void SackSent(SackKind kind, double armedForMillis)
+		{
+			SackCounter.Add(1, SackKindTags[(int) kind]);
+			if (armedForMillis >= 0) SackDelay.Record(armedForMillis);
+		}
 
 		public static void SessionClosed(double seconds) => SessionDuration.Record(seconds);
 

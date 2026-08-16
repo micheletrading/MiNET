@@ -727,10 +727,6 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpeNetworkSettings(McpeNetworkSettings message)
 		{
-			var handler = (BedrockMessageHandlerBase) Client.Session.CustomMessageHandler;
-			handler.CompressionEnabled = true;
-			handler.CompressionThreshold = message.compressionThreshold;
-
 			if (message.compressionAlgorithm == 1) Log.Warn("Server negotiated snappy compression, which is not implemented. Expect failures.");
 
 			Client.SendLogin(Client.Username);
