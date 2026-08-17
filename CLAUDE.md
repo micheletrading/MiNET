@@ -89,9 +89,19 @@ This exact invocation, from the repo root, every time:
 
 ```bash
 src/MiNET/MiNET.ServiceKiller/bin/Debug/net10.0/MiNET.ServiceKiller.exe \
-  --number-of-bots 1000 --duration-of-connection 900 --auto true \
+  --number-of-bots 1000 --duration-of-connection 900 \
+  --processor-affinity 65520 --auto true \
   > temp_auto/fleet.log 2>&1
 ```
+
+The standing CPU split on this box (Ryzen AI 7 350, 4x Zen 5 + 4x Zen 5c): the server owns
+the two fast physical cores (`ProcessorAffinity=15` in server.nicke.conf, logicals 0-3) and
+the fleet owns everything else (`--processor-affinity 65520`). Production-shaped runs use
+the Release build of both sides (`dotnet build -c Release`, run the exe from bin/Release);
+measured 2026-08-17 at radius 12: 400 walking players cost ~1.4 of the two server cores,
+the fitted two-core ceiling is ~800-850, and the join burst saturates before occupancy does
+(400 simultaneous radius-32 arrivals lost 6 bots to spawn starvation while 400 residents
+ran clean at 1.92 cores).
 
 Only `--number-of-bots` and `--duration-of-connection` ever change. Every other knob (batch
 size 5, chunk radius 5, send interval 40-100ms, concurrent spawn on) stays default, because
