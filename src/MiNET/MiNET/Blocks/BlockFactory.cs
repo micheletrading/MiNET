@@ -81,6 +81,8 @@ namespace MiNET.Blocks
 		// Built on first use, not in the static constructor: it reads the palette, and the palette is
 		// assigned later in Init.
 		private static readonly Lazy<Dictionary<string, int>> _nameToId = new Lazy<Dictionary<string, int>>(BuildNameToId);
+
+		[Obsolete("Keyed on a fuzzy name and answers a legacy numeric id, which post-flattening most blocks do not have. Use GetDefaultState(name).RuntimeId.")]
 		public static Dictionary<string, int> NameToId => _nameToId.Value;
 
 		/// <summary>
@@ -182,110 +184,81 @@ namespace MiNET.Blocks
 		}
 
 		/// <summary>
-		///     Per runtime id, whether skylight passes through the block undimmed. Light dampening is
-		///     a per-class constant from the block data, so it is resolved once per name and spread
-		///     across that name's states.
+		///     One block per runtime id, stated, built once. Every characteristic the hot paths ask
+		///     for is a constant of the class and its state, so a prototype answers it by reading a
+		///     field instead of materializing a block per query: about 4ns and no allocation, against
+		///     tens of nanoseconds and 120 bytes through <see cref="GetBlockByRuntimeId" />.
 		///     Keyed by runtime id rather than legacy id, so a block without a legacy id still has an
-		///     answer, and leaves, water and cobweb need no naming as exceptions.
+		///     answer, and leaves, water and cobweb need no naming as exceptions. Stated rather than
+		///     resolved per name, so a characteristic that varies with state (an open door, a top
+		///     slab) is a separate entry and no caller needs a special case for it.
+		///     Private, and characteristics leave here as values, never as the object: a Block carries
+		///     position, and its Coordinates, light and biome are written per query, so a shared
+		///     instance that escaped would be cross-talk between every block at that runtime id.
 		/// </summary>
-		private static readonly Lazy<bool[]> _skyLightPasses = new Lazy<bool[]>(() =>
+		private static readonly Lazy<Block[]> _prototypes = new Lazy<Block[]>(() =>
 		{
-			var passes = new bool[BlockPalette.Count];
-			var byName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-
-			for (int i = 0; i < BlockPalette.Count; i++)
-			{
-				string name = BlockPalette[i].Name;
-				if (!byName.TryGetValue(name, out bool value))
-				{
-					Block block = GetBlockByName(name);
-					value = block != null && block.LightDampening == 0;
-					byName[name] = value;
-				}
-
-				passes[i] = value;
-			}
-
-			return passes;
+			var prototypes = new Block[BlockPalette.Count];
+			for (int i = 0; i < BlockPalette.Count; i++) prototypes[i] = GetBlockByRuntimeId(i);
+			return prototypes;
 		});
 
+		/// <summary>The shared block for a runtime id, never handed out and never written to. Null if the id is unknown.</summary>
+		private static Block Prototype(int runtimeId)
+		{
+			Block[] prototypes = _prototypes.Value;
+			return runtimeId >= 0 && runtimeId < prototypes.Length ? prototypes[runtimeId] : null;
+		}
+
+		/// <summary>
+		///     Whether the block at a runtime id is a <typeparamref name="T" />, by class test on the
+		///     stated prototype: one array read and an isinst, inheritance included, no block built.
+		///     This is the probe form for hot paths; <see cref="GetBlockByRuntimeId" /> stays for
+		///     callers that need an instance to interact with.
+		/// </summary>
+		public static bool Is<T>(int runtimeId) where T : Block
+		{
+			return Prototype(runtimeId) is T;
+		}
+
+		/// <summary>Whether skylight passes through the block undimmed.</summary>
 		public static bool SkyLightPasses(int runtimeId)
 		{
-			bool[] passes = _skyLightPasses.Value;
-			return runtimeId >= 0 && runtimeId < passes.Length && passes[runtimeId];
+			return Prototype(runtimeId)?.LightDampening == 0;
 		}
 
 		/// <summary>
-		///     Per runtime id, what the skylight pass subtracts crossing the block: one for the step,
-		///     plus whatever the block itself filters. The pass asks this per block per column, so it
-		///     is a flat table and nothing else. Same shape as <see cref="_skyLightPasses" />:
-		///     resolved once per name, spread across that name's states.
+		///     What the skylight pass subtracts crossing the block: one for the step, plus whatever the
+		///     block itself filters. The pass asks this per block per column.
 		/// </summary>
-		private static readonly Lazy<byte[]> _lightDiffusion = new Lazy<byte[]>(() =>
-		{
-			var diffusion = new byte[BlockPalette.Count];
-			var byName = new Dictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
-
-			for (int i = 0; i < BlockPalette.Count; i++)
-			{
-				string name = BlockPalette[i].Name;
-				if (!byName.TryGetValue(name, out byte value))
-				{
-					Block block = GetBlockByName(name);
-					value = (byte) Math.Min(15, 1 + (block?.LightDampening ?? 0));
-					byName[name] = value;
-				}
-
-				diffusion[i] = value;
-			}
-
-			return diffusion;
-		});
-
 		public static byte GetLightDiffusion(int runtimeId)
 		{
-			byte[] diffusion = _lightDiffusion.Value;
-			return runtimeId >= 0 && runtimeId < diffusion.Length ? diffusion[runtimeId] : (byte) 1;
+			return (byte) Math.Min(15, 1 + (Prototype(runtimeId)?.LightDampening ?? 0));
 		}
-
-		/// <summary>
-		///     Per runtime id, how much light the block emits and how see-through it is. Same shape as
-		///     <see cref="_skyLightPasses" />: resolved once per name, spread across that name's states.
-		/// </summary>
-		private static readonly Lazy<(byte Emission, bool Transparent)[]> _lightByRuntimeId = new Lazy<(byte, bool)[]>(() =>
-		{
-			var light = new (byte, bool)[BlockPalette.Count];
-			var byName = new Dictionary<string, (byte, bool)>(StringComparer.OrdinalIgnoreCase);
-
-			for (int i = 0; i < BlockPalette.Count; i++)
-			{
-				string name = BlockPalette[i].Name;
-				if (!byName.TryGetValue(name, out (byte, bool) value))
-				{
-					Block block = GetBlockByName(name);
-					value = block == null ? ((byte) 0, false) : ((byte) block.LightLevel, block.IsTransparent);
-					byName[name] = value;
-				}
-
-				light[i] = value;
-			}
-
-			return light;
-		});
 
 		/// <summary>Light this block emits, 0 to 15.</summary>
 		public static byte GetLightEmission(int runtimeId)
 		{
-			var light = _lightByRuntimeId.Value;
-			return runtimeId >= 0 && runtimeId < light.Length ? light[runtimeId].Emission : (byte) 0;
+			return (byte) (Prototype(runtimeId)?.LightLevel ?? 0);
 		}
 
 		/// <summary>Whether the block is see-through at all, which is not the same as passing light undimmed.</summary>
 		public static bool IsTransparent(int runtimeId)
 		{
-			var light = _lightByRuntimeId.Value;
-			return runtimeId >= 0 && runtimeId < light.Length && light[runtimeId].Transparent;
+			return Prototype(runtimeId)?.IsTransparent ?? false;
 		}
+
+		/// <summary>
+		///     Whether the block is a full solid cube. This is NOT the same question as whether it
+		///     stops movement: a fence and a closed door are both IsSolid false and both stop a mob.
+		///     Ask <see cref="BlocksMovement" /> for that.
+		///     An id with no block is nothing standing there, so nothing solid.
+		/// </summary>
+		public static bool IsSolid(int runtimeId)
+		{
+			return Prototype(runtimeId)?.IsSolid ?? false;
+		}
+
 
 		/// <summary>
 		///     Air is stateless, so it holds a single palette entry and being air is one integer
@@ -652,6 +625,7 @@ namespace MiNET.Blocks
 			return blockName.ToLowerInvariant().Replace("_", "").Replace("minecraft:", "");
 		}
 
+		[Obsolete("Answers a legacy numeric id, which post-flattening most blocks do not have, and matches on a name stripped of its namespace and underscores. Use GetDefaultState(name).RuntimeId.")]
 		public static int GetBlockIdByName(string blockName)
 		{
 			return NameToId.TryGetValue(NormalizeBlockName(blockName), out int id) ? id : 0;

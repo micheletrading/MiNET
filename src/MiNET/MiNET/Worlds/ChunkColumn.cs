@@ -50,7 +50,18 @@ namespace MiNET.Worlds
 		public const int WorldHeight = 384;
 		public const int WorldMaxY = WorldHeight + WorldMinY;
 		public const int WorldMinY = -64;
-		
+
+		/// <summary>
+		///     Whether a world Y addresses a block at all. <see cref="GetSubChunk" /> clamps, so a Y
+		///     outside the range resolves to a real block somewhere else in the column rather than to
+		///     nothing: callers ask this first and answer "no block here" themselves.
+		/// </summary>
+		public static bool IsInsideWorld(int y)
+		{
+			return y >= WorldMinY && y < WorldMaxY;
+		}
+
+
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ChunkColumn));
 
 		public int X { get; set; }

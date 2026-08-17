@@ -152,16 +152,15 @@ namespace MiNET.Entities.Behaviors
 			Vector3 futurePosition = (currPosition + (direction * speedFactor) + (direction * (float) (_entity.Length * 0.5f)));
 			var coord = (BlockCoordinates) futurePosition;
 			var block = level.GetBlock(coord);
-			var blockUp = level.GetBlock(coord.BlockUp());
-			var blockUpUp = level.GetBlock(coord.BlockUp().BlockUp());
+			bool blockUpStops = MovementRules.Blocks(level.GetRuntimeIdAt(coord.BlockUp()));
+			bool blockUpUpStops = MovementRules.Blocks(level.GetRuntimeIdAt(coord.BlockUp().BlockUp()));
 
 			//TODO: Need to rewrite so that the question is "is colliding with block" not "is solid block"
-			var blockCollide = IsCollidingWithBlock(futurePosition, block) || (_entity.Height > 1 && BlockIsSolid(blockUp));
+			var blockCollide = IsCollidingWithBlock(futurePosition, block) || (_entity.Height > 1 && blockUpStops);
 
 			if (!blockCollide && !entityCollide)
 			{
-				var blockDown = level.GetBlock(coord.BlockDown());
-				if (!_entity.IsOnGround && !BlockIsSolid(blockDown)) return;
+				if (!_entity.IsOnGround && !MovementRules.Blocks(level.GetRuntimeIdAt(coord.BlockDown()))) return;
 
 				//Log.Debug($"Move forward: {block}, {(_entity.IsOnGround ? "On ground" : "not on ground")}, Position: {(Vector3) _entity.KnownPosition}");
 				//if (!_entity.IsOnGround) return;
@@ -183,7 +182,7 @@ namespace MiNET.Entities.Behaviors
 				{
 					_entity.Velocity = new Vector3(0, 0.2f, 0);
 				}
-				else if (!entityCollide && !BlockIsSolid(blockUp) && !(_entity.Height > 1 && BlockIsSolid(blockUpUp)) /*&& level.Random.Next(4) != 0*/)
+				else if (!entityCollide && !blockUpStops && !(_entity.Height > 1 && blockUpUpStops) /*&& level.Random.Next(4) != 0*/)
 				{
 					// Above is wrong. Checks the wrong block in the wrong way.
 
@@ -227,16 +226,6 @@ namespace MiNET.Entities.Behaviors
 			}
 
 			return false;
-		}
-
-		private static bool BlockIsSolid(Block block)
-		{
-			if (block is DoorBase door)
-			{
-				return !door.OpenBit;
-			}
-
-			return block.IsSolid;
 		}
 
 		public void Jump()
