@@ -370,18 +370,20 @@ namespace MiNET.Client
 		/// <summary>
 		///     Skeleton chunk: the payload is biomes only and block data has to be asked for a
 		///     section at a time. Highest requestable relative index is subChunkCount in limited
-		///     mode; relative index 0 is section y -4.
+		///     mode; relative index 0 is section y -4. RequestTopSections narrows the ask to the
+		///     top of the column, the band a real client's view actually covers.
 		/// </summary>
 		protected void SendSubChunkRequest(McpeLevelChunk message)
 		{
 			int highest = message.clientRequestSubchunkLimit ?? 23;
+			int lowest = Client.RequestTopSections > 0 ? Math.Max(0, highest - Client.RequestTopSections + 1) : 0;
 
 			var request = McpeSubChunkRequestPacket.CreateObject();
 			request.dimension = message.dimension;
 			request.originX = message.chunkPosition.x;
 			request.originY = 0;
 			request.originZ = message.chunkPosition.z;
-			for (int i = 0; i <= highest; i++)
+			for (int i = lowest; i <= highest; i++)
 			{
 				request.offsets.Add(new SubChunkPosOffset {subchunkOffsetX = 0, subchunkOffsetY = (sbyte) (i - 4), subchunkOffsetZ = 0});
 			}
@@ -391,6 +393,15 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
+			// The publisher's acceptance window, first thing and cheap: "this is the area I
+			// will publish chunks for" - an arrival outside it is an in-flight stray from a
+			// window the stream moved past. Discard on receive, no further work.
+			if (Client.PublishedRadiusChunks > 0)
+			{
+				var arrived = new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z);
+				if (arrived.DistanceTo(Client.PublishedCenter) > Client.PublishedRadiusChunks) return;
+			}
+
 			if (message.cacheEnabled)
 			{
 				// Report hits and misses against the hashes we have been given before. A miss is
@@ -401,18 +412,27 @@ namespace MiNET.Client
 
 				foreach (ulong hash in message.cacheMetadata)
 				{
-					if (Client.KnownBlobs.Contains(hash)) hits.Add(hash);
+					if (Client.KnownBlobs.ContainsKey(hash)) hits.Add(hash);
 					else misses.Add(hash);
 				}
 
 				// Recorded on the way out: a miss is about to be answered with the blob, and after
 				// that we hold it.
-				foreach (ulong hash in misses) Client.KnownBlobs.Add(hash);
+				foreach (ulong hash in misses) Client.KnownBlobs.TryAdd(hash, 0);
 
-				var status = McpeClientCacheBlobStatus.CreateObject();
-				status.hashHits = hits.ToArray();
-				status.hashMisses = misses.ToArray();
-				Client.SendPacket(status);
+				if (Client.BatchChunkResponses)
+				{
+					// Verdicts ride the walk timer, the way a real client batches on its tick.
+					foreach (ulong hash in hits) Client.PendingBlobHits.Enqueue(hash);
+					foreach (ulong hash in misses) Client.PendingBlobMisses.Enqueue(hash);
+				}
+				else
+				{
+					var status = McpeClientCacheBlobStatus.CreateObject();
+					status.hashHits = hits.ToArray();
+					status.hashMisses = misses.ToArray();
+					Client.SendPacket(status);
+				}
 			}
 
 			// The hash on a cached LevelChunk covers the column's biome blob only, so the subchunks
@@ -421,9 +441,21 @@ namespace MiNET.Client
 			// server re-pushes a column is what made a walking bot pull its whole surroundings again
 			// on every chunk boundary it crossed.
 			var coordinates = new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z);
-			if (!Client.KnownColumns.Add(coordinates)) return;
+			lock (Client.KnownColumns)
+			{
+				if (!Client.KnownColumns.Add(coordinates)) return;
+			}
 
-			if (message.clientRequestSubchunkLimit != null) SendSubChunkRequest(message);
+			if (message.clientRequestSubchunkLimit == null) return;
+
+			if (Client.BatchChunkResponses)
+			{
+				Client.PendingSubChunkColumns.Enqueue((message.chunkPosition.x, message.chunkPosition.z, message.clientRequestSubchunkLimit.Value, message.dimension));
+			}
+			else
+			{
+				SendSubChunkRequest(message);
+			}
 		}
 
 		public virtual void HandleMcpeSetCommandsEnabled(McpeSetCommandsEnabled message)
@@ -664,6 +696,13 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpeNetworkChunkPublisherUpdate(McpeNetworkChunkPublisherUpdate message)
 		{
+			// The acceptance window, NOT an eviction order: "this is the area being streamed,
+			// ignore anything arriving outside it". Its job is discarding in-flight columns
+			// the stream has moved past. What the client HOLDS is a separate mechanism
+			// entirely: the disc around its own position and radius, forgotten position-driven
+			// as it moves (see BotWalker).
+			Client.PublishedCenter = new ChunkCoordinates(message.coordinates.X >> 4, message.coordinates.Z >> 4);
+			Client.PublishedRadiusChunks = (int) (message.radius >> 4);
 		}
 
 		public virtual void HandleMcpeBiomeDefinitionList(McpeBiomeDefinitionList message)
@@ -789,7 +828,41 @@ namespace MiNET.Client
 		/// <inheritdoc />
 		public virtual void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
-			
+			// The response's entries announce section blobs by hash exactly like a cached
+			// LevelChunk announces the biome blob, and they get the same verdicts: a cold
+			// client misses and the server answers with the payload, which is most of the
+			// terrain bandwidth a real join costs. Ignoring these made a bot's chunk flow
+			// end at the announce and never exercise the miss-response path at all.
+			if (!message.cacheEnabled || message.subchunkData == null) return;
+
+			var hits = new List<ulong>();
+			var misses = new List<ulong>();
+
+			foreach (SubChunkPacketData entry in message.subchunkData)
+			{
+				// All-air and rejected entries carry no blob.
+				if (entry.blobId is not ulong blobId) continue;
+
+				if (Client.KnownBlobs.ContainsKey(blobId)) hits.Add(blobId);
+				else misses.Add(blobId);
+			}
+
+			foreach (ulong hash in misses) Client.KnownBlobs.TryAdd(hash, 0);
+
+			if (hits.Count + misses.Count == 0) return;
+
+			if (Client.BatchChunkResponses)
+			{
+				foreach (ulong hash in hits) Client.PendingBlobHits.Enqueue(hash);
+				foreach (ulong hash in misses) Client.PendingBlobMisses.Enqueue(hash);
+			}
+			else
+			{
+				var status = McpeClientCacheBlobStatus.CreateObject();
+				status.hashHits = hits.ToArray();
+				status.hashMisses = misses.ToArray();
+				Client.SendPacket(status);
+			}
 		}
 
 		/// <inheritdoc />
