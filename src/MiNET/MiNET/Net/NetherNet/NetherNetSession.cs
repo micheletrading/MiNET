@@ -72,7 +72,10 @@ namespace MiNET.Net.NetherNet
 		// much as the ordering: everything that accumulates while one send is in flight drains into
 		// a single PrepareSend, which batches it into one wrapper, one compress and one syscall,
 		// instead of one of each per packet. Many writers: broadcasts arrive from any thread.
-		private readonly Channel<Packet> _sendQueue = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions
+		// Items are single Packets or a List<Packet> queued as one unit: the list form is how a
+		// producer that generates related packets together (a skeleton sweep, a multi-part
+		// response) makes them drain together instead of relying on backpressure to fold them.
+		private readonly Channel<object> _sendQueue = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
 		{
 			SingleReader = true,
 			SingleWriter = false
@@ -446,6 +449,34 @@ namespace MiNET.Net.NetherNet
 		}
 
 		/// <summary>
+		///     The list form of <see cref="SendPacket" />: the whole list is queued as ONE channel
+		///     item, so it lands in a single send-lane drain and normally leaves in one wrapper,
+		///     one compress and one transport message. Other queued packets (and transport-level
+		///     chunks such as SACKs) are free to ride alongside; the only promise is that the list
+		///     is never split across drains. Ownership of the list and every packet in it moves
+		///     here.
+		/// </summary>
+		public void SendPackets(List<Packet> packets)
+		{
+			if (packets == null || packets.Count == 0) return;
+
+			if (CustomMessageHandler == null || _closed != 0)
+			{
+				foreach (Packet packet in packets) packet?.PutPool();
+				return;
+			}
+
+			if (!_sendQueue.Writer.TryWrite(packets))
+			{
+				foreach (Packet packet in packets) packet?.PutPool();
+				return;
+			}
+
+			Interlocked.Add(ref _sendPending, packets.Count);
+			TransportMetrics.MessageOut(packets.Count);
+		}
+
+		/// <summary>
 		///     The per-session send lane: drains whatever has accumulated and runs it through the
 		///     handler pipeline. PrepareSend folds the whole drain into as few wrappers
 		///     as its rules allow (one batch per run of ordinary packets, pre-encoded wrappers pass
@@ -455,13 +486,19 @@ namespace MiNET.Net.NetherNet
 		/// </summary>
 		private async Task SendLoopAsync()
 		{
-			ChannelReader<Packet> reader = _sendQueue.Reader;
+			ChannelReader<object> reader = _sendQueue.Reader;
 			var pending = new List<Packet>();
 
 			while (await reader.WaitToReadAsync().ConfigureAwait(false))
 			{
 				pending.Clear();
-				while (reader.TryRead(out Packet packet)) pending.Add(packet);
+				while (reader.TryRead(out object item))
+				{
+					// A list item is a group the producer wants travelling together; it unfolds
+					// here, into the same drain, which is the whole point of the list form.
+					if (item is List<Packet> group) pending.AddRange(group);
+					else pending.Add((Packet) item);
+				}
 				if (pending.Count > 0) Interlocked.Add(ref _sendPending, -pending.Count);
 
 				// The drain-time upsert: everything that accumulated collapses to the last packet per

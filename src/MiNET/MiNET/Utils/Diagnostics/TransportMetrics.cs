@@ -240,6 +240,8 @@ namespace MiNET.Utils.Diagnostics
 
 		public static void MessageOut() => MessagesOut.Add(1);
 
+		public static void MessageOut(int count) => MessagesOut.Add(count);
+
 		public static void Retransmits(RetransmitCause cause, long count) => RetransmitCounter.Add(count, RetransmitCauseTags[(int) cause]);
 
 		public static void Dropped(DropReason reason) => DropCounter.Add(1, DropTags[(int) reason]);
