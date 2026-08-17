@@ -120,6 +120,14 @@ namespace MiNET.Worlds
 
 		public int ViewDistance { get; set; }
 
+		/// <summary>
+		///     Entity relevance radius in blocks, 2D. Movement broadcast is culled to recipients
+		///     within this distance of the mover; 0 disables culling and keeps the legacy
+		///     all-to-all broadcast path untouched. Per level: level types and plugins set it
+		///     here, the config key EntityRelevanceRadius only seeds the default.
+		/// </summary>
+		public int EntityRelevanceRadius { get; set; } = Config.GetProperty("EntityRelevanceRadius", 0);
+
 		public Random Random { get; private set; }
 
 		public int SaveInterval { get; set; } = 300;
@@ -328,6 +336,11 @@ namespace MiNET.Worlds
 			_tickerHighPrecisionTimer?.Dispose();
 			_tickerHighPrecisionTimer = null;
 
+			_relevanceMatrix?.Dispose();
+			_relevanceMatrix = null;
+			_relevanceSlots.Clear();
+			_relevanceSlotOwners.Clear();
+
 			EngineMetrics.UnregisterLevel(this);
 
 			foreach (var entity in Entities.Values.ToArray())
@@ -478,11 +491,18 @@ namespace MiNET.Worlds
 				RelayBroadcast(newPlayer, roster.ToArray(), CreateMcpeBatch(playerList.EncodeAsMemory()));
 				playerList.PutPool();
 
-				newPlayer.SpawnToPlayers(others);
-
-				foreach (Player spawnedPlayer in others)
+				// The entity halves only when relevance culling is off. Under culling the joiner
+				// enters the matrix on the next tick and the entered transitions spawn exactly
+				// the pairs in range, both directions. The player list above stays global either
+				// way; the client needs the roster record (skin, identity) regardless of distance.
+				if (EntityRelevanceRadius == 0)
 				{
-					spawnedPlayer.SpawnToPlayers(new[] {newPlayer});
+					newPlayer.SpawnToPlayers(others);
+
+					foreach (Player spawnedPlayer in others)
+					{
+						spawnedPlayer.SpawnToPlayers(new[] {newPlayer});
+					}
 				}
 			}
 		}
@@ -519,12 +539,18 @@ namespace MiNET.Worlds
 			{
 				var spawnedPlayers = GetAllPlayers();
 
+				// The leaver's own screen is always cleaned: on a level transfer this is what
+				// removes the old level's players from their client (removes for entities that
+				// were never spawned there are ignored).
 				foreach (Player spawnedPlayer in spawnedPlayers)
 				{
 					spawnedPlayer.DespawnFromPlayers(new[] {player});
 				}
 
-				player.DespawnFromPlayers(spawnedPlayers);
+				// The survivors' half only when relevance culling is off. Under culling the next
+				// tick's roster sync reads the leaver's row and despawns them from exactly the
+				// clients that hold the entity.
+				if (EntityRelevanceRadius == 0) player.DespawnFromPlayers(spawnedPlayers);
 
 				McpePlayerList playerListMessage = McpePlayerList.CreateObject();
 				playerListMessage.records = McpePlayerList.Removed(spawnedPlayers);
@@ -952,9 +978,77 @@ namespace MiNET.Worlds
 		// rosters can never supersede each other in a lane serving a player mid-transfer.
 		private readonly object _moveRosterCoalesceKey = new object();
 
+		// Relevance culling state, only alive while EntityRelevanceRadius > 0. The matrix and the
+		// per-tick scratch collections belong to the tick thread. Coalesce keys are per group
+		// hash and persist across ticks, so a lane can supersede last tick's batch for the same
+		// audience with this tick's.
+		// Relevance cells are 16 blocks. Coarser cells mean fewer groups but a wider band of
+		// early/late spawns around the radius; a chunk-sized cell keeps that band at most one
+		// chunk while collapsing a crowded area to tens of groups.
+		private const int RelevanceCellBits = 4;
+
+		private static float QuantizeToCellCenter(float coordinate)
+		{
+			return ((((int) coordinate) >> RelevanceCellBits) << RelevanceCellBits) + (1 << (RelevanceCellBits - 1));
+		}
+
+		private RelevanceMatrix _relevanceMatrix;
+		private readonly Dictionary<Player, int> _relevanceSlots = new Dictionary<Player, int>();
+		private readonly Dictionary<int, Player> _relevanceSlotOwners = new Dictionary<int, Player>();
+		private readonly Dictionary<ulong, object> _relevanceCoalesceKeys = new Dictionary<ulong, object>();
+		private readonly HashSet<Player> _relevanceRosterScratch = new HashSet<Player>();
+		private readonly List<Player> _relevanceGoneScratch = new List<Player>();
+		private readonly List<Player> _relevanceViewerScratch = new List<Player>();
+		private readonly List<(Player Player, int Slot)> _relevanceMoverScratch = new List<(Player, int)>();
+		private readonly Dictionary<ulong, List<Player>> _relevanceGroups = new Dictionary<ulong, List<Player>>();
+		private readonly List<(List<Player> Members, object CoalesceKey)> _relevanceGroupWork = new List<(List<Player>, object)>();
+		private int[] _relevancePlayerSlotScratch = Array.Empty<int>();
+		private ulong[] _relevanceHashScratch = Array.Empty<ulong>();
+		private Packet[] _relevanceMoverPackets = Array.Empty<Packet>();
+
+		// Groups persist across ticks: at walking speed a player crosses a 16-block cell every
+		// ~3.7s, so the group structure is near-identical tick to tick and rebuilding it 20
+		// times a second is waste. The rebuild fires on movement, not on a timer: when any
+		// player has drifted more than a cell from where they stood at the last regroup (only
+		// cell crossings can change the structure), or immediately when the roster changes (a
+		// departed player must leave the member lists before the next send).
+		private const float RegroupDeviationBlocks = 16f;
+		private float[] _relevanceAnchorX = Array.Empty<float>();
+		private float[] _relevanceAnchorZ = Array.Empty<float>();
+		private bool _relevanceForceRegroup;
+		private readonly Dictionary<Player, List<Player>> _relevanceSpawnScratch = new Dictionary<Player, List<Player>>();
+		private readonly Dictionary<Player, List<Player>> _relevanceDespawnScratch = new Dictionary<Player, List<Player>>();
+		private readonly Stack<List<Player>> _relevanceGroupPool = new Stack<List<Player>>();
+
 		protected virtual void BroadCastMovement(Player[] players, Entity[] entities)
 		{
 			DateTime now = DateTime.UtcNow;
+
+			// The culled path runs ahead of the legacy early-outs on purpose: its roster sync
+			// (slot allocation, departure despawns) must run even when zero or one player is
+			// left, or the last leaver's slot never frees and their entity lingers on screen.
+			if (EntityRelevanceRadius > 0)
+			{
+				BroadCastMovementCulled(players, now);
+				return;
+			}
+
+			if (_relevanceMatrix != null)
+			{
+				// Radius went back to 0 at runtime: drop the culling state so a later re-enable
+				// starts from a clean matrix instead of a stale roster. Players that were culled
+				// at the moment of the switch stay unspawned on each other's clients until they
+				// cross paths with a rejoin or level change; the legacy path assumes global
+				// spawn and never repairs it.
+				_relevanceMatrix.Dispose();
+				_relevanceMatrix = null;
+				_relevanceSlots.Clear();
+				_relevanceSlotOwners.Clear();
+				_relevanceCoalesceKeys.Clear();
+				_relevanceGroups.Clear();
+				_relevanceGroupWork.Clear();
+				_relevanceForceRegroup = true;
+			}
 
 			if (players.Length == 0) return;
 
@@ -1044,6 +1138,319 @@ namespace MiNET.Worlds
 				foreach (Player player in players) player.SendPacket(batch);
 				_lastBroadcast = DateTime.UtcNow;
 			}
+		}
+
+		/// <summary>
+		///     The movement broadcast under relevance culling. One matrix pass over the spawned
+		///     roster; the transition stream drives entity spawn/despawn (the player list stays
+		///     global, handled at join/leave as always); then recipients grouped by row hash:
+		///     everyone with the same visible set shares one compressed batch, so the
+		///     one-compression economy of the legacy roster survives per spatial cluster instead
+		///     of per level. Transitions are applied BEFORE the movement fan-out so a client
+		///     always holds the AddPlayer entity before the first movement for it arrives.
+		/// </summary>
+		private void BroadCastMovementCulled(Player[] players, DateTime now)
+		{
+			RelevanceMatrix matrix = _relevanceMatrix ??= new RelevanceMatrix(EntityRelevanceRadius, players.Length);
+			matrix.Radius = EntityRelevanceRadius;
+
+			// Sync the slot roster with the spawned players: newcomers get a slot and enter the
+			// matrix (their entered pairs after Compute are what spawns them on nearby clients).
+			// The departed are despawned from their final audience, read from the row BEFORE the
+			// slot is scrubbed, then give the slot back.
+			_relevanceRosterScratch.Clear();
+			foreach (Player player in players)
+			{
+				_relevanceRosterScratch.Add(player);
+				if (!_relevanceSlots.ContainsKey(player))
+				{
+					int slot = matrix.AllocateSlot(QuantizeToCellCenter(player.KnownPosition.X), QuantizeToCellCenter(player.KnownPosition.Z));
+					_relevanceSlots[player] = slot;
+					_relevanceSlotOwners[slot] = player;
+					_relevanceForceRegroup = true;
+				}
+			}
+			if (_relevanceSlots.Count != players.Length)
+			{
+				_relevanceGoneScratch.Clear();
+				foreach (KeyValuePair<Player, int> entry in _relevanceSlots)
+				{
+					if (!_relevanceRosterScratch.Contains(entry.Key)) _relevanceGoneScratch.Add(entry.Key);
+				}
+				foreach (Player gone in _relevanceGoneScratch)
+				{
+					int slot = _relevanceSlots[gone];
+					_relevanceViewerScratch.Clear();
+					foreach (int viewerSlot in matrix.EnumerateRow(slot))
+					{
+						_relevanceViewerScratch.Add(_relevanceSlotOwners[viewerSlot]);
+					}
+					if (_relevanceViewerScratch.Count > 0) gone.DespawnFromPlayers(_relevanceViewerScratch.ToArray());
+
+					matrix.FreeSlot(slot);
+					_relevanceSlots.Remove(gone);
+					_relevanceSlotOwners.Remove(slot);
+					_relevanceForceRegroup = true;
+				}
+			}
+
+			if (players.Length == 0) return;
+
+			DateTime lastSendTime = _lastSendTime;
+			_lastSendTime = now;
+
+			// Stamped before the roster is walked, so broadcast.build covers everything the tick
+			// thread spends here: building the records, compressing them, and encoding the wrapper.
+			long buildStartedAt = Stopwatch.GetTimestamp();
+
+			long matrixStartedAt = Stopwatch.GetTimestamp();
+
+			// Positions are read live, no snapshot: whatever value KnownPosition holds at the
+			// moment of reading is fine, it can already have advanced by the time the packet is
+			// built, and that matters not (ruling). The matrix sees cell centers, not exact
+			// positions. Exact distances give every viewer a subtly unique visible set (rim
+			// membership differs per block), which measured at 400 spread players as ~380
+			// single-member groups, one compression each, and a 172ms tick. Quantized, every
+			// viewer in a cell holds a bit-identical row, so groups collapse to occupied cells,
+			// and boundary transitions get cell hysteresis instead of flickering on the exact
+			// radius. Movement packets still carry the exact position; only relevance is
+			// cell-grained.
+			if (_relevancePlayerSlotScratch.Length < players.Length)
+			{
+				_relevancePlayerSlotScratch = new int[players.Length];
+				_relevanceHashScratch = new ulong[players.Length];
+			}
+			_relevanceMoverScratch.Clear();
+			float maxDeviationSq = 0f;
+			for (int i = 0; i < players.Length; i++)
+			{
+				Player player = players[i];
+				int slot = _relevanceSlots[player];
+				_relevancePlayerSlotScratch[i] = slot;
+				PlayerLocation knownPosition = player.KnownPosition;
+				matrix.SetPosition(slot, QuantizeToCellCenter(knownPosition.X), QuantizeToCellCenter(knownPosition.Z));
+
+				// Drift since the last regroup, the signal that decides whether the group
+				// structure gets rebuilt this pass.
+				if (slot < _relevanceAnchorX.Length)
+				{
+					float dx = knownPosition.X - _relevanceAnchorX[slot];
+					float dz = knownPosition.Z - _relevanceAnchorZ[slot];
+					float deviationSq = dx * dx + dz * dz;
+					if (deviationSq > maxDeviationSq) maxDeviationSq = deviationSq;
+				}
+				else
+				{
+					_relevanceForceRegroup = true;
+				}
+
+				if (now - player.LastUpdatedTime <= now - lastSendTime)
+				{
+					_relevanceMoverScratch.Add((player, slot));
+				}
+			}
+
+			matrix.Compute();
+
+			// The transition stream, grouped per moving entity so one entity crossing into a
+			// crowd spawns with one call. A pair that entered gets the entity spawned on the
+			// viewer's client; a pair that left gets it despawned. Teleports and dimension
+			// changes need nothing special: a position jump is just a batch of lefts and
+			// entereds here.
+			int transitionCount = 0;
+			foreach ((int viewerSlot, int entitySlot, bool entered) in matrix.EnumerateTransitions())
+			{
+				Player viewer = _relevanceSlotOwners[viewerSlot];
+				Player entity = _relevanceSlotOwners[entitySlot];
+				Dictionary<Player, List<Player>> map = entered ? _relevanceSpawnScratch : _relevanceDespawnScratch;
+				if (!map.TryGetValue(entity, out List<Player> audience))
+				{
+					audience = _relevanceGroupPool.Count > 0 ? _relevanceGroupPool.Pop() : new List<Player>();
+					map[entity] = audience;
+				}
+				audience.Add(viewer);
+				transitionCount++;
+			}
+
+			EngineMetrics.RecordRelevance(matrixStartedAt, matrix.PairCount, transitionCount, _metricTags);
+
+			if (_relevanceSpawnScratch.Count > 0 || _relevanceDespawnScratch.Count > 0)
+			{
+				foreach (KeyValuePair<Player, List<Player>> entry in _relevanceDespawnScratch)
+				{
+					entry.Key.DespawnFromPlayers(entry.Value.ToArray());
+					entry.Value.Clear();
+					_relevanceGroupPool.Push(entry.Value);
+				}
+				foreach (KeyValuePair<Player, List<Player>> entry in _relevanceSpawnScratch)
+				{
+					entry.Key.SpawnToPlayers(entry.Value.ToArray());
+					entry.Value.Clear();
+					_relevanceGroupPool.Push(entry.Value);
+				}
+				_relevanceSpawnScratch.Clear();
+				_relevanceDespawnScratch.Clear();
+			}
+
+			if (_relevanceMoverScratch.Count == 0) return;
+
+			// After Compute the matrix is a frozen snapshot and everything below is pure
+			// derivation from it, so each per-element pass fans out as its own Parallel.For with
+			// index-aligned writes; only the dictionary group-by and the pool bookkeeping stay
+			// serial. Capped below the pinned logical count on purpose throughout: the session
+			// send lanes that drain the queues run on the same cores.
+			var buildParallelism = new ParallelOptions {MaxDegreeOfParallelism = 4};
+
+			// The group structure only changes when someone crosses a cell, so it is rebuilt on
+			// the movement signal, not per tick: when any player drifted more than a cell since
+			// the anchors were last stamped, or on any roster change. In between, movers ride
+			// the standing groups; the audience drift is bounded by one cell and the client's
+			// interpolation swallows it.
+			if (_relevanceForceRegroup || _relevanceGroupWork.Count == 0 || maxDeviationSq > RegroupDeviationBlocks * RegroupDeviationBlocks)
+			{
+				foreach (List<Player> group in _relevanceGroups.Values)
+				{
+					group.Clear();
+					_relevanceGroupPool.Push(group);
+				}
+				_relevanceGroups.Clear();
+				_relevanceGroupWork.Clear();
+
+				// Row hashes, one per player, parallel: a pure read of the matrix rows.
+				Parallel.For(0, players.Length, buildParallelism, i => { _relevanceHashScratch[i] = matrix.GetRowHashWithSelf(_relevancePlayerSlotScratch[i]); });
+
+				// Group the recipients by row-plus-self hash: a mutually visible cluster shares
+				// one hash and so one compressed batch, the legacy one-compression economy per
+				// spatial cluster. The shared batch carries every mover in the cluster, so
+				// members get their own movement echoed back, same as the legacy all-to-all
+				// always did.
+				for (int i = 0; i < players.Length; i++)
+				{
+					ulong hash = _relevanceHashScratch[i];
+					if (!_relevanceGroups.TryGetValue(hash, out List<Player> group))
+					{
+						group = _relevanceGroupPool.Count > 0 ? _relevanceGroupPool.Pop() : new List<Player>();
+						_relevanceGroups[hash] = group;
+					}
+					group.Add(players[i]);
+				}
+
+				// Snapshot the groups and resolve their coalesce keys on the tick thread; the
+				// key dictionary is tick-thread state and must not be touched from the parallel
+				// builds. The snapshot lives until the next rebuild.
+				foreach (KeyValuePair<ulong, List<Player>> entry in _relevanceGroups)
+				{
+					if (!_relevanceCoalesceKeys.TryGetValue(entry.Key, out object coalesceKey))
+					{
+						coalesceKey = new object();
+						_relevanceCoalesceKeys[entry.Key] = coalesceKey;
+					}
+					_relevanceGroupWork.Add((entry.Value, coalesceKey));
+				}
+
+				// Fresh anchors: deviation is measured from here until the next rebuild.
+				for (int i = 0; i < players.Length; i++)
+				{
+					int slot = _relevancePlayerSlotScratch[i];
+					if (slot >= _relevanceAnchorX.Length)
+					{
+						int newSize = Math.Max(slot + 64, _relevanceAnchorX.Length * 2);
+						Array.Resize(ref _relevanceAnchorX, newSize);
+						Array.Resize(ref _relevanceAnchorZ, newSize);
+					}
+					PlayerLocation position = players[i].KnownPosition;
+					_relevanceAnchorX[slot] = position.X;
+					_relevanceAnchorZ[slot] = position.Z;
+				}
+
+				// The coalesce keys follow the live group hashes; when the clusters dissolve,
+				// the orphaned keys go too, or a long-lived level accumulates one per hash ever
+				// seen.
+				if (_relevanceCoalesceKeys.Count > 2 * _relevanceGroups.Count + 8)
+				{
+					foreach (ulong key in _relevanceCoalesceKeys.Keys)
+					{
+						if (!_relevanceGroups.ContainsKey(key)) _relevanceCoalesceKeys.Remove(key);
+					}
+				}
+
+				_relevanceForceRegroup = false;
+			}
+
+			// Every mover's packet is built and encoded exactly ONCE per pass, in parallel (each
+			// mover independent, pool and encode concurrent-safe, index-aligned writes); the
+			// groups then assemble their payloads from the cached frame bytes. Building packets
+			// per group measured at 400 players as ~130k packet encodes per pass, which alone
+			// blew the tick budget.
+			if (_relevanceMoverPackets.Length < _relevanceMoverScratch.Count) _relevanceMoverPackets = new Packet[_relevanceMoverScratch.Count];
+			Parallel.For(0, _relevanceMoverScratch.Count, buildParallelism, m =>
+			{
+				(Player mover, int _) = _relevanceMoverScratch[m];
+				PlayerLocation position = mover.KnownPosition;
+				var move = McpeMovePlayer.CreateObject();
+				move.runtimeEntityId = mover.EntityId;
+				move.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
+				move.rotation = new Vector2(position.Pitch, position.Yaw);
+				move.headYaw = position.HeadYaw;
+				move.mode = mover.Vehicle == 0 ? McpeMovePlayer.PositionMode.Normal : McpeMovePlayer.PositionMode.Onlyheadrot;
+				move.onGround = !mover.IsGliding && mover.IsOnGround;
+				move.ridingRuntimeEntityId = mover.Vehicle;
+				move.EncodeAsMemory();
+				_relevanceMoverPackets[m] = move;
+			});
+
+			// The per-group build (frame assembly, wrapper, compression, enqueue) costs ~50us,
+			// and the group count grows with how spread the population is (~1650 at 2000
+			// wandering players), which made this loop most of the tick at scale. Every group is
+			// independent, and everything the body touches is either read-only for the duration
+			// (the matrix after Compute, the cached mover bytes, the slot map) or thread-safe on
+			// its own (packet pools, the stream manager, metrics, SendPacket's session enqueue),
+			// so the groups fan out across the server's cores. Parallel.For joins before the
+			// pooled mover packets are returned.
+			int groupCount = 0;
+			Parallel.For(0, _relevanceGroupWork.Count, buildParallelism, i =>
+			{
+				(List<Player> members, object coalesceKey) = _relevanceGroupWork[i];
+				int representative = _relevanceSlots[members[0]];
+
+				using MemoryStream frames = MiNetServer.MemoryStreamManager.GetStream();
+				int moveCount = 0;
+				for (int m = 0; m < _relevanceMoverScratch.Count; m++)
+				{
+					// The group's shared set is row(representative) plus the representative
+					// itself; every member's row-plus-self hashes to the same set.
+					int slot = _relevanceMoverScratch[m].Slot;
+					if (slot != representative && !matrix.IsRelevant(representative, slot)) continue;
+
+					ReadOnlyMemory<byte> bs = _relevanceMoverPackets[m].EncodeAsMemory();
+					BatchUtils.WriteLength(frames, bs.Length);
+					frames.Write(bs.Span);
+					moveCount++;
+				}
+
+				if (moveCount == 0) return;
+				Interlocked.Increment(ref groupCount);
+
+				var batch = McpeWrapper.CreateObject(members.Count);
+				batch.CoalesceKey = coalesceKey;
+				batch.SetPayload(Compression.CompressIntoPooledStream(new ReadOnlyMemory<byte>(frames.GetBuffer(), 0, (int) frames.Length), false, CompressionLevel.Fastest));
+				batch.EncodeAsMemory();
+
+				EngineMetrics.RecordBroadcast(moveCount, batch.payload.Length, buildStartedAt, _metricTags);
+				EngineMetrics.RecordBroadcastRecipients(members.Count, _metricTags);
+
+				foreach (Player member in members) member.SendPacket(batch);
+			});
+
+			for (int m = 0; m < _relevanceMoverScratch.Count; m++)
+			{
+				_relevanceMoverPackets[m].PutPool();
+				_relevanceMoverPackets[m] = null;
+			}
+
+			if (groupCount > 0) EngineMetrics.RecordBroadcastGroups(groupCount, _metricTags);
+
+			_lastBroadcast = DateTime.UtcNow;
 		}
 
 		public void RelayBroadcast<T>(T message) where T : Packet<T>, new()
@@ -1277,6 +1684,23 @@ namespace MiNET.Worlds
 			return GetBlock(new BlockCoordinates(x, y, z));
 		}
 
+		/// <summary>
+		///     The runtime id at a position: chunk to sub-chunk to palette read, no block instance
+		///     built. This is the probe form for per-tick queries (portal, water, suffocation);
+		///     <see cref="GetBlock(BlockCoordinates, ChunkColumn)" /> stays for callers that need a
+		///     block to interact with. An unloaded chunk reads as air.
+		/// </summary>
+		public int GetRuntimeIdAt(BlockCoordinates blockCoordinates)
+		{
+			ChunkColumn chunk = GetChunk(new ChunkCoordinates(blockCoordinates.X >> 4, blockCoordinates.Z >> 4));
+			// Outside the world reads as air. The sub-chunk lookup clamps, so without this a query
+			// above or below the build range is answered with a real block from the top or bottom of
+			// the column, which is exactly what the per-tick checks calling this would hit.
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return BlockFactory.AirRuntimeId;
+
+			return chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
+		}
+
 		public Block GetBlock(BlockCoordinates blockCoordinates, ChunkColumn tryChunk = null)
 		{
 			ChunkColumn chunk = null;
@@ -1290,7 +1714,10 @@ namespace MiNET.Worlds
 			{
 				chunk = GetChunk(chunkCoordinates);
 			}
-			if (chunk == null)
+			// Above or below the world reads as air, the same as a column that is not loaded. The
+			// sub-chunk lookup clamps, so without this an entity high above the world or falling out
+			// of the bottom is answered with a real block from the top or bottom of the column.
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y))
 				return new Air
 				{
 					Coordinates = blockCoordinates,
@@ -1320,7 +1747,7 @@ namespace MiNET.Worlds
 		public bool IsBlock(BlockCoordinates blockCoordinates, int blockId)
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
-			if (chunk == null) return false;
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return false;
 
 			return chunk.GetBlockId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f) == blockId;
 		}
@@ -1332,7 +1759,7 @@ namespace MiNET.Worlds
 		public bool IsBlock(BlockCoordinates blockCoordinates, string name)
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
-			if (chunk == null) return false;
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return false;
 
 			return BlockFactory.GetBlockName(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f)) == name;
 		}
@@ -1340,15 +1767,24 @@ namespace MiNET.Worlds
 		public bool IsAir(BlockCoordinates blockCoordinates)
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
-			if (chunk == null) return true;
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return true;
 
 			return BlockFactory.IsAir(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
+		}
+
+		/// <summary>Whether a full solid cube stands here. For "can something walk through it", ask <see cref="BlocksMovement" />.</summary>
+		public bool IsSolid(BlockCoordinates blockCoordinates)
+		{
+			ChunkColumn chunk = GetChunk(blockCoordinates);
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return false;
+
+			return BlockFactory.IsSolid(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
 
 		public bool IsNotBlockingSkylight(BlockCoordinates blockCoordinates)
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
-			if (chunk == null) return true;
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return true;
 
 			return BlockFactory.SkyLightPasses(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
@@ -1356,7 +1792,7 @@ namespace MiNET.Worlds
 		public bool IsTransparent(BlockCoordinates blockCoordinates)
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
-			if (chunk == null) return true;
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return true;
 
 			return BlockFactory.IsTransparent(chunk.GetBlockRuntimeId(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f));
 		}
@@ -1373,7 +1809,7 @@ namespace MiNET.Worlds
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 
-			if (chunk == null) return 15;
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return 15;
 
 			return chunk.GetSkylight(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
 		}
@@ -1382,7 +1818,7 @@ namespace MiNET.Worlds
 		{
 			ChunkColumn chunk = GetChunk(blockCoordinates);
 
-			if (chunk == null) return 15;
+			if (chunk == null || !ChunkColumn.IsInsideWorld(blockCoordinates.Y)) return 15;
 
 			return chunk.GetBlocklight(blockCoordinates.X & 0x0f, blockCoordinates.Y, blockCoordinates.Z & 0x0f);
 		}
@@ -1420,7 +1856,7 @@ namespace MiNET.Worlds
 		{
 			// The column's own range, not zero. Everything from WorldMinY up is addressable, and
 			// guarding at zero silently dropped every block in the deepslate range.
-			if (block.Coordinates.Y < ChunkColumn.WorldMinY || block.Coordinates.Y >= ChunkColumn.WorldMaxY) return;
+			if (!ChunkColumn.IsInsideWorld(block.Coordinates.Y)) return;
 
 			var chunkCoordinates = new ChunkCoordinates(block.Coordinates.X >> 4, block.Coordinates.Z >> 4);
 			ChunkColumn chunk = possibleChunk != null && possibleChunk.X == chunkCoordinates.X && possibleChunk.Z == chunkCoordinates.Z ? possibleChunk : GetChunk(chunkCoordinates);

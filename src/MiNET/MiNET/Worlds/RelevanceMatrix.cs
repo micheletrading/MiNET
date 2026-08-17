@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.Intrinsics;
 
@@ -43,9 +44,11 @@ namespace MiNET.Worlds
 	///
 	///     Slots are stable across ticks (a free list recycles them) so the XOR delta is
 	///     meaningful, and nothing in here is player-specific: any entity can occupy a row.
-	///     Not thread safe; the level tick thread owns it.
+	///     Every array is an ArrayPool lease, so rented buffers can run longer than the logical
+	///     size: all access goes through <see cref="_capacity" /> and <see cref="_words" />, never
+	///     an array's own Length. Not thread safe; the level tick thread owns it.
 	/// </summary>
-	public class RelevanceMatrix
+	public class RelevanceMatrix : IDisposable
 	{
 		private int _capacity; // always a multiple of 64
 		private int _words; // ulong words per matrix row, _capacity / 64
@@ -74,15 +77,24 @@ namespace MiNET.Worlds
 			Radius = radius;
 			_capacity = Math.Max(64, (initialCapacity + 63) & ~63);
 			_words = _capacity / 64;
-			_x = new float[_capacity];
-			_z = new float[_capacity];
-			_current = new ulong[_capacity * _words];
-			_previous = new ulong[_capacity * _words];
-			_liveMask = new ulong[_words];
+			_x = ArrayPool<float>.Shared.Rent(_capacity);
+			_z = ArrayPool<float>.Shared.Rent(_capacity);
+			_current = RentCleared(_capacity * _words);
+			_previous = RentCleared(_capacity * _words);
+			_liveMask = RentCleared(_words);
+		}
+
+		private static ulong[] RentCleared(int length)
+		{
+			ulong[] array = ArrayPool<ulong>.Shared.Rent(length);
+			Array.Clear(array, 0, length);
+			return array;
 		}
 
 		public int AllocateSlot(float x, float z)
 		{
+			ObjectDisposedException.ThrowIf(_current == null, this);
+
 			int slot;
 			if (_freeSlots.Count > 0)
 			{
@@ -146,6 +158,12 @@ namespace MiNET.Worlds
 			}
 		}
 
+		/// <summary>Whether the entity slot is currently relevant to the viewer slot.</summary>
+		public bool IsRelevant(int viewer, int entity)
+		{
+			return (_current[viewer * _words + (entity >> 6)] & (1UL << (entity & 63))) != 0;
+		}
+
 		/// <summary>
 		///     Rotates the buffers (current becomes previous) and rebuilds the current matrix from
 		///     the positions as they stand. Call once per tick, after updating positions.
@@ -158,7 +176,7 @@ namespace MiNET.Worlds
 		internal void Compute(bool forceScalar)
 		{
 			(_current, _previous) = (_previous, _current);
-			Array.Clear(_current);
+			Array.Clear(_current, 0, _capacity * _words);
 			PairCount = 0;
 
 			if (Count == 0) return;
@@ -288,27 +306,84 @@ namespace MiNET.Worlds
 			return hash;
 		}
 
+		/// <summary>
+		///     <see cref="GetRowHash" /> with the viewer's own bit OR'd in. The diagonal is clear
+		///     in the matrix, so plain row hashes differ for every member of a mutually visible
+		///     cluster (each row is missing its owner) and a tight cluster of N would degenerate
+		///     into N one-member broadcast groups. Hashed over row-plus-self, the whole cluster
+		///     shares one hash, one batch and one compression, at the price of each member
+		///     receiving its own movement echo, which is exactly what the legacy all-to-all
+		///     broadcast always did.
+		/// </summary>
+		public ulong GetRowHashWithSelf(int slot)
+		{
+			int rowBase = slot * _words;
+			int selfWord = slot >> 6;
+			ulong selfBit = 1UL << (slot & 63);
+			ulong hash = 14695981039346656037UL;
+			for (int w = 0; w < _words; w++)
+			{
+				ulong word = _current[rowBase + w];
+				if (w == selfWord) word |= selfBit;
+				hash = (hash ^ word) * 1099511628211UL;
+			}
+			return hash;
+		}
+
 		private void Grow()
 		{
 			int newCapacity = _capacity * 2;
 			int newWords = newCapacity / 64;
 
-			Array.Resize(ref _x, newCapacity);
-			Array.Resize(ref _z, newCapacity);
-			Array.Resize(ref _liveMask, newWords);
+			float[] newX = ArrayPool<float>.Shared.Rent(newCapacity);
+			float[] newZ = ArrayPool<float>.Shared.Rent(newCapacity);
+			Array.Copy(_x, newX, _highWater);
+			Array.Copy(_z, newZ, _highWater);
 
-			var newCurrent = new ulong[newCapacity * newWords];
-			var newPrevious = new ulong[newCapacity * newWords];
+			ulong[] newLiveMask = RentCleared(newWords);
+			Array.Copy(_liveMask, newLiveMask, _words);
+
+			ulong[] newCurrent = RentCleared(newCapacity * newWords);
+			ulong[] newPrevious = RentCleared(newCapacity * newWords);
 			for (int row = 0; row < _highWater; row++)
 			{
 				Array.Copy(_current, row * _words, newCurrent, row * newWords, _words);
 				Array.Copy(_previous, row * _words, newPrevious, row * newWords, _words);
 			}
 
+			ArrayPool<float>.Shared.Return(_x);
+			ArrayPool<float>.Shared.Return(_z);
+			ArrayPool<ulong>.Shared.Return(_liveMask);
+			ArrayPool<ulong>.Shared.Return(_current);
+			ArrayPool<ulong>.Shared.Return(_previous);
+
+			_x = newX;
+			_z = newZ;
+			_liveMask = newLiveMask;
 			_current = newCurrent;
 			_previous = newPrevious;
 			_capacity = newCapacity;
 			_words = newWords;
+		}
+
+		public void Dispose()
+		{
+			if (_current == null) return;
+
+			ArrayPool<float>.Shared.Return(_x);
+			ArrayPool<float>.Shared.Return(_z);
+			ArrayPool<ulong>.Shared.Return(_liveMask);
+			ArrayPool<ulong>.Shared.Return(_current);
+			ArrayPool<ulong>.Shared.Return(_previous);
+			_x = null;
+			_z = null;
+			_liveMask = null;
+			_current = null;
+			_previous = null;
+			Count = 0;
+			_highWater = 0;
+			_freeSlots.Clear();
+			GC.SuppressFinalize(this);
 		}
 	}
 }

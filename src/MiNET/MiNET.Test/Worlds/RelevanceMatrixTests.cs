@@ -235,6 +235,25 @@ namespace MiNET.Test.Worlds
 		}
 
 		[TestMethod]
+		public void Row_plus_self_hash_unifies_a_mutually_visible_cluster()
+		{
+			// Plain row hashes differ inside a cluster (each row is missing its owner), which
+			// would cost one compression per member. Row-plus-self collapses the cluster to one
+			// broadcast group; that economy is what the hash exists for.
+			var matrix = new RelevanceMatrix(96f);
+			int a = matrix.AllocateSlot(0, 0);
+			int b = matrix.AllocateSlot(5, 0);
+			int c = matrix.AllocateSlot(0, 5);
+			int loner = matrix.AllocateSlot(5000, 5000);
+			matrix.Compute();
+
+			Assert.AreNotEqual(matrix.GetRowHash(a), matrix.GetRowHash(b));
+			Assert.AreEqual(matrix.GetRowHashWithSelf(a), matrix.GetRowHashWithSelf(b));
+			Assert.AreEqual(matrix.GetRowHashWithSelf(b), matrix.GetRowHashWithSelf(c));
+			Assert.AreNotEqual(matrix.GetRowHashWithSelf(a), matrix.GetRowHashWithSelf(loner));
+		}
+
+		[TestMethod]
 		public void Growth_past_initial_capacity_preserves_rows_and_transitions()
 		{
 			var matrix = new RelevanceMatrix(96f, 64);

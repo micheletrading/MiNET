@@ -334,5 +334,36 @@ namespace MiNET.Utils.Diagnostics
 			BroadcastBytes.Record(bytes, tags);
 			BroadcastBuild.Record((Stopwatch.GetTimestamp() - startedAt) * 1_000_000d / Stopwatch.Frequency, tags);
 		}
+
+		private static readonly Histogram<double> RelevanceMatrixTime = Meter.CreateHistogram<double>(
+			"relevance.matrix.time", "us", "Time to rebuild the relevance bit matrix for one level tick, spent on the tick thread.");
+
+		private static readonly Histogram<long> RelevancePairs = Meter.CreateHistogram<long>(
+			"relevance.pairs", "{pair}", "Set bits in the relevance matrix after one compute. Directed, so a mutual pair counts twice.");
+
+		private static readonly Counter<long> RelevanceTransitions = Meter.CreateCounter<long>(
+			"relevance.transitions", "{transition}", "Directed enter/leave pairs the matrix emitted; each is one entity spawn or despawn on one client.");
+
+		private static readonly Histogram<int> BroadcastGroups = Meter.CreateHistogram<int>(
+			"broadcast.groups", "{group}", "Distinct recipient groups (visible-set hashes) that sent in one culled movement broadcast; each group is one compression pass.");
+
+		private static readonly Histogram<int> BroadcastRecipients = Meter.CreateHistogram<int>(
+			"broadcast.recipients", "{player}", "Recipients of one culled broadcast group's shared batch.");
+
+		/// <summary>
+		///     One call per culled movement broadcast, after the matrix pass and the transition
+		///     stream are done. <paramref name="startedAt" /> is a
+		///     <see cref="Stopwatch.GetTimestamp" /> reading from before the matrix update began.
+		/// </summary>
+		public static void RecordRelevance(long startedAt, long pairs, int transitions, in TagList tags)
+		{
+			RelevanceMatrixTime.Record((Stopwatch.GetTimestamp() - startedAt) * 1_000_000d / Stopwatch.Frequency, tags);
+			RelevancePairs.Record(pairs, tags);
+			if (transitions > 0) RelevanceTransitions.Add(transitions, tags);
+		}
+
+		public static void RecordBroadcastGroups(int groups, in TagList tags) => BroadcastGroups.Record(groups, tags);
+
+		public static void RecordBroadcastRecipients(int recipients, in TagList tags) => BroadcastRecipients.Record(recipients, tags);
 	}
 }
