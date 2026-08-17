@@ -41,23 +41,23 @@ namespace MiNET.Blocks
 		}
 
 		/// <summary>
-		///     Fire dies like vanilla: each random tick ages it, and at age 15 it burns out. The age
-		///     rides the block state (fire:age 0-15), so it survives in the chunk and the client
-		///     renders the shrinking flame. Honours the doFireTick game rule.
+		///     Fire dies like vanilla: within a few dozen seconds of being placed it burns out.
+		///     The burn-out is scheduled at placement (the way Button schedules its unpress)
+		///     rather than driven by random ticks, which visit a given cell only about once per
+		///     thirteen seconds. Honours the doFireTick game rule: with it off, the scheduled
+		///     tick no-ops and the fire lasts forever.
 		/// </summary>
+		public override void BlockAdded(Level level)
+		{
+			level.ScheduleBlockTick(this, level.Random.Next(400, 800)); // 20-40 seconds
+		}
+
 		public override void OnTick(Level level, bool isRandom)
 		{
-			if (!isRandom || !level.DoFiretick) return;
+			if (isRandom || !level.DoFiretick) return;
 
-			if (Age >= 15)
-			{
-				level.SetAir(Coordinates);
-				level.BroadcastSound(Coordinates, LevelSoundEventType.ExtinguishFire);
-			}
-			else
-			{
-				level.SetBlock(new Fire {Coordinates = Coordinates, Age = Age + 1});
-			}
+			level.SetAir(Coordinates);
+			level.BroadcastSound(Coordinates, LevelSoundEventType.ExtinguishFire);
 		}
 	}
 }
