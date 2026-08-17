@@ -91,8 +91,6 @@ namespace MiNET.Worlds
 		public bool NeedSave { get; set; }
 
 		public bool DisableCache { get; set; }
-		private McpeWrapper _cachedBatch;
-		private McpeWrapper _cachedBlobBatch;
 		private object _cacheSync = new object();
 
 		/// <summary>
@@ -128,10 +126,20 @@ namespace MiNET.Worlds
 			Array.Clear(height, 0, 256);
 		}
 
+		/// <summary>
+		///     Bumped by every block write, so a column that has changed is a different version of
+		///     itself. This is what a player's sent-set is keyed on: a skeleton already pushed is never
+		///     pushed again, and the only thing that makes it worth pushing a second time is the
+		///     content actually being different. It plays the part the blob cache key plays, and works
+		///     the same whether or not the client caches.
+		/// </summary>
+		public long Version { get; private set; }
+
 		private void SetDirty()
 		{
 			IsDirty = true;
 			NeedSave = true;
+			Version++;
 			_cachedSubChunkData.Clear();
 		}
 
@@ -507,89 +515,6 @@ namespace MiNET.Worlds
 		internal void ClearCache()
 		{
 			_cachedSubChunkData.Clear();
-
-			lock (_cacheSync)
-			{
-				if (_cachedBatch != null)
-				{
-					_cachedBatch.MarkPermanent(false);
-					_cachedBatch.PutPool();
-
-					_cachedBatch = null;
-				}
-
-				if (_cachedBlobBatch != null)
-				{
-					_cachedBlobBatch.MarkPermanent(false);
-					_cachedBlobBatch.PutPool();
-
-					_cachedBlobBatch = null;
-				}
-
-			}
-		}
-
-		public McpeWrapper GetBatch()
-		{
-			lock (_cacheSync)
-			{
-				if (!DisableCache && !IsDirty && _cachedBatch != null) return _cachedBatch;
-
-				// Past the cache check, so world.chunk.encode measures only real encode work: a served
-				// cache hit never reaches here and so never dilutes the distribution.
-				long startedAt = Stopwatch.GetTimestamp();
-
-				ClearCache();
-
-				int topEmpty = GetTopEmpty();
-				byte[] chunkData = GetBytes(topEmpty);
-
-				var fullChunkPacket = McpeLevelChunk.CreateObject();
-				fullChunkPacket.cacheEnabled = false;
-				fullChunkPacket.cacheMetadata = new List<ulong>();
-				fullChunkPacket.chunkPosition = new ChunkPos {x = X, z = Z};
-				fullChunkPacket.dimension = (int) Dimension;
-				fullChunkPacket.subChunkCount = (uint) topEmpty;
-				fullChunkPacket.chunkData = chunkData;
-				byte[] bytes = fullChunkPacket.Encode();
-				fullChunkPacket.PutPool();
-
-				McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(bytes, 0, bytes.Length), CompressionLevel.Fastest, true);
-				batch.MarkPermanent();
-
-				_cachedBatch = batch;
-				IsDirty = false;
-
-				EngineMetrics.RecordChunkEncode(startedAt);
-
-				return _cachedBatch;
-			}
-		}
-
-		/// <summary>
-		///     The sub-chunk request form (the only one vanilla 1.26.40 sends): a skeleton LevelChunk
-		///     with zero inline sections, just the per-section biome storages and the border-blocks
-		///     byte, plus the request limit that tells the client how many sections (counted from the
-		///     dimension bottom) are worth asking for. Blocks travel via McpeSubChunkRequest /
-		///     McpeSubChunk afterwards. Mirrors the BDS 1.26.40 wire capture (count=0, limit=topEmpty,
-		///     biome payload with trailing border byte).
-		/// </summary>
-		public McpeLevelChunk CreateSkeletonChunk()
-		{
-			using var stream = new MemoryStream();
-			WriteSkeletonBiomes(stream);
-			stream.WriteByte(0); // Border blocks - nope (EDU)
-
-			var packet = McpeLevelChunk.CreateObject();
-			packet.chunkPosition = new ChunkPos {x = X, z = Z};
-			packet.dimension = (int) Dimension;
-			packet.subChunkCount = 0;
-			packet.clientRequestSubchunkLimit = GetTopEmpty();
-			packet.cacheEnabled = false;
-			packet.cacheMetadata = new List<ulong>();
-			packet.chunkData = stream.ToArray();
-
-			return packet;
 		}
 
 		/// <summary>Is this an addressable sub-chunk index in the dimension?</summary>
@@ -607,15 +532,15 @@ namespace MiNET.Worlds
 		///     store at all. Blob mode moves the store into the content-addressed store the way
 		///     vanilla serves a cache-enabled client; the heightmap stays inline either way.
 		/// </summary>
-		public SubChunkPacketData GetSubChunkData(SubChunkPosOffset offset, int sectionY, bool useBlobCache)
+		public SubChunkPacketData GetSubChunkData(SubChunkPosOffset offset, int sectionY)
 		{
 			// One key per section per form. Section indices are small and signed, so they are shifted
 			// rather than multiplied, which keeps negative sections distinct from positive ones.
-			int key = (sectionY << 1) | (useBlobCache ? 1 : 0);
+			int key = sectionY;
 
 			if (!DisableCache && _cachedSubChunkData.TryGetValue(key, out SubChunkPacketData hit)) return WithOffset(hit, offset);
 
-			SubChunkPacketData built = BuildSubChunkData(offset, sectionY, useBlobCache);
+			SubChunkPacketData built = BuildSubChunkData(offset, sectionY);
 
 			// Only a real section is worth keeping. An out-of-bounds or all-air answer is cheap to
 			// produce and caching it would hold a dictionary entry per section of empty sky.
@@ -641,7 +566,7 @@ namespace MiNET.Worlds
 			};
 		}
 
-		private SubChunkPacketData BuildSubChunkData(SubChunkPosOffset offset, int sectionY, bool useBlobCache)
+		private SubChunkPacketData BuildSubChunkData(SubChunkPosOffset offset, int sectionY)
 		{
 			var entry = new SubChunkPacketData
 			{
@@ -719,19 +644,11 @@ namespace MiNET.Worlds
 				// is content-addressed and holds the terrain, which is what the hash is for, and the
 				// block entities go inline in the same packet, in the field beside the blob id. Putting
 				// them in the blob instead leaves the chests invisible, which is how that was settled.
-				if (useBlobCache)
-				{
-					entry.blobId = BlobStore.Add(stream.ToArray());
+				entry.blobId = BlobStore.Add(stream.ToArray());
 
-					using MemoryStream entityStream = MiNetServer.MemoryStreamManager.GetStream();
-					WriteBlockEntities(entityStream, sectionY);
-					if (entityStream.Length > 0) entry.serializedSubChunk = entityStream.ToArray();
-				}
-				else
-				{
-					WriteBlockEntities(stream, sectionY);
-					entry.serializedSubChunk = stream.ToArray();
-				}
+				using MemoryStream entityStream = MiNetServer.MemoryStreamManager.GetStream();
+				WriteBlockEntities(entityStream, sectionY);
+				if (entityStream.Length > 0) entry.serializedSubChunk = entityStream.ToArray();
 			}
 
 			entry.subchunkRequestResult = SubChunkPacketData.SubchunkRequestResult.Success;
@@ -739,28 +656,50 @@ namespace MiNET.Worlds
 		}
 
 		/// <summary>
+		///     The computed parts of the skeleton, made once per column version and reused for
+		///     every player the skeleton goes to: the biome payload is serialized and hashed when
+		///     the column changes, not once per send. The reference swap is atomic and racing
+		///     builders compute identical seeds, so a lost race wastes work without ever being
+		///     wrong. The list and position are read-only riders on the packets built from them:
+		///     encode reads them, Reset only drops the reference.
+		/// </summary>
+		private sealed record SkeletonSeed(long Version, int Limit, List<ulong> CacheMetadata, ChunkPos Position);
+
+		private SkeletonSeed _skeletonSeed;
+
+		private static readonly byte[] SkeletonChunkData = {0}; // Border blocks - nope (EDU)
+
+		/// <summary>
 		///     The skeleton for a cache-enabled client, matching vanilla 1.26.40: the biome payload
 		///     moves into a content-addressed blob (one cacheMetadata hash), leaving only the
 		///     border-blocks byte inline. The client reports hit or miss via ClientCacheBlobStatus
 		///     and misses come back through ClientCacheMissResponse.
 		/// </summary>
-		public McpeLevelChunk CreateSkeletonBlobChunk()
+		public McpeLevelChunk CreateSkeletonChunk()
 		{
-			using var biomeStream = new MemoryStream();
-			WriteSkeletonBiomes(biomeStream);
+			SkeletonSeed seed = _skeletonSeed;
+			if (seed == null || seed.Version != Version)
+			{
+				// Content addressed, so identical biome payloads across columns collapse to one
+				// hash and a returning client fetches none of them.
+				ulong biomeBlob = BlobStore.Add(BuildSkeletonBiomes());
 
-			// Content addressed, so identical biome payloads across columns collapse to one hash and
-			// a returning client fetches none of them.
-			ulong biomeBlob = BlobStore.Add(biomeStream.ToArray());
+				// How far up the client should ask. Subtracting one to make it the index of the
+				// highest non-air section, which is how Mojang's SubChunk Request System doc words
+				// it, loses the top of the world in a real column, so the value the client wants
+				// is the one GetTopEmpty already returns.
+				seed = new SkeletonSeed(Version, GetTopEmpty(), new List<ulong> {biomeBlob}, new ChunkPos {x = X, z = Z});
+				_skeletonSeed = seed;
+			}
 
 			var packet = McpeLevelChunk.CreateObject();
-			packet.chunkPosition = new ChunkPos {x = X, z = Z};
+			packet.chunkPosition = seed.Position;
 			packet.dimension = (int) Dimension;
 			packet.subChunkCount = 0;
-			packet.clientRequestSubchunkLimit = GetTopEmpty();
+			packet.clientRequestSubchunkLimit = seed.Limit;
 			packet.cacheEnabled = true;
-			packet.cacheMetadata = new List<ulong> {biomeBlob};
-			packet.chunkData = new byte[] {0}; // Border blocks - nope (EDU)
+			packet.cacheMetadata = seed.CacheMetadata;
+			packet.chunkData = SkeletonChunkData;
 
 			return packet;
 		}
@@ -775,51 +714,6 @@ namespace MiNET.Worlds
 		///     content and not from who is asking. What differs per client is only which blobs come
 		///     back as misses.
 		/// </summary>
-		public McpeWrapper GetBlobBatch()
-		{
-			lock (_cacheSync)
-			{
-				if (!DisableCache && !IsDirty && _cachedBlobBatch != null) return _cachedBlobBatch;
-
-				if (_cachedBlobBatch != null)
-				{
-					_cachedBlobBatch.MarkPermanent(false);
-					_cachedBlobBatch.PutPool();
-					_cachedBlobBatch = null;
-				}
-
-				int topEmpty = GetTopEmpty();
-
-				// Hashes go out in the order the client rebuilds them: every section from the
-				// bottom up, then the biome blob last.
-				var hashes = new ulong[topEmpty + 1];
-				for (int ci = 0; ci < topEmpty; ci++)
-				{
-					using var section = new MemoryStream();
-					this[ci].Write(section);
-					hashes[ci] = BlobStore.Add(section.ToArray());
-				}
-
-				hashes[topEmpty] = BlobStore.Add(GetBiomePalette(biomeId));
-
-				var packet = McpeLevelChunk.CreateObject();
-				packet.cacheEnabled = true;
-				packet.cacheMetadata = new List<ulong>(hashes);
-				packet.chunkPosition = new ChunkPos {x = X, z = Z};
-				packet.subChunkCount = (uint) topEmpty;
-				packet.chunkData = GetTailBytes();
-				byte[] bytes = packet.Encode();
-				packet.PutPool();
-
-				McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(bytes, 0, bytes.Length), CompressionLevel.Fastest, true);
-				batch.MarkPermanent();
-
-				_cachedBlobBatch = batch;
-
-				return _cachedBlobBatch;
-			}
-		}
-
 		/// <summary>
 		///     Everything in the chunk payload that is not a blob: the border block count and the
 		///     block entities. Sections and biomes are addressed by hash in the cached form, so
@@ -841,25 +735,6 @@ namespace MiNET.Worlds
 		// call and goes to the LOH (gen2, uncompacted) the moment it clears 85,000 bytes. Everything
 		// else on the send path builds into MiNetServer.MemoryStreamManager's pooled streams; this
 		// path predates that and never moved. Applies to GetTailBytes and the biome writer beside it.
-		public byte[] GetBytes(int topEmpty)
-		{
-			using var stream = new MemoryStream();
-
-			for (int ci = 0; ci < topEmpty; ci++)
-			{
-				this[ci].Write(stream);
-			}
-
-			var biomePalette = GetBiomePalette(biomeId);
-			stream.Write(biomePalette, 0, biomePalette.Length);
-
-			stream.WriteByte(0); // Border blocks - nope (EDU)
-
-			WriteBlockEntities(stream);
-
-			return stream.ToArray();
-		}
-
 		private void WriteBlockEntities(Stream stream)
 		{
 			if (BlockEntities.Count == 0) return;
@@ -903,7 +778,7 @@ namespace MiNET.Worlds
 		///     then a 0xFF copy-previous marker per remaining section. Falls back to full storages
 		///     for multi-biome chunks.
 		/// </summary>
-		private void WriteSkeletonBiomes(MemoryStream stream)
+		private byte[] BuildSkeletonBiomes()
 		{
 			byte first = biomeId[0];
 			bool uniform = true;
@@ -916,20 +791,29 @@ namespace MiNET.Worlds
 				}
 			}
 
+			if (!uniform) return GetBiomePalette(biomeId);
+
+			// Header, one zigzag varint, then one copy-previous marker per remaining section. The
+			// scratch is a pooled lease sized to the worst case, the ordinary stream writers fill
+			// it, and the written slice is copied out once, exact, for the blob store to own
+			// permanently - which is why the result is deliberately NOT pooled memory.
 			int sectionCount = WorldHeight / 16;
-			if (uniform)
+			byte[] scratch = ArrayPool<byte>.Shared.Rent(1 + 5 + (sectionCount - 1));
+			try
 			{
+				using var stream = new MemoryStream(scratch);
 				stream.WriteByte(0x01); // bits-0 storage: header only, one palette value
 				MiNET.Utils.VarInt.WriteSInt32(stream, first == 255 ? 0 : first);
 				for (int i = 1; i < sectionCount; i++)
 				{
 					stream.WriteByte(0xFF); // copy the previous section's storage
 				}
+
+				return scratch.AsSpan(0, (int) stream.Position).ToArray();
 			}
-			else
+			finally
 			{
-				byte[] biomePalette = GetBiomePalette(biomeId);
-				stream.Write(biomePalette, 0, biomePalette.Length);
+				ArrayPool<byte>.Shared.Return(scratch);
 			}
 		}
 
@@ -1018,14 +902,12 @@ namespace MiNET.Worlds
 				cc.BlockEntities.Add(blockEntityPair.Key, (NbtCompound) blockEntityPair.Value.Clone());
 			}
 
-			McpeWrapper batch = McpeWrapper.CreateObject();
-			batch.payload = _cachedBatch.payload;
-			batch.Encode();
-			batch.MarkPermanent();
-
-			cc._cachedBatch = batch;
-
 			cc._cacheSync = new object();
+
+			// Never shared with the original: a clone is typically relocated (new X/Z) and then
+			// mutated, and the seed's position and biome hash describe the column it was built
+			// from. The clone builds its own on first send.
+			cc._skeletonSeed = null;
 
 			return cc;
 		}

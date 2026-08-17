@@ -68,9 +68,9 @@ namespace MiNET
 		public IPEndPoint EndPoint { get; private set; }
 		public INetworkHandler NetworkHandler { get; set; }
 
-		// Which columns this player already holds. Membership only: the skeletons are ordinary
-		// packets now, so there is nothing per column worth keeping.
-		private HashSet<ChunkCoordinates> _chunksUsed = new HashSet<ChunkCoordinates>();
+		// Which columns this player already holds, and which version of each. A column is pushed
+		// once and never again until its content actually changes, which is what the version says.
+		private Dictionary<ChunkCoordinates, long> _chunksUsed = new Dictionary<ChunkCoordinates, long>();
 		private ChunkCoordinates _currentChunkPosition;
 
 		/// <summary>What the player has open. Never null: closing everything leaves the player's own
@@ -1735,7 +1735,7 @@ namespace MiNET
 
 		private bool IsChunkInCache(PlayerLocation position)
 		{
-			return _chunksUsed.Contains(new ChunkCoordinates(position));
+			return _chunksUsed.ContainsKey(new ChunkCoordinates(position));
 		}
 
 		public virtual void ChangeDimension(Level toLevel, PlayerLocation spawnPoint, Dimension dimension, Func<Level> levelFunc = null)
@@ -2638,8 +2638,6 @@ namespace MiNET
 		///     us it keeps a cache, and BlobCacheEnabled says we are willing to serve one. Some
 		///     clients never opt in, so the plain chunk path is not optional and stays the default.
 		/// </summary>
-		public bool UseBlobCache { get; private set; }
-
 		/// <summary>
 		///     The emotes this client owns, sent once after login. Parsed but unused: acting on it
 		///     means validating an incoming Emote against the list and relaying it to the other
@@ -2650,10 +2648,27 @@ namespace MiNET
 			if (Log.IsDebugEnabled) Log.Debug($"Emote list from {Username}: {message.emotePieceIds.Length} emotes");
 		}
 
+		/// <summary>
+		///     The client announces whether it caches chunk blobs. We require that it does.
+		///     <para>
+		///         Every Mojang client supports it, so a client saying no is either something we did
+		///         not write or something pretending. Serving it would mean carrying a second chunk
+		///         path for ever: the same column serialized twice, biomes inline instead of blob
+		///         addressed, and the whole terrain re-sent to a player who already walked here. One
+		///         path is the point of this check, and refusing is a server protecting itself rather
+		///         than a judgement about the client.
+		///     </para>
+		/// </summary>
 		public virtual void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
 		{
-			UseBlobCache = message.enabled && BlobStore.Enabled;
-			Log.Info($"Cache status from {Username}: client={(message.enabled ? "enabled" : "disabled")}, serving blobs={UseBlobCache}");
+			if (!message.enabled)
+			{
+				Log.Warn($"Refusing {Username}: the client says it does not cache chunks, which this server requires.");
+				Disconnect("This server requires a client that caches chunks.");
+				return;
+			}
+
+			Log.Info($"Cache status from {Username}: client caches, as this server requires.");
 		}
 
 		/// <summary>
@@ -2664,14 +2679,25 @@ namespace MiNET
 		/// </summary>
 		public virtual void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
 		{
+			// The client's own cache verdict, hash by hash: the hit/miss ratio here is the direct
+			// measure of how much the blob cache is actually saving.
+			EngineMetrics.BlobCacheReport("hit", message.hashHits?.Length ?? 0);
+			EngineMetrics.BlobCacheReport("miss", message.hashMisses?.Length ?? 0);
+
 			if (message.hashMisses == null || message.hashMisses.Length == 0) return;
 
+			int unresolved = 0;
 			var blobs = new Dictionary<ulong, byte[]>();
 			foreach (ulong hash in message.hashMisses)
 			{
 				if (BlobStore.TryGet(hash, out byte[] blob)) blobs[hash] = blob;
-				else Log.Warn($"No blob for hash {hash:X16} requested by {Username}");
+				else
+				{
+					unresolved++;
+					Log.Warn($"No blob for hash {hash:X16} requested by {Username}");
+				}
 			}
+			EngineMetrics.BlobCacheReport("unresolved", unresolved);
 
 			if (blobs.Count == 0) return;
 
@@ -3135,7 +3161,7 @@ namespace MiNET
 			// the client asks here for the sections it wants, as offsets from an origin in absolute
 			// sub-chunk coordinates. One entry is answered per offset; the column serializes it.
 			var response = McpeSubChunkPacket.CreateObject();
-			response.cacheEnabled = UseBlobCache;
+			response.cacheEnabled = true;
 			response.dimensionType = message.dimension;
 			response.centerPos = new SubChunkPos {subchunkPositionX = message.originX, subchunkPositionY = message.originY, subchunkPositionZ = message.originZ};
 			response.subchunkData = new List<SubChunkPacketData>();
@@ -3198,7 +3224,13 @@ namespace MiNET
 			ChunkColumn chunkColumn = Level.GetChunk(coordinates);
 			if (chunkColumn == null) return Rejected(SubChunkPacketData.SubchunkRequestResult.Levelchunkdoesntexist);
 
-			return chunkColumn.GetSubChunkData(offset, sectionY, UseBlobCache);
+			// A section asked for twice was evicted client-side and re-marked by a fresh skeleton;
+			// counting those is how the client's eviction behaviour stays visible.
+			bool seenBefore;
+			lock (_subChunksServed) seenBefore = !_subChunksServed.Add((coordinates, sectionY));
+			if (seenBefore) EngineMetrics.SubChunkReRequested();
+
+			return chunkColumn.GetSubChunkData(offset, sectionY);
 		}
 
 		public virtual void HandleMcpeMobArmorEquipment(McpeMobArmorEquipment message)
@@ -4147,6 +4179,15 @@ namespace MiNET
 		/// </summary>
 		public void SendNetworkChunkPublisherUpdate(int chunkRadius, PlayerLocation position = null)
 		{
+			SendPacket(CreateNetworkChunkPublisherUpdate(chunkRadius, position));
+		}
+
+		/// <summary>
+		///     Built rather than sent so the chunk sweeps can put it at the head of their first
+		///     skeleton group: the publish and the columns it covers then ride one wrapper.
+		/// </summary>
+		private McpeNetworkChunkPublisherUpdate CreateNetworkChunkPublisherUpdate(int chunkRadius, PlayerLocation position = null)
+		{
 			var pk = McpeNetworkChunkPublisherUpdate.CreateObject();
 
 			// The centre is where the chunks being published ARE, which is not always where the
@@ -4155,13 +4196,12 @@ namespace MiNET
 			// around the place they are leaving and the client drops everything just sent.
 			pk.coordinates = (position ?? KnownPosition).GetCoordinates3D();
 
-			// TEST: double the radius we actually stream. The value is in BLOCKS from the player while
-			// we stream whole columns, so at exactly chunkRadius*16 the outermost ring we send sits at
-			// or past the boundary we declare, and the client may discard columns we did send with
-			// nothing on our side to show for it. Doubling overshoots that boundary by far enough to
-			// rule it in or out in one run; the honest value if it matters is (chunkRadius + 1) * 16.
-			pk.radius = (uint) (chunkRadius * 16 * 2);
-			SendPacket(pk);
+			// The radius the view actually covers, in blocks. Every captured BDS value is exactly
+			// view x 16 (64/80/160/192 for views 4/5/10/12), no rounding or padding for rim
+			// coverage, so the client converts to chunk space itself rather than testing
+			// block-precise containment.
+			pk.radius = (uint) (chunkRadius * 16);
+			return pk;
 		}
 
 		/// <summary>
@@ -4191,8 +4231,8 @@ namespace MiNET
 				// requests. This was the last sender of the inline form.
 				if (column == null) return;
 
-				McpeLevelChunk chunk = UseBlobCache ? column.CreateSkeletonBlobChunk() : column.CreateSkeletonChunk();
-				_chunksUsed.Add(chunkPosition);
+				McpeLevelChunk chunk = column.CreateSkeletonChunk();
+				_chunksUsed[chunkPosition] = column.Version;
 
 				SendNetworkChunkPublisherUpdate(position);
 				_lastPublishedChunk = chunkPosition;
@@ -4217,20 +4257,21 @@ namespace MiNET
 				if (Level == null) return;
 
 				// Centred on what is being sent, not on where the player stands. See the overload.
-				SendNetworkChunkPublisherUpdate(position ?? KnownPosition);
-
 				// The publish centre and the streamed centre must agree, so the movement path's
 				// "have I already published this column" memory is updated to match rather than
 				// left claiming the old one.
 				_lastPublishedChunk = chunkPosition;
 
-				int packetCount = 0;
-				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, useBlobCache: UseBlobCache))
+				// The whole pass is one list-form send, publisher update at its head: everything
+				// reaches the send queue as one block, and the transport decides what shares a
+				// wrapper and a datagram with it. No artificial group size - splitting here would
+				// only fragment what the drain would have folded anyway.
+				var group = new List<Packet> {CreateNetworkChunkPublisherUpdate(ChunkRadius, position ?? KnownPosition)};
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius))
 				{
-					if (chunk != null) SendPacket(chunk);
-
-					packetCount++;
+					if (chunk != null) group.Add(chunk);
 				}
+				SendPackets(group);
 			}
 			finally
 			{
@@ -4288,22 +4329,44 @@ namespace MiNET
 
 				if (Level == null) return;
 
-				SendNetworkChunkPublisherUpdate();
-
 				// HeadYaw, not Yaw: the head is what the player is actually looking along, and the body
 				// lags it. The sweep stays radial; this only decides which side of the circle is served
 				// first, which is what a player perceives while a large pass is still running.
-				foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, UseBlobCache, KnownPosition.HeadYaw))
+				//
+				// The pass accumulates into one list-form send, publisher update at its head:
+				// everything reaches the send queue as one block, and the transport decides what
+				// shares a wrapper and a datagram with it. No artificial group size - splitting
+				// would only fragment what the drain would have folded anyway. The one mid-pass
+				// flush is the spawn gate below, which is ordering, not grouping.
+				var group = new List<Packet> {CreateNetworkChunkPublisherUpdate(ChunkRadius)};
+				var groupCoordinates = new List<ChunkCoordinates>();
+
+				void FlushGroup()
+				{
+					if (group.Count == 0) return;
+
+					// Stamped at the actual send, not at build: the stamp times the client's
+					// turnaround from skeleton to first sub-chunk request, and buffering time in
+					// the list is ours, not the client's. groupCoordinates carries only the
+					// skeletons, so the non-skeleton head of the list is never stamped.
+					long now = Stopwatch.GetTimestamp();
+					foreach (ChunkCoordinates stamped in groupCoordinates)
+					{
+						EngineMetrics.SkeletonSent();
+						_skeletonSentAt[stamped] = now;
+					}
+
+					SendPackets(group);
+					group = new List<Packet>();
+					groupCoordinates.Clear();
+				}
+
+				foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, KnownPosition.HeadYaw))
 				{
 					if (chunk != null)
 					{
-						SendPacket(chunk);
-						EngineMetrics.SkeletonSent();
-
-						// Stamped so the first sub-chunk request for this column can be timed against
-						// it. That interval is the client's own turnaround, which is the half of the
-						// pipeline we do not control and had no way to see.
-						_skeletonSentAt[coordinates] = Stopwatch.GetTimestamp();
+						group.Add(chunk);
+						groupCoordinates.Add(coordinates);
 					}
 
 					packetCount++;
@@ -4313,10 +4376,18 @@ namespace MiNET
 					// the loop to finish made the spawn wait for the whole radius instead - 7,854
 					// columns at radius 50 against 804 at 16, every one of them a disk load, which is
 					// why join time scaled with the square of the view distance.
-					if (!IsSpawned && packetCount >= PublishedAreaChunkCount) InitializePlayer();
-
-					//if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
+					//
+					// The flush ahead of it is ordering: the spawn counts columns it has handed to
+					// the list, so the list must be on the send queue before PlayStatus(3) is, or
+					// the client is told to spawn ahead of columns it was promised.
+					if (!IsSpawned && packetCount >= PublishedAreaChunkCount)
+					{
+						FlushGroup();
+						InitializePlayer();
+					}
 				}
+
+				FlushGroup();
 
 				// A client does not request sub-chunks until it has been told to spawn, so gating the
 				// spawn on sub-chunk responses would deadlock the join.
@@ -4352,6 +4423,14 @@ namespace MiNET
 		// different thread, hence concurrent. An entry that is never removed is a column the client
 		// was told about and never asked about - which is what a hole in the world looks like.
 		private readonly System.Collections.Concurrent.ConcurrentDictionary<ChunkCoordinates, long> _skeletonSentAt = new();
+
+		// Every section this player has been served, so a request for one of them again is
+		// countable: the client only re-asks after a fresh skeleton re-marked the column, so each
+		// re-request is a section the client evicted and came back for. Written by the request
+		// handler on the dispatch thread, cleared by CleanCache from respawn/dimension paths,
+		// hence locked on itself. Grows with the ground covered and is never pruned;
+		// diagnostics-priced, a tuple per section.
+		private readonly HashSet<(ChunkCoordinates Column, int SectionY)> _subChunksServed = new();
 
 		/// <summary>Columns pushed to this player that no sub-chunk has ever been requested for.</summary>
 		public int ColumnsNeverRequested => _skeletonSentAt.Count;
@@ -4813,6 +4892,40 @@ namespace MiNET
 			NetworkHandler.SendPacket(packet);
 		}
 
+		/// <summary>
+		///     The list form of <see cref="SendPacket" />: the packets reach the transport as one
+		///     unit and normally leave in one wrapper instead of one each. Plugins see every packet
+		///     exactly as they would through the single form, including suppression and
+		///     replacement. The list and its packets are handed over.
+		/// </summary>
+		public void SendPackets(List<Packet> packets)
+		{
+			if (packets == null || packets.Count == 0) return;
+
+			if (NetworkHandler == null)
+			{
+				foreach (Packet packet in packets) packet?.PutPool();
+				return;
+			}
+
+			MiNET.Plugins.PluginManager plugins = Server?.PluginManager;
+			if (plugins != null)
+			{
+				for (int i = packets.Count - 1; i >= 0; i--)
+				{
+					Packet outgoing = plugins.PluginPacketHandler(packets[i], false, this);
+					if (outgoing == packets[i]) continue;
+
+					packets[i].PutPool();
+					if (outgoing == null) packets.RemoveAt(i);
+					else packets[i] = outgoing;
+				}
+				if (packets.Count == 0) return;
+			}
+
+			NetworkHandler.SendPackets(packets);
+		}
+
 		private object _sendMoveListSync = new object();
 		private DateTime _lastMoveListSendTime = DateTime.UtcNow;
 
@@ -4842,6 +4955,10 @@ namespace MiNET
 			{
 				_chunksUsed.Clear();
 			}
+
+			// Everything will be served afresh, so served-section history would count the entire
+			// re-stream as re-requests and drown the signal it exists for.
+			lock (_subChunksServed) _subChunksServed.Clear();
 
 			// Everything around the player is about to be streamed again, so the adaptor is back where
 			// it was at join: standing in columns the client has not asked about yet, through no fault

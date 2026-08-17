@@ -393,16 +393,21 @@ namespace MiNET.Client
 		{
 			if (message.cacheEnabled)
 			{
-				// Report hits and misses against the local blob cache; a fresh client misses on
-				// everything, and the server answers misses with the full blobs.
+				// Report hits and misses against the hashes we have been given before. A miss is
+				// answered with the full blob, so a client that never remembers its hashes misses on
+				// everything for ever and the cache does nothing but add a round trip.
 				var hits = new List<ulong>();
 				var misses = new List<ulong>();
 
 				foreach (ulong hash in message.cacheMetadata)
 				{
-					if (Client.BlobCache.ContainsKey(hash)) hits.Add(hash);
+					if (Client.KnownBlobs.Contains(hash)) hits.Add(hash);
 					else misses.Add(hash);
 				}
+
+				// Recorded on the way out: a miss is about to be answered with the blob, and after
+				// that we hold it.
+				foreach (ulong hash in misses) Client.KnownBlobs.Add(hash);
 
 				var status = McpeClientCacheBlobStatus.CreateObject();
 				status.hashHits = hits.ToArray();
@@ -410,8 +415,14 @@ namespace MiNET.Client
 				Client.SendPacket(status);
 			}
 
-			// The hash on a cached LevelChunk covers the column's biome blob only, so the
-			// subchunks still have to be requested exactly as in the uncached case.
+			// The hash on a cached LevelChunk covers the column's biome blob only, so the subchunks
+			// still have to be requested exactly as in the uncached case - but only once per column.
+			// A real client keeps what it was sent; re-asking for all 24 sections every time the
+			// server re-pushes a column is what made a walking bot pull its whole surroundings again
+			// on every chunk boundary it crossed.
+			var coordinates = new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z);
+			if (!Client.KnownColumns.Add(coordinates)) return;
+
 			if (message.clientRequestSubchunkLimit != null) SendSubChunkRequest(message);
 		}
 

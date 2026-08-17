@@ -129,7 +129,22 @@ namespace MiNET.Client
 		public McpePlayStatus.PlayStatus PlayerStatus { get; set; }
 		public bool UseBlobCache { get; set; }
 		public bool BlockNetworkIdsAreHashes { get; set; }
-		public Dictionary<ulong, byte[]> BlobCache { get; set; } = new Dictionary<ulong, byte[]>();
+
+		/// <summary>
+		///     Blob hashes this client has already been given. Keys only: the payloads are never read
+		///     back, and holding them would cost a bot its whole terrain in memory for nothing. The key
+		///     is the entire point, because the hit/miss answer is what stops the server resending a
+		///     blob we already have.
+		/// </summary>
+		public HashSet<ulong> KnownBlobs { get; } = new HashSet<ulong>();
+
+		/// <summary>
+		///     Columns whose sub-chunks have already been pulled. A skeleton for a column in here needs
+		///     no sub-chunk request: without this the client re-asks for all 24 sections every time the
+		///     server pushes a column it already sent, which is most of the traffic a walking player
+		///     generates.
+		/// </summary>
+		public HashSet<ChunkCoordinates> KnownColumns { get; } = new HashSet<ChunkCoordinates>();
 
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
 

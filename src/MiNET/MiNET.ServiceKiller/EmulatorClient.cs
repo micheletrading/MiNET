@@ -75,7 +75,9 @@ namespace MiNET.ServiceKiller
 				var client = new MiNetClient(EndPoint, Name);
 				client.ChunkRadius = ChunkRadius;
 				client.IsEmulator = true;
-				client.UseBlobCache = false;
+				// Like every real client, and not optional: the server refuses a client that says it
+				// does not cache. A bot that lies about this is testing a path no player takes.
+				client.UseBlobCache = true;
 				client.ClientId = ClientId;
 
 				// Signaling plus data channel opening is the whole connection; the login

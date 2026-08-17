@@ -32,6 +32,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using fNbt;
 using log4net;
@@ -190,31 +191,56 @@ namespace MiNET.Worlds
 			LevelName = WorldProvider.GetName();
 
 			// Pre-warming is worth it on a real server, where the cost is paid once and every player
-			// arriving at spawn benefits. In development it is the whole startup time: at the default
-			// view distance this walks a disc of a thousand blocks across, per level, before the
-			// socket is even bound. Switching it off leaves caching itself alone, so chunks are
-			// simply cached as they are first read.
+			// arriving at spawn benefits. Switching it off leaves caching itself alone, so chunks
+			// are simply cached as they are first read.
+			//
+			// Backgrounded and parallel, which is the original shape restored twice over: the 2015
+			// pre-cache ran fire-and-forget on the thread pool and startup never waited for it,
+			// a property silently lost in the dimension rework; and the load path is single-thread
+			// ~1ms a column while every other core idles at startup. A player joining before the
+			// warm finishes just loads their columns on demand, same as with warming off.
 			if (WorldProvider.IsCaching && Config.GetProperty("PreWarmChunks", true))
 			{
-				Stopwatch chunkLoading = Stopwatch.StartNew();
+				var centre = new ChunkCoordinates(SpawnPoint) / 8;
+				int radius = ViewDistance;
 
-				// Pre-cache chunks for spawn coordinates
-				int i = 0;
-				if (Dimension == Dimension.Nether)
+				Task.Run(() =>
 				{
-				}
-				var chunkCoordinates = new ChunkCoordinates(SpawnPoint) / 8;
-				foreach (var chunk in GenerateChunks(chunkCoordinates, new HashSet<ChunkCoordinates>(), ViewDistance))
-				{
-					if (chunk.Chunk == null) continue;
+					try
+					{
+						Stopwatch chunkLoading = Stopwatch.StartNew();
 
-					// Nobody is listening, so the packet this produced has to go back rather than be
-					// sent. What the pass is for is warming the columns themselves.
-					chunk.Chunk.PutPool();
-					i++;
-				}
+						var disc = new List<ChunkCoordinates>();
+						int radiusSquared = radius * radius;
+						for (int x = -radius; x <= radius; x++)
+						{
+							for (int z = -radius; z <= radius; z++)
+							{
+								if (x * x + z * z > radiusSquared) continue;
 
-				Log.Info($"World pre-cache {i} chunks completed in {chunkLoading.ElapsedMilliseconds}ms");
+								disc.Add(new ChunkCoordinates(centre.X + x, centre.Z + z));
+							}
+						}
+
+						int loaded = 0;
+						Parallel.ForEach(disc, coordinates =>
+						{
+							ChunkColumn column = GetChunk(coordinates);
+							if (column == null) return;
+
+							// Warms the skeleton seed and the biome blob beside the column
+							// itself; the packet has to go back, nobody is listening.
+							column.CreateSkeletonChunk().PutPool();
+							Interlocked.Increment(ref loaded);
+						});
+
+						Log.Info($"World pre-cache {loaded} chunks completed in {chunkLoading.ElapsedMilliseconds}ms");
+					}
+					catch (Exception e)
+					{
+						Log.Error($"World pre-cache failed for {LevelId}", e);
+					}
+				});
 			}
 
 			if (Dimension == Dimension.Overworld)
@@ -1129,11 +1155,11 @@ namespace MiNET.Worlds
 		///         is good at.
 		///     </para>
 		///     <para>
-		///         <paramref name="chunksUsed" /> is the set this player already holds. Membership is
-		///         all it was ever read for.
+		///         <paramref name="chunksUsed" /> is what this player already holds, as column to the
+		///         version that was sent. A column in here is skipped unless its version has moved on.
 		///     </para>
 		/// </summary>
-		public IEnumerable<(ChunkCoordinates Coordinates, McpeLevelChunk Chunk)> GenerateChunks(ChunkCoordinates chunkPosition, HashSet<ChunkCoordinates> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, bool useBlobCache = false, double viewYawDegrees = double.NaN)
+		public IEnumerable<(ChunkCoordinates Coordinates, McpeLevelChunk Chunk)> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, long> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, double viewYawDegrees = double.NaN)
 		{
 			lock (chunksUsed)
 			{
@@ -1180,17 +1206,24 @@ namespace MiNET.Worlds
 					}
 				}
 
-				foreach (var chunkKey in chunksUsed.ToArray())
+				// Pruned to exactly the published area. The client evicts columns outside the area
+				// the publisher update declares and never re-requests them on its own (verified: a
+				// client walked out and back requests nothing without a fresh skeleton), so every
+				// column outside the publish boundary must be forgotten here to be re-sent on
+				// return. The sweep set IS the published area - same centre, same ChunkRadius the
+				// publisher multiplies by 16 - which keeps the two aligned by construction. Never
+				// prune narrower than the publish area shrinks: a column the client dropped but the
+				// server still remembers is a permanent hole.
+				foreach (ChunkCoordinates coordinates in chunksUsed.Keys.ToArray())
 				{
-					if (!newOrders.ContainsKey(chunkKey))
-					{
-						chunksUsed.Remove(chunkKey);
-					}
+					if (!newOrders.ContainsKey(coordinates)) chunksUsed.Remove(coordinates);
 				}
 
 				foreach (var pair in newOrders.OrderBy(pair => pair.Value))
 				{
-					if (chunksUsed.Contains(pair.Key)) continue;
+					// Already sent, and unchanged since. A column only earns a second push by actually
+					// being different, which is what the version says.
+					bool alreadySent = chunksUsed.TryGetValue(pair.Key, out long sentVersion);
 
 					if (WorldProvider == null) continue;
 
@@ -1207,9 +1240,11 @@ namespace MiNET.Worlds
 						// Since 2168 the client only accepts the sub-chunk request flow: a skeleton
 						// LevelChunk here, blocks via McpeSubChunkRequest afterwards. Cache-enabled
 						// clients get the biome payload blob-addressed.
-						chunk = useBlobCache ? chunkColumn.CreateSkeletonBlobChunk() : chunkColumn.CreateSkeletonChunk();
+						if (alreadySent && sentVersion == chunkColumn.Version) continue;
 
-						chunksUsed.Add(pair.Key);
+						chunk = chunkColumn.CreateSkeletonChunk();
+
+						chunksUsed[pair.Key] = chunkColumn.Version;
 					}
 
 					yield return (pair.Key, chunk);

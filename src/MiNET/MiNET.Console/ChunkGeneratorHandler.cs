@@ -98,6 +98,12 @@ namespace MiNET.Console
 			Client.LevelInfo.SpawnZ = (int) Client.SpawnPoint.Z;
 		}
 
+		/// <summary>
+		///     Blob payloads, not just their keys. This tool rebuilds real columns out of what the
+		///     server sends, so unlike an ordinary client it has to keep the bytes.
+		/// </summary>
+		private readonly ConcurrentDictionary<ulong, byte[]> _blobPayloads = new ConcurrentDictionary<ulong, byte[]>();
+
 		private ConcurrentDictionary<CachedChunk, object> _futureChunks = new ConcurrentDictionary<CachedChunk, object>();
 		private ConcurrentDictionary<BlockCoordinates, NbtCompound> _futureBlockEntities = new ConcurrentDictionary<BlockCoordinates, NbtCompound>();
 
@@ -140,7 +146,7 @@ namespace MiNET.Console
 				ulong hash = kv.Key;
 				byte[] data = kv.Value;
 
-				Client.BlobCache.TryAdd(hash, data);
+				_blobPayloads.TryAdd(hash, data);
 
 				var chunks = _futureChunks.Where(c => c.Key.SubChunks.Contains(hash) || c.Key.Biome == hash);
 				foreach (KeyValuePair<CachedChunk, object> kvp in chunks)
@@ -199,7 +205,7 @@ namespace MiNET.Console
 				var misses = new List<ulong>();
 
 				ulong biomeHash = message.cacheMetadata.Last();
-				if (Client.BlobCache.TryGetValue(biomeHash, out byte[] biomes))
+				if (_blobPayloads.TryGetValue(biomeHash, out byte[] biomes))
 				{
 					chunk.Chunk.biomeId = biomes;
 					hits.Add(biomeHash);
@@ -213,7 +219,7 @@ namespace MiNET.Console
 				for (int i = 0; i < message.cacheMetadata.Count - 1; i++)
 				{
 					ulong hash = message.cacheMetadata[i];
-					if (Client.BlobCache.TryGetValue(hash, out byte[] data))
+					if (_blobPayloads.TryGetValue(hash, out byte[] data))
 					{
 						chunk.Chunk[i] = ClientUtils.DecodeChunkColumn(1, data, BlockPalette, _internalStates)[0];
 						hits.Add(hash);
