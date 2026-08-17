@@ -120,6 +120,14 @@ Server side is already configured for this in `server.nicke.conf`: `MaxNumberOfP
 and `InactivityTimeout=60000` (a thousand bots starve threads long enough that healthy
 sessions look silent on the default 8.5s and get swept).
 
+Bots mimic a real client's chunk manners (set in `EmulatorClient`): cold blob cache per bot
+(every join pays full price, which is what a load test should stress), only the top 4
+sections of each column requested (`RequestTopSections`, the surface band at the column's
+own limit), and cache verdicts plus sub-chunk requests batched on the walk timer
+(`BotWalker.FlushChunkResponses`) instead of answered per packet. The flags live on
+`MiNetClient` and default off, so the protocol tooling keeps its immediate, exhaustive
+behaviour.
+
 **NEVER measure anything with the log root above INFO.** At TRACE/VERBOSE the two appenders
 take ~29000 events a second, each a string format and a write behind an appender lock, and
 per-datagram hex dumps on top. That blocks threads while burning almost no CPU, so the box
@@ -234,7 +242,62 @@ The cache round trip and its hard rules:
 - Validation (client disconnects on violation): a miss response containing a blob id the client did not report as MISS, or a payload whose xxHash64 (unsigned 8-byte little endian) does not match its id. So never push unsolicited blobs and never answer the same miss twice.
 - Server obligation is a refcount: hold every announced payload until each announced client has acked or been served the miss. Vanilla clients run 1-8 concurrent chunk transactions depending on connection quality.
 
-Push vs pull trade-off: cached push wins on a warm cache (metadata only, one status round trip, no request leg) but degenerates on a cold cache, because announcing a column's hashes obligates the client to materialize the whole column, deepslate included, and terrain blobs dedup badly (air collapses, real sections are near-unique). Pull sends only what the client asks for. Mojang's SubChunk doc states the client requests ALL subchunks within "approximately four LevelChunks" of its position unconditionally (the client ticking area) and everything else progressively by visibility. Inside that radius push therefore loses nothing, which makes a hybrid attractive: cached-push full-hash LevelChunks within ~4 chunks of spawn/teleport, skeletons beyond. Per-packet mode choice makes this protocol-legal; it is UNVERIFIED against a strict 2168 client and it diverges from what BDS puts on the wire, so it needs a real-client ruling before it ships. Cached push is not a dead client path: PMMP-family servers still use it at current protocol.
+Push vs pull trade-off: cached push wins on a warm cache (metadata only, one status round trip, no request leg) but degenerates on a cold cache, because announcing a column's hashes obligates the client to materialize the whole column, deepslate included, and terrain blobs dedup badly (air collapses, real sections are near-unique). Pull sends only what the client asks for. Mojang's SubChunk doc states the client requests ALL subchunks within "approximately four LevelChunks" of its position unconditionally (the client ticking area) and everything else progressively by visibility. Inside that radius push therefore loses nothing, which makes a hybrid attractive: cached-push full-hash LevelChunks within ~4 chunks of spawn/teleport, skeletons beyond. Per-packet mode choice makes this protocol-legal. VERIFIED 2026-08-17: a real 1.26.44 client (protocol 2168) accepts full cached-push LevelChunks from MiNET (`ChunkCachedPush=true` in server.conf), renders the world, sends zero SubChunkRequests, and its cache from pull-mode sessions hits under push announcements (130k hits / 9.5k misses on the first push join, 12,853 columns), because both modes serve identical version-9 section bytes. It remains a deliberate divergence from what BDS sends (BDS uses request mode) and is catalogued as such. Known interaction: AdaptChunkRadius's signal (player standing in a never-requested column) never arms in push mode, so adaptive view distance is silently disabled under this flag and `_skeletonSentAt` never drains. Cached push is not a dead client path: PMMP-family servers still use it at current protocol.
+
+RULING: reason about chunk delivery as a READONLY world, like most game servers. Column
+versions exist in the code but never move here; the sent-set is pure membership in the
+player's current disc, and the only re-push is prune/re-entry at the rim as the player
+moves. Do not bring content-change invalidation into chunk-flow reasoning.
+
+THE SLIDING WINDOW (the model, exactly; do not deviate from it):
+
+**The window.** A player's column state is one sliding window: the disc around their
+current position with their chunk radius. That window is the whole of what the client
+"knows" as columns. It slides with movement: columns crossing the trailing edge are
+forgotten completely, columns entering the leading edge are new, full stop. There is no
+memory of columns outside the window, no history, no versions (readonly world), nothing.
+
+**The symmetry.** The server keeps the identical window per player: the sent-set pruned to
+the same disc, same centre, same radius. The two must match exactly, because the entire
+delta protocol rests on it: a column entering the window gets a fresh skeleton from the
+server precisely because the server forgot it too, and a fresh skeleton always means "new
+column in your window", so the client always runs the full dance for it: SubChunkRequest,
+hash announcements, verdicts. If the windows ever disagree, either the client waits for
+chunks that never come (server thinks it has them) or gets chunks it ignores. Match, or
+the protocol breaks.
+
+**The one persistent thing.** The only cache the client has is the blob cache:
+content-addressed payload hashes, and nothing else. It is completely independent of the
+window, survives movement, rejoins, other servers. This is what makes the sliding window
+affordable: walking back over old ground re-runs the full structural dance, but every hash
+verifies as a hit, so the re-dance is metadata and round trips, never terrain bytes.
+Structure is windowed and cheap to rebuild; payloads are cached forever and never re-sent.
+That division is the whole design.
+
+**The publisher packet.** NetworkChunkPublisherUpdate is exactly its name: "this is the
+area I will publish chunks for". It is the intake filter guarding the window's coherence
+against in-flight packets: when the window slides, chunks from the old window position are
+still in the pipe, and anything arriving outside the declared area is discarded on
+receive, no processing, no CPU. It does not prune, does not evict, does not touch what is
+held. ChunkRadiusUpdate sets the window's size; the publisher heartbeat re-declares its
+position as it moves.
+
+**Why the 600k-rerequest fleet run failed.** Not because the sliding window is expensive:
+because publisher-eviction code shrank the window to radius 4 on every pass, thrashing the
+outer ring in and out of existence. A correctly sliding window re-dances only the genuine
+leading rim, and on revisited ground the dance is all hits.
+
+The bots carry exactly this: windowed KnownColumns, forgotten on movement with the
+server's exact disc; persistent KnownBlobs, never forgotten; the publisher as a cheap
+discard gate; and a full dance for every fresh skeleton.
+
+Measured client behaviour (real 1.26.44 client, 2026-08-17), the facts join tuning must respect:
+
+- The client reconciles announced hashes at a fixed budget of ~290 per tick (~5,800/s), flushing exactly one ClientCacheBlobStatus per tick. Full-horizon render time is announced-hash-count / 5,800 and nothing server-side changes it; a fully warm cache pays the same verification time and only skips the downloads (a radius-64 push join: 98k verdicts, 100% hits, zero payload bytes, ~23s to full render).
+- The client's "I am in the world" edge is ServerBoundLoadingScreen (close) and SetLocalPlayerAsInitialized, sent in the same millisecond. Blob statuses trickle in BEFORE that edge, while the loading screen is still up, so gating on statuses releases too early.
+- Intake outranks processing on the client: chunks flooded before its spawn work completes starve the spawn behind the whole backlog. The join shape that works is a small complete spawn block first (its own direction-blind generate pass over the join-burst radius, prune: false), spawn, then the sweep.
+- Block size: groups of 4095 hashes (one status packet's worth) work; tick-sized 250-hash groups made joins WORSE - per-wrapper decompress/parse overhead dominates the client's intake, so fewer-but-bigger blocks win. Group size 1 (the pre-list-form shape) is predicted worst and untested.
+- Vanilla's publisher is a heartbeat, not a declaration: the BDS capture (temp_auto/tunnel) re-stamps NetworkChunkPublisherUpdate alongside every chunk batch, radius 4 throughout the join burst, then answers ChunkRadiusUpdate after the client's loading-screen packet and re-stamps at the granted radius forever after. MiNET sending only start-of-pass publishers is a catalogued divergence.
 
 The client-side cache itself (the undocumented half):
 

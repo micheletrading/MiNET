@@ -386,8 +386,14 @@ namespace MiNET
 		{
 		}
 
+		private readonly ManualResetEventSlim _localPlayerInitialized = new(false);
+
 		public virtual void HandleMcpeSetLocalPlayerAsInitialized(McpeSetLocalPlayerAsInitialized message)
 		{
+			// The client sends this in the same instant it closes its loading screen (traced
+			// 2026-08-17): the true "I am in the world" edge. The join's chunk flood holds for it.
+			_localPlayerInitialized.Set();
+
 			OnLocalPlayerIsInitialized(new PlayerEventArgs(this));
 		}
 
@@ -578,11 +584,17 @@ namespace MiNET
 		public const int JoinBurstChunkRadius = 4;
 
 		/// <summary>
-		///     Columns inside <see cref="JoinBurstChunkRadius" />: the published 64-block area the
-		///     client needs before it can spawn. The spawn tail waits for this many chunks, not for
-		///     the whole (possibly 32-radius) view.
+		///     The most blob ids one ClientCacheBlobStatus may carry (Tomcc's design gist; bigger
+		///     packets can be rejected).
 		/// </summary>
-		private const int PublishedAreaChunkCount = (JoinBurstChunkRadius * 2 + 1) * (JoinBurstChunkRadius * 2 + 1);
+		private const int MaxBlobStatusIds = 4095;
+
+		/// <summary>
+		///     Hash count at which a chunk group flushes mid-sweep: what one ClientCacheBlobStatus
+		///     can answer. Tick-sized blocks (250) were tried 2026-08-17 and made the join WORSE,
+		///     so small is not better here. int.MaxValue turns grouping off.
+		/// </summary>
+		private const int GroupFlushHashes = MaxBlobStatusIds;
 
 		public int ChunkRadius { get; private set; } = -1;
 
@@ -1173,8 +1185,8 @@ namespace MiNET
 				SpawnPosition = (PlayerLocation) (SpawnPosition ?? Level.SpawnPoint).Clone();
 				KnownPosition = (PlayerLocation) SpawnPosition.Clone();
 
-				// Check if the user already exist, that case bumpt the old one
-				Level.RemoveDuplicatePlayers(Username, ClientId);
+				// A name is one seat: evict whoever already holds it (see Level.RemoveDuplicatePlayers).
+				Level.RemoveDuplicatePlayers(this);
 
 				Level.EntityManager.AddEntity(this);
 
@@ -2397,6 +2409,13 @@ namespace MiNET
 
 			SendPacket(packet);
 		}
+		private void SendChunkRadiusUpdate(int radius)
+		{
+			McpeChunkRadiusUpdate packet = McpeChunkRadiusUpdate.CreateObject();
+			packet.chunkRadius = radius;
+
+			SendPacket(packet);
+		}
 
 		public void SendPlayerStatus(McpePlayStatus.PlayStatus status)
 		{
@@ -2677,8 +2696,14 @@ namespace MiNET
 		///     out of the store after we advertised it, which would strand the chunk, so it is
 		///     logged rather than passed over.
 		/// </summary>
+		private readonly ManualResetEventSlim _clientCacheBlobStatusReceived = new(false);
+
 		public virtual void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
 		{
+			// First status of the session = the client has verified the spawn block's hashes.
+			// The join's flood also waits for this edge; once set it stays set.
+			_clientCacheBlobStatusReceived.Set();
+
 			// The client's own cache verdict, hash by hash: the hit/miss ratio here is the direct
 			// measure of how much the blob cache is actually saving.
 			EngineMetrics.BlobCacheReport("hit", message.hashHits?.Length ?? 0);
@@ -4227,11 +4252,11 @@ namespace MiNET
 				var chunkPosition = new ChunkCoordinates(position);
 				ChunkColumn column = Level.GetChunk(chunkPosition);
 
-				// Skeleton, like every other chunk since 2168: the sections follow as sub-chunk
-				// requests. This was the last sender of the inline form.
+				// Same delivery mode as the streamer: skeleton with sub-chunk requests by
+				// default, the cached push form when ChunkCachedPush is on.
 				if (column == null) return;
 
-				McpeLevelChunk chunk = column.CreateSkeletonChunk();
+				McpeLevelChunk chunk = column.CreateLevelChunk();
 				_chunksUsed[chunkPosition] = column.Version;
 
 				SendNetworkChunkPublisherUpdate(position);
@@ -4262,16 +4287,38 @@ namespace MiNET
 				// left claiming the old one.
 				_lastPublishedChunk = chunkPosition;
 
-				// The whole pass is one list-form send, publisher update at its head: everything
-				// reaches the send queue as one block, and the transport decides what shares a
-				// wrapper and a datagram with it. No artificial group size - splitting here would
-				// only fragment what the drain would have folded anyway.
-				var group = new List<Packet> {CreateNetworkChunkPublisherUpdate(ChunkRadius, position ?? KnownPosition)};
-				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius))
+				// The whole pass accumulates into list-form sends, publisher update at the head:
+				// the transport decides what shares a wrapper and a datagram. Groups flush at
+				// the blob-status boundary like the streamer does.
+				// Small publisher + spawn block first, full publisher ahead of the rest: the
+				// same join-burst ordering as the streamer, so the client can complete and draw
+				// the near area before being told about the whole view.
+				var group = new List<Packet> {CreateNetworkChunkPublisherUpdate(JoinBurstChunkRadius, position ?? KnownPosition)};
+				int groupHashes = 0;
+
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, Math.Min(JoinBurstChunkRadius, ChunkRadius), prune: false))
 				{
 					if (chunk != null) group.Add(chunk);
 				}
 				SendPackets(group);
+				group = new List<Packet> {CreateNetworkChunkPublisherUpdate(ChunkRadius, position ?? KnownPosition)};
+
+				// The rest of the disc at the blob-status boundary (see the streamer).
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius))
+				{
+					if (chunk == null) continue;
+
+					group.Add(chunk);
+					groupHashes += chunk.cacheMetadata?.Count ?? 0;
+
+					if (groupHashes >= GroupFlushHashes)
+					{
+						SendPackets(group);
+						group = new List<Packet>();
+						groupHashes = 0;
+					}
+				}
+				if (group.Count > 0) SendPackets(group);
 			}
 			finally
 			{
@@ -4333,13 +4380,13 @@ namespace MiNET
 				// lags it. The sweep stays radial; this only decides which side of the circle is served
 				// first, which is what a player perceives while a large pass is still running.
 				//
-				// The pass accumulates into one list-form send, publisher update at its head:
-				// everything reaches the send queue as one block, and the transport decides what
-				// shares a wrapper and a datagram with it. No artificial group size - splitting
-				// would only fragment what the drain would have folded anyway. The one mid-pass
-				// flush is the spawn gate below, which is ordering, not grouping.
-				var group = new List<Packet> {CreateNetworkChunkPublisherUpdate(ChunkRadius)};
+				// The pass accumulates into a list-form send, publisher update at its head, and
+				// the transport decides what shares a wrapper and a datagram. The mid-pass
+				// flushes are the spawn gate below (ordering, not grouping) and the blob-status
+				// boundary in the loop (grouping matched to what the client can answer).
+				var group = new List<Packet>();
 				var groupCoordinates = new List<ChunkCoordinates>();
+				int groupHashes = 0;
 
 				void FlushGroup()
 				{
@@ -4359,35 +4406,84 @@ namespace MiNET
 					SendPackets(group);
 					group = new List<Packet>();
 					groupCoordinates.Clear();
+					groupHashes = 0;
 				}
 
-				foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, KnownPosition.HeadYaw))
+				// Delivery is a per-player STATE: the first pass streams the whole burst in the
+				// pull flow, and only after those first sends does the player switch to the
+				// push phase. The flag flips at the end of the pass that streamed the burst -
+				// send-driven, deliberately not derived from IsSpawned, which the client can
+				// flip mid-pass (a bot acknowledges PlayStatus(3) within milliseconds).
+				bool spawningPass = !_firstBurstSent;
+
+				// The spawn block exists ONLY on the initial spawn pass. Movement passes never
+				// re-enter this: re-declaring the small area mid-session momentarily shrinks the
+				// published area, and a faithfully evicting client obeys it - measured at 200
+				// walking bots as 600k+ sub-chunk re-fetches of ring columns evicted and re-sent
+				// on every boundary crossing. Vanilla never shrinks the area after the burst.
+				if (spawningPass)
+				{
+					// The join-burst publisher first, the way vanilla does it: the client is told
+					// about the small spawn area only, so the columns that follow COMPLETE it and
+					// it can draw. prune: false because this radius is not the published area,
+					// and the spawn goes out right after it: block on the queue first,
+					// PlayStatus(3) second.
+					group.Add(CreateNetworkChunkPublisherUpdate(JoinBurstChunkRadius));
+					foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, Math.Min(JoinBurstChunkRadius + 2, ChunkRadius), prune: false))
+					{
+						if (chunk == null) continue;
+
+						group.Add(chunk);
+						groupCoordinates.Add(coordinates);
+						packetCount++;
+					}
+
+					FlushGroup();
+
+					if (!IsSpawned) InitializePlayer();
+				}
+
+				// Now the world grows: the full-radius publisher rides at the head of the next
+				// group, exactly where vanilla widens the area after the join burst.
+				group.Add(CreateNetworkChunkPublisherUpdate(ChunkRadius));
+
+				// The big sweep, cost-ordered with the view bias. Everything block 1 sent is
+				// already versioned in _chunksUsed, so it yields as null here and only the rest
+				// of the disc travels, at the blob-status boundary: one ClientCacheBlobStatus
+				// answers at most 4095 ids, so each block is one the client can settle with a
+				// single status packet.
+				//
+				// Delivery mode is phased per player: the spawn pass streams the pull flow (the
+				// client's request selectivity tames the cold disc), and once spawned the rim
+				// delta switches to cached push - a walking player takes every rim column
+				// anyway, so pull's skeleton+request+response per column collapses to one
+				// pushed packet. Pushed columns stay OUT of the request-latency bookkeeping
+				// (groupCoordinates): nothing will ever request them, and stamping them would
+				// false-positive the adaptive radius's never-requested signal.
+				bool pushRim = !spawningPass && ChunkColumn.PushAfterSpawn;
+				foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, KnownPosition.HeadYaw, cachedPush: pushRim))
 				{
 					if (chunk != null)
 					{
 						group.Add(chunk);
-						groupCoordinates.Add(coordinates);
+						if (!pushRim) groupCoordinates.Add(coordinates);
+						groupHashes += chunk.cacheMetadata?.Count ?? 0;
+
+						if (groupHashes >= GroupFlushHashes)
+						{
+							FlushGroup();
+							group.Add(CreateNetworkChunkPublisherUpdate(ChunkRadius));
+						}
 					}
 
 					packetCount++;
-
-					// Spawn as soon as the published area is delivered, INSIDE the sweep. The columns
-					// come nearest-first, so the 81 that matter are the first 81 visited; waiting for
-					// the loop to finish made the spawn wait for the whole radius instead - 7,854
-					// columns at radius 50 against 804 at 16, every one of them a disk load, which is
-					// why join time scaled with the square of the view distance.
-					//
-					// The flush ahead of it is ordering: the spawn counts columns it has handed to
-					// the list, so the list must be on the send queue before PlayStatus(3) is, or
-					// the client is told to spawn ahead of columns it was promised.
-					if (!IsSpawned && packetCount >= PublishedAreaChunkCount)
-					{
-						FlushGroup();
-						InitializePlayer();
-					}
 				}
 
 				FlushGroup();
+
+				// The first sends are done: from the next pass on, this player is in the push
+				// phase (when ChunkPushAfterSpawn says so).
+				_firstBurstSent = true;
 
 				// A client does not request sub-chunks until it has been told to spawn, so gating the
 				// spawn on sub-chunk responses would deadlock the join.
@@ -4417,6 +4513,12 @@ namespace MiNET
 		// Set when a streaming pass was triggered while another was already running; cleared by the
 		// pass that honours it. See SendChunksForKnownPosition's TryEnter.
 		private int _chunkPassPending;
+
+		// Chunk delivery phase: false until the first burst has actually been SENT (flipped at
+		// the end of the pass that streamed it), after which movement passes may switch to the
+		// cached push form. Send-driven on purpose; never derived from client acknowledgments.
+		private bool _firstBurstSent;
+
 
 		// When each column's skeleton went out, so the first sub-chunk request for it can be timed
 		// against that. Written by the streaming pass, read and cleared by the request handler on a

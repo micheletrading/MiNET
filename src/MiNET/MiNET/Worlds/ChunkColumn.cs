@@ -667,6 +667,16 @@ namespace MiNET.Worlds
 
 		private SkeletonSeed _skeletonSeed;
 
+		/// <summary>
+		///     The computed parts of the cached push form, seed-cached per column version exactly
+		///     like <see cref="SkeletonSeed" />: the hash list, the section count it counts, and
+		///     the inline tail. The tail carries the block entities, and SetBlockEntity funnels
+		///     through SetDirty, so a container change re-seeds this like any block write.
+		/// </summary>
+		private sealed record PushSeed(long Version, uint SubChunkCount, List<ulong> CacheMetadata, byte[] Tail, ChunkPos Position);
+
+		private PushSeed _pushSeed;
+
 		private static readonly byte[] SkeletonChunkData = {0}; // Border blocks - nope (EDU)
 
 		/// <summary>
@@ -705,15 +715,88 @@ namespace MiNET.Worlds
 		}
 
 		/// <summary>
+		///     ChunkCachedPush=true in server.conf sends every LevelChunk in the cached push
+		///     form instead of the skeleton plus sub-chunk request flow. One server-wide switch,
+		///     read once at startup, so the two delivery modes can be measured against each other.
+		/// </summary>
+		public static bool CachedPush { get; set; } = MiNET.Utils.Config.GetProperty("ChunkCachedPush", false);
+
+		/// <summary>
+		///     ChunkPushAfterSpawn=true switches a player's chunk delivery to the cached push
+		///     form once they are spawned: the join burst keeps the pull flow (the client's
+		///     request selectivity is what tames a cold radius-64 disc), and the steady-state
+		///     rim delta, where a walking player takes every column anyway, collapses from
+		///     skeleton+request+response to one pushed packet per column.
+		/// </summary>
+		public static bool PushAfterSpawn { get; set; } = MiNET.Utils.Config.GetProperty("ChunkPushAfterSpawn", false);
+
+		/// <summary>The LevelChunk for this column in whichever delivery mode the server runs.</summary>
+		public McpeLevelChunk CreateLevelChunk()
+		{
+			return CachedPush ? CreateCachedPushChunk() : CreateSkeletonChunk();
+		}
+
+		/// <summary>
 		///     The same chunk with its bulk moved into content-addressed blobs: one per section,
 		///     one for the biomes, leaving only border blocks and block entities inline. A client
 		///     that already holds a blob never receives those bytes again, and blobs shared between
 		///     chunks (all-air sections, repeated terrain) are stored and sent once for everyone.
-		///
-		///     Shared and cached exactly like the plain form, because the hashes are derived from
-		///     content and not from who is asking. What differs per client is only which blobs come
-		///     back as misses.
+		///     Server-driven, no request-mode marker: the client asks for nothing and reports hit
+		///     or miss per hash instead.
+		///     <para>
+		///         Section blobs are the same version-9 bytes the sub-chunk request path serves,
+		///         so both modes hash to the same blobs and a client cache filled by one mode hits
+		///         in the other. Hash order is the client's rebuild order: sections bottom-up,
+		///         biome blob last, with subChunkCount counting only the sections.
+		///     </para>
 		/// </summary>
+		public McpeLevelChunk CreateCachedPushChunk()
+		{
+			PushSeed seed = _pushSeed;
+			if (seed == null || seed.Version != Version)
+			{
+				int topEmpty = GetTopEmpty();
+
+				var hashes = new List<ulong>(topEmpty + 1);
+				for (int ci = 0; ci < topEmpty; ci++)
+				{
+					hashes.Add(GetSectionBlobId(ci));
+				}
+				hashes.Add(BlobStore.Add(BuildSkeletonBiomes()));
+
+				seed = new PushSeed(Version, (uint) topEmpty, hashes, GetTailBytes(), new ChunkPos {x = X, z = Z});
+				_pushSeed = seed;
+			}
+
+			var packet = McpeLevelChunk.CreateObject();
+			packet.chunkPosition = seed.Position;
+			packet.dimension = (int) Dimension;
+			packet.subChunkCount = seed.SubChunkCount;
+			packet.cacheEnabled = true;
+			packet.cacheMetadata = seed.CacheMetadata;
+			packet.chunkData = seed.Tail;
+
+			return packet;
+		}
+
+		/// <summary>
+		///     One section's blob id for the cached push form. A live section serializes exactly
+		///     as the sub-chunk request path does; a missing or all-air one becomes the canonical
+		///     empty version-9 section (no storages), so every empty section at the same height
+		///     collapses to one blob for the whole world.
+		/// </summary>
+		private ulong GetSectionBlobId(int storageIndex)
+		{
+			sbyte sectionY = (sbyte) (storageIndex + WorldMinY / 16);
+
+			SubChunk section = this[storageIndex, generateIfMissing: false];
+			if (section == null || section.IsAllAir()) return BlobStore.Add(new byte[] {9, 0, unchecked((byte) sectionY)});
+
+			using MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream();
+			section.WriteVersion9(stream, sectionY);
+			return BlobStore.Add(stream.ToArray());
+		}
+
 		/// <summary>
 		///     Everything in the chunk payload that is not a blob: the border block count and the
 		///     block entities. Sections and biomes are addressed by hash in the cached form, so

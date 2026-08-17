@@ -228,9 +228,9 @@ namespace MiNET.Worlds
 							ChunkColumn column = GetChunk(coordinates);
 							if (column == null) return;
 
-							// Warms the skeleton seed and the biome blob beside the column
-							// itself; the packet has to go back, nobody is listening.
-							column.CreateSkeletonChunk().PutPool();
+							// Warms the active delivery mode's seed and its blobs beside the
+							// column itself; the packet has to go back, nobody is listening.
+							column.CreateLevelChunk().PutPool();
 							Interlocked.Increment(ref loaded);
 						});
 
@@ -567,15 +567,24 @@ namespace MiNET.Worlds
 		}
 
 
-		public void RemoveDuplicatePlayers(string username, long clientId)
+		/// <summary>
+		///     A name is one seat: a new login under a name evicts whoever already holds it. The
+		///     usual case is a crashed or stale session whose sweep has not fired yet - the
+		///     returning player IS the same person, and making them wait out the sweep timeout
+		///     serves nobody. Matched on name alone and guarded by reference identity: ClientIds
+		///     are not unique across clients (the bot fleet reuses them run to run), so they can
+		///     distinguish nothing.
+		/// </summary>
+		public void RemoveDuplicatePlayers(Player newPlayer)
 		{
-			//var existingPlayers = Players.Where(player => player.Value.ClientId == clientId && player.Value.Username.Equals(username, StringComparison.InvariantCultureIgnoreCase));
+			foreach (Player existing in GetAllPlayers())
+			{
+				if (ReferenceEquals(existing, newPlayer)) continue;
+				if (!newPlayer.Username.Equals(existing.Username, StringComparison.InvariantCultureIgnoreCase)) continue;
 
-			//foreach (var existingPlayer in existingPlayers)
-			//{
-			//	Log.InfoFormat("Removing staled players on login {0}", username);
-			//	existingPlayer.Value.Disconnect("Duplicate player. Crashed.", false);
-			//}
+				Log.Info($"Evicting existing session for {existing.Username} on new login");
+				existing.Disconnect("You logged in from another location.", false);
+			}
 		}
 
 		public virtual void BroadcastTitle(string text, TitleType type = TitleType.Title, int fadeIn = 6, int fadeOut = 6, int stayTime = 20, Player sender = null, Player[] sendList = null)
@@ -1159,7 +1168,7 @@ namespace MiNET.Worlds
 		///         version that was sent. A column in here is skipped unless its version has moved on.
 		///     </para>
 		/// </summary>
-		public IEnumerable<(ChunkCoordinates Coordinates, McpeLevelChunk Chunk)> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, long> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, double viewYawDegrees = double.NaN)
+		public IEnumerable<(ChunkCoordinates Coordinates, McpeLevelChunk Chunk)> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, long> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, double viewYawDegrees = double.NaN, bool prune = true, bool cachedPush = false)
 		{
 			lock (chunksUsed)
 			{
@@ -1213,10 +1222,15 @@ namespace MiNET.Worlds
 				// return. The sweep set IS the published area - same centre, same ChunkRadius the
 				// publisher multiplies by 16 - which keeps the two aligned by construction. Never
 				// prune narrower than the publish area shrinks: a column the client dropped but the
-				// server still remembers is a permanent hole.
-				foreach (ChunkCoordinates coordinates in chunksUsed.Keys.ToArray())
+				// server still remembers is a permanent hole. A first-block pass over the join
+				// burst radius is NOT the published area and passes prune: false, or it would
+				// forget the whole outer view here and re-send it every pass.
+				if (prune)
 				{
-					if (!newOrders.ContainsKey(coordinates)) chunksUsed.Remove(coordinates);
+					foreach (ChunkCoordinates coordinates in chunksUsed.Keys.ToArray())
+					{
+						if (!newOrders.ContainsKey(coordinates)) chunksUsed.Remove(coordinates);
+					}
 				}
 
 				foreach (var pair in newOrders.OrderBy(pair => pair.Value))
@@ -1237,12 +1251,13 @@ namespace MiNET.Worlds
 					McpeLevelChunk chunk = null;
 					if (chunkColumn != null)
 					{
-						// Since 2168 the client only accepts the sub-chunk request flow: a skeleton
-						// LevelChunk here, blocks via McpeSubChunkRequest afterwards. Cache-enabled
-						// clients get the biome payload blob-addressed.
+						// Delivery mode: the caller's cachedPush picks the full-hash push form
+						// (steady-state rim delivery, no request round trip); otherwise the
+						// server-wide ChunkCachedPush switch decides between skeleton-plus-request
+						// and push, as before.
 						if (alreadySent && sentVersion == chunkColumn.Version) continue;
 
-						chunk = chunkColumn.CreateSkeletonChunk();
+						chunk = cachedPush ? chunkColumn.CreateCachedPushChunk() : chunkColumn.CreateLevelChunk();
 
 						chunksUsed[pair.Key] = chunkColumn.Version;
 					}
