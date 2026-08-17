@@ -90,18 +90,19 @@ This exact invocation, from the repo root, every time:
 ```bash
 src/MiNET/MiNET.ServiceKiller/bin/Debug/net10.0/MiNET.ServiceKiller.exe \
   --number-of-bots 1000 --duration-of-connection 900 \
-  --processor-affinity 65520 --auto true \
+  --processor-affinity 65472 --auto true \
   > temp_auto/fleet.log 2>&1
 ```
 
 The standing CPU split on this box (Ryzen AI 7 350, 4x Zen 5 + 4x Zen 5c): the server owns
-the two fast physical cores (`ProcessorAffinity=15` in server.nicke.conf, logicals 0-3) and
-the fleet owns everything else (`--processor-affinity 65520`). Production-shaped runs use
-the Release build of both sides (`dotnet build -c Release`, run the exe from bin/Release);
-measured 2026-08-17 at radius 12: 400 walking players cost ~1.4 of the two server cores,
-the fitted two-core ceiling is ~800-850, and the join burst saturates before occupancy does
-(400 simultaneous radius-32 arrivals lost 6 bots to spawn starvation while 400 residents
-ran clean at 1.92 cores).
+three fast Zen 5 cores (`ProcessorAffinity=63` in server.nicke.conf, logicals 0-5) and the
+fleet owns the rest (`--processor-affinity 65472`, logical 6-15: the fourth fast core plus
+the four Zen 5c). Production-shaped runs use the Release build of both sides
+(`dotnet build -c Release`, run the exe from bin/Release). A real Minecraft client on this
+box competes with the fleet's cores and skews client-side numbers; close it for measured runs.
+History on the older two-core split (ProcessorAffinity=15 / fleet 65520), 2026-08-17 at
+radius 12: 400 walking players cost ~1.4 of the two server cores, the fitted all-to-all
+two-core ceiling was ~800-850, and the join burst saturates before occupancy does.
 
 Only `--number-of-bots` and `--duration-of-connection` ever change. Every other knob (batch
 size 5, chunk radius 5, send interval 40-100ms, concurrent spawn on) stays default, because
@@ -109,6 +110,15 @@ the runs are compared against each other and a changed knob silently invalidates
 comparison: a spawn-batch and send-interval change once produced a "huge difference" that was
 the knob, not the code. If a cadence itself is what is being measured, that is a deliberate
 experiment, said out loud, not folded into a normal run.
+
+`--walker` is the one sanctioned experiment axis on top of that: it selects the bots' path
+shape ([WalkPaths.cs](src/MiNET/MiNET.ServiceKiller/WalkPaths.cs), pluggable `IWalkPath`).
+`helix` (default) is the historical corkscrew at spawn, one dense cluster; `waypoints` wanders
+the map inside `--walk-bounds` blocks of spawn (default 800, uniform over the disc), with 30%
+of targets drawn from 6 hub points every bot derives from a fixed seed, so routes cross and
+crowds form and dissolve at the hubs. Waypoints is the shape for combined movement + chunk
+loading load (wanderers pull fresh columns the whole run) and for relevance culling's intended
+population. Runs are only comparable to runs with the same walker.
 
 - The built exe directly, never `dotnet run` (a run wrapper cannot be killed cleanly; `taskkill /F /T` the exe).
 - `--auto true` skips the "Press Enter" prompt, which is what makes it work detached.
@@ -316,6 +326,122 @@ The client-side cache itself (the undocumented half):
 - Living under `Temp` means Windows disk cleanup can wipe it at any time, so persistence is best-effort by construction. Capacity and eviction policy are documented nowhere; the DB is inspectable with the same LevelDB code `LevelDbProvider` uses (copy the folder with the client closed), and retention is measurable black-box from our side via `BlobStore` hit/miss metrics across rejoins.
 
 Sources: [LevelChunkPacket](https://github.com/Mojang/bedrock-protocol-docs/blob/main/docs/LevelChunkPacket.html), [ClientCacheBlobStatusPacket](https://github.com/Mojang/bedrock-protocol-docs/blob/main/docs/ClientCacheBlobStatusPacket.html), [ClientCacheMissResponsePacket](https://github.com/Mojang/bedrock-protocol-docs/blob/main/docs/ClientCacheMissResponsePacket.html), [ClientCacheStatusPacket](https://github.com/Mojang/bedrock-protocol-docs/blob/main/docs/ClientCacheStatusPacket.html), [ClientCacheMissResponsePacketValidation.md](https://github.com/Mojang/bedrock-protocol-docs/blob/main/additional_docs/ClientCacheMissResponsePacketValidation.md), [SubChunk Request System v1.18.10.md](https://github.com/Mojang/bedrock-protocol-docs/blob/main/additional_docs/SubChunk%20Request%20System%20v1.18.10.md), [Tomcc's client cache design gist](https://gist.github.com/Tomcc/4be79d3eafcd158c5059abd4ab2e8d35) (the only first-party description of client behaviour), [minecraft.wiki Bedrock cache files](https://minecraft.wiki/w/Bedrock_Edition_cache_files) (marks blob_cache "more information needed"). Neighborhood: [JustTalDevelops' "Exploiting the Blob Cache"](https://gist.github.com/JustTalDevelops/1abfdae7ab7618af2ec82f709ffa93bb) is the attack that forced Mojang's validation rules; cross-server CAS is exactly why unsolicited-blob injection mattered.
+
+## Movement broadcast and relevance culling
+
+`Level.EntityRelevanceRadius` (blocks, 2D, per level, seeded from the `EntityRelevanceRadius`
+config key) switches the movement broadcast between two paths. 0 is the legacy all-to-all: one
+roster batch, one compression, sent to every player, O(N^2) on the wire (~68MB/s at 400 walking
+bots, the measured scaling ceiling ~800-850 players on the two pinned cores). Non-zero runs
+[RelevanceMatrix](src/MiNET/MiNET/Worlds/RelevanceMatrix.cs): a full pairwise bit matrix
+(Vector256 kernel, scalar oracle for tests, every array an ArrayPool lease), double-buffered so
+the XOR of two ticks is the transition stream that drives entity spawn/despawn per pair. The
+player list stays global (skins/identity); only entity visibility is culled. The diagonal is
+always clear: the transition stream must never spawn a player to themselves.
+
+Hard-won shape of the culled path, each item measured at 400 Release bots (2026-08-17):
+
+- The matrix input is CELL-QUANTIZED (16-block cells, positions snapped to cell centers;
+  movement packets keep exact positions). Exact distances give every viewer a subtly unique
+  visible set, which degenerated to ~380 single-member groups, ~380 compressions per pass, a
+  172ms Overworld tick and 4 broadcast passes/s: visible slideshow movement in a real client.
+  Quantized, viewers in one cell hold bit-identical rows and groups collapse to occupied cells.
+- Recipients group by ROW-PLUS-SELF hash (`GetRowHashWithSelf`), not the plain row hash: the
+  clear diagonal makes every member of a mutually visible cluster differ by exactly its own bit,
+  so plain rows never group. Row-plus-self means members receive their own movement echo, which
+  is what the legacy all-to-all always did.
+- Movers encode ONCE per pass; groups assemble payloads from the cached frame bytes
+  (`CompressIntoPooledStream(frames, writeLen: false, ...)` produces the wrapper payload shape).
+  Building packet objects per group measured as ~130k packet encodes per pass at 400.
+- Metrics: relevance.matrix.time (265us p50 at 400 slots), relevance.pairs,
+  relevance.transitions, broadcast.groups, broadcast.recipients, alongside the existing
+  broadcast.* set.
+
+Fix points, Release both sides, standing affinity split, radius 96, 2026-08-17. The DENSE case
+(400 helix bots, the whole fleet inside a ~120-block disc): 400/400, tick p50 20ms / p95 27ms,
+full 20/s cadence, 113 groups per pass (recipients p50 2, movers p50 218), bytes.out ~57MB/s
+vs the 68 baseline, CPU 2.26 cores vs 1.39 baseline. Dense is culling's worst case: only ~45%
+of pairs cull, the wire win is modest and the many-compressions cost is real. A per-tick
+hybrid (fall back to the single legacy roster batch when pair density is high, matrix kept
+running for spawn/despawn) remains the candidate fix if dense crowds become a real workload.
+
+The SPREAD case (waypoints walker, 800-block bounds) is what the culling is for. 400 bots:
+400/400, movement all but disappears from the cost picture (broadcast build p95 4.9ms per pass,
+movers p50 6, ~2MB/s of wire). 1000 bots, a population the all-to-all fit (~800-850 ceiling)
+said this box could never hold: 1000/1000 spawned in ~112s and stayed, zero errors, through 121
+login evictions of a previous fleet's ghost sessions, serving ~7,500 columns/s of terrain the
+whole time.
+
+The 1000-run tick initially saturated at p50 244ms, and the profiler (`/metrics on` +
+`/metrics display`, also reachable headless via `MiNET.Console remote "metrics ..."`) named the
+location in one line: Player tick 227ms of 266, every other phase zero. Bisecting it taught a
+lesson worth keeping: the first suspect, per-player-per-tick Level.GetBlock materialization in
+the environmental probes (portal, water, suffocation, lava), was CONVICTED WRONGLY. Moving
+every probe onto allocation-free runtime-id reads (BlockFactory prototypes, `Is<T>`,
+`Level.GetRuntimeIdAt` / `IsTransparent` / `BlocksMovement`) changed nothing: still 300ms. The
+real eater was visible on OUTGOING the whole time: ~110k extra transport.messages.out/s from
+ungated `Entity.BroadcastSetEntityData()` calls, an all-to-all SetEntityData per submerged or
+buried entity every 10 ticks, forever, gamemode-independent, with the Air counter ticking
+inside the payload making every one a genuine change.
+
+The standing fix, both halves in Entity/HealthManager: `BroadcastSetEntityData` hash-gates at
+the chokepoint (serialize metadata to a pooled stream, XxHash64, drop the relay when identical
+to the last one sent; GetMetadata is virtual so no CALLER can know whether anything changed,
+and callers legitimately spray), and the air counter only runs for entities that can drown
+(survival players), so a creative fleet's metadata stays stable. With the full environmental
+block ACTIVE at 1000 spread bots: world tick 17ms avg (1 overrun in 600), Player tick 3ms,
+34.6k messages.out/s, CPU 2.06 cores. The everything-on confirmation run (hunger re-enabled,
+gate moved into the MetadataDictionary overload so explicit-payload callers gate too): world
+tick 16ms avg, Player tick 3ms, 31k messages.out/s, CPU 2.2 cores, 1000/1000 clean. Nothing
+is disabled any more; HungerManager.OnTick, briefly out for the A/B, is back and cost nothing
+measurable.
+
+The 2000-bot run (three-core split, ramp at --batch-size 3, a deliberate knob said out loud)
+first exposed a hard join wall at exactly 1366 bots: new NetherNet connects timed out on both
+ends while every in-world session stayed healthy. The cause was the mux's first-contact ICE
+admission budget (`UdpMux.MaxUnknownEndpointAdmissions`, was a 4096 const): every joining
+client burns one admission per advertised server candidate its checks arrive through (three
+here: LAN, public, loopback), only the nominated one is released on disconnect, and 4096/3 =
+1365. The budget is now config-seeded (`Mux.MaxUnknownEndpointAdmissions`, dev conf 20000) by
+NetherNetListener so Net/Rtc stays config-free. STILL OWED in the mux: release the
+non-nominated admissions at nomination and on negotiation discard, so the cap bounds live
+negotiations instead of counting history. With the budget raised: 1983/2000 spawned (17 lost
+to ramp-window starvation while a real client shared the fleet cores; catalogued), zero
+connect failures, world tick 95ms steady at ~1983 wanderers (Player tick 11ms; the rest is
+the culled movement fan-out at ~1,616 groups per pass, ~52us per group), 58k messages/s,
+52.6MB/s, server 4.29 of 6 logicals. Real-client validation at this population: an off-box
+real client (Kenny, OpenMiNET) connected during the run and reported it really smooth, which
+is the culling doing its job: that client receives only its own visible movers per pass, and
+client-side interpolation carries the ~10 passes/s without visible stutter.
+
+The fan-out then went through three cranks at 2000, tick 95ms -> 71 -> 56 (avg; min 19 on
+skip ticks), each verified on a full clean 2000/2000 run:
+
+- Parallel per-group builds (Parallel.For, MaxDegreeOfParallelism 4, capped so the session
+  send lanes sharing the cores keep breathing room). Sub-linear gain (95->71): Amdahl on the
+  serial prefix, NOT lock contention (both pools are lock-free concurrent; Monitor
+  contentions unchanged at ~630/s).
+- Everything after Compute is pure derivation from the frozen matrix snapshot, so the row
+  hashes and the mover packet encodes are their own index-aligned Parallel.For too, and the
+  group-by runs over precomputed hashes. RULING: player positions are grab-and-go, read live
+  at whatever value they hold, no snapshot, no locking; stale or torn reads matter not. The
+  per-pass position clones are gone with it.
+- Groups persist across ticks and rebuild on a movement signal, not a timer: only cell
+  crossings can change the structure, so the rebuild fires when any player drifts more than a
+  cell (16 blocks) from their anchor at the last regroup, or on any roster change (forced,
+  same pass, so departed players leave member lists before the next send). Audience drift
+  between rebuilds is bounded by one cell.
+
+Design direction agreed but not built: hand the whole post-Compute fan-out to the send-lane
+side via lazily-built wrappers (compress-once latch on the shared refcounted wrapper, first
+lane to dequeue pays the deflate), which deletes the tick-side Parallel.For entirely and
+lets transport parallelism own the build.
+
+Remaining catalogued rot in the environment cluster, for the eventual rework: the
+probes' pre-1.18 Y guards (water/lava/suffocation never detected below y 0 or above 255),
+drowning damage at 2x vanilla cadence, Air unboundedly negative, eye-height probe at +1.62 for
+every entity type, and SetEntityData/EntityEvent broadcasts still all-to-all instead of
+relevance-scoped.
 
 ## Plugin system
 
