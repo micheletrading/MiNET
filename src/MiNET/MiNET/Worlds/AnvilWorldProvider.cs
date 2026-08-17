@@ -24,22 +24,27 @@
 #endregion
 
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using fNbt;
 using log4net;
+using Microsoft.Win32.SafeHandles;
 using MiNET.BlockEntities;
 using MiNET.Blocks;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Utils;
+using MiNET.Utils.IO;
 using MiNET.Utils.Vectors;
 
 namespace MiNET.Worlds
@@ -264,11 +269,6 @@ namespace MiNET.Worlds
 			}
 		}
 
-		private int Noop(int blockId, int data)
-		{
-			return 0;
-		}
-
 		public bool CachedChunksContains(ChunkCoordinates chunkCoord)
 		{
 			return _chunkCache.ContainsKey(chunkCoord);
@@ -348,8 +348,40 @@ namespace MiNET.Worlds
 
 		public Queue<Block> LightSources { get; set; } = new Queue<Block>();
 
+		// Region file handles, opened once and read positionally: RandomAccess reads are
+		// thread-safe, so concurrent column loads share one handle with no per-column open, no
+		// seeks and no locks. A null marks a region absent from disk; the save path removes the
+		// entry when it creates the file. Handles admit the writer (FileShare.ReadWrite), and the
+		// writer admits readers. Static and path-keyed because SaveChunk is static and every
+		// dimension's provider resolves distinct paths.
+		private static readonly ConcurrentDictionary<string, SafeFileHandle> _regionHandles = new();
+
+		private static SafeFileHandle GetRegionHandle(string basePath, int rx, int rz)
+		{
+			string filePath = Path.Combine(basePath, "region", $"r.{rx}.{rz}.mca");
+			return _regionHandles.GetOrAdd(filePath, path =>
+			{
+				if (!File.Exists(path)) return null;
+
+				return File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+			});
+		}
+
+		// Phase accumulators for the load benchmarks, off unless a benchmark switches them on:
+		// a few timestamps per column behind one predictable branch. Read and reset by
+		// AnvilLoadPerfTests; never on in production.
+		internal static bool ProfileLoad;
+		internal static long ProfileNbtTicks, ProfileSectionTicks, ProfileBlockEntityTicks, ProfileTailTicks, ProfileColumns;
+
+		// Cost-attribution switches for the cell loop, benchmark-only: skipping a piece of the
+		// work and re-measuring is how its share is established without per-cell timers. A
+		// production load never sets these; the columns they produce are wrong on purpose.
+		internal static bool ProfileSkipLightWrites;
+		internal static bool ProfileSkipBlockStores;
+
 		public ChunkColumn GetChunk(ChunkCoordinates coordinates, string basePath, IWorldGenerator generator)
 		{
+			long profT0 = ProfileLoad ? Stopwatch.GetTimestamp() : 0;
 			try
 			{
 				int width = 32;
@@ -358,9 +390,9 @@ namespace MiNET.Worlds
 				int rx = coordinates.X >> 5;
 				int rz = coordinates.Z >> 5;
 
-				string filePath = Path.Combine(basePath, string.Format(@"region{2}r.{0}.{1}.mca", rx, rz, Path.DirectorySeparatorChar));
+				SafeFileHandle regionHandle = GetRegionHandle(basePath, rx, rz);
 
-				if (!File.Exists(filePath))
+				ChunkColumn GenerateMissing()
 				{
 					var chunkColumn = generator?.GenerateChunkColumn(coordinates);
 					if (chunkColumn != null)
@@ -378,63 +410,44 @@ namespace MiNET.Worlds
 					return chunkColumn;
 				}
 
-				using (var regionFile = File.OpenRead(filePath))
+				if (regionHandle == null) return GenerateMissing();
+
+				int xi = (coordinates.X % width);
+				if (xi < 0) xi += 32;
+				int zi = (coordinates.Z % depth);
+				if (zi < 0) zi += 32;
+				int tableOffset = (xi + zi * width) * 4;
+
+				Span<byte> tableEntry = stackalloc byte[4];
+				RandomAccess.Read(regionHandle, tableEntry, tableOffset);
+				int offset = ((tableEntry[0] << 16) | (tableEntry[1] << 8) | tableEntry[2]) << 12;
+				int length = tableEntry[3]; // sector count
+
+				if (offset == 0 || length == 0) return GenerateMissing();
+
+				Span<byte> chunkHeader = stackalloc byte[5];
+				RandomAccess.Read(regionHandle, chunkHeader, offset);
+				int payloadLength = BinaryPrimitives.ReadInt32BigEndian(chunkHeader) - 1;
+				int compressionMode = chunkHeader[4];
+
+				if (compressionMode != 0x02)
+					throw new Exception($"CX={coordinates.X}, CZ={coordinates.Z}, NBT wrong compression. Expected 0x02, got 0x{compressionMode:X2}. " +
+										$"Offset={offset}, length={length}");
+
+				var nbt = new NbtFile();
+				byte[] payload = ArrayPool<byte>.Shared.Rent(payloadLength);
+				try
 				{
-					byte[] buffer = new byte[8192];
+					RandomAccess.Read(regionHandle, payload.AsSpan(0, payloadLength), offset + 5);
+					nbt.LoadFromStream(new MemoryStreamReader(payload.AsMemory(0, payloadLength)), NbtCompression.ZLib);
+				}
+				finally
+				{
+					ArrayPool<byte>.Shared.Return(payload);
+				}
 
-					regionFile.Read(buffer, 0, 8192);
-
-					int xi = (coordinates.X % width);
-					if (xi < 0) xi += 32;
-					int zi = (coordinates.Z % depth);
-					if (zi < 0) zi += 32;
-					int tableOffset = (xi + zi * width) * 4;
-
-					regionFile.Seek(tableOffset, SeekOrigin.Begin);
-
-					byte[] offsetBuffer = new byte[4];
-					regionFile.Read(offsetBuffer, 0, 3);
-					Array.Reverse(offsetBuffer);
-					int offset = BitConverter.ToInt32(offsetBuffer, 0) << 4;
-
-					byte[] bytes = BitConverter.GetBytes(offset >> 4);
-					Array.Reverse(bytes);
-					if (offset != 0 && offsetBuffer[0] != bytes[0] && offsetBuffer[1] != bytes[1] && offsetBuffer[2] != bytes[2])
-					{
-						throw new Exception($"Not the same buffer\n{Packet.HexDump(offsetBuffer)}\n{Packet.HexDump(bytes)}");
-					}
-
-					int length = regionFile.ReadByte();
-
-					if (offset == 0 || length == 0)
-					{
-						var chunkColumn = generator?.GenerateChunkColumn(coordinates);
-						if (chunkColumn != null)
-						{
-							if (Dimension == Dimension.Overworld && Config.GetProperty("CalculateLights", false))
-							{
-								SkyLightBlockAccess blockAccess = new SkyLightBlockAccess(this, chunkColumn);
-								new SkyLightCalculations().RecalcSkyLight(chunkColumn, blockAccess);
-							}
-
-							chunkColumn.IsDirty = false;
-							chunkColumn.NeedSave = false;
-						}
-
-						return chunkColumn;
-					}
-
-					regionFile.Seek(offset, SeekOrigin.Begin);
-					byte[] waste = new byte[4];
-					regionFile.Read(waste, 0, 4);
-					int compressionMode = regionFile.ReadByte();
-
-					if (compressionMode != 0x02)
-						throw new Exception($"CX={coordinates.X}, CZ={coordinates.Z}, NBT wrong compression. Expected 0x02, got 0x{compressionMode:X2}. " +
-											$"Offset={offset}, length={length}\n{Packet.HexDump(waste)}");
-
-					var nbt = new NbtFile();
-					nbt.LoadFromStream(regionFile, NbtCompression.ZLib);
+				{
+					long profT1 = ProfileLoad ? Stopwatch.GetTimestamp() : 0;
 
 					NbtCompound dataTag = (NbtCompound) nbt.RootTag["Level"];
 
@@ -475,6 +488,8 @@ namespace MiNET.Worlds
 					{
 						ReadSection(sectionTag, chunk, !isPocketEdition);
 					}
+
+					long profT2 = ProfileLoad ? Stopwatch.GetTimestamp() : 0;
 
 					NbtList entities = dataTag["Entities"] as NbtList;
 
@@ -580,6 +595,8 @@ namespace MiNET.Worlds
 						}
 					}
 
+					long profT3 = ProfileLoad ? Stopwatch.GetTimestamp() : 0;
+
 					//NbtList tileTicks = dataTag["TileTicks"] as NbtList;
 
 					if (Dimension == Dimension.Overworld && Config.GetProperty("CalculateLights", false))
@@ -593,6 +610,15 @@ namespace MiNET.Worlds
 
 					chunk.IsDirty = false;
 					chunk.NeedSave = false;
+
+					if (ProfileLoad)
+					{
+						ProfileNbtTicks += profT1 - profT0;
+						ProfileSectionTicks += profT2 - profT1;
+						ProfileBlockEntityTicks += profT3 - profT2;
+						ProfileTailTicks += Stopwatch.GetTimestamp() - profT3;
+						ProfileColumns++;
+					}
 
 					return chunk;
 				}
@@ -610,96 +636,246 @@ namespace MiNET.Worlds
 			}
 		}
 
+		/// <summary>
+		///     The legacy conversion baked flat. Everything the per-block loop computed through
+		///     <see cref="Convert" />, its meta-converter delegate and
+		///     <see cref="BlockFactory.GetRuntimeId" /> is a pure function of (rawId, rawMeta),
+		///     and that domain is 4096 x 16 - so it is evaluated once per process and the loop's
+		///     dictionary lookups and delegate call become one array index. Measured before the
+		///     bake: the conversion loop was 92% of a 4.25ms column parse. The Y0 variant bakes
+		///     the water-to-bedrock floor swap, the only position-dependent step.
+		/// </summary>
+		private sealed class LegacyConversionTable
+		{
+			public readonly int[] Runtime = new int[4096 * 16];
+			public readonly int[] RuntimeY0 = new int[4096 * 16];
+			public readonly ushort[] ConvertedId = new ushort[4096 * 16];
+			public readonly byte[] Emission = new byte[4096 * 16];
+			public readonly bool[] Podzol = new bool[4096 * 16];
+			public readonly bool[] Unmapped = new bool[4096 * 16];
+			public readonly bool[] RowBuilt = new bool[4096];
+			public readonly bool ConvertBid;
+
+			public LegacyConversionTable(bool convertBid)
+			{
+				ConvertBid = convertBid;
+			}
+
+			/// <summary>
+			///     Built one raw-id row at a time, on first touch: pre-building all 4096 ids meant
+			///     131k GetRuntimeId calls, most for nonsense combinations that take the factory's
+			///     slow path, and it charged 3.5 seconds to whichever column loaded first. A real
+			///     world touches on the order of a hundred distinct ids, so lazily the build cost
+			///     is milliseconds spread across the first columns.
+			/// </summary>
+			public void BuildRow(int rawId)
+			{
+				lock (RowBuilt)
+				{
+					if (RowBuilt[rawId]) return;
+
+					for (byte rawMeta = 0; rawMeta < 16; rawMeta++)
+					{
+						int key = (rawId << 4) | rawMeta;
+
+						// The exact logic the per-block loop ran, evaluated once per combination.
+						Func<int, byte, byte> dataConverter = (i, b) => b;
+						int blockId = rawId;
+						if (ConvertBid && Convert.TryGetValue(rawId, out Tuple<int, Func<int, byte, byte>> mapping))
+						{
+							dataConverter = mapping.Item2;
+							blockId = mapping.Item1;
+						}
+
+						if (blockId > 255)
+						{
+							Unmapped[key] = true;
+							blockId = 41;
+						}
+
+						byte metadata = dataConverter(blockId, rawMeta);
+						Runtime[key] = (int) BlockFactory.GetRuntimeId(blockId, metadata);
+						ConvertedId[key] = (ushort) blockId;
+						Emission[key] = BlockFactory.GetLightEmission(Runtime[key]);
+						Podzol[key] = ConvertBid && blockId == 3 && metadata == 2;
+
+						int y0BlockId = blockId == 8 || blockId == 9 ? 7 : blockId; // Bedrock under water
+						byte y0Metadata = dataConverter(y0BlockId, rawMeta);
+						RuntimeY0[key] = (int) BlockFactory.GetRuntimeId(y0BlockId, y0Metadata);
+					}
+
+					// Written last: readers check it unlocked, and a row must be fully published
+					// before it reads as built.
+					Volatile.Write(ref RowBuilt[rawId], true);
+				}
+			}
+		}
+
+		private static LegacyConversionTable _legacyTableConverted;
+		private static LegacyConversionTable _legacyTableRaw;
+		private static readonly object _legacyTableSync = new object();
+
+		private static LegacyConversionTable GetLegacyTable(bool convertBid)
+		{
+			LegacyConversionTable table = convertBid ? _legacyTableConverted : _legacyTableRaw;
+			if (table != null) return table;
+
+			lock (_legacyTableSync)
+			{
+				table = convertBid ? _legacyTableConverted : _legacyTableRaw;
+				if (table != null) return table;
+
+				table = new LegacyConversionTable(convertBid);
+
+				if (convertBid) _legacyTableConverted = table;
+				else _legacyTableRaw = table;
+
+				return table;
+			}
+		}
+
+		private static readonly Lazy<int> PodzolRuntimeId = new Lazy<int>(() => (int) new Podzol().GetRuntimeId());
+
 		private void ReadSection(NbtTag sectionTag, ChunkColumn chunkColumn, bool convertBid = true)
 		{
 			int sectionIndex = sectionTag["Y"].ByteValue;
 			byte[] blocks = sectionTag["Blocks"].ByteArrayValue;
 			byte[] data = sectionTag["Data"].ByteArrayValue;
 			NbtTag addTag = sectionTag["Add"];
-			byte[] adddata = new byte[2048];
-			if (addTag != null) adddata = addTag.ByteArrayValue;
+			bool hasAdd = addTag != null;
+			byte[] adddata = hasAdd ? addTag.ByteArrayValue : null;
 			byte[] blockLight = sectionTag["BlockLight"].ByteArrayValue;
 			byte[] skyLight = sectionTag["SkyLight"].ByteArrayValue;
 
 			var subChunk = chunkColumn[4 + sectionIndex]; //Offset by 4 because of 1.18 world update.
 
-			for (int x = 0; x < 16; x++)
+			LegacyConversionTable table = GetLegacyTable(convertBid);
+
+			// One flat pass over the 4096 cells, writing the backing arrays directly: no per-cell
+			// method calls, no palette scans. SetBlockByRuntimeId's linear palette lookup is
+			// replaced by a run cache plus a small map (terrain is run-heavy, so the run cache
+			// catches almost everything), light nibbles move via the index permutation, and the
+			// dirty mark is set once at the end instead of per cell.
+			List<int> palette = subChunk.RuntimeIds;
+			var paletteMap = new Dictionary<int, short>(8);
+			for (short i = 0; i < palette.Count; i++) paletteMap[palette[i]] = i;
+			int lastRuntimeId = -1;
+			short lastPaletteIndex = 0;
+
+			short[] blocksOut = subChunk.Blocks;
+			byte[] blockLightOut = subChunk._blocklight.Data;
+			byte[] skyLightOut = subChunk._skylight.Data;
+			bool isSectionZero = sectionIndex == 0;
+
+			// Sky is most of a populated section, and the loop's job for an air cell is only to
+			// discover it is air. Eight cells at a time: a zero word of block ids (with no Add
+			// high bits) is eight airs, skipped in one compare.
+			ReadOnlySpan<ulong> blockWords = MemoryMarshal.Cast<byte, ulong>(blocks.AsSpan(0, 4096));
+			ReadOnlySpan<uint> addWords = hasAdd ? MemoryMarshal.Cast<byte, uint>(adddata.AsSpan(0, 2048)) : default;
+
+			for (int group = 0; group < 512; group++)
 			{
-				for (int z = 0; z < 16; z++)
+				if (blockWords[group] == 0 && (!hasAdd || addWords[group] == 0)) continue;
+
+				int groupBase = group << 3;
+				for (int i = 0; i < 8; i++)
 				{
-					for (int y = 0; y < 16; y++)
+					int anvilIndex = groupBase + i;
+					int rawId = blocks[anvilIndex] + (hasAdd ? Nibble4(adddata, anvilIndex) << 8 : 0);
+
+					if (rawId == 0) continue;
+
+					if (!Volatile.Read(ref table.RowBuilt[rawId])) table.BuildRow(rawId);
+
+					int key = (rawId << 4) | Nibble4(data, anvilIndex);
+
+					int convertedId = table.ConvertedId[key];
+					chunkColumn.IsAllAir &= convertedId == 0;
+					if (table.Unmapped[key]) Log.Warn($"Failed mapping for block ID={rawId}, Meta={key & 0xF}");
+
+					// Anvil packs cells as (y<<8)|(z<<4)|x, our storage as (x<<8)|(z<<4)|y: a fixed
+					// permutation, looked up rather than recomputed.
+					int storageIndex = AnvilToStorageIndex[anvilIndex];
+
+					// The world floor is anvil cells 0..255 of section 0, where water reads as bedrock.
+					int runtimeId = isSectionZero && anvilIndex < 256 ? table.RuntimeY0[key] : table.Runtime[key];
+
+					if (!ProfileSkipBlockStores)
 					{
-						int yi = (sectionIndex << 4) + y;
-
-						int anvilIndex = (y << 8) + (z << 4) + x;
-						int blockId = blocks[anvilIndex] + (Nibble4(adddata, anvilIndex) << 8);
-						
-						if (blockId == 0) continue;
-						
-						// Anvil to PE friendly converstion
-
-						Func<int, byte, byte> dataConverter = (i, b) => b; // Default no-op converter
-						if (convertBid && Convert.ContainsKey(blockId))
+						short paletteIndex;
+						if (runtimeId == lastRuntimeId)
 						{
-							dataConverter = Convert[blockId].Item2;
-							blockId = Convert[blockId].Item1;
-						}
-						//else
-						//{
-						//	if (BlockFactory.GetBlockById((byte)blockId).GetType() == typeof(Block))
-						//	{
-						//		Log.Warn($"No block implemented for block ID={blockId}, Meta={data}");
-						//		//blockId = 57;
-						//	}
-						//}
-
-						chunkColumn.IsAllAir &= blockId == 0;
-						if (blockId > 255)
-						{
-							Log.Warn($"Failed mapping for block ID={blockId}, Meta={data}");
-							blockId = 41;
-						}
-
-						if (yi == 0 && (blockId == 8 || blockId == 9)) blockId = 7; // Bedrock under water
-
-						byte metadata = Nibble4(data, anvilIndex);
-						metadata = dataConverter(blockId, metadata);
-
-						int runtimeId = (int) BlockFactory.GetRuntimeId(blockId, metadata);
-						subChunk.SetBlockByRuntimeId(x, y, z, runtimeId);
-						if (ReadBlockLight)
-						{
-							subChunk.SetBlocklight(x, y, z, Nibble4(blockLight, anvilIndex));
-						}
-
-						if (ReadSkyLight)
-						{
-							subChunk.SetSkylight(x, y, z, Nibble4(skyLight, anvilIndex));
+							paletteIndex = lastPaletteIndex;
 						}
 						else
 						{
-							subChunk.SetSkylight(x, y, z, 0);
+							if (!paletteMap.TryGetValue(runtimeId, out paletteIndex))
+							{
+								paletteIndex = (short) palette.Count;
+								palette.Add(runtimeId);
+								paletteMap[runtimeId] = paletteIndex;
+							}
+							lastRuntimeId = runtimeId;
+							lastPaletteIndex = paletteIndex;
 						}
 
-						if (blockId == 0) continue;
+						blocksOut[storageIndex] = paletteIndex;
+					}
 
-						if (convertBid && blockId == 3 && metadata == 2)
+					if (!ProfileSkipLightWrites)
+					{
+						if (ReadBlockLight) SetNibble4(blockLightOut, storageIndex, Nibble4(blockLight, anvilIndex));
+
+						if (ReadSkyLight) SetNibble4(skyLightOut, storageIndex, Nibble4(skyLight, anvilIndex));
+						else SetNibble4(skyLightOut, storageIndex, 0);
+					}
+
+					if (convertedId == 0) continue;
+
+					if (table.Podzol[key])
+					{
+						// Dirt Podzol => (Podzol). Through the same memo as every other write, or the
+						// palette and the map would drift apart.
+						runtimeId = PodzolRuntimeId.Value;
+						if (!paletteMap.TryGetValue(runtimeId, out short podzolIndex))
 						{
-							// Dirt Podzol => (Podzol)
-							subChunk.SetBlock(x, y, z, new Podzol());
-							blockId = 243;
+							podzolIndex = (short) palette.Count;
+							palette.Add(runtimeId);
+							paletteMap[runtimeId] = podzolIndex;
 						}
+						blocksOut[storageIndex] = podzolIndex;
+					}
 
-						if (BlockFactory.GetLightEmission(subChunk.GetBlockRuntimeId(x, y, z)) != 0)
-						{
-							Block block = subChunk.GetBlockObject(x, y, z);
-							block.Coordinates = new BlockCoordinates(x + (chunkColumn.X << 4), yi, z + (chunkColumn.Z << 4));
-							subChunk.SetBlocklight(x, y, z, (byte) block.LightLevel);
-							lock (LightSources) LightSources.Enqueue(block);
-						}
+					if (table.Emission[key] != 0)
+					{
+						int x = anvilIndex & 0xF;
+						int z = (anvilIndex >> 4) & 0xF;
+						int y = anvilIndex >> 8;
+						Block block = subChunk.GetBlockObject(x, y, z);
+						block.Coordinates = new BlockCoordinates(x + (chunkColumn.X << 4), (sectionIndex << 4) + y, z + (chunkColumn.Z << 4));
+						SetNibble4(blockLightOut, storageIndex, (byte) block.LightLevel);
+						lock (LightSources) LightSources.Enqueue(block);
 					}
 				}
 			}
+
+			subChunk.MarkBulkLoaded();
+		}
+
+		// Anvil cell order to our storage order: (y<<8)|(z<<4)|x becomes (x<<8)|(z<<4)|y.
+		private static readonly ushort[] AnvilToStorageIndex = BuildAnvilToStorageIndex();
+
+		private static ushort[] BuildAnvilToStorageIndex()
+		{
+			var map = new ushort[4096];
+			for (int i = 0; i < 4096; i++)
+			{
+				int x = i & 0xF;
+				int z = (i >> 4) & 0xF;
+				int y = i >> 8;
+				map[i] = (ushort) ((x << 8) | (z << 4) | y);
+			}
+			return map;
 		}
 
 		private static Regex _regex = new Regex(@"^((\{""extra"":\[)?)(\{""text"":"".*?""})(],)?(""text"":"".*?""})?$");
@@ -905,11 +1081,15 @@ namespace MiNET.Worlds
 					byte[] buffer = new byte[8192];
 					regionFile.Write(buffer, 0, buffer.Length);
 				}
+
+				// The read cache may hold "this region does not exist"; it does now.
+				_regionHandles.TryRemove(filePath, out _);
 			}
 
 			var testTime = new Stopwatch();
 
-			using (var regionFile = File.Open(filePath, FileMode.Open))
+			// FileShare.Read admits the cached read handles the load path holds open.
+			using (var regionFile = File.Open(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.Read))
 			{
 				// Region files begin with an 8kiB header containing information about which chunks are present in the region file, 
 				// when they were last updated, and where they can be found.
@@ -1175,8 +1355,6 @@ namespace MiNET.Worlds
 									Z = startZ,
 									IsAllAir = true
 								};
-
-								airColumn.GetBatch();
 
 								_chunkCache[surroundingChunkCoordinates] = airColumn;
 								createdChunks++;

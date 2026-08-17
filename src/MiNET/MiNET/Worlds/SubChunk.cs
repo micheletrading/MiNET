@@ -250,6 +250,17 @@ namespace MiNET.Worlds
 			IsDirty = true;
 		}
 
+		/// <summary>
+		///     The one dirty mark for a bulk loader that has written the backing arrays directly
+		///     (<see cref="Blocks" />, the light arrays) instead of going through the per-cell
+		///     setters. Direct writes without this serve a stale encode cache.
+		/// </summary>
+		internal void MarkBulkLoaded()
+		{
+			_cache = null;
+			IsDirty = true;
+		}
+
 
 		public void SetLoggedBlock(int bx, int by, int bz, Block block)
 		{
