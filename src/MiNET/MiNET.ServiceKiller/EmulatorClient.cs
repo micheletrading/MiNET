@@ -134,7 +134,7 @@ namespace MiNET.ServiceKiller
 				// sleeping thread per bot is tens of thousands of scheduler wakes per second at
 				// fleet scale, and that scheduling was measured to dwarf the actual protocol work.
 				// Registration is the handoff; this spawn thread's job ends here.
-				Emulator.WalkClock.Register(new BotWalker(client, Emulator, TimeToRun, Name, RanMin, RanMax, Random));
+				Emulator.WalkClock.Register(new BotWalker(client, Emulator, TimeToRun, Name, RanMin, RanMax, Random, Emulator.CreateWalkPath()));
 			}
 			catch (Exception e)
 			{
