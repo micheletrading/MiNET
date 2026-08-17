@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -32,8 +32,6 @@ using System.Threading;
 using Jose;
 using log4net;
 using Newtonsoft.Json.Linq;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
 
 namespace MiNET.Utils.Cryptography
 {
@@ -172,20 +170,12 @@ namespace MiNET.Utils.Cryptography
 
 			try
 			{
-				var bouncyKey = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(Convert.FromBase64String(clientPublicKey));
-				var parameters = new ECParameters
-				{
-					Curve = ECCurve.NamedCurves.nistP384,
-					Q =
-					{
-						X = bouncyKey.Q.AffineXCoord.GetEncoded(),
-						Y = bouncyKey.Q.AffineYCoord.GetEncoded()
-					}
-				};
-				parameters.Validate();
+				// A DER SubjectPublicKeyInfo, which ECDsa imports directly.
+				using var clientKey = ECDsa.Create();
+				clientKey.ImportSubjectPublicKeyInfo(Convert.FromBase64String(clientPublicKey), out _);
 
 				// Throws unless the signature verifies under exactly this key and algorithm.
-				JWT.Decode(clientDataJwt, ECDsa.Create(parameters), JwsAlgorithm.ES384);
+				JWT.Decode(clientDataJwt, clientKey, JwsAlgorithm.ES384);
 				return true;
 			}
 			catch (Exception e)

@@ -49,6 +49,7 @@ using MiNET.Net;
 using MiNET.Particles;
 using MiNET.UI;
 using MiNET.Utils;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.Metadata;
 using MiNET.Utils.Nbt;
 using MiNET.Utils.Skins;
@@ -67,7 +68,9 @@ namespace MiNET
 		public IPEndPoint EndPoint { get; private set; }
 		public INetworkHandler NetworkHandler { get; set; }
 
-		private Dictionary<ChunkCoordinates, McpeWrapper> _chunksUsed = new Dictionary<ChunkCoordinates, McpeWrapper>();
+		// Which columns this player already holds. Membership only: the skeletons are ordinary
+		// packets now, so there is nothing per column worth keeping.
+		private HashSet<ChunkCoordinates> _chunksUsed = new HashSet<ChunkCoordinates>();
 		private ChunkCoordinates _currentChunkPosition;
 
 		/// <summary>What the player has open. Never null: closing everything leaves the player's own
@@ -176,6 +179,19 @@ namespace MiNET
 			NoAi = false;
 		}
 
+		// The join clock and how far this join has got. Started when the player object exists, which
+		// is the first moment the server owns the join; everything before it is the transport's and
+		// is measured there. _joinStage is what join.abandoned is tagged with, so a join that dies
+		// names the stage it died after rather than only that it died.
+		private readonly long _joinStartedAt = Stopwatch.GetTimestamp();
+		private JoinStage _joinStage = JoinStage.None;
+
+		private void CompleteJoinStage(JoinStage stage)
+		{
+			_joinStage = stage;
+			EngineMetrics.RecordJoinStage(stage, Username, _joinStartedAt);
+		}
+
 		public virtual void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
 		{
 			// Beware that message might be null here.
@@ -188,6 +204,8 @@ namespace MiNET
 			{
 				SendResourcePacksInfo();
 			}
+
+			CompleteJoinStage(JoinStage.Handshake);
 
 			//MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
 		}
@@ -382,7 +400,7 @@ namespace MiNET
 
 		public virtual void HandleMcpeResourcePackClientResponse(McpeResourcePackClientResponse message)
 		{
-			if (Log.IsDebugEnabled) Log.Debug($"Handled packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
+			if (Log.IsDebugEnabled) Log.Debug($"Handled packet 0x{message.Id:X2}");
 
 			if (message.response is ResourcePackClientResponseDownloading)
 			{
@@ -409,6 +427,8 @@ namespace MiNET
 			}
 			else if (message.response is ResourcePackClientResponseResourcePackStackFinished)
 			{
+				CompleteJoinStage(JoinStage.Packs);
+
 				//if (_serverHaveResources)
 				{
 					MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
@@ -540,6 +560,26 @@ namespace MiNET
 		}
 
 		/// <summary>Chunk radius vanilla publishes during the join burst, before negotiation.</summary>
+		/// <summary>
+		///     Pacing for the skeleton stream. Each column is pre-compressed into its own
+		///     <see cref="McpeWrapper" />, and a wrapper cannot nest inside another, so the send lane
+		///     passes every one through as its own SCTP message: a radius-64 pass is 16,641 messages
+		///     handed to one session back to back, with everything else that player needs queued behind
+		///     them.
+		///     <para>
+		///     This pacing was removed once on the grounds that the send queue already paces it. It does
+		///     not: the queue is an unbounded channel, so the producer never blocks and never feels the
+		///     transport's backpressure at all. The only real limit is the SCTP window, which stalls the
+		///     LANE rather than the loop feeding it, which is how send queue depth reached 1,284 packets
+		///     under load with the producer already finished.
+		///     </para>
+		///     <para>Set <see cref="ChunkSendDelayMs" /> to 0 to send unpaced.</para>
+		/// </summary>
+		public int ChunkSendBatchSize { get; set; } = 16;
+
+		/// <inheritdoc cref="ChunkSendBatchSize" />
+		public int ChunkSendDelayMs { get; set; } = 12;
+
 		public const int JoinBurstChunkRadius = 4;
 
 		/// <summary>
@@ -551,9 +591,156 @@ namespace MiNET
 
 		public int ChunkRadius { get; private set; } = -1;
 
+		/// <summary>
+		///     The radius the client last asked for, before any cap this server applies. Kept so an
+		///     adaptive reduction can be walked back up toward what the player actually wants rather
+		///     than toward whatever we last forced on them.
+		/// </summary>
+		private int _requestedChunkRadius = -1;
+
+		// Columns the client has come back for. Kept for the request-latency metric.
+		private long _columnsDrained;
+
+		/// <summary>Smallest radius the adaptive cap will ever impose. Below this the world is unplayable regardless of streaming.</summary>
+		public static int AdaptiveRadiusFloor { get; set; } = 8;
+
+		/// <summary>Seconds between adaptive evaluations. Each change costs the client a renegotiation, so this is deliberately slow.</summary>
+		public static double AdaptiveRadiusIntervalSeconds { get; set; } = 5;
+
+		/// <summary>
+		///     Seconds to wait after changing the radius before judging again. Reducing does not drain
+		///     the queue the client already holds, it only stops adding to it, so a backlog stays high
+		///     long after a reduction that will eventually fix it. Without this the loop measured its
+		///     own lag and cut again - 38 to 29 to 22 in a few seconds, each step deleting more of the
+		///     player's view for no gain.
+		/// </summary>
+		public static double AdaptiveRadiusCooldownSeconds { get; set; } = 20;
+
+
+		/// <summary>Set false to disable adaptation entirely and honour the client's request up to MaxViewDistance.</summary>
+		public static bool AdaptiveRadiusEnabled { get; set; } = true;
+
+		private long _lastAdaptiveCheck;
+		private int _healthyChecks;
+
 		public void SetChunkRadius(int radius)
 		{
-			ChunkRadius = Math.Max(5, Math.Min(radius, MaxViewDistance));
+			_requestedChunkRadius = radius;
+
+			int updated = Math.Max(5, Math.Min(radius, MaxViewDistance));
+			if (updated == ChunkRadius) return;
+
+			ChunkRadius = updated;
+
+			// Just run a pass. The seen set is deliberately NOT cleared: the sweep already prunes
+			// whatever fell outside the new radius, and widening only adds columns the client does not
+			// have yet. Clearing would re-push the entire radius for a change that invalidates almost
+			// none of it.
+			//
+			// Without this the pass would bail on the standing-still guard, so a render-distance
+			// change took effect only once the player next moved.
+			Volatile.Write(ref _forceChunkPass, 1);
+		}
+
+		// Set when something other than movement invalidated the streamed area. Cleared by the pass
+		// that honours it; see SendChunksForKnownPosition's same-position early-out.
+		private int _forceChunkPass;
+
+		/// <summary>
+		///     Matches the streamed radius to what this client can actually consume, per player.
+		///     <para>
+		///     The signal is the backlog: columns whose skeleton we pushed and which the client has
+		///     never asked a single sub-chunk for. A client that is keeping up holds a backlog of about
+		///     one pass; one that cannot holds thousands and falls minutes behind, at which point the
+		///     columns it does request are for terrain the player left long ago. Measured on a real
+		///     client: radius 16 held a backlog of ~30 with 91ms turnaround, radius 50 reached 8,512
+		///     with 41 SECONDS of turnaround, on identical server code.
+		///     </para>
+		///     <para>
+		///     Reductions are immediate, recoveries are slow and need several consecutive healthy
+		///     checks, because every change costs the client a renegotiation and re-sending a skeleton
+		///     makes it rebuild that column - Mojang's own SubChunk Request System doc warns of visual
+		///     artifacts when that happens. Oscillating here would look worse than any fixed cap.
+		///     </para>
+		/// </summary>
+		private void AdaptChunkRadius()
+		{
+			if (!AdaptiveRadiusEnabled || !IsSpawned || _requestedChunkRadius <= 0) return;
+
+			long now = Stopwatch.GetTimestamp();
+			if (_lastAdaptiveCheck != 0 && (now - _lastAdaptiveCheck) / (double) Stopwatch.Frequency < AdaptiveRadiusIntervalSeconds) return;
+			_lastAdaptiveCheck = now;
+
+			// The whole signal, and it is not a proxy for the failure - it IS the failure. The player
+			// is standing in a column whose skeleton we pushed and which the client has never asked a
+			// single sub-chunk for, so there is nothing to draw where they are. No rate, no threshold,
+			// no distribution to calibrate: if you are inside it and the client never asked, the client
+			// does not have it, whatever the reason.
+			var here = new ChunkCoordinates(KnownPosition);
+			bool standingInUnrequested = _skeletonSentAt.ContainsKey(here);
+
+			// Nothing is judged until the client has once caught up with where the player stands.
+			// IsSpawned is true long before that: the join burst has just pushed the columns around
+			// spawn and the client has not asked for a sub-chunk of any of them yet, which is exactly
+			// the state below reads as failure. Every player would be told their view distance was
+			// reduced, on arrival, every time. The arming signal is the same one the adaptor runs on,
+			// so there is no timer to tune: the first check that finds the player's own column already
+			// requested means streaming is level with them, and from then on the signal means what it
+			// says.
+			if (!_adaptiveArmed)
+			{
+				if (standingInUnrequested) return;
+
+				_adaptiveArmed = true;
+				_healthyChecks = 0;
+				return;
+			}
+
+			int ceiling = Math.Min(_requestedChunkRadius, MaxViewDistance);
+			int backlog = _skeletonSentAt.Count;
+
+			if (standingInUnrequested && ChunkRadius > AdaptiveRadiusFloor)
+			{
+				_healthyChecks = 0;
+
+				// A quarter at a time rather than straight to the floor: the aim is the largest radius
+				// this client can hold, not the smallest one that works.
+				int reduced = Math.Max(AdaptiveRadiusFloor, ChunkRadius - Math.Max(1, ChunkRadius / 4));
+				ApplyAdaptiveRadius(reduced, backlog, lowered: true);
+				return;
+			}
+
+			// Recovery is the same signal held clean: the player has walked for several checks without
+			// once arriving somewhere the client had not asked about.
+			if (!standingInUnrequested && ChunkRadius < ceiling)
+			{
+				if (++_healthyChecks < 3) return;
+
+				_healthyChecks = 0;
+				ApplyAdaptiveRadius(Math.Min(ceiling, ChunkRadius + 2), backlog, lowered: false);
+				return;
+			}
+
+			_healthyChecks = 0;
+		}
+
+		private void ApplyAdaptiveRadius(int radius, int backlog, bool lowered)
+		{
+			if (radius == ChunkRadius) return;
+
+			ChunkRadius = radius;
+			SendChunkRadiusUpdate();
+			Volatile.Write(ref _forceChunkPass, 1);
+
+			// Hold off judging again until the client has had time to work down what it already holds.
+			_lastAdaptiveCheck = Stopwatch.GetTimestamp() + (long) (AdaptiveRadiusCooldownSeconds * Stopwatch.Frequency);
+			_healthyChecks = 0;
+
+			SendMessage(lowered
+				? $"§eView distance reduced to §f{radius}§e: you walked into terrain the client had not loaded."
+				: $"§aView distance raised to §f{radius}§a: streaming is keeping up.");
+
+			Log.Info($"Adaptive chunk radius for {Username}: {(lowered ? "lowered" : "raised")} to {radius} ({backlog} columns pushed and unrequested, client asked for {_requestedChunkRadius})");
 		}
 		
 		public virtual void HandleMcpeRequestChunkRadius(McpeRequestChunkRadius message)
@@ -876,28 +1063,27 @@ namespace MiNET
 		}
 
 		private float _baseSpeed;
-		private object _sprintLock = new object();
 
+		// No lock: only this player's own handlers call it (PlayerAction and PlayerAuthInput),
+		// and the session's single dispatch consumer serializes them, so the base/boosted-speed
+		// read-modify-write below cannot interleave.
 		public void SetSprinting(bool isSprinting)
 		{
-			lock (_sprintLock)
+			if (isSprinting == IsSprinting) return;
+
+			if (isSprinting)
 			{
-				if (isSprinting == IsSprinting) return;
-
-				if (isSprinting)
-				{
-					IsSprinting = true;
-					_baseSpeed = MovementSpeed;
-					MovementSpeed += MovementSpeed * 0.3f;
-				}
-				else
-				{
-					IsSprinting = false;
-					MovementSpeed = _baseSpeed;
-				}
-
-				SendUpdateAttributes();
+				IsSprinting = true;
+				_baseSpeed = MovementSpeed;
+				MovementSpeed += MovementSpeed * 0.3f;
 			}
+			else
+			{
+				IsSprinting = false;
+				MovementSpeed = _baseSpeed;
+			}
+
+			SendUpdateAttributes();
 		}
 
 		public virtual void HandleMcpeBlockEntityData(McpeBlockEntityData message)
@@ -1161,6 +1347,7 @@ namespace MiNET
 				// a failed sequence can't leave the chunk task waiting forever.
 				_loginSequenceCompleted.Set();
 				Interlocked.Decrement(ref serverInfo.ConnectionsInConnectPhase);
+				CompleteJoinStage(JoinStage.Burst);
 			}
 
 			LastUpdatedTime = DateTime.UtcNow;
@@ -1250,6 +1437,13 @@ namespace MiNET
 			// connection during join. Sent right after StartGame, matching PMMP's
 			// PreSpawnPacketHandler and vanilla BDS 1.26.34. Entry data comes from the generated
 			// ItemRegistry, whose component blobs are already the bytes BDS puts on the wire.
+			// REFCT: rebuilt per player, and the registry is immutable after startup. Every join walks
+			// the whole ItemRegistry and allocates an ItemComponent per item, plus an NbtFile, an
+			// NbtCompound and its backing dictionary for each item with no components, producing the
+			// identical bytes every time. Measured on a 2000 bot join burst this and the entity
+			// identifiers below are most of the NBT allocation on the login path. It should be built
+			// once and kept as a pre-encoded payload; note also that a plugin suppressing this packet
+			// suppresses it at SEND, so today the work is done and then discarded.
 			var entries = new ItemComponentList();
 			foreach (ItemRegistryEntry entry in ItemFactory.ItemRegistry)
 			{
@@ -1277,6 +1471,9 @@ namespace MiNET
 		}
 
 		// Entity identifier registry, built from our own EntityType registry (EntityHelpers).
+		//
+		// REFCT: same as SendItemComponents above. Regenerated per player from a registry that cannot
+		// change after startup, so every join builds the same NBT tree and encodes the same bytes.
 		public virtual void SendAvailableEntityIdentifiers()
 		{
 			var root = new NbtCompound("") {EntityHelpers.GenerateEntityIdentifiers()};
@@ -1453,6 +1650,10 @@ namespace MiNET
 
 		public virtual void InitializePlayer()
 		{
+			// Reaching here means chunk streaming published enough for the client to initialize; the
+			// rest of this method is the spawn itself.
+			CompleteJoinStage(JoinStage.Chunks);
+
 			// Vanilla join tail: a ready-state respawn during chunk streaming, then set health,
 			// the spawn play-status, and entity data. No SetTime and no MovePlayer here; the
 			// client has the position from StartGame.
@@ -1477,6 +1678,9 @@ namespace MiNET
 
 			LastUpdatedTime = DateTime.UtcNow;
 			_haveJoined = true;
+
+			CompleteJoinStage(JoinStage.Spawn);
+			EngineMetrics.RecordJoinCompleted(_joinStartedAt);
 
 			OnPlayerJoin(new PlayerEventArgs(this));
 
@@ -1582,12 +1786,15 @@ namespace MiNET
 
 				if (!IsChunkInCache(newPosition))
 				{
-					// send teleport straight up, no chunk loading
+					// Straight up over the DESTINATION, not over where we are leaving: the column we
+					// are about to send is the destination's, and a client standing in a different
+					// column has no use for it. High and in open air because NoAi holds the player
+					// still but the client still has no sections beneath them yet.
 					SetPosition(new PlayerLocation
 					{
-						X = KnownPosition.X,
+						X = newPosition.X,
 						Y = 4000,
-						Z = KnownPosition.Z,
+						Z = newPosition.Z,
 						Yaw = 91,
 						Pitch = 28,
 						HeadYaw = 91,
@@ -1611,7 +1818,7 @@ namespace MiNET
 
 		private bool IsChunkInCache(PlayerLocation position)
 		{
-			return _chunksUsed.ContainsKey(new ChunkCoordinates(position));
+			return _chunksUsed.Contains(new ChunkCoordinates(position));
 		}
 
 		public virtual void ChangeDimension(Level toLevel, PlayerLocation spawnPoint, Dimension dimension, Func<Level> levelFunc = null)
@@ -2367,6 +2574,7 @@ namespace MiNET
 					string levelId = Level == null ? "Unknown" : Level.LevelId;
 					if (!_haveJoined)
 					{
+						EngineMetrics.RecordJoinAbandoned(_joinStage, Username, _joinStartedAt);
 						Log.WarnFormat("Disconnected crashed player {0}/{1} from level <{3}>, reason: {2}", Username, EndPoint.Address, reason, levelId);
 					}
 					else
@@ -2615,10 +2823,28 @@ namespace MiNET
 			KnownPosition = newPosition;
 			LastUpdatedTime = DateTime.UtcNow;
 
-			// Keep chunk streaming following the player; this used to hang off MovePlayer,
-			// which the 1.26 client no longer sends. SendChunksForKnownPosition self-guards
-			// (lock + same-chunk early-out), so a per-tick call is cheap.
-			MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
+			// Republish the live area the moment the player crosses into a new column, ahead of any
+			// streaming. The publisher update names the centre and radius the client treats as live,
+			// and it used to go out only once per streaming pass - so while a pass ran for tens of
+			// seconds the published centre stayed where the player had been, and they could walk
+			// outside their own publish area. Vanilla republishes far more often than we did. The
+			// packet is a coordinate and a varint.
+			MaybePublishChunkArea();
+
+
+			// Keep chunk streaming following the player; this used to hang off MovePlayer, which the
+			// 1.26 client no longer sends.
+			//
+			// Guarded HERE, not left to the callee. SendChunksForKnownPosition does self-guard, but
+			// by then the work item is already allocated and scheduled, and auth input arrives twenty
+			// times a second per player whether they moved or not: 2000 stationary players queued
+			// 40000 pool items a second to discover they had nothing to do. Same test the move
+			// handler has always used.
+			var authChunkPosition = new ChunkCoordinates(KnownPosition);
+			if (_currentChunkPosition != authChunkPosition && _currentChunkPosition.DistanceTo(authChunkPosition) >= MoveRenderDistance)
+			{
+				MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
+			}
 
 			// Movement state transitions arrive as input flags now (the old PlayerAction
 			// start/stop sprint/sneak/glide packets are gone in 1.26). Route them to the same
@@ -2659,15 +2885,39 @@ namespace MiNET
 			// movement tick, and NOT as its own McpeInventoryTransaction: the client sends one or the
 			// other, never both. Same transaction, same handler, so a right-click reaches a chest the
 			// same way whichever packet carried it.
+			//
+			// Hesitate, then thread: the transaction branch reaches world locks (Level.Interact,
+			// UI screens), so it runs as a pool work item instead of on the movement path. A click
+			// lands a beat later; the 20/s movement tail stays provably lock-free.
 			if (message.itemUseTransaction?.itemUseTransaction != null)
 			{
-				if (Log.IsDebugEnabled) Log.Debug($"PLACEDBG raw authinput:\n{Packet.HexDump(message.Bytes.Span.ToArray(), 16)}");
-				HandleItemUseTransaction(message.itemUseTransaction.itemUseTransaction);
+				ItemUseInventoryTransaction transaction = message.itemUseTransaction.itemUseTransaction;
+
+				// The transaction belongs to the packet, and the packet is released the moment this
+				// handler returns: Reset hands back its leases and this would be reading memory that
+				// went with them. A reference keeps it alive until the queued work is done with it.
+				message.AddReferences(1);
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() =>
+				{
+					try { HandleItemUseTransaction(transaction); }
+					finally { message.PutPool(); }
+				});
 			}
 
 			if (message.itemStackRequest != null)
 			{
-				HandleSingleItemStackRequest(message.itemStackRequest);
+				// Hesitate, then thread, same as the transaction above: crafting resolution takes
+				// the recipe-manager lock, so an inventory click folded into a movement tick runs
+				// as a pool work item too.
+				ItemStackRequest request = message.itemStackRequest;
+
+				// Same ownership problem as the transaction above.
+				message.AddReferences(1);
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() =>
+				{
+					try { HandleSingleItemStackRequest(request); }
+					finally { message.PutPool(); }
+				});
 			}
 
 			if (message.playerBlockActions != null)
@@ -2983,7 +3233,14 @@ namespace MiNET
 
 			foreach (SubChunkPosOffset offset in message.offsets)
 			{
-				response.subchunkData.Add(BuildSubChunkEntry(message, offset));
+				SubChunkPacketData entry = BuildSubChunkEntry(message, offset);
+
+				// Counted per entry, not per request: one request carries many offsets and they can
+				// have different outcomes, which is exactly the distinction worth having.
+				EngineMetrics.SubChunkResult(entry.subchunkRequestResult.ToString().ToLowerInvariant());
+				if (entry.serializedSubChunk != null) EngineMetrics.SubChunkBytes(entry.serializedSubChunk.Length);
+
+				response.subchunkData.Add(entry);
 			}
 
 			SendPacket(response);
@@ -3008,7 +3265,28 @@ namespace MiNET
 			if (!ChunkColumn.IsSectionInBounds(sectionY)) return Rejected(SubChunkPacketData.SubchunkRequestResult.Indexoutofbounds);
 
 			var coordinates = new ChunkCoordinates(message.originX + offset.subchunkOffsetX, message.originZ + offset.subchunkOffsetZ);
-			ChunkColumn chunkColumn = Level.GetChunk(coordinates, cacheOnly: true);
+
+			// First request for this column: close the loop on when its skeleton went out. Removed on
+			// the first match, so what remains in the dictionary is exactly the set of columns the
+			// client has been told about and never come back for.
+			if (_skeletonSentAt.TryRemove(coordinates, out long sentAt))
+			{
+				double millis = (Stopwatch.GetTimestamp() - sentAt) * 1000d / Stopwatch.Frequency;
+				EngineMetrics.RecordChunkRequestLatency(millis);
+
+				// Feeds the distribution the stale threshold is derived from: only columns the client
+				// actually came back for describe how long coming back normally takes.
+				Interlocked.Increment(ref _columnsDrained);
+			}
+
+			// Loads the column if it is not resident yet, rather than answering "does not exist" for
+			// anything the streaming path has not reached. cacheOnly was here to keep disk IO off the
+			// transport receive thread; that is no longer the reason it needs, because this handler
+			// does IO and so is disqualified from inline dispatch outright. Rejecting instead of
+			// loading is what left a dense hand-built map rendering as void with ore and lava floating
+			// in it: the client asks for sub-chunks faster than the publisher loads columns, and it
+			// does not come back for a rejection.
+			ChunkColumn chunkColumn = Level.GetChunk(coordinates);
 			if (chunkColumn == null) return Rejected(SubChunkPacketData.SubchunkRequestResult.Levelchunkdoesntexist);
 
 			return chunkColumn.GetSubChunkData(offset, sectionY, UseBlobCache);
@@ -3252,11 +3530,6 @@ namespace MiNET
 
 		public virtual void HandleMcpeInventoryTransaction(McpeInventoryTransaction message)
 		{
-			if (message.transaction is ItemUseInventoryTransaction && Log.IsDebugEnabled)
-			{
-				Log.Debug($"PLACEDBG raw txn ({message.Bytes.Length} bytes):\n{Packet.HexDump(message.Bytes.ToArray(), 16)}");
-			}
-
 			switch (message.transaction)
 			{
 				case InventoryMismatchData inventoryMismatchTransaction:
@@ -3931,6 +4204,7 @@ namespace MiNET
 			McpeSetSpawnPosition mcpeSetSpawnPosition = McpeSetSpawnPosition.CreateObject();
 			mcpeSetSpawnPosition.spawnType = 1;
 			mcpeSetSpawnPosition.coordinates = (BlockCoordinates) SpawnPosition;
+			mcpeSetSpawnPosition.dimension = (int) Level.Dimension;
 			SendPacket(mcpeSetSpawnPosition);
 		}
 
@@ -3943,25 +4217,6 @@ namespace MiNET
 		// before the registries. BDS sends the registries first and PlayStatus(3) last; a strict
 		// 1.26 client disconnects when told to spawn without an item registry.
 		private readonly ManualResetEventSlim _loginSequenceCompleted = new ManualResetEventSlim(false);
-
-		private void ForcedSendChunk(PlayerLocation position)
-		{
-			lock (_sendChunkSync)
-			{
-				var chunkPosition = new ChunkCoordinates(position);
-
-				McpeWrapper chunk = Level.GetChunk(chunkPosition)?.GetBatch();
-				if (!_chunksUsed.ContainsKey(chunkPosition))
-				{
-					_chunksUsed.Add(chunkPosition, chunk);
-				}
-
-				if (chunk != null)
-				{
-					SendPacket(chunk);
-				}
-			}
-		}
 
 		private void ForcedSendEmptyChunks()
 		{
@@ -3997,35 +4252,119 @@ namespace MiNET
 			SendNetworkChunkPublisherUpdate(ChunkRadius);
 		}
 
+		/// <summary>Publishes an area centred somewhere other than where the player currently is.</summary>
+		public void SendNetworkChunkPublisherUpdate(PlayerLocation position)
+		{
+			SendNetworkChunkPublisherUpdate(ChunkRadius, position);
+		}
+
+		// The column the publish area was last centred on. Written only from the dispatch thread that
+		// handles movement, so it needs no synchronization of its own.
+		private ChunkCoordinates _lastPublishedChunk = new ChunkCoordinates(int.MaxValue, int.MaxValue);
+
+		/// <summary>
+		///     Republishes the live chunk area when the player enters a new column, and does nothing
+		///     otherwise. Cheap enough to sit on the movement path: one coordinate and one varint,
+		///     against a client that otherwise keeps treating a stale centre as authoritative.
+		/// </summary>
+		private void MaybePublishChunkArea()
+		{
+			if (!IsSpawned || ChunkRadius <= 0) return;
+
+			var chunkPosition = new ChunkCoordinates(KnownPosition);
+			if (chunkPosition == _lastPublishedChunk) return;
+
+			_lastPublishedChunk = chunkPosition;
+			SendNetworkChunkPublisherUpdate();
+		}
+
 		/// <summary>
 		///     Radius is in BLOCKS. Vanilla publishes a fixed <see cref="JoinBurstChunkRadius" /> for
 		///     the whole join burst and switches to the negotiated radius only afterwards. The burst
 		///     value must not depend on the negotiated one, because RequestChunkRadius can arrive
 		///     before the burst reaches this point.
 		/// </summary>
-		public void SendNetworkChunkPublisherUpdate(int chunkRadius)
+		public void SendNetworkChunkPublisherUpdate(int chunkRadius, PlayerLocation position = null)
 		{
 			var pk = McpeNetworkChunkPublisherUpdate.CreateObject();
-			pk.coordinates = KnownPosition.GetCoordinates3D();
-			pk.radius = (uint) (chunkRadius * 16);
+
+			// The centre is where the chunks being published ARE, which is not always where the
+			// player is. Respawn, teleport and both dimension paths stream the destination before
+			// SetPosition moves anyone onto it, so taking KnownPosition there publishes an area
+			// around the place they are leaving and the client drops everything just sent.
+			pk.coordinates = (position ?? KnownPosition).GetCoordinates3D();
+
+			// TEST: double the radius we actually stream. The value is in BLOCKS from the player while
+			// we stream whole columns, so at exactly chunkRadius*16 the outermost ring we send sits at
+			// or past the boundary we declare, and the client may discard columns we did send with
+			// nothing on our side to show for it. Doubling overshoots that boundary by far enough to
+			// rule it in or out in one run; the honest value if it matters is (chunkRadius + 1) * 16.
+			pk.radius = (uint) (chunkRadius * 16 * 2);
 			SendPacket(pk);
 		}
 
-		public void ForcedSendChunks(Action postAction = null)
+		/// <summary>
+		///     One column, the one the player is about to be put on, so there is ground under them
+		///     the moment they arrive. Respawn, teleport and both dimension paths all send terrain
+		///     before SetPosition moves anyone onto it, which is why the position is a parameter and
+		///     not KnownPosition: that is still the place they are leaving.
+		///     <para>
+		///         A single column rather than the radius on purpose. The rest streams asynchronously
+		///         once the player is placed, whereas generating a whole radius here runs inside the
+		///         teleport lock and blocks the arrival: at radius 12 that is some 450 columns out of
+		///         the world provider before the client is told anything at all.
+		///     </para>
+		///     <para>
+		///         The publish has to move with it. The client drops chunks outside the area it was
+		///         last told about, and that area is centred wherever this says, not on the player.
+		///     </para>
+		/// </summary>
+		private void ForcedSendChunk(PlayerLocation position)
+		{
+			lock (_sendChunkSync)
+			{
+				var chunkPosition = new ChunkCoordinates(position);
+				ChunkColumn column = Level.GetChunk(chunkPosition);
+
+				// Skeleton, like every other chunk since 2168: the sections follow as sub-chunk
+				// requests. This was the last sender of the inline form.
+				if (column == null) return;
+
+				McpeLevelChunk chunk = UseBlobCache ? column.CreateSkeletonBlobChunk() : column.CreateSkeletonChunk();
+				_chunksUsed.Add(chunkPosition);
+
+				SendNetworkChunkPublisherUpdate(position);
+				_lastPublishedChunk = chunkPosition;
+
+				SendPacket(chunk);
+			}
+		}
+
+		/// <summary>
+		///     Streams the radius around <paramref name="position" />, defaulting to where the player
+		///     currently is.
+		/// </summary>
+		public void ForcedSendChunks(Action postAction = null, PlayerLocation position = null)
 		{
 			Monitor.Enter(_sendChunkSync);
 			try
 			{
-				var chunkPosition = new ChunkCoordinates(KnownPosition);
+				var chunkPosition = new ChunkCoordinates(position ?? KnownPosition);
 
 				_currentChunkPosition = chunkPosition;
 
 				if (Level == null) return;
 
-				SendNetworkChunkPublisherUpdate();
+				// Centred on what is being sent, not on where the player stands. See the overload.
+				SendNetworkChunkPublisherUpdate(position ?? KnownPosition);
+
+				// The publish centre and the streamed centre must agree, so the movement path's
+				// "have I already published this column" memory is updated to match rather than
+				// left claiming the old one.
+				_lastPublishedChunk = chunkPosition;
 
 				int packetCount = 0;
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, useBlobCache: UseBlobCache))
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, useBlobCache: UseBlobCache))
 				{
 					if (chunk != null) SendPacket(chunk);
 
@@ -4049,7 +4388,18 @@ namespace MiNET
 			// before the pre-spawn sequence has gone out. No-op after login.
 			if (!_loginSequenceCompleted.Wait(15000)) return;
 
-			if (!Monitor.TryEnter(_sendChunkSync)) return;
+			// A pass already running does not mean this trigger can be thrown away: the player has
+			// moved somewhere the running pass was not computed for, and nothing else will ever come
+			// back for it - the next trigger only fires on the NEXT chunk boundary crossed. Measured at
+			// 386 lost triggers in 45 seconds on a big Anvil map, which is exactly as many patches of
+			// world that silently never streamed. Remembered here and re-run once below instead, so
+			// any number of triggers during one pass coalesce into exactly one more pass.
+			if (!Monitor.TryEnter(_sendChunkSync))
+			{
+				Volatile.Write(ref _chunkPassPending, 1);
+				EngineMetrics.ChunkPassSkipped();
+				return;
+			}
 
 			try
 			{
@@ -4058,10 +4408,15 @@ namespace MiNET
 				if (!IsSpawned) SendChunkRadiusUpdate();
 
 
-				var chunkPosition = new ChunkCoordinates(KnownPosition);
-				if (IsSpawned && _currentChunkPosition == chunkPosition) return;
+				// Consumed before the position guards below: a forced pass is one where the streamed
+				// area was invalidated without the player moving, which is exactly the case those
+				// guards would otherwise throw away.
+				bool forced = Interlocked.Exchange(ref _forceChunkPass, 0) == 1;
 
-				if (IsSpawned && _currentChunkPosition.DistanceTo(chunkPosition) < MoveRenderDistance)
+				var chunkPosition = new ChunkCoordinates(KnownPosition);
+				if (!forced && IsSpawned && _currentChunkPosition == chunkPosition) return;
+
+				if (!forced && IsSpawned && _currentChunkPosition.DistanceTo(chunkPosition) < MoveRenderDistance)
 				{
 					return;
 				}
@@ -4074,17 +4429,38 @@ namespace MiNET
 
 				SendNetworkChunkPublisherUpdate();
 
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, UseBlobCache))
+				// HeadYaw, not Yaw: the head is what the player is actually looking along, and the body
+				// lags it. The sweep stays radial; this only decides which side of the circle is served
+				// first, which is what a player perceives while a large pass is still running.
+				foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, UseBlobCache, KnownPosition.HeadYaw))
 				{
-					if (chunk != null) SendPacket(chunk);
+					if (chunk != null)
+					{
+						SendPacket(chunk);
+						EngineMetrics.SkeletonSent();
+
+						// Stamped so the first sub-chunk request for this column can be timed against
+						// it. That interval is the client's own turnaround, which is the half of the
+						// pipeline we do not control and had no way to see.
+						_skeletonSentAt[coordinates] = Stopwatch.GetTimestamp();
+					}
 
 					packetCount++;
+
+					// Spawn as soon as the published area is delivered, INSIDE the sweep. The columns
+					// come nearest-first, so the 81 that matter are the first 81 visited; waiting for
+					// the loop to finish made the spawn wait for the whole radius instead - 7,854
+					// columns at radius 50 against 804 at 16, every one of them a disk load, which is
+					// why join time scaled with the square of the view distance.
+					if (!IsSpawned && packetCount >= PublishedAreaChunkCount) InitializePlayer();
+
+					//if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
 				}
 
-				// Spawn once the published area is delivered, BEFORE any sub-chunk exchange: a
-				// client does not request sub-chunks until it has been told to spawn, so gating
-				// the spawn on sub-chunk responses deadlocks the join.
-				if (!IsSpawned && packetCount >= PublishedAreaChunkCount) InitializePlayer();
+				// A client does not request sub-chunks until it has been told to spawn, so gating the
+				// spawn on sub-chunk responses would deadlock the join.
+				EngineMetrics.ChunkPassCompleted(packetCount);
+				EngineMetrics.ChunkNeverAsked(_skeletonSentAt.Count);
 
 				Log.Debug($"Sent {packetCount} chunks for {chunkPosition} with view distance {MaxViewDistance}");
 			}
@@ -4096,7 +4472,32 @@ namespace MiNET
 			{
 				Monitor.Exit(_sendChunkSync);
 			}
+
+			// Outside the lock, so the queued pass can take it immediately. Exchange rather than a
+			// read-then-clear: a trigger arriving between those two steps would be dropped by exactly
+			// the bug this exists to close.
+			if (Interlocked.Exchange(ref _chunkPassPending, 0) == 1 && IsConnected)
+			{
+				MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
+			}
 		}
+
+		// Set when a streaming pass was triggered while another was already running; cleared by the
+		// pass that honours it. See SendChunksForKnownPosition's TryEnter.
+		private int _chunkPassPending;
+
+		// When each column's skeleton went out, so the first sub-chunk request for it can be timed
+		// against that. Written by the streaming pass, read and cleared by the request handler on a
+		// different thread, hence concurrent. An entry that is never removed is a column the client
+		// was told about and never asked about - which is what a hole in the world looks like.
+		private readonly System.Collections.Concurrent.ConcurrentDictionary<ChunkCoordinates, long> _skeletonSentAt = new();
+
+		/// <summary>Columns pushed to this player that no sub-chunk has ever been requested for.</summary>
+		public int ColumnsNeverRequested => _skeletonSentAt.Count;
+
+		// Whether streaming has ever been level with this player. False through the join burst and
+		// after anything that restreams the world under them; see AdaptChunkRadius.
+		private bool _adaptiveArmed;
 
 		public virtual void SendUpdateAttributes()
 		{
@@ -4194,6 +4595,12 @@ namespace MiNET
 		public override void OnTick(Entity[] entities)
 		{
 			OnTicking(new PlayerEventArgs(this));
+
+			// On the tick, not at the end of a streaming pass: passes only run when the player crosses
+			// into a new column, so a player standing still or walking through columns they already
+			// have never re-evaluated - which is how a radius that had been walked down to the floor
+			// stayed there. It self-throttles on its own interval.
+			AdaptChunkRadius();
 
 			if (DetectInPortal())
 			{
@@ -4519,11 +4926,30 @@ namespace MiNET
 			if (NetworkHandler == null)
 			{
 				packet.PutPool();
+				return;
 			}
-			else
+
+			// Plugins get the packet HERE, before it is queued, rather than in PrepareSend on the way
+			// out. A suppressed packet then costs the object and nothing else: no channel write, no
+			// drain, no coalesce pass, no encode. The handler may also replace it, which is why the
+			// result is what gets sent.
+			//
+			// Not written as "handler(...) ?? packet": null is the handler SUPPRESSING the packet,
+			// and coalescing that with "there is no handler" sends everything a plugin asked to drop.
+			MiNET.Plugins.PluginManager plugins = Server?.PluginManager;
+			if (plugins != null)
 			{
-				NetworkHandler?.SendPacket(packet);
+				Packet outgoing = plugins.PluginPacketHandler(packet, false, this);
+				if (outgoing != packet)
+				{
+					packet.PutPool();
+					if (outgoing == null) return;
+
+					packet = outgoing;
+				}
 			}
+
+			NetworkHandler.SendPacket(packet);
 		}
 
 		private object _sendMoveListSync = new object();
@@ -4555,6 +4981,11 @@ namespace MiNET
 			{
 				_chunksUsed.Clear();
 			}
+
+			// Everything around the player is about to be streamed again, so the adaptor is back where
+			// it was at join: standing in columns the client has not asked about yet, through no fault
+			// of the client's.
+			_adaptiveArmed = false;
 		}
 
 		public void CleanCache(ChunkColumn chunk)

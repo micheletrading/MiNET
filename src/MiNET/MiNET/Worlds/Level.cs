@@ -52,7 +52,7 @@ using MiNET.Utils.Vectors;
 
 namespace MiNET.Worlds
 {
-	public class Level : IBlockAccess
+	public class Level : IBlockAccess, ILevelMetricsSource
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Level));
 
@@ -204,9 +204,14 @@ namespace MiNET.Worlds
 				{
 				}
 				var chunkCoordinates = new ChunkCoordinates(SpawnPoint) / 8;
-				foreach (var chunk in GenerateChunks(chunkCoordinates, new Dictionary<ChunkCoordinates, McpeWrapper>(), ViewDistance))
+				foreach (var chunk in GenerateChunks(chunkCoordinates, new HashSet<ChunkCoordinates>(), ViewDistance))
 				{
-					if (chunk != null) i++;
+					if (chunk.Chunk == null) continue;
+
+					// Nobody is listening, so the packet this produced has to go back rather than be
+					// sent. What the pass is for is warming the columns themselves.
+					chunk.Chunk.PutPool();
+					i++;
 				}
 
 				Log.Info($"World pre-cache {i} chunks completed in {chunkLoading.ElapsedMilliseconds}ms");
@@ -239,10 +244,46 @@ namespace MiNET.Worlds
 
 			StartTimeInTicks = DateTime.UtcNow.Ticks;
 
+			// Registered here rather than in the constructor: the tags read Dimension and
+			// WorldProvider, and both are settled by the time a level starts ticking, not by the time
+			// it is constructed.
+			_metricTags = new TagList {{"levelType", LevelType}, {"dimension", DimensionName}};
+			_levelTickTags = new TagList {{"level", LevelId}};
+			EngineMetrics.RegisterLevel(this);
+
 			_tickTimer = new Stopwatch();
 			_tickTimer.Restart();
-			_tickerHighPrecisionTimer = new HighPrecisionTimer(50, WorldTick, false, false);
+
+			if (EnableLevelTicking) _tickerHighPrecisionTimer = new HighPrecisionTimer(50, WorldTick, false, false);
+			else Log.Warn($"Level {LevelId} runs without a tick: no clock, no block or entity ticking, and no Player.OnTick.");
 		}
+
+		/// <summary>
+		///     Whether this level runs the 50ms world tick at all. On for any world where anything
+		///     happens.
+		///     <para>
+		///         Off is for a level that is only a place to stand: nothing grows, nothing moves,
+		///         nothing is saved. It also stops <see cref="Player.OnTick" />, and with it hunger,
+		///         effects, portal detection, popups and the adaptive chunk radius, so a level that
+		///         turns this off owns whatever periodic work it still needs.
+		///     </para>
+		/// </summary>
+		public bool EnableLevelTicking { get; set; } = Config.GetProperty("EnableLevelTicking", true);
+
+		private TagList _metricTags;
+		private TagList _levelTickTags;
+
+		/// <inheritdoc />
+		public string LevelType => WorldProvider?.GetType().Name ?? "None";
+
+		/// <inheritdoc />
+		public string DimensionName => Dimension.ToString();
+
+		/// <inheritdoc />
+		public int MetricPlayerCount => PlayerCount;
+
+		/// <inheritdoc />
+		public int MetricEntityCount => Entities.Count;
 
 		private void _tickerHighPrecisionTimer_Tick()
 		{
@@ -260,6 +301,8 @@ namespace MiNET.Worlds
 
 			_tickerHighPrecisionTimer?.Dispose();
 			_tickerHighPrecisionTimer = null;
+
+			EngineMetrics.UnregisterLevel(this);
 
 			foreach (var entity in Entities.Values.ToArray())
 			{
@@ -568,6 +611,10 @@ namespace MiNET.Worlds
 			// as a global stall), and it self-rate-limits to at most one line per tick.
 			if (_tickTimer.ElapsedMilliseconds >= 65) Log.Warn($"Time between world tick too long: {_tickTimer.ElapsedMilliseconds} ms. Last processing time={LastTickProcessingTime}, Avarage={AvarageTickProcessingTime}");
 
+			// Drift, not duration: how late this tick STARTED against its 50ms schedule. A slow timer
+			// and a slow tick body are opposite faults, and one duration number conflates them.
+			EngineMetrics.RecordTickLag(_tickTimer.Elapsed.TotalMilliseconds - 50, _metricTags);
+
 			Measurement worldTickMeasurement = _profiler.Begin("World tick");
 
 			_tickTimer.Restart();
@@ -592,7 +639,9 @@ namespace MiNET.Worlds
 				// Save dirty chunks
 				if (TickTime % (SaveInterval * 20) == 0)
 				{
+					long saveStartedAt = Stopwatch.GetTimestamp();
 					WorldProvider.SaveChunks();
+					EngineMetrics.RecordSave(saveStartedAt, _metricTags);
 				}
 
 				// Unload chunks not needed
@@ -775,6 +824,12 @@ namespace MiNET.Worlds
 				LastTickProcessingTime = _tickTimer.ElapsedMilliseconds;
 				AvarageTickProcessingTime = (AvarageTickProcessingTime * 9 + _tickTimer.ElapsedMilliseconds) / 10L;
 
+				// MSPT, twice: aggregated by level type for percentiles across the server, and by level
+				// identity so one misbehaving world is nameable rather than merely visible.
+				double tickMillis = _tickTimer.Elapsed.TotalMilliseconds;
+				EngineMetrics.RecordTick(tickMillis, _metricTags);
+				EngineMetrics.RecordLevelTick(tickMillis, _levelTickTags);
+
 				worldTickMeasurement?.End();
 			}
 		}
@@ -875,6 +930,10 @@ namespace MiNET.Worlds
 			DateTime lastSendTime = _lastSendTime;
 			_lastSendTime = DateTime.UtcNow;
 
+			// Stamped before the roster is walked, so broadcast.build covers everything the tick thread
+			// spends here: building the records, compressing them, and encoding the wrapper.
+			long buildStartedAt = Stopwatch.GetTimestamp();
+
 			//using (MemoryStream stream = new MemoryStream())
 			{
 				int playerMoveCount = 0;
@@ -936,10 +995,13 @@ namespace MiNET.Worlds
 
 				//McpeWrapper batch = BatchUtils.CreateBatchPacket(new Memory<byte>(stream.GetBuffer(), 0, (int) stream.Length), CompressionLevel.Optimal, false);
 				var batch = McpeWrapper.CreateObject(players.Length);
-				batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 				batch.CoalesceKey = _moveRosterCoalesceKey;
 				batch.SetPayload(Compression.CompressPacketsForWrapper(movePackets));
 				batch.EncodeAsMemory();
+
+				// The compressed size is what decides the fragment count, and so the datagram rate:
+				// this batch goes to every player, so bytes here multiply by players.Length on the wire.
+				EngineMetrics.RecordBroadcast(playerMoveCount + entiyMoveCount, batch.payload.Length, buildStartedAt, _metricTags);
 
 				// Inline on the tick thread: SendPacket only enqueues (NetherNetSession's send lane
 				// does the transport work), so a work item per recipient buys no parallelism and
@@ -1044,7 +1106,34 @@ namespace MiNET.Worlds
 			}
 		}
 
-		public IEnumerable<McpeWrapper> GenerateChunks(ChunkCoordinates chunkPosition, Dictionary<ChunkCoordinates, McpeWrapper> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, bool useBlobCache = false)
+		/// <summary>
+		///     How much the player's facing direction reorders the radial sweep. 0 is pure inside-out by
+		///     distance; higher values pull the cone in front of the player forward. At 1.0 a column
+		///     directly ahead outranks one directly behind at up to 1.41x its distance, so the order
+		///     stays fundamentally radial and near columns behind you still beat far ones in front.
+		/// </summary>
+		public static double ChunkDirectionBias { get; set; } = 1.0;
+
+		/// <param name="viewYawDegrees">
+		///     Minecraft yaw the player is facing, snapshotted when the sweep is computed. NaN orders
+		///     purely by distance.
+		/// </param>
+		/// <summary>
+		///     The columns a player at <paramref name="chunkPosition" /> should hold, nearest first,
+		///     as ordinary packets rather than finished wrappers.
+		///     <para>
+		///         A skeleton is biomes and a byte, so wrapping each one alone cost a compress and a
+		///         send per column and denied the send lane any chance to batch them: 81 columns was
+		///         81 wrappers of forty bytes. Handed back as packets they coalesce like everything
+		///         else, and one deflate stream sees all the skeletons together, which is the case it
+		///         is good at.
+		///     </para>
+		///     <para>
+		///         <paramref name="chunksUsed" /> is the set this player already holds. Membership is
+		///         all it was ever read for.
+		///     </para>
+		/// </summary>
+		public IEnumerable<(ChunkCoordinates Coordinates, McpeLevelChunk Chunk)> GenerateChunks(ChunkCoordinates chunkPosition, HashSet<ChunkCoordinates> chunksUsed, double radius, Func<Vector3> getCurrentPositionAction = null, bool useBlobCache = false, double viewYawDegrees = double.NaN)
 		{
 			lock (chunksUsed)
 			{
@@ -1054,6 +1143,13 @@ namespace MiNET.Worlds
 
 				int centerX = chunkPosition.X;
 				int centerZ = chunkPosition.Z;
+
+				// Minecraft yaw: 0 faces +Z, and it turns toward -X, so this is the unit vector the
+				// player is looking along on the horizontal plane.
+				bool directional = ChunkDirectionBias > 0 && !double.IsNaN(viewYawDegrees);
+				double yawRadians = viewYawDegrees * Math.PI / 180d;
+				double lookX = directional ? -Math.Sin(yawRadians) : 0;
+				double lookZ = directional ? Math.Cos(yawRadians) : 0;
 
 				for (double x = -radius; x <= radius; ++x)
 				{
@@ -1067,11 +1163,24 @@ namespace MiNET.Worlds
 						int chunkX = (int) (x + centerX);
 						int chunkZ = (int) (z + centerZ);
 						var index = new ChunkCoordinates(chunkX, chunkZ);
-						newOrders[index] = distance;
+
+						// Squared distance scaled by how far off the view direction this column sits:
+						// 1.0 straight ahead, 1 + bias directly behind. Multiplying rather than adding
+						// keeps the sweep radial - the penalty grows with distance, so it never
+						// promotes a far column ahead over a near one behind.
+						double cost = distance;
+						if (directional && distance > 0)
+						{
+							double length = Math.Sqrt(distance);
+							double alignment = (x * lookX + z * lookZ) / length; // -1 behind, 1 ahead
+							cost *= 1d + ChunkDirectionBias * (1d - alignment) / 2d;
+						}
+
+						newOrders[index] = cost;
 					}
 				}
 
-				foreach (var chunkKey in chunksUsed.Keys.ToArray())
+				foreach (var chunkKey in chunksUsed.ToArray())
 				{
 					if (!newOrders.ContainsKey(chunkKey))
 					{
@@ -1081,7 +1190,7 @@ namespace MiNET.Worlds
 
 				foreach (var pair in newOrders.OrderBy(pair => pair.Value))
 				{
-					if (chunksUsed.ContainsKey(pair.Key)) continue;
+					if (chunksUsed.Contains(pair.Key)) continue;
 
 					if (WorldProvider == null) continue;
 
@@ -1092,18 +1201,18 @@ namespace MiNET.Worlds
 						if(coords.DistanceTo(pair.Key) > radius) continue;
 					}
 					ChunkColumn chunkColumn = GetChunk(pair.Key);
-					McpeWrapper chunk = null;
+					McpeLevelChunk chunk = null;
 					if (chunkColumn != null)
 					{
 						// Since 2168 the client only accepts the sub-chunk request flow: a skeleton
 						// LevelChunk here, blocks via McpeSubChunkRequest afterwards. Cache-enabled
-						// clients get the biome payload blob-addressed. The inline forms are kept
-						// for the importer and tooling paths. Cached on the column, shared by all.
-						chunk = useBlobCache ? chunkColumn.GetSkeletonBlobBatch() : chunkColumn.GetSkeletonBatch();
-						chunksUsed.Add(pair.Key, chunk);
+						// clients get the biome payload blob-addressed.
+						chunk = useBlobCache ? chunkColumn.CreateSkeletonBlobChunk() : chunkColumn.CreateSkeletonChunk();
+
+						chunksUsed.Add(pair.Key);
 					}
 
-					yield return chunk;
+					yield return (pair.Key, chunk);
 				}
 			}
 		}
@@ -1244,14 +1353,24 @@ namespace MiNET.Worlds
 
 		public ChunkColumn GetChunk(ChunkCoordinates chunkCoordinates, bool cacheOnly = false)
 		{
+			long startedAt = Stopwatch.GetTimestamp();
 			var chunk = WorldProvider.GenerateChunkColumn(chunkCoordinates, cacheOnly);
+			EngineMetrics.RecordChunkLoad(startedAt, _metricTags);
+
 			if (chunk == null) Log.Debug($"Got <null> chunk at {chunkCoordinates}");
+
+			// Stamped here rather than in each provider: the column goes on the wire carrying its
+			// dimension, and the client drops one that does not match the dimension it is in.
+			if (chunk != null) chunk.Dimension = Dimension;
+
 			return chunk;
 		}
 
 		public void SetBlock(Block block, bool broadcast = true, bool applyPhysics = true, bool calculateLight = true, ChunkColumn possibleChunk = null)
 		{
-			if (block.Coordinates.Y < 0) return;
+			// The column's own range, not zero. Everything from WorldMinY up is addressable, and
+			// guarding at zero silently dropped every block in the deepslate range.
+			if (block.Coordinates.Y < ChunkColumn.WorldMinY || block.Coordinates.Y >= ChunkColumn.WorldMaxY) return;
 
 			var chunkCoordinates = new ChunkCoordinates(block.Coordinates.X >> 4, block.Coordinates.Z >> 4);
 			ChunkColumn chunk = possibleChunk != null && possibleChunk.X == chunkCoordinates.X && possibleChunk.Z == chunkCoordinates.Z ? possibleChunk : GetChunk(chunkCoordinates);

@@ -98,249 +98,71 @@ namespace MiNET.Items
 				player.SendPlayerInventory();
 			}
 
-			Effect e = GetPotionEffect(Metadata);
-
-			if (e != null)
-			{
-				Log.Debug($"Consume applies {e}");
-				player.SetEffect(e);
-			}
-			else
+			Effect[] effects = GetEffects(Metadata);
+			if (effects.Length == 0)
 			{
 				Log.Debug($"Consume found no effect for metadata {Metadata}");
+				return;
+			}
+
+			foreach (Effect effect in effects)
+			{
+				Log.Debug($"Consume applies {effect}");
+				player.SetEffect(effect);
 			}
 		}
 
-		/// <summary>
-		///     The effect a potion of the given metadata carries, or null for water and the mundane
-		///     types. Shared by the drink and the thrown potion, so a splash applies the same
-		///     effect it would have given as a drink.
-		/// </summary>
-		internal static Effect GetPotionEffect(short metadata)
+		// The Bedrock potion table for this protocol, metadata 0..46. 0..4 are the effectless
+		// base potions (water, mundane, long mundane, thick, awkward). Durations are ticks.
+		// Fresh instances per call: an effect ticks its own duration down once applied.
+		public static Effect[] GetEffects(short metadata)
 		{
-			Effect e = null;
-			switch (metadata)
+			return metadata switch
 			{
-				case 5:
-					e = new NightVision
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 6:
-					e = new NightVision
-					{
-						Duration = 9600,
-						Level = 0
-					};
-					break;
-				case 7:
-					e = new Invisibility
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 8:
-					e = new Invisibility
-					{
-						Duration = 9600,
-						Level = 0
-					};
-					break;
-				case 9:
-					e = new JumpBoost
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 10:
-					e = new JumpBoost
-					{
-						Duration = 9600,
-						Level = 0
-					};
-					break;
-				case 11:
-					e = new JumpBoost
-					{
-						Duration = 1800,
-						Level = 1
-					};
-					break;
-				case 12:
-					e = new FireResistance
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 13:
-					e = new FireResistance
-					{
-						Duration = 9600,
-						Level = 0
-					};
-					break;
-				case 14:
-					e = new Speed
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 15:
-					e = new Speed
-					{
-						Duration = 9600,
-						Level = 0
-					};
-					break;
-				case 16:
-					e = new Speed
-					{
-						Duration = 1800,
-						Level = 1
-					};
-					break;
-				case 17:
-					e = new Slowness
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 18:
-					e = new Slowness
-					{
-						Duration = 4800,
-						Level = 0
-					};
-					break;
-				case 19:
-					e = new WaterBreathing
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 20:
-					e = new WaterBreathing
-					{
-						Duration = 9600,
-						Level = 0
-					};
-					break;
-				case 21:
-					e = new InstantHealth
-					{
-						Duration = 0,
-						Level = 0
-					};
-					break;
-				case 22:
-					e = new InstantHealth
-					{
-						Duration = 0,
-						Level = 1
-					};
-					break;
-				case 23:
-					e = new InstantDamage
-					{
-						Duration = 0,
-						Level = 0
-					};
-					break;
-				case 24:
-					e = new InstantDamage
-					{
-						Duration = 0,
-						Level = 1
-					};
-					break;
-				case 25:
-					e = new Poison
-					{
-						Duration = 900,
-						Level = 0
-					};
-					break;
-				case 26:
-					e = new Poison
-					{
-						Duration = 2400,
-						Level = 0
-					};
-					break;
-				case 27:
-					e = new Poison
-					{
-						Duration = 440,
-						Level = 1
-					};
-					break;
-				case 28:
-					e = new Regeneration
-					{
-						Duration = 900,
-						Level = 0
-					};
-					break;
-				case 29:
-					e = new Regeneration
-					{
-						Duration = 2400,
-						Level = 0
-					};
-					break;
-				case 30:
-					e = new Regeneration
-					{
-						Duration = 440,
-						Level = 1
-					};
-					break;
-				case 31:
-					e = new Strength
-					{
-						Duration = 3600,
-						Level = 0
-					};
-					break;
-				case 32:
-					e = new Strength
-					{
-						Duration = 9600,
-						Level = 0
-					};
-					break;
-				case 33:
-					e = new Strength
-					{
-						Duration = 1800,
-						Level = 1
-					};
-					break;
-				case 34:
-					e = new Weakness
-					{
-						Duration = 1800,
-						Level = 0
-					};
-					break;
-				case 35:
-					e = new Weakness
-					{
-						Duration = 4800,
-						Level = 0
-					};
-					break;
-			}
-
-			return e;
+				5 => new Effect[] {new NightVision {Duration = 3600, Level = 0}},
+				6 => new Effect[] {new NightVision {Duration = 9600, Level = 0}},
+				7 => new Effect[] {new Invisibility {Duration = 3600, Level = 0}},
+				8 => new Effect[] {new Invisibility {Duration = 9600, Level = 0}},
+				9 => new Effect[] {new JumpBoost {Duration = 3600, Level = 0}},
+				10 => new Effect[] {new JumpBoost {Duration = 9600, Level = 0}},
+				11 => new Effect[] {new JumpBoost {Duration = 1800, Level = 1}},
+				12 => new Effect[] {new FireResistance {Duration = 3600, Level = 0}},
+				13 => new Effect[] {new FireResistance {Duration = 9600, Level = 0}},
+				14 => new Effect[] {new Speed {Duration = 3600, Level = 0}},
+				15 => new Effect[] {new Speed {Duration = 9600, Level = 0}},
+				16 => new Effect[] {new Speed {Duration = 1800, Level = 1}},
+				17 => new Effect[] {new Slowness {Duration = 1800, Level = 0}},
+				18 => new Effect[] {new Slowness {Duration = 4800, Level = 0}},
+				19 => new Effect[] {new WaterBreathing {Duration = 3600, Level = 0}},
+				20 => new Effect[] {new WaterBreathing {Duration = 9600, Level = 0}},
+				21 => new Effect[] {new InstantHealth {Duration = 0, Level = 0}},
+				22 => new Effect[] {new InstantHealth {Duration = 0, Level = 1}},
+				23 => new Effect[] {new InstantDamage {Duration = 0, Level = 0}},
+				24 => new Effect[] {new InstantDamage {Duration = 0, Level = 1}},
+				25 => new Effect[] {new Poison {Duration = 900, Level = 0}},
+				26 => new Effect[] {new Poison {Duration = 2400, Level = 0}},
+				27 => new Effect[] {new Poison {Duration = 440, Level = 1}},
+				28 => new Effect[] {new Regeneration {Duration = 900, Level = 0}},
+				29 => new Effect[] {new Regeneration {Duration = 2400, Level = 0}},
+				30 => new Effect[] {new Regeneration {Duration = 440, Level = 1}},
+				31 => new Effect[] {new Strength {Duration = 3600, Level = 0}},
+				32 => new Effect[] {new Strength {Duration = 9600, Level = 0}},
+				33 => new Effect[] {new Strength {Duration = 1800, Level = 1}},
+				34 => new Effect[] {new Weakness {Duration = 1800, Level = 0}},
+				35 => new Effect[] {new Weakness {Duration = 4800, Level = 0}},
+				36 => new Effect[] {new Wither {Duration = 800, Level = 1}},
+				37 => new Effect[] {new Slowness {Duration = 400, Level = 3}, new Resistance {Duration = 400, Level = 2}},
+				38 => new Effect[] {new Slowness {Duration = 800, Level = 3}, new Resistance {Duration = 800, Level = 2}},
+				39 => new Effect[] {new Slowness {Duration = 400, Level = 5}, new Resistance {Duration = 400, Level = 3}},
+				40 => new Effect[] {new SlowFalling {Duration = 1800, Level = 0}},
+				41 => new Effect[] {new SlowFalling {Duration = 4800, Level = 0}},
+				42 => new Effect[] {new Slowness {Duration = 400, Level = 3}},
+				43 => new Effect[] {new WindCharged {Duration = 3600, Level = 0}},
+				44 => new Effect[] {new Weaving {Duration = 3600, Level = 0}},
+				45 => new Effect[] {new Oozing {Duration = 3600, Level = 0}},
+				46 => new Effect[] {new Infested {Duration = 3600, Level = 0}},
+				_ => new Effect[0]
+			};
 		}
 	}
 }

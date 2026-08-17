@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -25,15 +25,9 @@
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using log4net;
 using MiNET.Utils;
-using Org.BouncyCastle.Asn1;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.OpenSsl;
-using Org.BouncyCastle.Pkcs;
-using Org.BouncyCastle.Security;
 
 namespace MiNET.Net.NetherNet
 {
@@ -55,10 +49,7 @@ namespace MiNET.Net.NetherNet
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(NetherNetServerIdentity));
 
-		// P-384, matching the curve BDS uses for the same purpose and the ES384 the assertion signs with.
-		private const string Secp384R1 = "1.3.132.0.34";
-
-		public AsymmetricCipherKeyPair Key { get; }
+		public ECDsa Key { get; }
 
 		/// <summary>Surfaced to the player as untrusted display text in the first-use prompt.</summary>
 		public string Issuer { get; }
@@ -78,33 +69,21 @@ namespace MiNET.Net.NetherNet
 			Key = Load(path) ?? Create(path);
 		}
 
-		private static AsymmetricCipherKeyPair Load(string path)
+		private static ECDsa Load(string path)
 		{
 			try
 			{
 				if (!File.Exists(path)) return null;
 
-				using var reader = new PemReader(new StringReader(File.ReadAllText(path)));
-				object read = reader.ReadObject();
-
-				AsymmetricCipherKeyPair pair = read switch
-				{
-					AsymmetricCipherKeyPair keyPair => keyPair,
-					// A PKCS#8 PRIVATE KEY block gives only the private half; the public point is
-					// derivable, so a key written by OpenSSL in either form still loads.
-					ECPrivateKeyParameters priv => new AsymmetricCipherKeyPair(
-						new ECPublicKeyParameters(priv.AlgorithmName, priv.Parameters.G.Multiply(priv.D).Normalize(), priv.Parameters), priv),
-					_ => null
-				};
-
-				if (pair == null)
-				{
-					Log.Warn($"{path} does not contain an EC private key, generating a new server identity");
-					return null;
-				}
+				// Reads both PEM forms this file has ever been written in: PKCS#8 "PRIVATE KEY", which
+				// is what we write, and SEC1 "EC PRIVATE KEY", which is what OpenSSL writes by default.
+				// The public half is derived from the private one either way, so neither needs to be
+				// stored.
+				var key = ECDsa.Create();
+				key.ImportFromPem(File.ReadAllText(path));
 
 				Log.Info($"NetherNet server identity loaded from {path}");
-				return pair;
+				return key;
 			}
 			catch (Exception e)
 			{
@@ -115,20 +94,19 @@ namespace MiNET.Net.NetherNet
 			}
 		}
 
-		private static AsymmetricCipherKeyPair Create(string path)
+		private static ECDsa Create(string path)
 		{
-			var generator = new ECKeyPairGenerator("ECDSA");
-			generator.Init(new ECKeyGenerationParameters(new DerObjectIdentifier(Secp384R1), new SecureRandom()));
-			AsymmetricCipherKeyPair pair = generator.GenerateKeyPair();
+			// P-384, matching the curve BDS uses for the same purpose and the ES384 the assertion
+			// signs with.
+			var key = ECDsa.Create(ECCurve.NamedCurves.nistP384);
 
 			try
 			{
 				string directory = Path.GetDirectoryName(path);
 				if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
-				using var writer = new StringWriter();
-				new PemWriter(writer).WriteObject(PrivateKeyInfoFactory.CreatePrivateKeyInfo(pair.Private));
-				File.WriteAllText(path, writer.ToString());
+				// PKCS#8, the same "PRIVATE KEY" block written before, so a key from either era loads.
+				File.WriteAllText(path, key.ExportPkcs8PrivateKeyPem());
 
 				Log.Info($"Generated a new NetherNet server identity at {path}. Keep this file: clients recognise this server by this key.");
 			}
@@ -137,7 +115,7 @@ namespace MiNET.Net.NetherNet
 				Log.Error($"Could not persist the NetherNet server identity to {path}. It will change on restart and re-prompt every player.", e);
 			}
 
-			return pair;
+			return key;
 		}
 	}
 }

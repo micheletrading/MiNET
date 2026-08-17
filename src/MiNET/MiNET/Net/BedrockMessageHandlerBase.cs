@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -24,13 +24,16 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using log4net;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.IO;
 
 namespace MiNET.Net
@@ -50,12 +53,15 @@ namespace MiNET.Net
 
 		private protected readonly INetworkHandler _session;
 
-		public CryptoContext CryptoContext { get; set; }
+		// There is no encryption state here either, and no encryption at all: the transport is DTLS
+		// and encrypting a second time would leave the peer reading ciphertext it never expected.
+		// The application-layer AES-CTR handshake belonged to RakNet, which is gone.
 
-		// Compression is off until the NetworkSettings exchange completes, then every wrapper
-		// payload carries a leading compressor id byte (0x00=zlib, 0x01=snappy, 0xff=none).
-		public bool CompressionEnabled { get; set; }
-		public ushort CompressionThreshold { get; set; } = 1;
+		// There is no compression state here on purpose. Every batch this class builds carries a
+		// compressor id byte (0x00=zlib, 0xff=none, chosen by size), and every batch it reads has its
+		// id read off the wire. The one exchange that predates the id byte, NetworkSettings one way
+		// and RequestNetworkSettings the other, is pre-wrapped raw at its call site. A flag for it
+		// only ever said what the bytes already say, and said it a batch too early.
 
 		/// <summary>
 		///     Packet ids to skip without decoding when they arrive in a batch. Set by the emulator
@@ -103,10 +109,7 @@ namespace MiNET.Net
 				if (sendInBatch.Count == 0) return;
 
 				var pending = McpeWrapper.CreateObject();
-				pending.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				pending.SetPayload(CompressionEnabled
-					? Compression.CompressPacketsForWrapper(sendInBatch)
-					: Compression.PackPacketsForWrapper(sendInBatch));
+				pending.SetPayload(Compression.CompressPacketsForWrapper(sendInBatch));
 				pending.EncodeAsMemory(); // prepare
 				sendList.Add(pending);
 				sendInBatch.Clear();
@@ -114,31 +117,10 @@ namespace MiNET.Net
 
 			foreach (Packet packet in packetsToSend)
 			{
-				// We must send forced clear messages in single message batch because
-				// we can't mix them with un-encrypted messages for obvious reasons.
-				// If need be, we could put these in a batch of it's own, but too rare 
-				// to bother.
-				if (packet.ForceClear)
-				{
-					FlushBatch();
-
-					var wrapper = McpeWrapper.CreateObject();
-					wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-					wrapper.ForceClear = true;
-					wrapper.SetPayload(CompressionEnabled
-						? Compression.CompressPacketsForWrapper(new List<Packet> {packet})
-						: Compression.PackPacketsForWrapper(new List<Packet> {packet}));
-					wrapper.EncodeAsMemory(); // prepare
-					packet.PutPool();
-					sendList.Add(wrapper);
-					continue;
-				}
-
 				if (packet is McpeWrapper)
 				{
 					FlushBatch();
 
-					packet.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 					sendList.Add(packet);
 					continue;
 				}
@@ -147,14 +129,20 @@ namespace MiNET.Net
 				{
 					FlushBatch();
 
-					packet.ReliabilityHeader.Reliability = packet.ReliabilityHeader.Reliability != Reliability.Undefined ? packet.ReliabilityHeader.Reliability : Reliability.Reliable;
 					sendList.Add(packet);
 					continue;
 				}
 
-				packet.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 
-				sendInBatch.Add(OnSendCustomPacket(packet));
+				// Null is a plugin suppressing the packet, and it has to be dropped here rather than
+				// batched: a null reaching Compression.CompressPacketsForWrapper throws, and a throw
+				// there takes the whole wrapper with it, so one suppressed packet would silently
+				// cost every packet riding beside it. The original is already pooled by
+				// OnSendCustomPacket when it hands back anything other than what it was given.
+				Packet outgoing = OnSendCustomPacket(packet);
+				if (outgoing == null) continue;
+
+				sendInBatch.Add(outgoing);
 			}
 
 			FlushBatch();
@@ -164,17 +152,21 @@ namespace MiNET.Net
 
 		public Packet HandleOrderedSend(Packet packet)
 		{
-			if (!packet.ForceClear && CryptoContext != null && CryptoContext.UseEncryption && packet is McpeWrapper wrapper)
-			{
-				var encryptedWrapper = McpeWrapper.CreateObject();
-				encryptedWrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				encryptedWrapper.payload = CryptoUtils.Encrypt(wrapper.payload, CryptoContext);
-				encryptedWrapper.Encode();
-
-				return encryptedWrapper;
-			}
-
 			return packet;
+		}
+
+		/// <summary>
+		///     The interface entry point, for a transport that hands over a batch payload and has no
+		///     interest in how it is split. The NetherNet session does not use it: it drives
+		///     <see cref="DecodeBatch" /> and <see cref="HandleDecoded" /> itself so it can dispatch a
+		///     verified handler inline instead of queueing it.
+		/// </summary>
+		public void HandlePayload(ReadOnlyMemory<byte> payload)
+		{
+			foreach (Packet msg in DecodeBatch(payload))
+			{
+				HandleDecoded(msg);
+			}
 		}
 
 		public void HandlePacket(Packet message)
@@ -183,9 +175,16 @@ namespace MiNET.Net
 
 			if (message is McpeWrapper wrapper)
 			{
-				foreach (Packet msg in DecodeBatch(wrapper))
+				try
 				{
-					HandleDecoded(msg);
+					foreach (Packet msg in DecodeBatch(wrapper.payload))
+					{
+						HandleDecoded(msg);
+					}
+				}
+				finally
+				{
+					wrapper.PutPool();
 				}
 
 				return;
@@ -195,36 +194,29 @@ namespace MiNET.Net
 		}
 
 		/// <summary>
-		///     The transport-thread half of batch handling: decrypt, decompress and decode the wrapper
-		///     into packet objects, consuming the wrapper's payload synchronously (a transport may hand
-		///     in a borrowed view valid only for this call). The returned packets reference only the
-		///     decompression buffer, plain GC-owned memory, so they are safe to hand to another thread;
-		///     <see cref="HandleDecoded" /> is the other half. The wrapper is returned to the pool here.
+		///     The transport-thread half of batch handling: decrypt, decompress and decode a batch
+		///     payload into packet objects, consuming it synchronously (a transport may hand in a
+		///     borrowed view valid only for this call). Takes the payload rather than a wrapper: on
+		///     receive there is nothing to wrap, and building one per batch only to read a field off
+		///     it costs an object and a copy for nothing.
+		///     <see cref="HandleDecoded" /> is the other half.
 		/// </summary>
-		public List<Packet> DecodeBatch(McpeWrapper wrapper)
+		public List<Packet> DecodeBatch(ReadOnlyMemory<byte> payload)
 		{
 			Volatile.Write(ref _lastIncomingTicks, Environment.TickCount64);
 
 			var messages = new List<Packet>();
 
+			// Rented here, handed back here, on every path. That is only sound because no packet
+			// leaves this method pointing into it: anything that has to keep bytes copies them into
+			// memory it owns while parsing. Nothing outside this method can hold it, so there is no
+			// count to get wrong and no second place to look.
+			byte[] decompressed = null;
+			int decompressedLength = 0;
+
+			try
 			{
-				if (IgnoreIncoming)
-				{
-					wrapper.PutPool();
-					return messages;
-				}
-
-				// Get bytes to process
-				ReadOnlyMemory<byte> payload = wrapper.payload;
-
-				// Decrypt bytes
-
-				if (CryptoContext != null && CryptoContext.UseEncryption)
-				{
-					// This call copies the entire buffer, but what can we do? It is kind of compensated by not
-					// creating a new buffer when parsing the packet (only a mem-slice)
-					payload = CryptoUtils.Decrypt(payload, CryptoContext);
-				}
+				if (IgnoreIncoming) return messages;
 
 				// Decompress bytes
 
@@ -236,34 +228,49 @@ namespace MiNET.Net
 				//	throw new InvalidDataException("Incorrect ZLib header. Expected 0x78 0x9C");
 				//}
 				//stream.ReadByte();
+				// REFCT: this reader and the one over the batch below are the second largest allocation
+				// on the inbound path, one small object each per batch. Both exist only because
+				// DeflateStream and VarInt.ReadUInt32 take a Stream. A span-based varint read deletes the
+				// batch one outright; a struct reader would delete both but stops being a Stream. Not a
+				// shared instance: it carries a mutable Position.
 				var stream = new MemoryStreamReader(payload);
 				try
 				{
 					{
-						using var s = new MemoryStream();
-						if (CompressionEnabled)
+						// This buffer is GC-owned on purpose. The decoded packets slice it and outlive
+						// this call, so a rented one would have to be handed back by whoever releases
+						// the LAST packet of the batch, which is a hand-back spread over N objects and
+						// no single place that can be shown to be correct. Handing a live buffer back
+						// to a pool the transport also rents from corrupts a payload, not a packet.
+						// The compressor id is on the wire, so read it instead of inferring it from
+						// CompressionEnabled, which flips when we QUEUE NetworkSettings rather than when
+						// the client starts prefixing. One batch on the wrong side of that eats the
+						// first length varint as a compressor id, and it surfaces as the decompressor
+						// complaining about an unsupported method on a batch nobody compressed.
+						// There is no id byte at all until the exchange completes, so a first byte that
+						// is none of the three is a payload starting straight at its first length varint.
+						switch (payload.Length > 0 ? payload.Span[0] : -1)
 						{
-							int compressorId = stream.ReadByte();
-							switch (compressorId)
-							{
-								case 0x00:
-									using (var deflateStream = new DeflateStream(stream, CompressionMode.Decompress, false))
-									{
-										deflateStream.CopyTo(s);
-									}
-									break;
-								case 0xff:
-									stream.CopyTo(s);
-									break;
-								default:
-									throw new InvalidDataException($"Unsupported compressor id 0x{compressorId:x2}");
-							}
+							case 0x00:
+								stream.Position = 1;
+								using (var deflateStream = new DeflateStream(stream, CompressionMode.Decompress, false))
+								{
+									decompressed = ReadAll(deflateStream, out decompressedLength);
+								}
+								break;
+							case 0x01:
+								throw new InvalidDataException("Snappy compressed batch, which is not implemented");
+							case 0xff:
+								stream.Position = 1;
+								decompressed = ReadAll(stream, out decompressedLength);
+								break;
+							default:
+								decompressed = ReadAll(stream, out decompressedLength);
+								break;
 						}
-						else
-						{
-							stream.CopyTo(s);
-						}
-						s.Position = 0;
+
+						var batch = new ReadOnlyMemory<byte>(decompressed, 0, decompressedLength);
+						var s = new MemoryStreamReader(batch);
 
 						int count = 0;
 						// Get actual packet out of bytes
@@ -273,7 +280,14 @@ namespace MiNET.Net
 
 							uint len = VarInt.ReadUInt32(s);
 							long pos = s.Position;
-							ReadOnlyMemory<byte> internalBuffer = s.GetBuffer().AsMemory((int) s.Position, (int) len);
+
+							if (pos + len > decompressedLength)
+							{
+								throw new InvalidDataException(
+									$"Frame {count} says {len} bytes at offset {pos}, but the batch is {decompressedLength} bytes (payload was {payload.Length})");
+							}
+
+							ReadOnlyMemory<byte> internalBuffer = batch.Slice((int) s.Position, (int) len);
 							int id = VarInt.ReadInt32(s);
 
 							// Frames are length-prefixed, so a packet can be skipped without decoding it.
@@ -295,6 +309,10 @@ namespace MiNET.Net
 								Directory.CreateDirectory(PacketDumpDir);
 								File.WriteAllBytes(Path.Combine(PacketDumpDir, $"{seq:D4}-id{id}.bin"), internalBuffer.ToArray());
 							}
+
+							// The raw frame is traced here for the same reason it is dumped here: this is
+							// where it exists. A packet keeps no copy of the bytes it was parsed from.
+							PacketTracing.TraceReceiveFrame(Log, id, internalBuffer);
 
 							try
 							{
@@ -325,22 +343,17 @@ namespace MiNET.Net
 				}
 				catch (Exception e)
 				{
-					if (Log.IsDebugEnabled) Log.Warn($"Error parsing bedrock message \n{Packet.HexDump(payload)}", e);
+					// At Error, not Debug: this kills the session, so the one line that says which
+					// session and how big the batch was is worth having without turning tracing on.
+					// The bytes themselves stay behind Debug; they are only readable in a quiet log.
+					Log.Error($"Error parsing bedrock batch of {payload.Length} bytes for {_session.Username ?? "unknown"}", e);
+					if (Log.IsDebugEnabled) Log.Debug($"The batch was\n{Packet.HexDump(payload)}");
 					throw;
 				}
-
-				foreach (Packet msg in messages)
-				{
-					msg.ReliabilityHeader = new ReliabilityHeader()
-					{
-						Reliability = wrapper.ReliabilityHeader.Reliability,
-						ReliableMessageNumber = wrapper.ReliabilityHeader.ReliableMessageNumber,
-						OrderingChannel = wrapper.ReliabilityHeader.OrderingChannel,
-						OrderingIndex = wrapper.ReliabilityHeader.OrderingIndex,
-					};
-				}
-
-				wrapper.PutPool();
+			}
+			finally
+			{
+				if (decompressed != null) ArrayPool<byte>.Shared.Return(decompressed);
 			}
 
 			return messages;
@@ -354,6 +367,15 @@ namespace MiNET.Net
 		public void HandleDecoded(Packet msg)
 		{
 			PacketTracing.TraceReceive(Log, msg);
+
+			// The one seam both dispatch paths cross, so this measures the inline path and the queued
+			// one alike. Timing is always taken (two timestamp reads); nothing is recorded unless the
+			// handler breaches the threshold, so the fast case stays off the histogram machinery.
+			// This is the enforcement arm of the dispatch contract - a verified handler running inline
+			// sits ahead of that packet's own SACK, so a slow one delays the whole association.
+			Type packetType = msg.GetType();
+			long startedAt = Stopwatch.GetTimestamp();
+
 			try
 			{
 				HandleCustomPacket(msg);
@@ -361,6 +383,49 @@ namespace MiNET.Net
 			catch (Exception e)
 			{
 				Log.Warn($"Bedrock message handler error", e);
+			}
+			finally
+			{
+				EngineMetrics.RecordHandler(packetType, _session.Username, startedAt);
+
+				// Both dispatch paths end here, inline and queued alike, so this is the one place a
+				// received packet can be returned. Nothing did until now: the wrapper went back to
+				// the pool and the packets inside it went to the GC, which at 20Hz per player is
+				// where the allocation rate comes from.
+				//
+				// The contract this assumes is that a handler is done with the packet when it
+				// returns. One that wants to keep it has to take a copy, because the instance is
+				// reused the moment this runs.
+				msg.PutPool();
+			}
+		}
+
+		/// <summary>
+		///     Reads a stream to its end into a rented array, doubling as it goes. Deflate carries no
+		///     uncompressed length, so the size cannot be known up front and the copy is unavoidable;
+		///     what this avoids is the copy landing in a fresh MemoryStream every time. The array is
+		///     the caller's to hand back, and is longer than the byte count reported.
+		/// </summary>
+
+		private static byte[] ReadAll(Stream source, out int length)
+		{
+			byte[] buffer = ArrayPool<byte>.Shared.Rent(4 * 1024);
+			length = 0;
+
+			while (true)
+			{
+				if (length == buffer.Length)
+				{
+					byte[] bigger = ArrayPool<byte>.Shared.Rent(buffer.Length * 2);
+					Buffer.BlockCopy(buffer, 0, bigger, 0, length);
+					ArrayPool<byte>.Shared.Return(buffer);
+					buffer = bigger;
+				}
+
+				int read = source.Read(buffer, length, buffer.Length - length);
+				if (read == 0) return buffer;
+
+				length += read;
 			}
 		}
 
@@ -377,7 +442,6 @@ namespace MiNET.Net
 			else
 			{
 				Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.GetClientEndPoint().Address}");
-				if (Log.IsDebugEnabled) Log.Warn($"Unknown packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
 			}
 		}
 
@@ -397,11 +461,23 @@ namespace MiNET.Net
 		///     the startup scan's verified label and no plugin interceptor exists for the type.
 		///     The caller still owns ordering: direct dispatch is only valid when nothing for this
 		///     session is queued ahead.
+		///     <para>
+		///     The static label is the NECESSARY condition, never the sufficient one. It proves a
+		///     handler is lock-free and touches no IO; it cannot prove the handler is fast, and a
+		///     verified handler runs ahead of its own packet's SACK, so slow is as harmful here as
+		///     blocking. Measured duration decides the rest: a type <see cref="EngineMetrics.IsDemoted" />
+		///     has seen breach the handler threshold is refused the inline path from then on, whatever
+		///     the scan said about it.
+		///     </para>
 		/// </summary>
 		public bool CanDispatchInline(Packet packet)
 		{
 			object target = HandlerTarget;
 			if (target == null) return false;
+
+			// Ahead of the cache, not inside it: demotion happens while the process runs, and a cached
+			// "true" from before the breach must not outlive it.
+			if (EngineMetrics.IsDemoted(packet.GetType())) return false;
 
 			(Type, Type) key = (target.GetType(), packet.GetType());
 			if (InlineDispatchCache.TryGetValue(key, out bool cached)) return cached;

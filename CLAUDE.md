@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -44,13 +44,11 @@ warning. Stop it through the remote console instead.
 
 After every code change, this exact loop, nothing else:
 
-1. `MiNET.Console remote restart` when the server is coming straight back. It transfers everyone to
-   `RemoteConsole.TransferAddress` and shuts down cleanly, saving the level, and they reconnect on
-   their own. But the transfer starts a 22 second clock, so if a build or tests sit in the gap the
-   window is blown and transferring is WORSE than disconnecting: the client burns the window
-   retrying and ends on a generic multiplayer-services error rather than a clean shutdown message.
-   For that case, warn people first and use `remote stop`. Decide on how long the server will be
-   down, not on who is online.
+1. `MiNET.Console remote restart`, always. It transfers everyone to
+   `RemoteConsole.TransferAddress`, which is `yodamine.info`, the OVH box whose parking server is
+   always up, then shuts down cleanly and saves the level. Players land on the box immediately and
+   stay there, so how long this server is down does not matter. They are parked, not queued:
+   nothing sends them back, `/back` on the parking server does.
 2. Build the SOLUTION: `dotnet build src/MiNET/MiNET.sln`. Not the project. `dotnet run` builds only
    the console and its references, and the plugins (`TestPlugin`, `MiNET.Plotter`,
    `MiNET.BuilderBase`) are loaded at runtime from `PluginDirectory`, so they are NOT references and
@@ -65,20 +63,18 @@ After every code change, this exact loop, nothing else:
 `.claude/skills/restart-server/restart-minet.sh` is this loop in one script and prints the
 downtime; pass `--build` to include step 2.
 
-**The downtime budget is real.** A transferred client retries for about 22 seconds and then gives
-up with `InitialConnection-13`, losing the player.
+**There is no downtime budget any more**, because the transfer target is a different machine.
+Restart with `--build`, run the tests, take as long as the work takes.
 
-Without a build, restart is ~6s and always fits. With `--build`, assume it does NOT: measured
-downtimes are 19s, 40s and 48s, and the 48s was a one-file change in `MiNET.Console` alone, so
-"small edit" is not a reliable predictor. Build time dominates and varies far more than the source
-change suggests. So when players are on and code has changed, tell them first; do not assume the
-transfer will carry them. The script prints the downtime, which is the only honest measure.
+That holds only while `RemoteConsole.TransferAddress` points off-box. A client transferred to an
+address on THIS machine retries for about 22 seconds against a listener that is down, then gives
+up with `InitialConnection-13` and is lost. So it must be `yodamine.info` (the box), never
+`yodamine.com` (this machine) and never `127.0.0.1` (the player's own machine). The address is
+resolved by the CLIENT, so it has to be a name the client can reach.
 
-Never assume, and never let anyone assume, that a `--build` restart is transparent to players.
-
-`RemoteConsole.TransferAddress` must be resolvable by the CLIENT. Once anyone joins from outside
-this machine it has to be the public name (`yodamine.com` here), never `127.0.0.1`, which would
-send them to their own machine.
+For reference, since the script prints it: a plain restart is ~6s, and with `--build` it has
+measured 19s, 40s and 48s. The 48s was a one-file change in `MiNET.Console` alone, so "small edit"
+predicts nothing.
 
 Falling back without the remote console: create `temp_auto/stop-server`, which the host watches and
 which stops it the same way pressing enter does. `SIGINT`/`SIGTERM` work too.
@@ -87,13 +83,56 @@ Logs, two different files:
 - `temp_auto/minet-server.log` - stdout capture (console appender, TRACE and up).
 - `src/MiNET/MiNET.Console/bin/Debug/net10.0/minetlog.log` - the rolling file appender; the only place VERBOSE lines (datagram/ACK traces) appear. Config in `src/MiNET/MiNET.Console/log4net.xml`; the active server config is `server.nicke.conf` next to the exe (this machine), not `server.conf`.
 
+### Running the bot fleet (MiNET.ServiceKiller)
+
+This exact invocation, from the repo root, every time:
+
+```bash
+src/MiNET/MiNET.ServiceKiller/bin/Debug/net10.0/MiNET.ServiceKiller.exe \
+  --number-of-bots 1000 --duration-of-connection 900 --auto true \
+  > temp_auto/fleet.log 2>&1
+```
+
+Only `--number-of-bots` and `--duration-of-connection` ever change. Every other knob (batch
+size 5, chunk radius 5, send interval 40-100ms, concurrent spawn on) stays default, because
+the runs are compared against each other and a changed knob silently invalidates the
+comparison: a spawn-batch and send-interval change once produced a "huge difference" that was
+the knob, not the code. If a cadence itself is what is being measured, that is a deliberate
+experiment, said out loud, not folded into a normal run.
+
+- The built exe directly, never `dotnet run` (a run wrapper cannot be killed cleanly; `taskkill /F /T` the exe).
+- `--auto true` skips the "Press Enter" prompt, which is what makes it work detached.
+- `--name-offset N` when a second fleet process runs alongside, so bot names cannot collide.
+- Long runs go to the background and the log gets read; never watch a stream.
+
+Count the result BOTH ways, they are opposite failures:
+
+```bash
+grep -c "spawned, emulating" temp_auto/fleet.log        # made it into the world
+grep -c "connected but never spawned" temp_auto/fleet.log  # transport up, join never finished
+```
+
+**N launched means N spawned and staying.** 987 of 1000 is not a pass, it is a defect that
+halts the line until the cause is known (see the 85-bot loss: overlapping sweeps starved
+logins). Never report a run without both counts read.
+
+Server side is already configured for this in `server.nicke.conf`: `MaxNumberOfPlayers=5000`
+and `InactivityTimeout=60000` (a thousand bots starve threads long enough that healthy
+sessions look silent on the default 8.5s and get swept).
+
+**NEVER measure anything with the log root above INFO.** At TRACE/VERBOSE the two appenders
+take ~29000 events a second, each a string format and a write behind an appender lock, and
+per-datagram hex dumps on top. That blocks threads while burning almost no CPU, so the box
+reads as idle while the world tick starves: 4ms of tick work arriving 72-118ms apart. Every
+number measured that way is the logging harness, not the server. `log4net.xml` root is INFO;
+raise it only for a deliberate trace session and never for a load run.
+
 ## Projects
 
 - `MiNET` - the core server library and the NuGet package. Everything below refers to this project.
 - `MiNET.Console` - console host that boots `MiNetServer`. Configured via `server.conf` (key=value, read through `MiNET.Utils.Config`).
 - `MiNET.Client` - a Bedrock client/bot used to trace and reverse-engineer the protocol against a real server (e.g. vanilla BDS). `BedrockTraceHandler` dumps packets; this is the main tool when updating protocol versions. `MINET_TARGET=host:port` aims it somewhere other than the local BDS, `MINET_PACKET_DUMP=<dir>` writes every received frame as `<seq>-<name>.bin`, `MINET_BLOB_CACHE=1` makes it announce the client-side cache the way a real client does.
-- `MiNET.Tunnel` - MITM proxy for capturing a real client's session against a real server: client -> tunnel -> BDS. Each leg handles only its own login and crypto and forwards every other frame verbatim, dumping both directions into one interleaved sequence (`MINET_TUNNEL_TARGET`, `MINET_TUNNEL_DUMP`). Point it at MiNET instead of BDS to capture our own output in the identical format for diffing.
-- `MiNET.ServiceKiller` - load-test emulator that spawns many fake clients.
+- `MiNET.ServiceKiller` - load-test emulator that spawns many fake clients. See "Running the bot fleet" below; never invent an invocation for it.
 - `TestPlugin`, `MiNET.Plotter`, `MiNET.BuilderBase` - example/real plugins loaded at runtime (see plugin system below).
 - `MiNETTests`, `MiNET.BuilderBase.Tests` - MSTest projects.
 
@@ -104,10 +143,15 @@ Most work in this repo is keeping up with Mojang protocol changes. The network c
 - `MCPE Protocol.xml` is the source of truth: packet definitions, ids, fields, and the protocol/game version.
 - `MCPE Protocol.tt` (T4 template) generates `MCPE Protocol.cs` from the XML; `MCPE Protocol Documentation.tt` generates the markdown protocol spec. Both outputs are committed. Regenerate after editing the XML, either via the Visual Studio design-time custom tool or the `dotnet-t4` CLI: `cd src/MiNET/MiNET/Net && t4 "MCPE Protocol.tt" -o "MCPE Protocol.cs"` (same for the documentation template).
 - Never hand-edit `MCPE Protocol.cs`. To customize a packet beyond what the XML expresses, add a partial class in its own file (e.g. `Net/McpeAnimate.cs`): declare extra fields there and implement the `partial void AfterDecode()` / `AfterEncode()` hooks, which run after the generated fields. Fields that need conditional or custom encoding are left out of the XML entirely and handled in the partial.
-- Machine-readable protocol references, in priority order for a specific target version:
-  - PrismarineJS/minecraft-data (`data/bedrock/<version>/protocol.json`, ProtoDef) is version-exact, so it is the primary reference for whatever version the XML targets. It is community-maintained and does have occasional field errors.
-  - Mojang's official docs repo (github.com/Mojang/bedrock-protocol-docs, JSON Schemas) is authoritative for field semantics and wire order (via `x-ordinal-index`), but it only publishes the single current protocol, which is usually AHEAD of the version we target. Use it to cross-check, and when the two disagree trust Mojang and note it.
-  - Live BDS bytes are the ground-truth tiebreaker. Zero leftover bytes proves byte alignment, not field meaning.
+- Reference trust order. Working implementations are the authorities on the wire format; a spec merely describes and is never exercised against a real client, so a spec-vs-implementation disagreement is a spec bug to note, not a code change to make. In order:
+  1. Live BDS bytes / tunnel captures are ground truth. Zero leftover bytes proves byte alignment, not field meaning.
+  2. CloudburstMC (Data + Protocol) is the primary source, both halves: Data feeds MiNET.BlockGen, Protocol is the reference implementation, and they are the fastest movers on a protocol bump.
+  3. PMMP (pmmp/BedrockProtocol) is the arbiter. When any two sources disagree, PMMP usually holds the accurate value; PMMP and minecraft-data disagreeing with EACH OTHER is the warning signal to dig deeper.
+  4. PrismarineJS/minecraft-data (`data/bedrock/<version>/protocol.json`, ProtoDef) is version-exact for whatever the XML targets, with occasional field errors.
+  5. RaphiMC/ViaBedrock is the aggregate cross-check when its target protocol matches ours (`.../protocol/data/ProtocolConstants.java` states it): `.../data/enums/bedrock/generated/` holds ~200 enums generated from Mojang's protocol docs, `src/main/resources/assets/viabedrock/data/` holds curated game data (effects.json, block_traits.json, potion metadata in `custom/item_mappings.json`), aggregating Geyser, PMMP, CloudburstMC and Mojang (see its `Data Asset Sources.md`). The generated enums are faithful to Mojang's docs; the hand-maintained `custom/` files can lag (its potion table was missing Bedrock metas 43-46).
+  6. Mojang's official docs repo (github.com/Mojang/bedrock-protocol-docs, JSON Schemas) is for field semantics, naming and wire order (`x-ordinal-index`) only. It publishes just the current protocol (usually AHEAD of our target), and a slot marked "reserved" can be live on the wire: the spec hides deprecated-but-working ids (Scale=38 and the entity bounding-box ids are real; PMMP confirms them against Mojang's "RESERVED_038").
+  7. minecraft.wiki is the source for game-mechanics VALUES, not wire format: potion tables, effect durations and levels, per-edition data values. It is what ViaBedrock itself cites for effects.json. Use it whenever the question is "what does this potion/effect/mechanic do", and prefer it over guessing from an implementation's constant names.
+  - Corollary from the ParticleType work: a derived reconstruction (replaying another repo's per-version diffs, a homegrown extraction script) is NOT a source. When your derivation of source A disagrees with sources B and C directly read, suspect the derivation first. Settle disputed ids by two-of-three agreement among direct reads, PMMP as tiebreak.
 - `McpeProtocolInfo.ProtocolVersion` / `GameVersion` (generated from XML attributes) gate client connections.
 
 ### Updating the protocol (the working order)

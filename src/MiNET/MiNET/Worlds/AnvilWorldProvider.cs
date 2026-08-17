@@ -456,6 +456,10 @@ namespace MiNET.Worlds
 
 					if (chunk.biomeId.Length > 256) throw new Exception();
 
+					// Java's heights need no conversion. ReadSection's "4 + sectionIndex" shifts the
+					// storage INDEX, not the coordinate: index 4 is Y 0 because WorldMinY is -64, so a
+					// Java section at Y 0-15 lands at Bedrock Y 0-15. The two coordinate spaces
+					// coincide above zero, which is the whole point of that offset.
 					NbtTag heights = dataTag["HeightMap"] as NbtIntArray;
 					if (heights != null)
 					{

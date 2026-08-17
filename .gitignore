@@ -211,3 +211,20 @@ temp_auto/
 src/MiNET/MiNET.BlockGen/ProtocolDocs/
 
 src/MiNET/TestPlugin/StarterKitPlugin.cs
+
+# Local test worlds and schematics: multi-hundred-megabyte map downloads, personal to
+# whoever is running the server, and never part of the build. Anchored to the repo root:
+# unanchored it matches at any depth, and Windows matches ignore rules without case, so
+# "worlds/" also swallowed the src/MiNET/MiNET/Worlds source folder.
+/worlds/
+
+# Server configs that are not the template. Both kinds carry remote-console secrets and
+# encrypted credentials, so neither belongs in a public repo.
+#
+#   server.<username>.conf   per-developer override, picked automatically by Config.cs from
+#                            Environment.UserName, falling back to server.conf
+#   <name>.server.conf       a deployment template, copied over server.conf at its destination
+#
+# server.conf itself stays tracked: it is the documented default and holds nothing private.
+server.*.conf
+*.server.conf

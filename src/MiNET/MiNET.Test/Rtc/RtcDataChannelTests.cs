@@ -59,6 +59,31 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>Scans a captured outbound packet for its first DATA chunk (skipping a bundled SACK, if any - see <see cref="SctpAssociation.Flush" />'s own remarks on bundling), and returns its stream id, PPID, payload bytes, and the wire-level Unordered (U) flag.</summary>
+		/// <summary>
+		///     The datagrams carrying a DATA chunk, out of everything the association sent. Tests about
+		///     what was SAID must filter rather than count: how many datagrams leave is the
+		///     acknowledgement policy's business (a standalone SACK is a datagram with no DATA chunk in
+		///     it), and asserting on the raw count silently pins that policy to whatever it was the day
+		///     the test was written.
+		/// </summary>
+		private static List<byte[]> WithDataChunks(List<byte[]> sent)
+		{
+			var carrying = new List<byte[]>();
+			foreach (byte[] packet in sent)
+			{
+				SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(packet);
+				while (enumerator.MoveNext())
+				{
+					if (enumerator.Current.Type != SctpChunkType.Data) continue;
+
+					carrying.Add(packet);
+					break;
+				}
+			}
+
+			return carrying;
+		}
+
 		private static (ushort StreamId, uint Ppid, byte[] Payload, bool Unordered) ExtractFirstDataChunk(byte[] packet)
 		{
 			SctpPacket.ChunkEnumerator enumerator = SctpPacket.EnumerateChunks(packet);
@@ -157,8 +182,9 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(0, createdChannel.MaxRetransmits);
 			Assert.IsTrue(createdChannel.IsOpen); // RFC 8832: usable immediately, does not wait on its own ACK being acked
 
-			Assert.AreEqual(1, serverSent.Count);
-			(ushort ackStreamId, uint ackPpid, byte[] ackPayload, bool _) = ExtractFirstDataChunk(serverSent[0]);
+			List<byte[]> answered = WithDataChunks(serverSent);
+			Assert.AreEqual(1, answered.Count, "exactly one DATA chunk answers an OPEN, whatever else the acknowledgement policy sent alongside it");
+			(ushort ackStreamId, uint ackPpid, byte[] ackPayload, bool _) = ExtractFirstDataChunk(answered[0]);
 			Assert.AreEqual((ushort) 0, ackStreamId); // same stream as the OPEN
 			Assert.AreEqual(50u, ackPpid);
 			CollectionAssert.AreEqual(new byte[] {0x02}, ackPayload); // DATA_CHANNEL_ACK, RFC 8832 5.2
@@ -304,8 +330,9 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(1, firedChannels.Count); // OnDataChannel fired exactly once, total
 			Assert.AreSame(original, firedChannels[0]);
 
-			Assert.AreEqual(1, serverSent.Count); // still answers with an ACK
-			(ushort ackStreamId, uint ackPpid, byte[] ackPayload, bool _) = ExtractFirstDataChunk(serverSent[0]);
+			List<byte[]> answered = WithDataChunks(serverSent);
+			Assert.AreEqual(1, answered.Count, "still answers with exactly one ACK, whatever the acknowledgement policy sent alongside it");
+			(ushort ackStreamId, uint ackPpid, byte[] ackPayload, bool _) = ExtractFirstDataChunk(answered[0]);
 			Assert.AreEqual((ushort) 0, ackStreamId);
 			Assert.AreEqual(50u, ackPpid);
 			CollectionAssert.AreEqual(new byte[] {0x02}, ackPayload);

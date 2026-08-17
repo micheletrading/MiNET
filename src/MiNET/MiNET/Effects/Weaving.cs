@@ -1,4 +1,4 @@
-﻿#region LICENSE
+﻿﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -23,18 +23,15 @@
 
 #endregion
 
-namespace MiNET.Net
+using System.Drawing;
+
+namespace MiNET.Effects
 {
-	public enum Reliability
+	public class Weaving : Effect
 	{
-		Undefined = -1,
-		Unreliable = 0,
-		UnreliableSequenced = 1,
-		Reliable = 2,
-		ReliableOrdered = 3,
-		ReliableSequenced = 4,
-		UnreliableWithAckReceipt = 5,
-		ReliableWithAckReceipt = 6,
-		ReliableOrderedWithAckReceipt = 7
+		public Weaving() : base(EffectType.Weaving)
+		{
+			ParticleColor = Color.FromArgb(0x78, 0x69, 0x5A);
+		}
 	}
 }

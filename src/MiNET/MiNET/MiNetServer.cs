@@ -39,6 +39,8 @@ using MiNET.Net;
 using MiNET.Net.NetherNet;
 using MiNET.Plugins;
 using MiNET.Utils;
+using MiNET.Utils.Cryptography;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.IO;
 using MiNET.Worlds;
 
@@ -54,6 +56,7 @@ namespace MiNET
 
 		public IPEndPoint Endpoint { get; private set; }
 		private NetherNetListener _netherNetListener;
+		private AcmeCertificateManager _acmeCertificateManager;
 
 		public MotdProvider MotdProvider { get; set; }
 
@@ -98,6 +101,12 @@ namespace MiNET
 
 		/// <summary>Live transport sessions right now, read straight off the listener (ConnectionInfo's count refreshes on a timer and can lag by a second).</summary>
 		public int LiveSessionCount => _netherNetListener?.Sessions.Count ?? 0;
+
+		/// <summary>The transport, for a plugin that needs to open its own signaling ports. Null until the server starts.</summary>
+		public NetherNetListener NetherNetListener => _netherNetListener;
+
+		/// <summary>Raised once the server is listening and <see cref="NetherNetListener" /> exists.</summary>
+		public event EventHandler ServerStarted;
 
 		public ServerRole ServerRole { get; set; }
 
@@ -233,8 +242,29 @@ namespace MiNET
 					_netherNetListener = new NetherNetListener(Endpoint);
 					_netherNetListener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
 
+					// Plugins serve the server port for anything NetherNet does not claim itself.
+					_netherNetListener.RequestHandler = PluginManager.HandleHttpRequest;
+
 					NetherNetListener listener = _netherNetListener;
 					ConnectionInfo = new ConnectionInfo(() => listener.Sessions.Count);
+
+					// The same live count the console line reads, handed to the meter so
+					// transport.sessions.active is the denominator for every per-session rate a
+					// collector computes. The two queue depths walk the same table; both run on the
+					// collector's scrape thread, once an interval, never on a transport thread.
+					TransportMetrics.SessionCountProvider = () => listener.Sessions.Count;
+					TransportMetrics.SendQueueDepthProvider = () =>
+					{
+						long depth = 0;
+						foreach (NetherNetSession session in listener.Sessions.Values) depth += session.SendQueueDepth;
+						return depth;
+					};
+					TransportMetrics.DispatchQueueDepthProvider = () =>
+					{
+						long depth = 0;
+						foreach (NetherNetSession session in listener.Sessions.Values) depth += session.DispatchQueueDepth;
+						return depth;
+					};
 					ConnectionInfo.MaxNumberOfPlayers = Config.GetProperty("MaxNumberOfPlayers", 10);
 					ConnectionInfo.MaxNumberOfConcurrentConnects = Config.GetProperty("MaxNumberOfConcurrentConnects", ConnectionInfo.MaxNumberOfPlayers);
 
@@ -247,9 +277,41 @@ namespace MiNET
 					}
 
 					_netherNetListener.Start();
+
+					// TLS for the signaling port, default OFF: SignalingTls.Enabled gates the whole
+					// ACME machinery, so a stock install never dials a certificate authority
+					// whatever else its config carries. Enabled, the manager issues and renews a
+					// Let's Encrypt certificate for SignalingDomain through the listener's own
+					// challenge route, and the listener answers a client's TLS offer with it
+					// instead of refusing into the plaintext fallback. Started after the listener,
+					// because the manager's first act is to dial its own responder.
+					if (Config.GetProperty("SignalingTls.Enabled", false))
+					{
+						string signalingDomain = Config.GetProperty("SignalingDomain", null);
+						if (string.IsNullOrWhiteSpace(signalingDomain))
+						{
+							Log.Warn("SignalingTls.Enabled is set but SignalingDomain is empty; signaling TLS stays off");
+						}
+						else
+						{
+							_acmeCertificateManager = new AcmeCertificateManager(
+								signalingDomain.Trim(),
+								Config.GetProperty("SignalingCertificateDirectory", "certificates"),
+								Config.GetProperty("AcmeContactEmail", null),
+								Config.GetProperty("AcmeStaging", false));
+							_netherNetListener.TlsCertificateProvider = _acmeCertificateManager.GetCertificateContext;
+							_netherNetListener.AcmeChallengeHandler = _acmeCertificateManager.GetChallengeResponse;
+							_acmeCertificateManager.Start();
+						}
+					}
 				}
 
 				Log.Info("Server open for business on port " + Endpoint?.Port + " ...");
+
+				// After the transport exists, which is the whole point: plugins are enabled long
+				// before this, and LevelCreated fires earlier still, so anything needing the
+				// listener had nowhere to hook until here.
+				ServerStarted?.Invoke(this, EventArgs.Empty);
 
 				return true;
 			}
@@ -270,6 +332,7 @@ namespace MiNET
 			Log.Info("Disabling plugins...");
 			PluginManager?.DisablePlugins();
 			
+			_acmeCertificateManager?.Stop();
 			_netherNetListener?.Stop();
 			ConnectionInfo?.Stop();
 
@@ -277,7 +340,12 @@ namespace MiNET
 			fastThreadPool?.Dispose();
 			
 			Log.Info($"Waiting for threads to exit...");
-			fastThreadPool?.WaitForThreadsExit();
+
+			// Bounded, not infinite: a pool worker that never exits (an observed, unexplained
+			// hang) would otherwise wedge the process forever AFTER the level is already saved,
+			// turning every restart into a manual kill. Ten seconds is grace, not correctness;
+			// everything that matters has already been flushed above.
+			fastThreadPool?.WaitForThreadsExit(TimeSpan.FromSeconds(10));
 		}
 	}
 

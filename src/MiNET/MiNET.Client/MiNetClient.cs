@@ -57,13 +57,6 @@ using MiNET.Utils.Metadata;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 using Newtonsoft.Json;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Agreement;
-using Org.BouncyCastle.Crypto.Engines;
-using Org.BouncyCastle.Crypto.Modes;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
-using SicStream;
 
 //[assembly: XmlConfigurator(Watch = true)]
 // This will cause log4net to look for a configuration file
@@ -177,12 +170,9 @@ namespace MiNET.Client
 			// First use of the crypto stack costs more than a second in JIT and
 			// static initialization; pay that before connecting instead of inside
 			// the join sequence, where the server drops sessions that stall.
-			var keyPair = CryptoUtils.GenerateClientKey();
-			var agreement = new ECDHBasicAgreement();
-			agreement.Init(keyPair.Private);
-			agreement.CalculateAgreement((ECPublicKeyParameters) keyPair.Public);
-			using var sha = SHA256.Create();
-			sha.ComputeHash(new byte[] {0});
+			using ECDsa key = CryptoUtils.GenerateClientKey();
+			key.SignData(new byte[] {0}, HashAlgorithmName.SHA384);
+			SHA256.HashData(new byte[] {0});
 		}
 
 		/// <summary>
@@ -226,7 +216,14 @@ namespace MiNET.Client
 		{
 			var packet = McpeRequestNetworkSettings.CreateObject();
 			packet.protocolVersion = McpeProtocolInfo.ProtocolVersion;
-			SendPacket(packet);
+
+			// Pre-wrapped raw, exactly as the server pre-wraps its NetworkSettings reply. This is one
+			// half of the exchange that decides compression, so it cannot carry a compressor id byte:
+			// the receiver has no way to know one is there yet.
+			var wrapper = McpeWrapper.CreateObject();
+			wrapper.SetPayload(Compression.PackPacketsForWrapper([packet]));
+			wrapper.EncodeAsMemory();
+			SendPacket(wrapper);
 		}
 
 		public void SendLogin(string username)
@@ -234,7 +231,7 @@ namespace MiNET.Client
 			JWT.JsonMapper = new NewtonsoftMapper();
 
 			string identityJson;
-			AsymmetricCipherKeyPair clientKey;
+			ECDsa clientKey;
 
 			// 1.21.90+ wraps login identity in an authentication envelope; since protocol 944 the
 			// identity is an OIDC-style JWT in Token rather than a certificate chain.
@@ -273,69 +270,20 @@ namespace MiNET.Client
 				payload = data
 			};
 
-			var bedrockHandler = (BedrockClientMessageHandler) Session.CustomMessageHandler;
-			bedrockHandler.CryptoContext = new CryptoContext
-			{
-				ClientKey = clientKey,
-				UseEncryption = false,
-			};
-
 			SendPacket(loginPacket);
 		}
 
-		public void InitiateEncryption(byte[] serverKey, byte[] randomKeyToken)
+		/// <summary>
+		///     Answers a server that offered the Bedrock session cipher. Nothing is negotiated: the
+		///     transport is DTLS, so the link is already encrypted and a second cipher would leave the
+		///     peer reading ciphertext it never expected. The reply is still sent, because a server
+		///     that offered the handshake waits for it before continuing the login.
+		/// </summary>
+		public void AcknowledgeHandshake()
 		{
 			try
 			{
-				ECPublicKeyParameters remotePublicKey = (ECPublicKeyParameters)
-					PublicKeyFactory.CreateKey(serverKey);
-
-				//ECDiffieHellmanPublicKey publicKey = CryptoUtils.FromDerEncoded(serverKey);
-				//Log.Debug("ServerKey (b64):\n" + serverKey);
-				//Log.Debug($"Cert:\n{publicKey.ToXmlString()}");
-
-				Log.Debug($"RANDOM TOKEN (raw):\n\n{Encoding.UTF8.GetString(randomKeyToken)}");
-
-				//if (randomKeyToken.Length != 0)
-				//{
-				//	Log.Error("Lenght of random bytes: " + randomKeyToken.Length);
-				//}
-
-				var bedrockHandler = (BedrockClientMessageHandler) Session.CustomMessageHandler;
-
-				var agreement = new ECDHBasicAgreement();
-				agreement.Init(bedrockHandler.CryptoContext.ClientKey.Private);
-				byte[] secret;
-				using (var sha = SHA256.Create())
-				{
-					secret = sha.ComputeHash(randomKeyToken.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
-				}
-
-				Log.Debug($"SECRET KEY (raw):\n{Encoding.UTF8.GetString(secret)}");
-
-				// Create a decrytor to perform the stream transform.
-				var encryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-				var decryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-				decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-				encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-
-				// A transport that already encrypts below us means the peer is not expecting a second
-				// layer, so the handshake is still acknowledged but nothing is enciphered. Same rule
-				// the server side applies in LoginMessageHandler.
-				bool encrypt = !Session.IsTransportEncrypted;
-
-				bedrockHandler.CryptoContext = new CryptoContext
-				{
-					Decryptor = decryptor,
-					Encryptor = encryptor,
-					UseEncryption = encrypt,
-					Key = secret
-				};
-
-				if (!encrypt) Log.Info("Transport is already encrypted, skipping the Bedrock session cipher");
-
-				McpeClientToServerHandshake magic = new McpeClientToServerHandshake();
-				SendPacket(magic);
+				SendPacket(new McpeClientToServerHandshake());
 			}
 			catch (Exception e)
 			{
@@ -741,7 +689,6 @@ namespace MiNET.Client
 			if (CurrentLocation.Y < 0) CurrentLocation.Y = 64f;
 
 			var movePlayerPacket = McpeMovePlayer.CreateObject();
-			movePlayerPacket.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 			movePlayerPacket.runtimeEntityId = EntityId;
 			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
 			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);

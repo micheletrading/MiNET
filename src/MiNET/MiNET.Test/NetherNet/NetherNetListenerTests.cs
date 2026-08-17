@@ -112,6 +112,13 @@ namespace MiNET.Test.NetherNet
 			{
 			}
 
+			/// <summary>The payload is a view onto transport memory reused after this call, so a
+			/// recorder that keeps it copies it here. The transport does not copy on our behalf.</summary>
+			public void HandlePayload(ReadOnlyMemory<byte> payload)
+			{
+				lock (ReceivedPayloads) ReceivedPayloads.Add(payload.ToArray());
+			}
+
 			public void HandlePacket(Packet message)
 			{
 				if (message is McpeWrapper wrapper)

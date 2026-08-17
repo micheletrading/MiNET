@@ -55,15 +55,12 @@ namespace MiNET.Net
 			Handler.Disconnect(reason, sendDisconnect);
 		}
 
+		/// <summary>
+		///     Nothing here any more: plugins see outgoing packets in Player.SendPacket, before the
+		///     packet is queued, so a suppressed one never reaches the send lane at all.
+		/// </summary>
 		public override Packet OnSendCustomPacket(Packet packet)
 		{
-			if (Handler is Player player)
-			{
-				var result = _pluginManager.PluginPacketHandler(packet, false, player);
-				if (result != packet) packet.PutPool();
-				packet = result;
-			}
-
 			return packet;
 		}
 
@@ -329,7 +326,6 @@ namespace MiNET.Net
 				default:
 				{
 					Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.GetClientEndPoint().Address}");
-					if (Log.IsDebugEnabled) Log.Warn($"Unknown packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
 					break;
 				}
 			}

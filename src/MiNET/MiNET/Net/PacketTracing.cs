@@ -40,6 +40,26 @@ namespace MiNET.Net
 	/// </summary>
 	public static class PacketTracing
 	{
+		/// <summary>
+		///     Hex of an incoming frame, called from the decode loop while the bytes still exist. A
+		///     packet does not keep what it was parsed from, so this is the only place the raw form
+		///     can be traced, and the id is all that is known about it here.
+		/// </summary>
+		public static void TraceReceiveFrame(ILog log, int id, ReadOnlyMemory<byte> frame)
+		{
+			if (!log.IsTraceEnabled()) return;
+			if (Config.GetProperty("TracePackets.Verbosity", 0) is not (2 or 3)) return;
+
+			try
+			{
+				log.Verbose($"> Receive frame: {id} (0x{id:x2})\n{Packet.HexDump(frame)}");
+			}
+			catch (Exception e)
+			{
+				log.Error("Error when printing trace", e);
+			}
+		}
+
 		public static void TraceReceive(ILog log, Packet message)
 		{
 			if (!log.IsTraceEnabled()) return;
@@ -88,7 +108,9 @@ namespace MiNET.Net
 				}
 				else if (verbosity == 2 || verbosity == 3)
 				{
-					log.Verbose($"> Receive: {message.Id} (0x{message.Id:x2}): {message.GetType().Name}\n{Packet.HexDump(message.Bytes)}");
+					// No hex here: the frame this was parsed from is gone by now, and TraceReceiveFrame
+					// has already logged it from the decode loop where it still existed.
+					log.Verbose($"> Receive: {message.Id} (0x{message.Id:x2}): {message.GetType().Name}");
 				}
 			}
 			catch (Exception e)
@@ -146,7 +168,7 @@ namespace MiNET.Net
 				}
 				else if (verbosity == 2 || verbosity == 3)
 				{
-					log.Verbose($"<    Send: {message.Id} (0x{message.Id:x2}): {message.GetType().Name}\n{Packet.HexDump(message.Bytes)}");
+					log.Verbose($"<    Send: {message.Id} (0x{message.Id:x2}): {message.GetType().Name}\n{Packet.HexDump(message.EncodeAsMemory())}");
 				}
 			}
 			catch (Exception e)

@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -124,12 +124,12 @@ namespace MiNET.Net.NetherNet
 		///     pins that key the first time it sees it and accepts silently afterwards, so trust
 		///     attaches to the key and not to our address. Rotating it re-prompts every player.
 		/// </summary>
-		public static string AddServerAssertionTo(string answerSdp, Org.BouncyCastle.Crypto.AsymmetricCipherKeyPair operatorKey, string domain, string issuer)
+		public static string AddServerAssertionTo(string answerSdp, ECDsa operatorKey, string domain, string issuer)
 		{
 			string cpk = XboxAuthentication.PublicKeyBase64(operatorKey);
 			long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-			using ECDsa signKey = CryptoUtils.ConvertToSingKeyFormat(operatorKey);
+			ECDsa signKey = operatorKey;
 
 			// A plain self-signed JWT. Nothing validates it centrally; the client verifies the
 			// signature with the cpk carried inside it, which is the value it pins.
@@ -163,7 +163,7 @@ namespace MiNET.Net.NetherNet
 		///     RFC 7515 Appendix F: compact serialization with the payload left out, so the result is
 		///     header..signature rather than header.payload.signature.
 		/// </summary>
-		private static string SignDetached(string payload, Org.BouncyCastle.Crypto.AsymmetricCipherKeyPair key)
+		private static string SignDetached(string payload, ECDsa key)
 		{
 			// ES384 pairs with the P-384 identity key the auth service named in cpk.
 			string header = Base64Url(Encoding.UTF8.GetBytes("{\"alg\":\"ES384\"}"));
@@ -171,7 +171,7 @@ namespace MiNET.Net.NetherNet
 
 			byte[] signingInput = Encoding.ASCII.GetBytes($"{header}.{encodedPayload}");
 
-			using ECDsa signer = CryptoUtils.ConvertToSingKeyFormat(key);
+			ECDsa signer = key;
 			// IeeeP1363 is the fixed-width r||s form JOSE requires, not the ASN.1 DER default.
 			byte[] signature = signer.SignData(signingInput, HashAlgorithmName.SHA384, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 

@@ -28,6 +28,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
+using MiNET.Utils.Diagnostics;
 
 namespace MiNET.Net.Rtc
 {
@@ -266,6 +267,7 @@ namespace MiNET.Net.Rtc
 			if (!isNextContiguous && _gapTsns.Count >= MaxOutOfOrderTsns)
 			{
 				Interlocked.Increment(ref _droppedByGapCapCount);
+				TransportMetrics.Dropped(DropReason.GapCap);
 				return false;
 			}
 
@@ -300,6 +302,7 @@ namespace MiNET.Net.Rtc
 			if (_bufferedBytes + (uint) payload.Length > _budgetBytes && !TryRenegeForSpace((uint) payload.Length))
 			{
 				Interlocked.Increment(ref _droppedByBudgetCount);
+				TransportMetrics.Dropped(DropReason.Budget);
 				// Not recorded as received: the peer times out and retransmits it, exactly what a_rwnd
 				// exists to make happen.
 				return false;
@@ -839,6 +842,7 @@ namespace MiNET.Net.Rtc
 			}
 
 			Interlocked.Increment(ref _renegedFragmentRunCount);
+			TransportMetrics.Dropped(DropReason.Renege);
 			return true;
 		}
 

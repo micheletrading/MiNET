@@ -31,6 +31,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using log4net;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.IO;
 
 namespace MiNET.Net.Rtc
@@ -51,6 +52,7 @@ namespace MiNET.Net.Rtc
 		// SIO_UDP_CONNRESET: stop an ICMP port-unreachable from a dead peer aborting the socket.
 		private const int SioUdpConnReset = -1744830452;
 		private const int SocketBufferSize = 1024 * 1024;
+
 		private const int ReceiveBufferSize = 2048;
 		private const int TickIntervalMs = 10;
 
@@ -208,6 +210,11 @@ namespace MiNET.Net.Rtc
 
 		public void Send(IPEndPoint to, ReadOnlySpan<byte> datagram)
 		{
+			// The counting point transport.datagrams.out names: one call here is one sendto, so this
+			// number is directly comparable against the kernel's own UDP send counter. That comparison
+			// is the calibration - if the two disagree on an otherwise idle box, this seam moved.
+			TransportMetrics.DatagramOut(datagram.Length);
+
 			// Known peer: the SocketAddress was already computed when it was registered, so the
 			// alloc-free SendTo(SocketAddress) overload skips re-serializing the IPEndPoint here.
 			if (_sendAddresses.TryGetValue(to, out SocketAddress address))
@@ -250,6 +257,8 @@ namespace MiNET.Net.Rtc
 						continue;
 					}
 
+					TransportMetrics.DatagramIn(received);
+
 					try
 					{
 						Dispatch(buffer.AsSpan(0, received), address);
@@ -261,6 +270,7 @@ namespace MiNET.Net.Rtc
 						// exception here would unwind it silently and deafen the mux for every
 						// peer, not just the one that misbehaved. Count it, log it, keep serving.
 						Interlocked.Increment(ref _dispatchFailures);
+						TransportMetrics.Dropped(DropReason.Dispatch);
 						Log.Warn("Unhandled exception dispatching a datagram; continuing the receive loop.", e);
 					}
 				}
@@ -286,7 +296,7 @@ namespace MiNET.Net.Rtc
 		{
 			if (data.Length == 0)
 			{
-				Interlocked.Increment(ref _droppedDatagrams);
+				CountDropped();
 				return;
 			}
 
@@ -295,7 +305,7 @@ namespace MiNET.Net.Rtc
 			{
 				if (!TryParseStun(data, out StunMessage message))
 				{
-					Interlocked.Increment(ref _droppedDatagrams);
+					CountDropped();
 					return;
 				}
 
@@ -307,7 +317,7 @@ namespace MiNET.Net.Rtc
 			}
 			else
 			{
-				Interlocked.Increment(ref _droppedDatagrams);
+				CountDropped();
 			}
 		}
 
@@ -325,32 +335,35 @@ namespace MiNET.Net.Rtc
 					byte[] reply = responder(data, (IPEndPoint) LocalEndPoint.Create(from));
 					if (reply != null)
 					{
+						// Counted here as well as in Send: this is a second sendto seam, and the
+						// datagrams.out contract is one increment per sendto, whoever makes it.
+						TransportMetrics.DatagramOut(reply.Length);
 						_socket.SendTo(reply, SocketFlags.None, from);
 						return;
 					}
 				}
 
-				Interlocked.Increment(ref _droppedDatagrams);
+				CountDropped();
 				return;
 			}
 
 			if (message.Type != StunMessageType.BindingRequest || message.Username == null)
 			{
-				Interlocked.Increment(ref _droppedDatagrams);
+				CountDropped();
 				return;
 			}
 
 			int separator = message.Username.IndexOf(':');
 			if (separator < 0)
 			{
-				Interlocked.Increment(ref _droppedDatagrams);
+				CountDropped();
 				return;
 			}
 
 			string ufrag = message.Username.Substring(0, separator);
 			if (!_ufragResolvers.TryGetValue(ufrag, out Func<IPEndPoint, IMuxPeer> resolver))
 			{
-				Interlocked.Increment(ref _droppedDatagrams);
+				CountDropped();
 				return;
 			}
 
@@ -361,6 +374,7 @@ namespace MiNET.Net.Rtc
 			if (endpointsForUfrag >= MaxEndpointsPerUfrag || Interlocked.Read(ref _admittedEndpointCount) >= MaxUnknownEndpointAdmissions)
 			{
 				long drops = Interlocked.Increment(ref _admissionCapDrops);
+				TransportMetrics.Dropped(DropReason.Admission);
 
 				// A saturated admission budget presents as a healthy server that new clients cannot
 				// reach, so it must say so: loud on the first drop, then once per 1000 to survive a
@@ -377,7 +391,7 @@ namespace MiNET.Net.Rtc
 			IMuxPeer peer = resolver(endPoint);
 			if (peer == null)
 			{
-				Interlocked.Increment(ref _droppedDatagrams);
+				CountDropped();
 				return;
 			}
 
@@ -387,6 +401,18 @@ namespace MiNET.Net.Rtc
 			_ufragEndpointCounts.AddOrUpdate(ufrag, 1, (_, existing) => existing + 1);
 			Interlocked.Increment(ref _admittedEndpointCount);
 			peer.OnStun(message, data, endPoint);
+		}
+
+		/// <summary>
+		///     One drop, counted twice on purpose: <see cref="DroppedDatagrams" /> stays the property
+		///     tests and the console read, and the meter gets the same event tagged with its reason so
+		///     the loss bracketing (kernel counters, the BCL socket meter, then us) has a third layer to
+		///     subtract.
+		/// </summary>
+		private void CountDropped()
+		{
+			Interlocked.Increment(ref _droppedDatagrams);
+			TransportMetrics.Dropped(DropReason.Route);
 		}
 
 		private static bool TryParseStun(ReadOnlySpan<byte> data, out StunMessage message)

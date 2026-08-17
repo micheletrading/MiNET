@@ -54,10 +54,10 @@ namespace MiNET.Entities.Projectiles
 			HealthManager.IsInvulnerable = true;
 			NoAi = true;
 
-			Effect effect = ItemPotion.GetPotionEffect(potionMetadata);
-			if (effect != null)
+			Effect[] effects = ItemPotion.GetEffects(potionMetadata);
+			if (effects.Length > 0)
 			{
-				Color c = effect.ParticleColor;
+				Color c = effects[0].ParticleColor;
 				PotionColor = (int) (0xff000000 | ((uint) c.R << 16) | ((uint) c.G << 8) | (uint) c.B);
 			}
 		}
@@ -87,7 +87,10 @@ namespace MiNET.Entities.Projectiles
 
 				// Fresh instance per player: an effect ticks its own duration down once applied,
 				// and re-applying refreshes it the way vanilla's cloud does.
-				player.SetEffect(ItemPotion.GetPotionEffect(_potionMetadata));
+				foreach (Effect effect in ItemPotion.GetEffects(_potionMetadata))
+				{
+					player.SetEffect(effect);
+				}
 			}
 		}
 	}

@@ -176,7 +176,7 @@ namespace MiNET.Entities.Passive
 
 						McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 						entityEvent.runtimeEntityId = EntityId;
-						entityEvent.eventId = 7;
+						entityEvent.eventId = (byte) ActorEventType.TamingSucceeded;
 						entityEvent.data = 0;
 						Level.RelayBroadcast(entityEvent);
 					}
@@ -285,7 +285,7 @@ namespace MiNET.Entities.Passive
 				{
 					McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 					entityEvent.runtimeEntityId = _horse.EntityId;
-					entityEvent.eventId = 6;
+					entityEvent.eventId = (byte) ActorEventType.TamingFailed;
 					entityEvent.data = 0;
 					_horse.Level.RelayBroadcast(entityEvent);
 					_horse.Unmount(_horse.Rider);

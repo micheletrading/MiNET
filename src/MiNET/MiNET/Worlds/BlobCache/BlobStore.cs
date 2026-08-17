@@ -60,11 +60,13 @@ namespace MiNET.Worlds.BlobCache
 		public static long MaxBytes { get; set; } = Config.GetProperty("BlobCache.MaxBytes", 256) * 1024L * 1024L;
 
 		/// <summary>
-		///     Whether we serve chunks as blobs at all. Off by default: the plain chunk path is the
-		///     one every client can take, and this only pays back for players who return to a world
-		///     they have already downloaded.
+		///     Whether we serve chunks as blobs at all. On, because a client that announces it caches
+		///     is telling us it already holds terrain we would otherwise send again, and declining
+		///     that costs the bytes on every visit. It is only ever reached when the client asks for
+		///     it, so nothing is imposed on a client that does not.
+		///     <para>Turn it off to take the blobs out of a capture while debugging, not otherwise.</para>
 		/// </summary>
-		public static bool Enabled { get; set; } = Config.GetProperty("BlobCache.Enabled", false);
+		public static bool Enabled { get; set; } = Config.GetProperty("BlobCache.Enabled", true);
 
 		public static long BytesHeld => Interlocked.Read(ref _bytesHeld);
 		public static int Count => Blobs.Count;

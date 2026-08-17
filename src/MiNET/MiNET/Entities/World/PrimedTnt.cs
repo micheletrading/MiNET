@@ -66,7 +66,7 @@ namespace MiNET.Entities.World
 
 			// The fuse hiss, so the priming is audible (chain reactions prime through this path too).
 			var fuse = McpeLevelEvent.CreateObject();
-			fuse.eventId = (int) LevelEventType.SoundTNTFuse;
+			fuse.eventId = (int) LevelEventType.SoundFuse;
 			fuse.position = KnownPosition;
 			fuse.data = 0;
 			Level.RelayBroadcast(fuse);

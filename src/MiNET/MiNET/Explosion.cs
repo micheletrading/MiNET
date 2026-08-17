@@ -146,7 +146,7 @@ namespace MiNET
 			// The client-side shockwave: the huge-explosion level event, then the individual
 			// block-break debris particles and block updates below.
 			var explodeParticle = McpeLevelEvent.CreateObject();
-			explodeParticle.eventId = (int) LevelEventType.ParticleHugeExplosion; // 2026, the TNT blast
+			explodeParticle.eventId = (int) LevelEventType.ParticlesBlockExplosion; // 2026, the TNT blast
 			explodeParticle.position = new Vector3(_centerCoordinates.X + 0.5f, _centerCoordinates.Y + 0.5f, _centerCoordinates.Z + 0.5f);
 			_world.RelayBroadcast(explodeParticle);
 
@@ -160,7 +160,7 @@ namespace MiNET
 				// Debris: one destroy-block particle per broken block, carrying the block's
 				// runtime id so the client renders the right shards.
 				var debris = McpeLevelEvent.CreateObject();
-				debris.eventId = (int) LevelEventType.ParticleDestroy;
+				debris.eventId = (int) LevelEventType.ParticlesDestroyBlock;
 				debris.position = block1.Coordinates;
 				debris.data = block1.GetRuntimeId();
 				_world.RelayBroadcast(debris);

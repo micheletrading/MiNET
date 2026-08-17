@@ -55,9 +55,11 @@ namespace MiNET.Net
 			Write(payload);
 		}
 
-		partial void AfterDecode()
-		{
-			payload = ReadReadOnlyMemory(0, true);
-		}
+		// A wrapper is never decoded as a packet. It is what a batch IS, not something a batch can
+		// contain: the transport hands its payload straight to DecodeBatch, which cuts frames out of
+		// it. The only way to reach a decode is a frame inside a batch declaring id 0xfe, a wrapper
+		// nested in a wrapper, which nothing sends and which we do not accept. So there is no
+		// AfterDecode: such a frame fails as an unparseable packet, loudly, instead of being handled
+		// by a path that exists for no caller and would have to copy the batch to be safe.
 	}
 }

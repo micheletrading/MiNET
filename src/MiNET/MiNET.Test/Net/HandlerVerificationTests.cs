@@ -110,7 +110,7 @@ namespace MiNET.Test.Net
 		}
 
 		[TestMethod]
-		public void CoreSurface_ScansWhole_AndKnownHotHandlersAreStillUnverified()
+		public void CoreSurface_ScansWhole_AndTheHottestHandlerDispatchesDirectly()
 		{
 			Dictionary<string, HandlerVerification.MethodLabel> labels = ScanSelf();
 
@@ -118,10 +118,16 @@ namespace MiNET.Test.Net
 			int core = labels.Keys.Count(k => k.StartsWith("MiNET."));
 			Assert.IsTrue(core > 100, $"expected the full core handler surface, labeled only {core}");
 
-			// The two hottest handlers lock today (their own state sync); the day either verifies,
-			// this assertion is the reminder that the direct-dispatch path just went live for it -
-			// intentional cleanup makes this test change, silent regression cannot.
-			Assert.IsFalse(Label(labels, "Player::HandleMcpePlayerAuthInput").Verified);
+			// PlayerAuthInput is the hottest handler on the server (one per client tick, per player)
+			// and the only one whose label is worth a test of its own: it carries the direct-dispatch
+			// path, so anything that reintroduces a lock on its movement tail - or on the pool-threaded
+			// item-use and crafting branches folded into it - silently costs every player a queue hop
+			// per tick. This fails the moment that happens; the reason string names the new blocker.
+			HandlerVerification.MethodLabel authInput = Label(labels, "Player::HandleMcpePlayerAuthInput");
+			Assert.IsTrue(authInput.Verified, $"PlayerAuthInput must stay lock-free: {authInput.Reason}");
+
+			// MovePlayer still reaches Level's entity locks (a move can kill a painting). Unverified is
+			// the correct label today, and it is legacy inbound on 2168 besides.
 			Assert.IsFalse(Label(labels, "Player::HandleMcpeMovePlayer").Verified);
 		}
 	}

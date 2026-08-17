@@ -57,9 +57,7 @@ namespace MiNET.Net
 
 		private byte[] _encodedMessage;
 
-		[JsonIgnore] public ReliabilityHeader ReliabilityHeader = new ReliabilityHeader();
 
-		[JsonIgnore] public bool ForceClear;
 		[JsonIgnore] public bool NoBatch { get; set; }
 
 		/// <summary>
@@ -79,13 +77,6 @@ namespace MiNET.Net
 		protected private Stream _buffer;
 		private BinaryWriter _writer;
 
-		[JsonIgnore] public ReadOnlyMemory<byte> Bytes { get; private set; }
-		[JsonIgnore] public Stopwatch Timer { get; } = Stopwatch.StartNew();
-
-		public Packet()
-		{
-			Timer.Start();
-		}
 
 		public void Write(byte value)
 		{
@@ -2928,7 +2919,10 @@ namespace MiNET.Net
 			WriteSignedVarInt(data.MinHeight);
 			WriteSignedVarInt(data.Generator);
 			WriteSignedVarInt(data.DimensionType);
-			Write(data.PackId ?? new UUID(new byte[16])); // nil uuid for a dimension no pack owns
+
+			// Ordinal 4 and required, per Mojang's DimensionDefinition schema for 2168. PMMP still
+			// writes four fields and stops, so it is behind here, not us.
+			Write(data.PackId ?? new UUID(new byte[16]));
 		}
 		
 		public void Write(DimensionDefinitions definitions)
@@ -2972,15 +2966,10 @@ namespace MiNET.Net
 		{
 			ResetPacket();
 
-			ReliabilityHeader = new ReliabilityHeader();
-
 			NoBatch = false;
-			ForceClear = false;
 			CoalesceKey = null;
 
 			_encodedMessage = null;
-			Bytes = null;
-			Timer.Restart();
 
 			_encodedLease?.Dispose();
 			_encodedLease = null;
@@ -3170,7 +3159,10 @@ namespace MiNET.Net
 
 		public virtual Packet Decode(ReadOnlyMemory<byte> buffer)
 		{
-			Bytes = buffer;
+			// The buffer is borrowed for the duration of this call and nothing may outlive it. A
+			// packet that has to keep bytes copies them into memory it owns while parsing, and hands
+			// that back when it returns to the pool. Tracing the raw frame belongs where the frame
+			// still exists, before the parse, not on a field that keeps it alive afterwards.
 			_reader = new MemoryStreamReader(buffer);
 
 			DecodePacket();
@@ -3303,19 +3295,44 @@ namespace MiNET.Net
 			T item = Pool.GetObject();
 			item._isPooled = true;
 			item._referenceCounter = numberOfReferences;
-			item.Timer.Restart();
 			return item;
 		}
 
-		// DO NOT UNCOMMENT THIS!!!
-		// It will have > 100% performance impact overall.
-		//~Packet()
-		//{
-		//	if (_isPooled)
-		//	{
-		//		//Log.Error($"Unexpected dispose 0x{Id:x2} {GetType().Name}, IsPooled={_isPooled}, IsPermanent={_isPermanent}, Refs={_referenceCounter}");
-		//	}
-		//}
+		/// <summary>
+		///     Names packets collected without ever being released, which is the only way to see a
+		///     lease that was never handed back: Reset is what disposes them, and Reset only runs
+		///     from PutPool.
+		///     <para>
+		///         OFF by default and it must stay that way. Declaring a finalizer is not free even
+		///         when its body does nothing: the object is registered at construction, survives an
+		///         extra collection and is resurrected onto the finalizer thread. So with this off
+		///         the constructor suppresses finalization outright, which is the only way the
+		///         declaration costs nothing. A dump with it on shows tens of thousands of dead
+		///         packets still reachable, which is the finalizer queue, not a leak.
+		///     </para>
+		/// </summary>
+		public static bool WarnOnUnreleased = Config.GetProperty("Packet.WarnOnUnreleased", false);
+
+		protected Packet()
+		{
+			if (!WarnOnUnreleased) GC.SuppressFinalize(this);
+		}
+
+		private static long _unreleased;
+
+		/// <summary>How many pooled packets have been collected without a PutPool, since start.</summary>
+		public static long UnreleasedCount => Interlocked.Read(ref _unreleased);
+
+		~Packet()
+		{
+			if (!WarnOnUnreleased || !_isPooled) return;
+
+			long total = Interlocked.Increment(ref _unreleased);
+
+			// Every one, not a sample: the point is which types leak, and a rate tells you nothing
+			// about the one that only happens on a rare path.
+			Log.Warn($"Unreleased 0x{Id:x2} {GetType().Name}, refs={_referenceCounter}, total={total}");
+		}
 
 		public override void PutPool()
 		{

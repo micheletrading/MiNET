@@ -69,7 +69,16 @@ namespace MiNET.Worlds
 		public bool IsDirty { get; private set; }
 
 		public ulong Hash { get; set; }
-		public bool DisableCache { get; set; } = true;
+
+		/// <summary>
+		///     Off means <see cref="Write" /> re-serializes this section on every call. The cache is
+		///     built either way, at the end of Write, so disabling only throws away work already
+		///     paid for. Every mutation nulls it and sets <see cref="IsDirty" /> through the four
+		///     block setters, which are the only writers.
+		///     <para>Set true to keep serialization honest while debugging, not otherwise.</para>
+		/// </summary>
+		public bool DisableCache { get; set; }
+
 		private byte[] _cache;
 
 		public SubChunk(bool clearBuffers = true)

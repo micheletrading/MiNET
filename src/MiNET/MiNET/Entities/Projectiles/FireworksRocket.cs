@@ -111,7 +111,7 @@ namespace MiNET.Entities.Projectiles
 			// The burst: the client renders the firework colors from the FIREWORK_EXPLODE actor event.
 			McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 			entityEvent.runtimeEntityId = EntityId;
-			entityEvent.eventId = 25;
+			entityEvent.eventId = (byte) ActorEventType.FireworksExplode;
 			entityEvent.data = 0;
 			Level.RelayBroadcast(entityEvent);
 

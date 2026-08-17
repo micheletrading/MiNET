@@ -73,7 +73,6 @@
     <PackageReference Include="MiNET.fnbt" Version="1.0.22" />
     <PackageReference Include="MiNET.LevelDB" Version="1.0.49" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
     <PackageReference Include="SharpAvi" Version="3.0.1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta14" />

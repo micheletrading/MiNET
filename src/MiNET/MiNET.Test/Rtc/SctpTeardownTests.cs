@@ -75,17 +75,31 @@ namespace MiNET.Test.Rtc
 		}
 
 		/// <summary>Establishes a client/server pair, exactly like <see cref="SctpAssociationHandshakeTests" />'s own handshake test, but also captures every packet the server sends so a test can inspect the server's replies directly.</summary>
-		private static (SctpAssociation Client, SctpAssociation Server, List<byte[]> ServerSent) EstablishPair()
+		/// <summary>
+		///     Switch on the server-to-client leg of the loopback. Set false and the server's packets
+		///     are still captured but never reach the client, so nothing acknowledges them: that is the
+		///     only way to leave a chunk outstanding on this harness now that acknowledgement is
+		///     immediate. Before that it happened by accident, because the client's SACK sat on a timer
+		///     the test never let run, which made the test depend on the acknowledgement policy without
+		///     saying so.
+		/// </summary>
+		private sealed class Loopback
+		{
+			public bool DeliverToClient = true;
+		}
+
+		private static (SctpAssociation Client, SctpAssociation Server, List<byte[]> ServerSent, Loopback Link) EstablishPair()
 		{
 			SctpAssociation server = null;
 			SctpAssociation client = null;
 			var serverSent = new List<byte[]>();
+			var link = new Loopback();
 
 			client = new SctpAssociation(true, Port, ArwndBudget, p => server.OnPacketReceived(p.ToArray()));
 			server = new SctpAssociation(false, Port, ArwndBudget, p =>
 			{
 				serverSent.Add(p.ToArray());
-				client.OnPacketReceived(p.ToArray());
+				if (link.DeliverToClient) client.OnPacketReceived(p.ToArray());
 			});
 
 			client.Start();
@@ -94,13 +108,13 @@ namespace MiNET.Test.Rtc
 			Assert.AreEqual(SctpState.Established, server.State);
 			serverSent.Clear();
 
-			return (client, server, serverSent);
+			return (client, server, serverSent, link);
 		}
 
 		[TestMethod]
 		public void Heartbeat_OnEstablishedAssociation_IsAnsweredWithVerbatimInfoBytes()
 		{
-			(_, SctpAssociation server, List<byte[]> serverSent) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> serverSent, _) = EstablishPair();
 
 			byte[] info = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x01, 0x02, 0x03};
 			byte[] packetArray = new byte[SctpPacket.MaxSize];
@@ -125,7 +139,7 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Heartbeat_TruncatedInfoTlv_IsIgnored_NoThrowNoReply()
 		{
-			(_, SctpAssociation server, List<byte[]> serverSent) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> serverSent, _) = EstablishPair();
 
 			byte[] truncated = BuildRawChunkPacket(server.LocalVerificationTag, SctpChunkType.Heartbeat, stackalloc byte[2]);
 			long ignoredBefore = server.IgnoredPacketCount;
@@ -145,7 +159,7 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Heartbeat_OversizedInfo_IsDroppedAndCounted_NoThrowNoReply()
 		{
-			(_, SctpAssociation server, List<byte[]> serverSent) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> serverSent, _) = EstablishPair();
 
 			// Larger than any reply built inside SctpPacket.MaxSize (1200 bytes) could ever hold, so this
 			// must be rejected on receipt rather than attempted and failing later.
@@ -174,7 +188,7 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Data_OnAbortedAssociation_WithMatchingTag_NeverEmitsASack_NotEvenOnTheSecondPacket()
 		{
-			(_, SctpAssociation server, List<byte[]> serverSent) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> serverSent, _) = EstablishPair();
 
 			uint tag = server.LocalVerificationTag;
 			uint tsn = unchecked(server.CumulativeTsnAck + 1);
@@ -204,7 +218,7 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Abort_FromAnotherThread_DuringAnInFlightDeliveryDrain_HandsOffTheResetInsteadOfRacingIt()
 		{
-			(_, SctpAssociation server, List<byte[]> _) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> _, _) = EstablishPair();
 
 			uint tag = server.LocalVerificationTag;
 			uint tsn = unchecked(server.CumulativeTsnAck + 1);
@@ -250,11 +264,14 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Abort_TearsDownAssociation_FiresOnAbortedExactlyOnce_AndReleasesSendQueueLeases()
 		{
-			(_, SctpAssociation server, List<byte[]> _) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> _, Loopback link) = EstablishPair();
 
-			// Give the server outstanding, never-acked send-side data: its own sendPacket feeds the
-			// client, but nothing here ever drives the client's SACK back once the server is torn down
-			// mid-flight, so this chunk stays resident (leased) unless teardown releases it.
+			// Give the server outstanding, never-acked send-side data. The client leg is cut first, so
+			// nothing can acknowledge the chunk and it stays resident (leased) unless teardown releases
+			// it. Cut explicitly rather than relying on the client being slow to ack: whether an ack
+			// comes back is the acknowledgement policy's business, and this test is about teardown.
+			link.DeliverToClient = false;
+
 			Assert.IsTrue(server.Send(streamId: 1, ppid: 1, new byte[512], unordered: false, maxRetransmits: -1));
 			Assert.IsTrue(server.SendQueuedBytes > 0);
 
@@ -290,7 +307,7 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Abort_ReleasesParkedReceiveBufferState()
 		{
-			(_, SctpAssociation server, List<byte[]> _) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> _, _) = EstablishPair();
 
 			// Park a complete, single-chunk ordered message the server cannot deliver yet (stream
 			// sequence 5 while the stream's expected next is 0), forcing it into _orderedPending rather
@@ -317,7 +334,7 @@ namespace MiNET.Test.Rtc
 		[TestMethod]
 		public void Shutdown_RepliesWithShutdownAck_AndTearsDownAssociation()
 		{
-			(_, SctpAssociation server, List<byte[]> serverSent) = EstablishPair();
+			(_, SctpAssociation server, List<byte[]> serverSent, _) = EstablishPair();
 
 			int abortedCount = 0;
 			server.OnAborted += _ => abortedCount++;

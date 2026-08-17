@@ -26,12 +26,14 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using log4net;
 using MiNET.Net.Rtc;
+using MiNET.Utils.Diagnostics;
 
 namespace MiNET.Net.NetherNet
 {
@@ -103,6 +105,11 @@ namespace MiNET.Net.NetherNet
 		private int _hasReceived;
 		private long _lastReceiveTicks = Environment.TickCount64;
 
+		// Session lifetime, for transport.sessions.duration. Stopwatch rather than TickCount because
+		// the counter-discipline rule is that every DURATION comes off the monotonic timestamp; only
+		// coarse arrival stamps, like _lastReceiveTicks above, use the tick count.
+		private readonly long _openedAt = Stopwatch.GetTimestamp();
+
 		public ICustomMessageHandler CustomMessageHandler { get; set; }
 
 		/// <summary>How long ago the last bytes arrived from this client, for the listener's
@@ -120,6 +127,17 @@ namespace MiNET.Net.NetherNet
 		public Action<NetherNetSession> OnClosed { get; set; }
 
 		public bool IsClosed => _closed != 0;
+
+		// Counted rather than read off the channel: an unbounded channel with SingleReader uses the
+		// single-consumer implementation, whose Reader.Count throws NotSupportedException. Mirrors
+		// _dispatchPending's shape on the receive side.
+		private int _sendPending;
+
+		/// <summary>Packets accepted for send and not yet drained by this session's lane.</summary>
+		public int SendQueueDepth => Volatile.Read(ref _sendPending);
+
+		/// <summary>Packets decoded and not yet handled. This is the same field the direct-dispatch ordering guard reads.</summary>
+		public int DispatchQueueDepth => Volatile.Read(ref _dispatchPending);
 
 		public string Username { get; set; }
 
@@ -144,15 +162,32 @@ namespace MiNET.Net.NetherNet
 		/// </summary>
 		public string NetworkId { get; }
 
+		/// <summary>
+		///     The <c>Host</c> header of the signaling request, verbatim: the address string the client
+		///     was told to dial, not the address it resolved to. A transfer names its destination as a
+		///     bare host, so this is the one value that crosses a transfer under the sender's control,
+		///     and it is what lets a server tell arrivals apart by where they came in.
+		/// </summary>
+		public string SignalingHost { get; }
+
+		/// <summary>
+		///     Which signaling port this session arrived on. The server port for an ordinary join, or
+		///     one handed out to somebody who registered: a port is only learned by being given it,
+		///     so it says who sent this player far more precisely than the address ever can.
+		/// </summary>
+		public int SignalingPort { get; }
+
 		public long NetworkIdentifier { get; }
 
-		public NetherNetSession(RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable, IPEndPoint endPoint, string networkId)
+		public NetherNetSession(RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable, IPEndPoint endPoint, string networkId, string signalingHost = null, int signalingPort = 0)
 		{
 			_peer = peer ?? throw new ArgumentNullException(nameof(peer));
 			_reliable = reliable ?? throw new ArgumentNullException(nameof(reliable));
 
 			EndPoint = endPoint;
 			NetworkId = networkId;
+			SignalingHost = signalingHost;
+			SignalingPort = signalingPort;
 			NetworkIdentifier = long.TryParse(networkId, out long id) ? id : networkId?.GetHashCode() ?? 0;
 
 			_ = DispatchLoopAsync();
@@ -257,10 +292,14 @@ namespace MiNET.Net.NetherNet
 			}
 			catch (Exception e)
 			{
+				// Whatever went wrong, this channel's half-assembled message goes with it. Left in
+				// place, its bytes and its countdown outlive the failure, and the next message on the
+				// channel is appended to them the moment its segment count happens to match.
+				reassembler.Reset();
+
 				if (!reliableChannel)
 				{
-					// Loss is expected here, so a broken message says nothing about the session. The
-					// reassembler has already dropped its half-built buffer.
+					// Loss is expected here, so a broken message says nothing about the session.
 					Log.Warn($"NetherNet unreliable message discarded for {Username ?? NetworkId}: {e.Message}");
 					return;
 				}
@@ -281,24 +320,29 @@ namespace MiNET.Net.NetherNet
 			ICustomMessageHandler handler = CustomMessageHandler;
 			if (handler == null) return;
 
-			// There is no 0xFE to parse: the reassembled bytes are the wrapper payload itself, starting
-			// at the compressor id byte. Rebuild the wrapper around them as a VIEW, no copy: the
-			// span-based decode consumes it synchronously right here on the receive thread, and only
-			// the decoded packet objects, which own their memory, cross to the dispatch thread. One
-			// player's login burst or slow handler must never stall every other session's inbound
-			// behind it on the shared mux thread.
-			var wrapper = McpeWrapper.CreateObject();
-			wrapper.payload = payload;
-
+			// There is no 0xFE to parse: the reassembled bytes are the batch payload itself, starting
+			// at the compressor id byte, so they go straight to the decoder. No wrapper is built for
+			// them; one would be an object per inbound batch existing only to carry a field the next
+			// line reads. The decode consumes the view synchronously right here on the receive
+			// thread, and only the decoded packet objects, which own their memory, cross to the
+			// dispatch thread. One player's login burst or slow handler must never stall every other
+			// session's inbound behind it on the shared mux thread.
 			if (handler is BedrockMessageHandlerBase bedrock)
 			{
-				foreach (Packet msg in bedrock.DecodeBatch(wrapper))
+				foreach (Packet msg in bedrock.DecodeBatch(payload))
 				{
+					// The transport.messages.in counting point: one complete game packet, post-reassembly
+					// and post-ordering, counted before the inline/queued split so the number is the same
+					// whichever path it takes.
+					TransportMetrics.MessageIn();
+
 					// A handler method the startup scan labeled verified (provably lock-free, no
 					// plugin interceptor) runs right here, no queue hop and no wake - but only
 					// while nothing is queued ahead, so per-session arrival order can never invert
-					// between the two paths. Today no method carries the label and every packet
-					// takes the queue; each handler that earns it drops one wake per packet.
+					// between the two paths.
+					//
+					// It does run inside SctpAssociation.OnPacketReceived, ahead of that packet's
+					// SACK, so a handler that earns the label must stay short as well as lock-free.
 					if (Volatile.Read(ref _dispatchPending) == 0 && _closed == 0 && bedrock.CanDispatchInline(msg))
 					{
 						bedrock.HandleDecoded(msg);
@@ -312,10 +356,11 @@ namespace MiNET.Net.NetherNet
 				return;
 			}
 
-			// A handler outside the Bedrock base (a test recorder) has no decode/dispatch split;
-			// the payload is copied so the whole wrapper can cross to the dispatch thread intact.
-			wrapper.payload = payload.ToArray();
-			Enqueue(wrapper);
+			// Any other handler gets the same view, and owns the decision to copy it. The transport
+			// does not copy on its behalf: that put a per-datagram allocation on the production path
+			// to serve a handler that does not exist in production.
+			TransportMetrics.MessageIn();
+			handler.HandlePayload(payload);
 		}
 
 		// How many packets sit in _dispatchQueue not yet handled: the ordering guard for direct
@@ -390,7 +435,14 @@ namespace MiNET.Net.NetherNet
 			// Producers only enqueue; the lane does the batching, compression and transport work.
 			// TryWrite fails only once the writer is completed (the session closed between the check
 			// above and here), and then the packet goes back to the pool instead of leaking.
-			if (!_sendQueue.Writer.TryWrite(packet)) packet.PutPool();
+			if (!_sendQueue.Writer.TryWrite(packet))
+			{
+				packet.PutPool();
+				return;
+			}
+
+			Interlocked.Increment(ref _sendPending);
+			TransportMetrics.MessageOut();
 		}
 
 		/// <summary>
@@ -410,6 +462,7 @@ namespace MiNET.Net.NetherNet
 			{
 				pending.Clear();
 				while (reader.TryRead(out Packet packet)) pending.Add(packet);
+				if (pending.Count > 0) Interlocked.Add(ref _sendPending, -pending.Count);
 
 				// The drain-time upsert: everything that accumulated collapses to the last packet per
 				// coalesce key before any of it is encoded or compressed. Consumer-private list, so
@@ -604,6 +657,8 @@ namespace MiNET.Net.NetherNet
 			{
 				Log.Debug("Closing NetherNet peer", e);
 			}
+
+			TransportMetrics.SessionClosed((Stopwatch.GetTimestamp() - _openedAt) / (double) Stopwatch.Frequency);
 
 			Log.Info($"NetherNet session closed for {Username ?? NetworkId}");
 

@@ -62,10 +62,10 @@ namespace MiNET.Entities.Projectiles
 			DespawnOnImpact = true;
 			BroadcastMovement = true;
 
-			Effect effect = ItemPotion.GetPotionEffect(metadata);
-			if (effect != null)
+			Effect[] effects = ItemPotion.GetEffects(metadata);
+			if (effects.Length > 0)
 			{
-				Color c = effect.ParticleColor;
+				Color c = effects[0].ParticleColor;
 				PotionColor = (int) (0xff000000 | ((uint) c.R << 16) | ((uint) c.G << 8) | (uint) c.B);
 			}
 		}
@@ -75,7 +75,7 @@ namespace MiNET.Entities.Projectiles
 			// The splash particle the client renders (tinted with the potion's colour) and the
 			// glass sound everyone hears.
 			var splash = McpeLevelEvent.CreateObject();
-			splash.eventId = (int) LevelEventType.ParticleSplash;
+			splash.eventId = (int) LevelEventType.ParticlesPotionSplash;
 			splash.position = KnownPosition.ToVector3();
 			splash.data = PotionColor;
 			Level.RelayBroadcast(splash);
@@ -97,15 +97,18 @@ namespace MiNET.Entities.Projectiles
 
 		private void ApplySplash()
 		{
-			Effect effect = ItemPotion.GetPotionEffect(PotionMetadata);
-			if (effect == null) return;
+			Effect[] effects = ItemPotion.GetEffects(PotionMetadata);
+			if (effects.Length == 0) return;
 
 			foreach (Player player in Level.GetSpawnedPlayers())
 			{
 				if (Vector3.Distance(player.KnownPosition.ToVector3(), KnownPosition.ToVector3()) > 4.5f) continue;
 
 				// A fresh instance per player: an effect ticks its own duration down once applied.
-				player.SetEffect(ItemPotion.GetPotionEffect(PotionMetadata));
+				foreach (Effect effect in ItemPotion.GetEffects(PotionMetadata))
+				{
+					player.SetEffect(effect);
+				}
 			}
 		}
 	}

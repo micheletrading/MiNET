@@ -55,6 +55,26 @@ namespace MiNET.Effects
 		HealthBoost = 21,
 		Absorption = 22,
 		Saturation = 23,
+		Levitation = 24,
+
+		/// <summary>Bedrock only: poison that does kill.</summary>
+		FatalPoison = 25,
+
+		ConduitPower = 26,
+		SlowFalling = 27,
+		BadOmen = 28,
+
+		/// <summary>Java calls this Hero of the Village; Bedrock's own name for it is village_hero.</summary>
+		VillageHero = 29,
+
+		Darkness = 30,
+		TrialOmen = 31,
+		RaidOmen = 32,
+		WindCharged = 33,
+		Weaving = 34,
+		Oozing = 35,
+		Infested = 36,
+		BreathOfTheNautilus = 37,
 	}
 
 	public class Effect

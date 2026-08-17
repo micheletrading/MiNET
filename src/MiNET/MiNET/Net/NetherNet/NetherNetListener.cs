@@ -27,8 +27,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -36,6 +38,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using log4net;
 using MiNET.Net.Rtc;
+using MiNET.Plugins;
 using MiNET.Utils;
 
 namespace MiNET.Net.NetherNet
@@ -69,7 +72,15 @@ namespace MiNET.Net.NetherNet
 		private static readonly Regex JoinRoute = new(@"^/v1/join/(?<networkId>[^/\s?]+)", RegexOptions.Compiled);
 
 		private readonly IPEndPoint _endPoint;
-		private TcpListener _listener;
+
+		/// <summary>
+		///     Every signaling port, the configured one included: a socket binds one port, so several
+		///     ports is several sockets and there is nothing else to it. They share this listener's
+		///     mux, certificate and session table, and the SDP answer names the same UDP endpoint
+		///     whichever port the offer arrived on, so a port carries no transport meaning at all. It
+		///     is only recorded on the session, as the way in that the client was given.
+		/// </summary>
+		private readonly ConcurrentDictionary<int, TcpListener> _ports = new();
 		private CancellationTokenSource _cancellation;
 		private UdpMux _mux;
 		private RtcCertificate _certificate;
@@ -121,13 +132,40 @@ namespace MiNET.Net.NetherNet
 		internal int PendingPeerCount => _pendingPeers.Count;
 
 		/// <summary>Test visibility only (assembly's InternalsVisibleTo to MiNETTests): the TCP endpoint actually bound, once <see cref="Start" /> has run - lets a test bind an ephemeral port (0) and discover which one the OS chose.</summary>
-		internal IPEndPoint LocalEndPoint => (IPEndPoint) _listener?.LocalEndpoint;
+		internal IPEndPoint LocalEndPoint => _ports.TryGetValue(_boundPort, out TcpListener listener) ? (IPEndPoint) listener.LocalEndpoint : null;
+
+		/// <summary>The configured port as actually bound, which differs from the requested one when 0 asked the OS to choose.</summary>
+		private int _boundPort;
 
 		/// <summary>
 		///     Builds the handler that sits above the transport: the batching, compression and
 		///     login path.
 		/// </summary>
 		public Func<NetherNetSession, ICustomMessageHandler> CustomMessageHandlerFactory { get; set; }
+
+		/// <summary>
+		///     Consulted for any request that is not NetherNet's own, so a plugin can serve the server
+		///     port. Returns null when nothing matches, which is answered 404. Signaling keeps
+		///     <c>/v1/*</c> to itself, checked before this, so no route can shadow the protocol.
+		/// </summary>
+		public Func<HttpRequest, HttpResponse> RequestHandler { get; set; }
+
+		/// <summary>
+		///     Consulted when a client opens with TLS instead of plaintext: given the ClientHello's
+		///     SNI host (null when absent, which is every real Bedrock client) and the connection's
+		///     source address, returns the certificate context to complete the handshake with, or
+		///     null to refuse the way BDS does so the client falls back to plaintext. Null provider
+		///     means TLS is always refused, the behavior before certificates existed.
+		/// </summary>
+		public Func<string, IPAddress, SslStreamCertificateContext> TlsCertificateProvider { get; set; }
+
+		/// <summary>
+		///     Answers ACME HTTP-01 validation on this port: given the token from
+		///     <c>GET /.well-known/acme-challenge/{token}</c>, returns the key authorization body, or
+		///     null for 404. The route is only claimed while a handler is set, so plugins keep the
+		///     path when no certificate machinery runs.
+		/// </summary>
+		public Func<string, string> AcmeChallengeHandler { get; set; }
 
 		/// <summary>
 		///     The long-lived key clients pin us by. Persisted, because regenerating it makes every
@@ -149,22 +187,6 @@ namespace MiNET.Net.NetherNet
 		public void Start()
 		{
 			_cancellation = new CancellationTokenSource();
-
-			// Dual stack when no specific address was asked for, which is what BDS does: one IPv6
-			// socket with DualMode serves both families. Binding 0.0.0.0 instead means a client that
-			// resolves the address to ::1 finds nothing listening and the join simply never arrives,
-			// with no error anywhere to explain it.
-			if (_endPoint.Address.Equals(IPAddress.Any) && Socket.OSSupportsIPv6)
-			{
-				_listener = new TcpListener(IPAddress.IPv6Any, _endPoint.Port);
-				_listener.Server.DualMode = true;
-			}
-			else
-			{
-				_listener = new TcpListener(_endPoint);
-			}
-
-			_listener.Start();
 
 			// One UdpMux and one RtcCertificate for the listener's whole lifetime: every RtcPeer
 			// this listener answers with shares both, which is what lets one UDP socket carry every
@@ -196,15 +218,93 @@ namespace MiNET.Net.NetherNet
 
 			_sweepTimer = new Timer(_ => Sweep(), null, 2500, 2500);
 
-			Log.Info($"NetherNet signaling listening on tcp {_listener.LocalEndpoint} (dual stack: {_listener.Server.DualMode})");
-
-			_ = Task.Run(() => AcceptLoop(_cancellation.Token));
+			// Last, deliberately. A port that is accepting before the mux and certificate exist can
+			// take an offer that AnswerOffer then has nothing to answer with.
+			_boundPort = OpenPort(_endPoint.Port);
+			if (_boundPort == 0) throw new IOException($"Could not bind the NetherNet signaling port {_endPoint.Port}");
 		}
+
+		/// <summary>
+		///     Opens a signaling port and starts accepting on it. Arrivals are ordinary sessions that
+		///     happen to record which port they came in by.
+		///     <para>False when the port is already open here, or the OS refuses the bind.</para>
+		/// </summary>
+		public bool AddSignalingPort(int port)
+		{
+			if (_cancellation == null || _cancellation.IsCancellationRequested) return false;
+
+			return OpenPort(port) != 0;
+		}
+
+		/// <summary>Binds and starts accepting, returning the port actually bound, or 0 on failure.</summary>
+		private int OpenPort(int port)
+		{
+			if (port != 0 && _ports.ContainsKey(port)) return 0;
+
+			TcpListener listener;
+			try
+			{
+				// Dual stack when no specific address was asked for, which is what BDS does: one IPv6
+				// socket with DualMode serves both families. Binding 0.0.0.0 instead means a client
+				// that resolves the address to ::1 finds nothing listening and the join simply never
+				// arrives, with no error anywhere to explain it.
+				if (_endPoint.Address.Equals(IPAddress.Any) && Socket.OSSupportsIPv6)
+				{
+					listener = new TcpListener(IPAddress.IPv6Any, port);
+					listener.Server.DualMode = true;
+				}
+				else
+				{
+					listener = new TcpListener(_endPoint.Address, port);
+				}
+
+				listener.Start();
+			}
+			catch (SocketException e)
+			{
+				Log.Warn($"Could not open signaling port {port}: {e.Message}");
+				return 0;
+			}
+
+			// Asked for 0, the OS chose, so the table is keyed by what was actually bound rather
+			// than by the request.
+			int bound = ((IPEndPoint) listener.LocalEndpoint).Port;
+
+			if (!_ports.TryAdd(bound, listener))
+			{
+				listener.Stop();
+				return 0;
+			}
+
+			_ = Task.Run(() => AcceptLoop(listener, _cancellation.Token));
+
+			Log.Info($"NetherNet signaling listening on tcp {listener.LocalEndpoint} (dual stack: {listener.Server.DualMode})");
+			return bound;
+		}
+
+		/// <summary>
+		///     Closes a signaling port. Sessions that arrived through it are left alone: they are
+		///     established connections on the shared mux and no longer need the way they came in by.
+		/// </summary>
+		public bool RemoveSignalingPort(int port)
+		{
+			if (!_ports.TryRemove(port, out TcpListener listener)) return false;
+
+			listener.Stop();
+			Log.Info($"NetherNet signaling stopped on tcp port {port}");
+			return true;
+		}
+
+		/// <summary>Every signaling port currently open, the configured one included.</summary>
+		public IReadOnlyCollection<int> SignalingPorts => _ports.Keys.ToArray();
 
 		public void Stop()
 		{
 			_cancellation?.Cancel();
-			_listener?.Stop();
+
+			foreach (TcpListener listener in _ports.Values) listener.Stop();
+			_ports.Clear();
+
 			_sweepTimer?.Dispose();
 			_sweepTimer = null;
 
@@ -302,19 +402,31 @@ namespace MiNET.Net.NetherNet
 			}
 		}
 
-		private async Task AcceptLoop(CancellationToken cancellationToken)
+		private async Task AcceptLoop(TcpListener listener, CancellationToken cancellationToken)
 		{
+			// Read once: it is the door every connection on this loop arrived through, and after
+			// RemoveSignalingPort stops the listener it can no longer be asked.
+			int port = ((IPEndPoint) listener.LocalEndpoint).Port;
+
 			while (!cancellationToken.IsCancellationRequested)
 			{
 				try
 				{
-					TcpClient client = await _listener.AcceptTcpClientAsync(cancellationToken);
+					TcpClient client = await listener.AcceptTcpClientAsync(cancellationToken);
 					// Signaling is one request per connection, so each is handled and dropped.
-					_ = Task.Run(() => HandleSignaling(client), cancellationToken);
+					_ = Task.Run(() => HandleSignaling(client, port), cancellationToken);
 				}
 				catch (OperationCanceledException)
 				{
 					return;
+				}
+				catch (ObjectDisposedException)
+				{
+					return; // this door was closed
+				}
+				catch (SocketException) when (!_ports.ContainsKey(port))
+				{
+					return; // same, seen as a socket error rather than a disposal
 				}
 				catch (Exception e)
 				{
@@ -323,27 +435,38 @@ namespace MiNET.Net.NetherNet
 			}
 		}
 
-		private async Task HandleSignaling(TcpClient client)
+		private async Task HandleSignaling(TcpClient client, int signalingPort)
 		{
 			using (client)
 			{
 				try
 				{
-					NetworkStream stream = client.GetStream();
-
-					// The real client tries TLS before plaintext. It must be told no in a way it
-					// understands, or it never falls back: a reset or silence leaves it with a broken
-					// handshake rather than a refusal. BDS answers a ClientHello with an alert 40,
-					// handshake_failure, and closes, which is what makes the client retry in the
-					// clear and reach the trust-on-first-use path.
-					if (await RefuseTlsIfOffered(stream)) return;
+					Stream stream = await NegotiateTransportAsync(client.GetStream());
+					if (stream == null) return;
+					await using Stream _ = stream;
 
 					(string method, string path, string headers, string body) = await ReadRequest(stream);
 
+					// A peer that closed before completing its headers left nothing to route. Seen
+					// live from the real client: it completes a TLS handshake, sends nothing, and
+					// hangs up, then rejoins in plaintext. Reaching here means the read returned a
+					// clean end-of-stream, which for TLS is a proper close_notify: the client's
+					// application chose to leave an intact channel, its stack did not abort (an
+					// abort surfaces as an exception, logged in the catch below).
+					if (method == null || path == null)
+					{
+						if (stream is SslStream) Log.Info($"NetherNet signaling TLS connection from {SafePeer(client)} closed cleanly (close_notify) without sending a request");
+						else Log.Debug($"NetherNet signaling connection from {SafePeer(client)} closed before a complete request");
+						return;
+					}
+
 					// Signaling is one round trip per connection and the whole negotiation lives in
 					// it, so the full exchange is logged. A client that refuses us leaves no other
-					// trace: there is no error packet, it simply stops.
-					Log.Info($"NetherNet signaling <<< {client.Client.RemoteEndPoint}\n{headers}\n{body}");
+					// trace: there is no error packet, it simply stops. Plugin routes are a general
+					// surface rather than one negotiation, so those go to Debug instead.
+					bool isSignaling = path != null && path.StartsWith("/v1/", StringComparison.Ordinal);
+					if (isSignaling) Log.Info($"NetherNet signaling <<< {client.Client.RemoteEndPoint}\n{headers}\n{body}");
+					else Log.Debug($"Request <<< {client.Client.RemoteEndPoint}\n{headers}\n{body}");
 
 					if (!AcceptConnections)
 					{
@@ -360,9 +483,30 @@ namespace MiNET.Net.NetherNet
 						return;
 					}
 
+					// ACME HTTP-01 validation (and the issue-preflight probe), claimed ahead of the
+					// plugin routes only while certificate machinery runs, so plugins keep the path
+					// otherwise. Let's Encrypt's validators dial port 80 on the domain; a forward
+					// from there is what lands them here.
+					Func<string, string> acme = AcmeChallengeHandler;
+					if (acme != null && method == "GET" && path.StartsWith(AcmeChallengePrefix, StringComparison.Ordinal))
+					{
+						string keyAuthorization = acme(path.Substring(AcmeChallengePrefix.Length));
+						await Respond(stream, keyAuthorization != null ? 200 : 404, "text/plain", keyAuthorization ?? "");
+						return;
+					}
+
 					Match route = JoinRoute.Match(path);
 					if (method != "POST" || !route.Success)
 					{
+						// Everything NetherNet does not claim is offered to the plugins, which is why
+						// this sits below the /v1 routes and above the 404.
+						HttpResponse response = InvokeRequestHandler(method, path, headers, body, client);
+						if (response != null)
+						{
+							await Respond(stream, response.Status, response.ContentType, response.Body);
+							return;
+						}
+
 						await Respond(stream, 404, "text/plain", "");
 						return;
 					}
@@ -374,7 +518,7 @@ namespace MiNET.Net.NetherNet
 					}
 
 					string networkId = route.Groups["networkId"].Value;
-					string answer = AnswerOffer(networkId, body);
+					string answer = AnswerOffer(networkId, body, ReadHost(headers), signalingPort);
 
 					await Respond(stream, 200, "application/sdp", answer);
 				}
@@ -388,26 +532,71 @@ namespace MiNET.Net.NetherNet
 			}
 		}
 
+		private const string AcmeChallengePrefix = "/.well-known/acme-challenge/";
+
 		/// <summary>
-		///     Peeks at the first byte and, if it is a TLS handshake record, answers with a fatal
-		///     handshake_failure alert and gives up the connection. Mirrors BDS, which does exactly
-		///     this rather than serving TLS or ignoring it.
+		///     Sorts out how the connection opens. A plaintext request passes straight through
+		///     untouched. The real client tries TLS before plaintext, and the ClientHello is answered
+		///     one of two ways: a completed handshake when <see cref="TlsCertificateProvider" />
+		///     supplies a certificate for the offered SNI, or a fatal handshake_failure alert (null
+		///     return, connection done). The refusal mirrors BDS: it must be a refusal the client
+		///     understands, because a reset or silence leaves it with a broken handshake and it never
+		///     falls back to plaintext and the trust-on-first-use path.
 		/// </summary>
-		private static async Task<bool> RefuseTlsIfOffered(NetworkStream stream)
+		private async Task<Stream> NegotiateTransportAsync(NetworkStream stream)
 		{
-			var first = new byte[1];
-			// Peek rather than read, so a plain HTTP request keeps its first byte.
-			int peeked = stream.Socket.Receive(first, SocketFlags.Peek);
-			if (peeked == 0 || first[0] != 0x16) return false;
+			// Peek rather than read, so a plain HTTP request keeps its bytes. Enough for a whole
+			// ClientHello, which is the only record worth looking at here.
+			var head = new byte[4096];
+			int peeked = stream.Socket.Receive(head, SocketFlags.Peek);
+			if (peeked == 0 || head[0] != 0x16) return stream;
 
-			Log.Info("NetherNet signaling: client offered TLS, refusing with handshake_failure so it falls back to plaintext");
+			// The client resolves a transfer's host name before it builds its HTTP request, so the
+			// Host header is always an address. The ClientHello is the one place a NAME survives,
+			// so SNI is the only thing a certificate can be matched against: a client that dialled
+			// by address offers no name and gets the refusal, whatever certificates are held.
+			string serverName = ReadSni(head, peeked);
+			IPAddress remoteAddress = (stream.Socket.RemoteEndPoint as IPEndPoint)?.Address;
 
-			// Alert record: content type 21, TLS 1.0 version for maximum compatibility with a peer
-			// whose negotiated version is not yet known, length 2, level fatal (2), handshake_failure (40).
-			await stream.WriteAsync(new byte[] {0x15, 0x03, 0x01, 0x00, 0x02, 0x02, 0x28});
-			await stream.FlushAsync();
+			// The full anatomy of the offer, every time: the real client completes a handshake and
+			// then abandons the connection, and what its stack asked for is the evidence trail.
+			Log.Info($"NetherNet signaling TLS offer from {remoteAddress}: {DescribeClientHello(head, peeked)}");
 
-			return true;
+			SslStreamCertificateContext certificate = TlsCertificateProvider?.Invoke(serverName, remoteAddress);
+			if (certificate == null)
+			{
+				Log.Info($"NetherNet signaling: client offered TLS (SNI {serverName ?? "absent"}), refusing with handshake_failure so it falls back to plaintext");
+
+				// Alert record: content type 21, TLS 1.0 version for maximum compatibility with a peer
+				// whose negotiated version is not yet known, length 2, level fatal (2), handshake_failure (40).
+				await stream.WriteAsync(new byte[] {0x15, 0x03, 0x01, 0x00, 0x02, 0x02, 0x28});
+				await stream.FlushAsync();
+
+				return null;
+			}
+
+			var ssl = new SslStream(stream, leaveInnerStreamOpen: false);
+			try
+			{
+				await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+				{
+					ServerCertificateContext = certificate,
+					// http/1.1 only, deliberately: the reader above this stream speaks nothing else,
+					// so the negotiation must land there even for a client that would prefer h2.
+					// Inert for clients that offer no ALPN.
+					ApplicationProtocols = new List<SslApplicationProtocol> {SslApplicationProtocol.Http11},
+				});
+			}
+			catch
+			{
+				await ssl.DisposeAsync();
+				throw;
+			}
+
+			SslApplicationProtocol negotiated = ssl.NegotiatedApplicationProtocol;
+			Log.Info($"NetherNet signaling TLS established (SNI {serverName ?? "absent"}, source {remoteAddress}): "
+					+ $"{ssl.SslProtocol}, cipher {ssl.NegotiatedCipherSuite}, alpn {(negotiated.Protocol.IsEmpty ? "none" : negotiated.ToString())}");
+			return ssl;
 		}
 
 		/// <summary>
@@ -460,6 +649,231 @@ namespace MiNET.Net.NetherNet
 		}
 
 		/// <summary>
+		///     Hands a non-signaling request to whatever registered <see cref="RequestHandler" />,
+		///     null when nothing is registered or nothing matched. The handler's own failures are its
+		///     caller's to report; anything thrown here is this listener's bug and is answered 500
+		///     rather than dropped, because a connection closed without a reply is indistinguishable
+		///     from a server that is down.
+		/// </summary>
+		private HttpResponse InvokeRequestHandler(string method, string path, string headers, string body, TcpClient client)
+		{
+			Func<HttpRequest, HttpResponse> handler = RequestHandler;
+			if (handler == null) return null;
+
+			try
+			{
+				int question = path.IndexOf('?');
+
+				var request = new HttpRequest
+				{
+					Method = method,
+					Path = question < 0 ? path : path.Substring(0, question),
+					Query = question < 0 ? "" : path.Substring(question + 1),
+					Headers = ParseHeaders(headers),
+					Body = body ?? "",
+					RemoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint
+				};
+
+				return handler(request);
+			}
+			catch (Exception e)
+			{
+				Log.Error($"Routing {method} {path} failed", e);
+				return HttpResponse.Empty(500);
+			}
+		}
+
+		/// <summary>The header block as a lookup, request line skipped, duplicates last-wins.</summary>
+		private static IReadOnlyDictionary<string, string> ParseHeaders(string headers)
+		{
+			var parsed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+			foreach (string line in (headers ?? "").Split("\r\n", StringSplitOptions.RemoveEmptyEntries).Skip(1))
+			{
+				int colon = line.IndexOf(':');
+				if (colon <= 0) continue;
+
+				parsed[line.Substring(0, colon).Trim()] = line.Substring(colon + 1).Trim();
+			}
+
+			return parsed;
+		}
+
+		/// <summary>
+		///     A one-line forensic description of a TLS ClientHello: offered versions, cipher-suite
+		///     count, ALPN protocols, SNI, and the raw extension id list. Exists because the real
+		///     Bedrock client completes a handshake and then abandons the connection, and what its
+		///     stack asked for is the only clue to why. Hostile-input rules as
+		///     <see cref="ReadSni" />: any malformed length degrades the description, never throws.
+		/// </summary>
+		internal static string DescribeClientHello(byte[] hello, int length)
+		{
+			try
+			{
+				int at = 5;
+				if (length < at + 4 || hello[at] != 0x01) return "not a ClientHello";
+
+				// legacy_version predates 1.3's supported_versions extension; both are reported.
+				at += 4;
+				string legacyVersion = length >= at + 2 ? VersionName((hello[at] << 8) | hello[at + 1]) : "?";
+				at += 2 + 32; // legacy_version, random
+
+				if (length < at + 1) return $"truncated (legacy {legacyVersion})";
+				at += 1 + hello[at]; // legacy_session_id
+
+				if (length < at + 2) return $"truncated (legacy {legacyVersion})";
+				int cipherCount = ((hello[at] << 8) | hello[at + 1]) / 2;
+				at += 2 + ((hello[at] << 8) | hello[at + 1]); // cipher_suites
+
+				if (length < at + 1) return $"truncated (legacy {legacyVersion}, {cipherCount} ciphers)";
+				at += 1 + hello[at]; // legacy_compression_methods
+
+				if (length < at + 2) return $"truncated (legacy {legacyVersion}, {cipherCount} ciphers)";
+				int extensionsEnd = at + 2 + ((hello[at] << 8) | hello[at + 1]);
+				at += 2;
+
+				var versions = new List<string>();
+				var alpn = new List<string>();
+				var extensionIds = new List<int>();
+				string sni = null;
+
+				while (at + 4 <= Math.Min(length, extensionsEnd))
+				{
+					int type = (hello[at] << 8) | hello[at + 1];
+					int size = (hello[at + 2] << 8) | hello[at + 3];
+					at += 4;
+					extensionIds.Add(type);
+					int end = Math.Min(length, at + size);
+
+					if (type == 0 && at + 5 <= end && hello[at + 2] == 0)
+					{
+						int nameLength = (hello[at + 3] << 8) | hello[at + 4];
+						if (at + 5 + nameLength <= end) sni = Encoding.ASCII.GetString(hello, at + 5, nameLength);
+					}
+					else if (type == 16 && at + 2 <= end)
+					{
+						// ALPN: a u16 list of length-prefixed protocol names.
+						int walk = at + 2;
+						while (walk < end)
+						{
+							int nameLength = hello[walk];
+							if (walk + 1 + nameLength > end) break;
+							alpn.Add(Encoding.ASCII.GetString(hello, walk + 1, nameLength));
+							walk += 1 + nameLength;
+						}
+					}
+					else if (type == 43 && at + 1 <= end)
+					{
+						// supported_versions: a u8-length list of u16 versions.
+						int walk = at + 1;
+						while (walk + 2 <= Math.Min(end, at + 1 + hello[at]))
+						{
+							versions.Add(VersionName((hello[walk] << 8) | hello[walk + 1]));
+							walk += 2;
+						}
+					}
+
+					at += size;
+				}
+
+				return $"versions=[{(versions.Count > 0 ? string.Join(",", versions) : legacyVersion)}]"
+					+ $" ciphers={cipherCount}"
+					+ $" alpn=[{string.Join(",", alpn)}]"
+					+ $" sni={sni ?? "absent"}"
+					+ $" extensions=[{string.Join(",", extensionIds)}]";
+			}
+			catch (Exception e)
+			{
+				Log.Debug("Could not describe a TLS ClientHello", e);
+				return "unparseable";
+			}
+		}
+
+		private static string VersionName(int wire) => wire switch
+		{
+			0x0304 => "1.3",
+			0x0303 => "1.2",
+			0x0302 => "1.1",
+			0x0301 => "1.0",
+			_ => $"0x{wire:x4}",
+		};
+
+		/// <summary>
+		///     The server_name extension of a TLS ClientHello, or null if the record is truncated,
+		///     malformed or carries no SNI. Parsing runs on the accept path, so every length is
+		///     treated as hostile: a bad one returns null rather than throwing.
+		/// </summary>
+		private static string ReadSni(byte[] hello, int length)
+		{
+			try
+			{
+				// Record header (5) then handshake header (4). Only a ClientHello (1) is of interest.
+				int at = 5;
+				if (length < at + 4 || hello[at] != 0x01) return null;
+
+				at += 4;
+				at += 2 + 32; // client_version, random
+
+				if (length < at + 1) return null;
+				at += 1 + hello[at]; // legacy_session_id
+
+				if (length < at + 2) return null;
+				at += 2 + ((hello[at] << 8) | hello[at + 1]); // cipher_suites
+
+				if (length < at + 1) return null;
+				at += 1 + hello[at]; // legacy_compression_methods
+
+				if (length < at + 2) return null;
+				int extensionsEnd = at + 2 + ((hello[at] << 8) | hello[at + 1]);
+				at += 2;
+
+				while (at + 4 <= Math.Min(length, extensionsEnd))
+				{
+					int type = (hello[at] << 8) | hello[at + 1];
+					int size = (hello[at + 2] << 8) | hello[at + 3];
+					at += 4;
+
+					// server_name (0), whose list holds entries of name_type (0 is host_name), a
+					// 16 bit length, and the name itself.
+					if (type == 0 && at + 5 <= length)
+					{
+						int nameLength = (hello[at + 3] << 8) | hello[at + 4];
+						if (hello[at + 2] != 0 || at + 5 + nameLength > length) return null;
+
+						return Encoding.ASCII.GetString(hello, at + 5, nameLength);
+					}
+
+					at += size;
+				}
+			}
+			catch (Exception e)
+			{
+				Log.Debug("Could not read SNI from a TLS ClientHello", e);
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		///     The host the client dialled, port stripped. It echoes back whatever string was put in
+		///     <c>McpeTransfer.serverAddress</c>, a name as a name rather than the address it resolved
+		///     to, so a transfer can name which of several front doors a player is arriving through.
+		/// </summary>
+		private static string ReadHost(string headers)
+		{
+			Match host = Regex.Match(headers ?? "", @"^Host:\s*(.+?)\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+			if (!host.Success) return null;
+
+			string value = host.Groups[1].Value;
+
+			// IPv6 literals are bracketed, so the last colon only separates a port outside the brackets.
+			int colon = value.LastIndexOf(':');
+			if (colon > value.LastIndexOf(']') && colon >= 0) value = value.Substring(0, colon);
+
+			return value.Trim('[', ']');
+		}
+
+		/// <summary>
 		///     Answers an offer synchronously: <see cref="RtcPeer.AcceptOffer" /> has nothing to
 		///     gather (the mux's one local candidate is already known) so there is no wait between
 		///     accepting the offer and having a complete answer to sign and return.
@@ -470,7 +884,7 @@ namespace MiNET.Net.NetherNet
 		///         ahead of this method returning the answer, let alone the caller responding with it.
 		///     </para>
 		/// </summary>
-		private string AnswerOffer(string networkId, string offerSdp)
+		private string AnswerOffer(string networkId, string offerSdp, string signalingHost, int signalingPort)
 		{
 			// The identity assertion is ours to validate or ignore by policy, but it must come out
 			// before the offer is parsed either way: a=identity is not an attribute WebRTC knows,
@@ -508,7 +922,7 @@ namespace MiNET.Net.NetherNet
 						if (session != null) return;
 						if (!_pendingPeers.TryRemove(peer, out _)) return; // already expired or removed
 
-						session = AttachSession(networkId, peer, channel, pendingUnreliable);
+						session = AttachSession(networkId, peer, channel, pendingUnreliable, signalingHost, signalingPort);
 					}
 				}
 				catch (Exception e)
@@ -589,7 +1003,7 @@ namespace MiNET.Net.NetherNet
 			return string.Join("\r\n", lines);
 		}
 
-		private NetherNetSession AttachSession(string networkId, RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable)
+		private NetherNetSession AttachSession(string networkId, RtcPeer peer, RtcDataChannel reliable, RtcDataChannel unreliable, string signalingHost, int signalingPort)
 		{
 			// A returning client reuses its NetworkID, so an entry here is a ghost of a dead
 			// connection. Close it rather than overwrite it: overwritten, it would no longer be
@@ -603,13 +1017,13 @@ namespace MiNET.Net.NetherNet
 			// The ICE-nominated remote endpoint has no accessor on RtcPeer today, unlike the SIPSorcery
 			// path this replaces (peerConnection.AudioDestinationEndPoint); GetClientEndPoint() on this
 			// session is therefore not the client's real address yet. Logged, not hidden.
-			var session = new NetherNetSession(peer, reliable, unreliable, new IPEndPoint(IPAddress.Any, 0), networkId);
+			var session = new NetherNetSession(peer, reliable, unreliable, new IPEndPoint(IPAddress.Any, 0), networkId, signalingHost, signalingPort);
 			session.CustomMessageHandler = CustomMessageHandlerFactory?.Invoke(session) ?? new DefaultMessageHandler();
 			session.OnClosed = closed => Sessions.TryRemove(new KeyValuePair<string, NetherNetSession>(closed.NetworkId, closed));
 
 			Sessions[networkId] = session;
 
-			Log.Info($"NetherNet session accepted from {networkId}");
+			Log.Info($"NetherNet session accepted from {networkId} via {signalingHost ?? "(none)"}:{signalingPort}");
 			session.CustomMessageHandler.Connected();
 
 			return session;
@@ -639,7 +1053,7 @@ namespace MiNET.Net.NetherNet
 			return kept.ToString();
 		}
 
-		private static async Task<(string method, string path, string headers, string body)> ReadRequest(NetworkStream stream)
+		private static async Task<(string method, string path, string headers, string body)> ReadRequest(Stream stream)
 		{
 			var buffer = new byte[64 * 1024];
 			var raw = new StringBuilder();
@@ -690,7 +1104,7 @@ namespace MiNET.Net.NetherNet
 			return (requestLine[0], requestLine.Length > 1 ? requestLine[1] : "", headers, request.Substring(headerEnd + 4));
 		}
 
-		private static async Task Respond(NetworkStream stream, int status, string contentType, string body)
+		private static async Task Respond(Stream stream, int status, string contentType, string body)
 		{
 			byte[] payload = Encoding.UTF8.GetBytes(body);
 			string head = $"HTTP/1.1 {status} {(status == 200 ? "OK" : status == 404 ? "Not Found" : "Bad Request")}\r\n"
