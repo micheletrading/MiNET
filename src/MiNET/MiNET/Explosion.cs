@@ -25,8 +25,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using MiNET.Blocks;
+using MiNET.Entities;
 using MiNET.Entities.World;
 using MiNET.Net;
 using MiNET.Utils;
@@ -178,6 +181,8 @@ namespace MiNET
 				}
 			}
 
+			DamageEntities();
+
 			// Set stuff on fire
 			if (Fire)
 			{
@@ -197,6 +202,49 @@ namespace MiNET
 			}
 
 			return true;
+		}
+
+		/// <summary>
+		///     Explosion damage: every entity in range takes the full force scaled by its distance
+		///     from the centre, like vanilla's (1 - distance / radius) falloff. Survivors are blasted
+		///     away from the centre: mobs get server-side velocity, players get the motion packet.
+		///     Ported from the dev lineage; without it an explosion only craters the ground.
+		/// </summary>
+		private void DamageEntities()
+		{
+			float radius = _size * 2;
+			var center = new Vector3(_centerCoordinates.X + 0.5f, _centerCoordinates.Y + 0.5f, _centerCoordinates.Z + 0.5f);
+
+			foreach (Entity entity in _world.Entities.Values.Concat(_world.GetSpawnedPlayers()).ToArray())
+			{
+				if (entity.HealthManager.IsInvulnerable) continue;
+
+				Vector3 offset = entity.KnownPosition.ToVector3() - center;
+				float distance = offset.Length();
+				if (distance > radius) continue;
+
+				float damage = (float) Math.Ceiling((1.0 - distance / radius) * 6.0 * _size);
+				if (damage > 0)
+				{
+					entity.HealthManager.TakeHit(null, (int) damage, DamageCause.BlockExplosion);
+				}
+
+				// Blast knockback, strongest at the centre.
+				float force = (1.0f - distance / radius) * 4f;
+				Vector3 blast = offset.LengthSquared() < 0.0001f ? Vector3.UnitY * force : Vector3.Normalize(offset) * force;
+
+				if (entity is Player)
+				{
+					var motion = McpeSetEntityMotion.CreateObject();
+					motion.runtimeEntityId = entity.EntityId;
+					motion.velocity = blast;
+					_world.RelayBroadcast(motion);
+				}
+				else
+				{
+					entity.Velocity += blast;
+				}
+			}
 		}
 
 		private void SpawnTNT(BlockCoordinates blockCoordinates, Level world)

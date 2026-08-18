@@ -104,6 +104,26 @@ namespace MiNET.Plugins.Commands
 			return $"Placed {block.Name} at {block.Coordinates}.";
 		}
 
+		[Command(Description = "Summons an entity of the given type at a position (testing/debug)")]
+		public string Summon(Player commander, EntityTypeEnum entityType, BlockPos position = null)
+		{
+			string id = entityType.Value.Contains(":") ? entityType.Value : "minecraft:" + entityType.Value;
+			EntityType type = EntityHelpers.ToEntityType(id);
+			if (type == EntityType.None) return $"There is no entity type called {entityType.Value}.";
+
+			Entity entity = type.Create(commander.Level);
+			if (entity == null) return $"No entity class for {entityType.Value}.";
+
+			BlockPos pos = position ?? new BlockPos();
+			BlockCoordinates coords = position != null
+				? position.ToCoordinates((BlockCoordinates) commander.KnownPosition)
+				: (BlockCoordinates) commander.KnownPosition;
+			entity.KnownPosition = new PlayerLocation(coords.X + 0.5, coords.Y, coords.Z + 0.5, 0, 0, 0);
+			entity.SpawnEntity();
+
+			return $"Summoned {entityType.Value} at {pos}.";
+		}
+
 		[Command]
 		public string Give(Player commander, Target player, ItemTypeEnum itemName, int amount = 1, int data = 0)
 		{
