@@ -37,7 +37,7 @@ namespace MiNET.Blocks
 	{
 		private readonly string _itemDropName;
 
-		public WallSignBase(int id, string itemDropName) : base(id)
+		public WallSignBase(string itemDropName)
 		{
 			_itemDropName = itemDropName;
 
@@ -73,41 +73,41 @@ namespace MiNET.Blocks
 
 	public partial class WallSign : WallSignBase
 	{
-		public WallSign() : base(68, "minecraft:oak_sign") { }
+		public WallSign() : base("minecraft:oak_sign") { }
 	}
 
 	public partial class SpruceWallSign : WallSignBase
 	{
-		public SpruceWallSign() : base(437, "minecraft:spruce_sign") { }
+		public SpruceWallSign() : base("minecraft:spruce_sign") { }
 	}
 
 	public partial class BirchWallSign : WallSignBase
 	{
-		public BirchWallSign() : base(442, "minecraft:birch_sign") { }
+		public BirchWallSign() : base("minecraft:birch_sign") { }
 	}
 
 	public partial class JungleWallSign : WallSignBase
 	{
-		public JungleWallSign() : base(444, "minecraft:jungle_sign") { }
+		public JungleWallSign() : base("minecraft:jungle_sign") { }
 	}
 
 	public partial class AcaciaWallSign : WallSignBase
 	{
-		public AcaciaWallSign() : base(446, "minecraft:acacia_sign") { }
+		public AcaciaWallSign() : base("minecraft:acacia_sign") { }
 	}
 
 	public partial class DarkoakWallSign : WallSignBase
 	{
-		public DarkoakWallSign() : base(448, "minecraft:dark_oak_sign") { }
+		public DarkoakWallSign() : base("minecraft:dark_oak_sign") { }
 	}
 
 	public partial class CrimsonWallSign : WallSignBase
 	{
-		public CrimsonWallSign() : base(507, "minecraft:crimson_sign") { }
+		public CrimsonWallSign() : base("minecraft:crimson_sign") { }
 	}
 
 	public partial class WarpedWallSign : WallSignBase
 	{
-		public WarpedWallSign() : base(508, "minecraft:warped_sign") { }
+		public WarpedWallSign() : base("minecraft:warped_sign") { }
 	}
 }

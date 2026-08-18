@@ -32,17 +32,16 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class BlastFurnaceBase : Block
+	public abstract partial class BlastFurnaceBase : Block
 	{
-		[StateRange(0, 5)] public virtual int FacingDirection { get; set; }
 
-		protected BlastFurnaceBase(int id) : base(id)
+		protected BlastFurnaceBase()
 		{
 		}
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
-			FacingDirection = ItemBlock.GetFacingDirectionFromEntity(player);
+			CardinalDirection = ItemBlock.GetCardinalDirectionFromEntity(player);
 
 			var furnaceBlockEntity = new BlastFurnaceBlockEntity {Coordinates = Coordinates};
 			world.SetBlockEntity(furnaceBlockEntity);
@@ -57,4 +56,8 @@ namespace MiNET.Blocks
 			return true;
 		}
 	}
+
+	public partial class BlastFurnace : BlastFurnaceBase { }
+
+	public partial class LitBlastFurnace : BlastFurnaceBase { }
 }

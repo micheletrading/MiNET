@@ -27,7 +27,7 @@ namespace MiNET.Blocks
 {
 	public partial class WoodenButton : Button
 	{
-		public WoodenButton() : base(143)
+		public WoodenButton()
 		{
 			TickRate = 30;
 		}

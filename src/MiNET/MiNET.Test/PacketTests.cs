@@ -54,6 +54,7 @@ namespace MiNET.Test
 		private const int _loops = 10_000_000;
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring encode performance.")]
 		public void McpePlayStatus_encode_perf_test()
 		{
 			long totalAllocatedBytes = GC.GetTotalMemory(true);
@@ -72,6 +73,7 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring encode performance.")]
 		public void McpePlayStatus_pooled_encode_perf_test()
 		{
 			long totalAllocatedBytes = GC.GetTotalMemory(true);
@@ -89,6 +91,7 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring encode performance.")]
 		public void McpePlayStatus_parallel_encode_perf_test()
 		{
 			byte[] result = new byte[0];
@@ -113,6 +116,7 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10M-iteration timing loop with no assertions. Run manually when measuring stream pooling.")]
 		public void Collections_perf_test()
 		{
 			var streamManager = new RecyclableMemoryStreamManager();
@@ -133,72 +137,6 @@ namespace MiNET.Test
 			Console.WriteLine($"test {j}, {watch.ElapsedMilliseconds:N}ms");
 		}
 
-		[TestMethod]
-		public void McpeFullChunk_worst_case_encode_test()
-		{
-			int numberOfSubChunks = 16;
-			var column = new ChunkColumn();
-			column.DisableCache = true;
-			int block = 0;
-			var watch = Stopwatch.StartNew();
-			for (int x = 0; x < 16; x++)
-			{
-				for (int z = 0; z < 16; z++)
-				{
-					for (int y = 0; y < numberOfSubChunks * 16; y++)
-					{
-						// Worst case is every block in a subchunk being a different palette entry. The
-						// counter has to stay inside the palette: there are 65536 positions and only
-						// BlockPalette.Count real states, and a runtime id past the end has no network hash.
-						column.SetBlockByRuntimeId(x, y, z, block);
-						block = (block + 1) % BlockFactory.BlockPalette.Count;
-					}
-				}
-			}
-			foreach (SubChunk subChunk in column)
-			{
-				subChunk.DisableCache = true;
-			}
-
-			Console.WriteLine($"Setup chunks: {watch.ElapsedMilliseconds}ms");
-
-
-			// 319761
-			int topEmpty = column.GetTopEmpty();
-			Console.WriteLine($"Top {topEmpty}");
-
-			var bytes = column.GetBytes(topEmpty);
-			Console.WriteLine($"Bytes: Size={bytes.Length} bytes");
-			//Assert.AreEqual(319761, bytes.Length);
-
-			// warmup
-			for (int i = 0; i < 100; i++)
-			{
-				column.GetBytes(topEmpty);
-				column.GetBatch();
-			}
-
-			double count = 1500;
-
-			watch.Restart();
-			for (int i = 0; i < count; i++)
-			{
-				column.GetBytes(topEmpty);
-			}
-			Console.WriteLine($"Bytes: Avg {watch.ElapsedTicks / count:F0} ticks");
-
-			var packet = column.GetBatch();
-			Console.WriteLine($"Batch: Size={packet.payload.Length} bytes");
-
-			watch.Restart();
-			for (int i = 0; i < count; i++)
-			{
-				column.GetBatch();
-			}
-
-			Console.WriteLine($"Batch: Avg {watch.ElapsedTicks / count:F0} ticks");
-
-		}
 
 	}
 }

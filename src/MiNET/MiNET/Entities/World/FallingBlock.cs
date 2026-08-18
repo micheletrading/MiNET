@@ -111,16 +111,12 @@ namespace MiNET.Entities.World
 				addEntity.entityType = EntityTypeId;
 				addEntity.entityIdSelf = EntityId;
 				addEntity.runtimeEntityId = EntityId;
-				addEntity.x = KnownPosition.X;
-				addEntity.y = KnownPosition.Y;
-				addEntity.z = KnownPosition.Z;
-				addEntity.pitch = KnownPosition.Pitch;
-				addEntity.yaw = KnownPosition.Yaw;
-				addEntity.headYaw = KnownPosition.HeadYaw;
+				addEntity.position = new Vector3(KnownPosition.X, KnownPosition.Y, KnownPosition.Z);
+				addEntity.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
+				addEntity.yHeadRotation = KnownPosition.HeadYaw;
+				addEntity.yBodyRotation = KnownPosition.HeadYaw;
 				addEntity.metadata = GetMetadata();
-				addEntity.speedX = Velocity.X;
-				addEntity.speedY = Velocity.Y;
-				addEntity.speedZ = Velocity.Z;
+				addEntity.velocity = Velocity;
 				addEntity.attributes = GetEntityAttributes();
 
 				player.SendPacket(updateBlock);
@@ -189,7 +185,7 @@ namespace MiNET.Entities.World
 				var check = new BlockCoordinates(KnownPosition);
 				for (int i = 0; i < distance; i++)
 				{
-					if (Level.GetBlock(check).IsSolid)
+					if (Level.IsSolid(check))
 					{
 						_checkPosition = false;
 						KnownPosition = check.BlockUp();

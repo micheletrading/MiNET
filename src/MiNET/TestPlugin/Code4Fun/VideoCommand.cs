@@ -113,7 +113,7 @@ namespace TestPlugin.Code4Fun
 					});
 
 					//int i = 0;
-					//player.Inventory.Slots[i++] = new ItemBlock(new Planks()) {Count = 64, UniqueId = Environment.TickCount};
+					//player.Inventory.Slots[i++] = new ItemBlock(BlockFactory.GetBlockByName("minecraft:oak_planks")) {Count = 64, UniqueId = Environment.TickCount};
 					//foreach (var entites in entities.Values)
 					//{
 					//	player.Inventory.Slots[i++] = new CustomItemFrame(entites.Keys.ToList(), frameTicker) {Count = 64, UniqueId = Environment.TickCount};
@@ -134,7 +134,8 @@ namespace TestPlugin.Code4Fun
 							frames = frames.Where(f => f != null).ToList();
 
 							var bc = new BlockCoordinates(center.X - x, center.Y + height - y - 1, center.Z + 2);
-							var wood = new Planks {Coordinates = bc};
+							var wood = BlockFactory.GetBlockByName("minecraft:oak_planks");
+							wood.Coordinates = bc;
 							level.SetBlock(wood);
 
 							var frambc = new BlockCoordinates(center.X - x, center.Y + height - y - 1, center.Z + 1);
@@ -215,7 +216,7 @@ namespace TestPlugin.Code4Fun
 
 					int i = 0;
 
-					player.Inventory.Slots[i++] = new ItemBlock(new Planks()) {Count = 64};
+					player.Inventory.Slots[i++] = new ItemBlock(BlockFactory.GetBlockByName("minecraft:oak_planks")) {Count = 64};
 					player.Inventory.Slots[i++] = new ItemFrame {Count = 64};
 
 					foreach (MapEntity entity in entities.Values)
@@ -321,8 +322,7 @@ namespace TestPlugin.Code4Fun
 				Data = bitmapToBytes,
 			};
 
-			var packet = McpeClientboundMapItemData.CreateObject();
-			packet.mapinfo = mapInfo;
+			var packet = McpeClientboundMapItemData.FromMapInfo(mapInfo);
 			var batch = CreateMcpeBatch(packet.Encode());
 
 			return batch;

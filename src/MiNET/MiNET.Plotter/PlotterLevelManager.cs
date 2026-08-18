@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.IO;
 using System.Linq;
 using MiNET.Utils;
 using MiNET.Worlds;
@@ -32,6 +33,12 @@ namespace MiNET.Plotter
 {
 	public class PlotterLevelManager : LevelManager
 	{
+		/// <summary>
+		///     The level the plot grid lives in. It is the world players log in to, and the only one
+		///     plot claims, plot commands and build protection apply to.
+		/// </summary>
+		public const string PlotWorldName = "Overworld";
+
 		public override Level GetLevel(Player player, string name)
 		{
 			Level level = Levels.FirstOrDefault(l => l.LevelId.Equals(name, StringComparison.InvariantCultureIgnoreCase));
@@ -39,10 +46,7 @@ namespace MiNET.Plotter
 			{
 				int viewDistance = Config.GetProperty("ViewDistance", 11);
 
-				var worldProvider = new LevelDbProvider()
-				{
-					MissingChunkProvider = new PlotWorldGenerator(),
-				};
+				var worldProvider = CreateWorldProvider(name);
 
 				level = new Level(this, name, worldProvider, EntityManager, GameMode.Creative, Difficulty.Normal, viewDistance)
 				{
@@ -78,6 +82,43 @@ namespace MiNET.Plotter
 
 
 			return level;
+		}
+
+		/// <summary>
+		///     The plot world keeps <c>LevelDBWorldFolder</c> and the generator that fills unclaimed
+		///     space with plots. Every other level name is a world of its own in
+		///     <c>&lt;WorldsRoot&gt;\&lt;name&gt;</c>, so a saved map opens as itself and a name with no
+		///     folder starts an empty one. The folder is what makes worlds distinct: levels sharing one
+		///     folder open the same database and are the same world on disk whatever they are called.
+		///     Missing chunks in a map world are air, since the maps are void worlds and a plot grid
+		///     around them is not wanted.
+		/// </summary>
+		private static IWorldProvider CreateWorldProvider(string name)
+		{
+			string worldsRoot = Config.GetProperty("WorldsRoot", "").Trim();
+
+			if (name.Equals(PlotWorldName, StringComparison.InvariantCultureIgnoreCase) || worldsRoot.Length == 0)
+			{
+				return new LevelDbProvider
+				{
+					MissingChunkProvider = new PlotWorldGenerator(),
+				};
+			}
+
+			return new LevelDbProvider(Path.Combine(worldsRoot, name))
+			{
+				MissingChunkProvider = new AirWorldGenerator(),
+			};
+		}
+
+		/// <summary>
+		///     Plot semantics belong to the plot world alone. The grid generator is what makes a level a
+		///     plot world, so it is also the test: map worlds and the nether/end dimensions have their
+		///     own generators and answer false.
+		/// </summary>
+		public static bool IsPlotWorld(Level level)
+		{
+			return level?.WorldProvider is LevelDbProvider {MissingChunkProvider: PlotWorldGenerator};
 		}
 	}
 }

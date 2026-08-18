@@ -29,7 +29,7 @@ namespace MiNET.Blocks
 {
 	public partial class PistonArmCollision : Block
 	{
-		public PistonArmCollision() : base(34)
+		public PistonArmCollision()
 		{
 			// runtime id: 1580 0x62C, data: 0
 			// runtime id: 2117 0x845, data: 1

@@ -45,7 +45,7 @@ namespace MiNET.Blocks
 		//[StateBit] public bool HeadPieceBit { get; set; } = true;
 		//[StateBit] public bool OccupiedBit { get; set; } = false;
 
-		public Bed() : base(26)
+		public Bed()
 		{
 			//IsFlammable = true; // It can catch fire from lava, but not other means.
 		}

@@ -55,6 +55,8 @@ namespace TestPlugin.NiceLobby
 
 		private Timer _popupTimer;
 		private Timer _tickTimer;
+		private Timer _gcTimer;
+		private int _lastGen2Count;
 
 		private long _tick = 0;
 
@@ -94,6 +96,32 @@ namespace TestPlugin.NiceLobby
 			//_popupTimer = new Timer(DoDevelopmentPopups, null, 10000, 20000);
 			//_tickTimer = new Timer(LevelTick, null, 0, 50);
 			//_tickTimer = new Timer(SkinTick, null, 0, 50);
+
+			_lastGen2Count = GC.CollectionCount(2);
+			_gcTimer = new Timer(GcWatch, null, 1000, 250);
+		}
+
+		private void GcWatch(object state)
+		{
+			int gen2 = GC.CollectionCount(2);
+			if (gen2 == _lastGen2Count) return;
+			_lastGen2Count = gen2;
+
+			// The most recent gen2 is whichever of the two gen2 kinds ran last; GCKind.Any could
+			// hand back a gen0 that raced in after it.
+			GCMemoryInfo blocking = GC.GetGCMemoryInfo(GCKind.FullBlocking);
+			GCMemoryInfo background = GC.GetGCMemoryInfo(GCKind.Background);
+			GCMemoryInfo info = blocking.Index > background.Index ? blocking : background;
+
+			double pauseMs = 0;
+			foreach (TimeSpan pause in info.PauseDurations) pauseMs += pause.TotalMilliseconds;
+
+			string message = $"{ChatColors.Gold}[GC]{ChatFormatting.Reset} gen2 #{gen2}, paused {pauseMs:F1} ms ({(info.Concurrent ? "background" : "blocking")}), heap {info.HeapSizeBytes / (1024 * 1024)} MB";
+			Log.Warn(message);
+			foreach (Level level in Context.Server.LevelManager.Levels)
+			{
+				level.BroadcastMessage(message, MessageType.Raw);
+			}
 		}
 
 		[Command]
@@ -554,7 +582,12 @@ namespace TestPlugin.NiceLobby
 			Player player = eventArgs.Player;
 			Level level = eventArgs.Level;
 
-			level.BroadcastMessage($"{ChatColors.Gold}[{ChatColors.Green}+{ChatColors.Gold}]{ChatFormatting.Reset} {player.Username} joined the server");
+			// Naming the transport here rather than only in the log: with RakNet and NetherNet both
+			// live, which one a player actually arrived on is the question worth seeing, and reading
+			// it in chat beats going to the log for every join.
+			string transport = player.NetworkHandler?.TransportName ?? "unknown";
+
+			level.BroadcastMessage($"{ChatColors.Gold}[{ChatColors.Green}+{ChatColors.Gold}]{ChatFormatting.Reset} {player.Username} joined the server over {ChatColors.Aqua}{transport}");
 
 			var joinSound = new AnvilUseSound(level.SpawnPoint.ToVector3());
 			joinSound.Spawn(level);

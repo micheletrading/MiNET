@@ -51,7 +51,7 @@ namespace MiNET.Entities.Behaviors
 
 			BlockCoordinates coord = new Vector3(coordinates.X + direction.X, coordinates.Y, coordinates.Z + direction.Z);
 
-			var shouldStart = _entity.Level.GetBlock(coord.BlockDown()) is Grass || _entity.Level.GetBlock(coord) is TallGrass;
+			var shouldStart = _entity.Level.GetBlock(coord.BlockDown()) is GrassBlock || _entity.Level.GetBlock(coord) is TallGrass;
 			if (!shouldStart) return false;
 
 			_duration = 40;
@@ -60,7 +60,7 @@ namespace MiNET.Entities.Behaviors
 
 			McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 			entityEvent.runtimeEntityId = _entity.EntityId;
-			entityEvent.eventId = 10;
+			entityEvent.eventId = (byte) ActorEventType.EatGrass;
 			_entity.Level.RelayBroadcast(entityEvent);
 
 			return true;

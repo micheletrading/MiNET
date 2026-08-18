@@ -46,75 +46,105 @@ namespace MiNET
 			_player = player;
 		}
 
-		public virtual List<StackResponseContainerInfo> HandleItemStackActions(int requestId, ItemStackActionList actions)
+		public virtual List<ItemStackResponseContainerInfo> HandleItemStackActions(int requestId, ItemStackRequest request)
 		{
-			var stackResponses = new List<StackResponseContainerInfo>();
+			var stackResponses = new List<ItemStackResponseContainerInfo>();
 			_activeRecipe = null;
-			foreach (ItemStackAction stackAction in actions)
+			foreach (ItemStackRequestBase stackAction in request.actions ?? new List<ItemStackRequestBase>())
 			{
 				switch (stackAction)
 				{
-					case CraftAction craftAction:
+					case ItemStackRequestCraftRecipeAction craftAction:
 					{
 						ProcessCraftAction(craftAction);
 						break;
 					}
-					case CraftAutoAction craftAutoAction:
+					case ItemStackRequestCraftRecipeAutoAction craftAutoAction:
 					{
 						ProcessCraftAutoAction(craftAutoAction);
 						break;
 					}
-					case CraftCreativeAction craftCreativeAction:
+					case ItemStackRequestCraftCreativeAction craftCreativeAction:
 					{
 						ProcessCraftCreativeAction(craftCreativeAction);
 						break;
 					}
-					case CraftNotImplementedDeprecatedAction craftNotImplementedDeprecatedAction:
+					case ItemStackRequestCraftNonImplementedDeprecatedAction craftNotImplementedDeprecatedAction:
 					{
 						// Do nothing democrafts
 						ProcessCraftNotImplementedDeprecatedAction(craftNotImplementedDeprecatedAction);
 						break;
 					}
-					case CraftRecipeOptionalAction craftRecipeOptionalAction:
+					case ItemStackRequestCraftRecipeOptionalAction craftRecipeOptionalAction:
 					{
 						ProcessCraftRecipeOptionalAction(craftRecipeOptionalAction);
 						break;
 					}
-					case CraftResultDeprecatedAction craftResultDeprecatedAction:
+					case ItemStackRequestCraftResultsDeprecatedAction craftResultDeprecatedAction:
 					{
 						ProcessCraftResultDeprecatedAction(craftResultDeprecatedAction);
 						break;
 					}
-					case TakeAction takeAction:
+					case ItemStackRequestTakeAction takeAction:
 					{
 						ProcessTakeAction(takeAction, stackResponses);
 
 						break;
 					}
-					case PlaceAction placeAction:
+					case ItemStackRequestPlaceAction placeAction:
 					{
 						ProcessPlaceAction(placeAction, stackResponses);
 						break;
 					}
-					case SwapAction swapAction:
+					case ItemStackRequestSwapAction swapAction:
 					{
 						ProcessSwapAction(swapAction, stackResponses);
 						break;
 					}
-					case DestroyAction destroyAction:
+					case ItemStackRequestDestroyAction destroyAction:
 					{
 						ProcessDestroyAction(destroyAction, stackResponses);
 						break;
 					}
-					case DropAction dropAction:
+					case ItemStackRequestDropAction dropAction:
 					{
 						ProcessDropAction(dropAction, stackResponses);
 
 						break;
 					}
-					case ConsumeAction consumeAction:
+					case ItemStackRequestConsumeAction consumeAction:
 					{
 						ProcessConsumeAction(consumeAction, stackResponses);
+						break;
+					}
+					case ItemStackRequestCraftLoomAction craftLoomAction:
+					{
+						ProcessCraftLoomAction(craftLoomAction);
+						break;
+					}
+					case ItemStackRequestCraftRepairAndDisenchantAction repairAction:
+					{
+						ProcessCraftRepairAndDisenchantAction(repairAction);
+						break;
+					}
+					case ItemStackRequestBeaconPaymentAction beaconPaymentAction:
+					{
+						ProcessBeaconPaymentAction(beaconPaymentAction);
+						break;
+					}
+					case ItemStackRequestLabTableCombineAction labTableCombineAction:
+					{
+						ProcessLabTableCombineAction(labTableCombineAction);
+						break;
+					}
+					case ItemStackRequestCreateAction createAction:
+					{
+						ProcessCreateAction(createAction);
+						break;
+					}
+					case ItemStackRequestMineBlockAction mineBlockAction:
+					{
+						ProcessMineBlockAction(mineBlockAction);
 						break;
 					}
 					default:
@@ -122,15 +152,15 @@ namespace MiNET
 				}
 			}
 
-			foreach (IGrouping<byte, StackResponseContainerInfo> stackResponseGroup in stackResponses.GroupBy(r => r.ContainerId))
+			foreach (IGrouping<FullContainerName.ContainerEnumName, ItemStackResponseContainerInfo> stackResponseGroup in stackResponses.GroupBy(r => r.fullContainerName.containerName))
 			{
 				if (stackResponseGroup.Count() > 1)
 				{
-					byte containerId = stackResponseGroup.Key;
-					StackResponseSlotInfo slotToKeep = null;
-					foreach (IGrouping<byte, StackResponseSlotInfo> slotGroup in stackResponseGroup.SelectMany(d => d.Slots).GroupBy(s => s.Slot))
+					FullContainerName.ContainerEnumName containerName = stackResponseGroup.Key;
+					ItemStackResponseSlotInfo slotToKeep = null;
+					foreach (IGrouping<byte, ItemStackResponseSlotInfo> slotGroup in stackResponseGroup.SelectMany(d => d.slots).GroupBy(s => s.requestedSlot))
 					{
-						byte slot = slotGroup.Key;
+						byte requestedSlot = slotGroup.Key;
 						if (slotGroup.Count() > 1)
 						{
 							slotToKeep = slotGroup.ToList().Last();
@@ -138,9 +168,9 @@ namespace MiNET
 					}
 					if (slotToKeep != null)
 					{
-						foreach (StackResponseContainerInfo containerInfo in stackResponseGroup)
+						foreach (ItemStackResponseContainerInfo containerInfo in stackResponseGroup)
 						{
-							if (!containerInfo.Slots.Contains(slotToKeep))
+							if (!containerInfo.slots.Contains(slotToKeep))
 							{
 								stackResponses.Remove(containerInfo);
 							}
@@ -152,49 +182,49 @@ namespace MiNET
 			return stackResponses;
 		}
 
-		protected virtual void ProcessConsumeAction(ConsumeAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessConsumeAction(ItemStackRequestConsumeAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
-			byte count = action.Count;
-			StackRequestSlotInfo source = action.Source;
+			byte count = action.amount;
+			ItemStackRequestSlotInfo source = action.source;
 
-			Item sourceItem = GetContainerItem(source.ContainerId, source.Slot);
+			Item sourceItem = _player.GetContainerItem(source.fullContainerName.containerName, source.slot);
 			sourceItem.Count -= count;
 			if (sourceItem.Count <= 0)
 			{
 				sourceItem = new ItemAir();
-				SetContainerItem(source.ContainerId, source.Slot, sourceItem);
+				_player.SetContainerItem(source.fullContainerName.containerName, source.slot, sourceItem);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.slot,
+						slot = source.slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessDropAction(DropAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessDropAction(ItemStackRequestDropAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
-			byte count = action.Count;
+			byte count = action.amount;
 			Item dropItem;
-			StackRequestSlotInfo source = action.Source;
+			ItemStackRequestSlotInfo source = action.source;
 
-			Item sourceItem = GetContainerItem(source.ContainerId, source.Slot);
+			Item sourceItem = _player.GetContainerItem(source.fullContainerName.containerName, source.slot);
 
 			if (sourceItem.Count == count || sourceItem.Count - count <= 0)
 			{
 				dropItem = sourceItem;
 				sourceItem = new ItemAir();
 				sourceItem.UniqueId = 0;
-				SetContainerItem(source.ContainerId, source.Slot, sourceItem);
+				_player.SetContainerItem(source.fullContainerName.containerName, source.slot, sourceItem);
 			}
 			else
 			{
@@ -206,114 +236,114 @@ namespace MiNET
 
 			_player.DropItem(dropItem);
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.slot,
+						slot = source.slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessDestroyAction(DestroyAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessDestroyAction(ItemStackRequestDestroyAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
-			byte count = action.Count;
-			StackRequestSlotInfo source = action.Source;
+			byte count = action.amount;
+			ItemStackRequestSlotInfo source = action.source;
 
-			Item sourceItem = GetContainerItem(source.ContainerId, source.Slot);
+			Item sourceItem = _player.GetContainerItem(source.fullContainerName.containerName, source.slot);
 			sourceItem.Count -= count;
 			if (sourceItem.Count <= 0)
 			{
 				sourceItem = new ItemAir();
-				SetContainerItem(source.ContainerId, source.Slot, sourceItem);
+				_player.SetContainerItem(source.fullContainerName.containerName, source.slot, sourceItem);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.slot,
+						slot = source.slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessSwapAction(SwapAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessSwapAction(ItemStackRequestSwapAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
-			StackRequestSlotInfo source = action.Source;
-			StackRequestSlotInfo destination = action.Destination;
+			ItemStackRequestSlotInfo source = action.source;
+			ItemStackRequestSlotInfo destination = action.destination;
 
-			Item sourceItem = GetContainerItem(source.ContainerId, source.Slot);
-			Item destItem = GetContainerItem(destination.ContainerId, destination.Slot);
+			Item sourceItem = _player.GetContainerItem(source.fullContainerName.containerName, source.slot);
+			Item destItem = _player.GetContainerItem(destination.fullContainerName.containerName, destination.slot);
 
-			SetContainerItem(source.ContainerId, source.Slot, destItem);
-			SetContainerItem(destination.ContainerId, destination.Slot, sourceItem);
+			_player.SetContainerItem(source.fullContainerName.containerName, source.slot, destItem);
+			_player.SetContainerItem(destination.fullContainerName.containerName, destination.slot, sourceItem);
 
-			if (source.ContainerId == 21 || source.ContainerId == 22 || destination.ContainerId == 21 || destination.ContainerId == 22)
+			if (source.fullContainerName.containerName == FullContainerName.ContainerEnumName.Recipebookcontainer || source.fullContainerName.containerName == FullContainerName.ContainerEnumName.Enchantinginputcontainer || destination.fullContainerName.containerName == FullContainerName.ContainerEnumName.Recipebookcontainer || destination.fullContainerName.containerName == FullContainerName.ContainerEnumName.Enchantinginputcontainer)
 			{
-				if (!(GetContainerItem(21, 14) is ItemAir) && !(GetContainerItem(22, 15) is ItemAir)) Enchantment.SendEnchantments(_player, GetContainerItem(21, 14));
+				if (!(_player.GetContainerItem(FullContainerName.ContainerEnumName.Recipebookcontainer, 14) is ItemAir) && !(_player.GetContainerItem(FullContainerName.ContainerEnumName.Enchantinginputcontainer, 15) is ItemAir)) Enchantment.SendEnchantments(_player, _player.GetContainerItem(FullContainerName.ContainerEnumName.Recipebookcontainer, 14));
 				else Enchantment.SendEmptyEnchantments(_player);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = destItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = destItem.UniqueId
+						amount = destItem.Count,
+						requestedSlot = source.slot,
+						slot = source.slot,
+						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
 					}
 				}
 			});
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = destination.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) destination.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = destination.Slot,
-						HotbarSlot = destination.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = destination.slot,
+						slot = destination.slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessPlaceAction(PlaceAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessPlaceAction(ItemStackRequestPlaceAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
-			byte count = action.Count;
+			byte count = action.amount;
 			Item sourceItem;
 			Item destItem;
-			StackRequestSlotInfo source = action.Source;
-			StackRequestSlotInfo destination = action.Destination;
+			ItemStackRequestSlotInfo source = action.source;
+			ItemStackRequestSlotInfo destination = action.destination;
 
-			sourceItem = GetContainerItem(source.ContainerId, source.Slot);
+			sourceItem = _player.GetContainerItem(source.fullContainerName.containerName, source.slot);
 
 			if (sourceItem.Count == count || sourceItem.Count - count <= 0)
 			{
 				destItem = sourceItem;
 				sourceItem = new ItemAir();
 				sourceItem.UniqueId = 0;
-				SetContainerItem(source.ContainerId, source.Slot, sourceItem);
+				_player.SetContainerItem(source.fullContainerName.containerName, source.slot, sourceItem);
 			}
 			else
 			{
@@ -323,7 +353,7 @@ namespace MiNET
 				destItem.UniqueId = Environment.TickCount;
 			}
 
-			Item existingItem = GetContainerItem(destination.ContainerId, destination.Slot);
+			Item existingItem = _player.GetContainerItem(destination.fullContainerName.containerName, destination.slot);
 			if (existingItem.UniqueId > 0) // is empty/air is what this means
 			{
 				existingItem.Count += count;
@@ -331,54 +361,54 @@ namespace MiNET
 			}
 			else
 			{
-				SetContainerItem(destination.ContainerId, destination.Slot, destItem);
+				_player.SetContainerItem(destination.fullContainerName.containerName, destination.slot, destItem);
 			}
 
-			if (destination.ContainerId == 21 || destination.ContainerId == 22)
+			if (destination.fullContainerName.containerName == FullContainerName.ContainerEnumName.Recipebookcontainer || destination.fullContainerName.containerName == FullContainerName.ContainerEnumName.Enchantinginputcontainer)
 			{
-				if (!(GetContainerItem(21, 14) is ItemAir) && !(GetContainerItem(22, 15) is ItemAir)) Enchantment.SendEnchantments(_player, GetContainerItem(21, 14));
+				if (!(_player.GetContainerItem(FullContainerName.ContainerEnumName.Recipebookcontainer, 14) is ItemAir) && !(_player.GetContainerItem(FullContainerName.ContainerEnumName.Enchantinginputcontainer, 15) is ItemAir)) Enchantment.SendEnchantments(_player, _player.GetContainerItem(FullContainerName.ContainerEnumName.Recipebookcontainer, 14));
 				else Enchantment.SendEmptyEnchantments(_player);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.slot,
+						slot = source.slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = destination.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) destination.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = destItem.Count,
-						Slot = destination.Slot,
-						HotbarSlot = destination.Slot,
-						StackNetworkId = destItem.UniqueId
+						amount = destItem.Count,
+						requestedSlot = destination.slot,
+						slot = destination.slot,
+						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessTakeAction(TakeAction action, List<StackResponseContainerInfo> stackResponses)
+		protected virtual void ProcessTakeAction(ItemStackRequestTakeAction action, List<ItemStackResponseContainerInfo> stackResponses)
 		{
-			byte count = action.Count;
+			byte count = action.amount;
 			Item sourceItem;
 			Item destItem;
-			StackRequestSlotInfo source = action.Source;
-			StackRequestSlotInfo destination = action.Destination;
+			ItemStackRequestSlotInfo source = action.source;
+			ItemStackRequestSlotInfo destination = action.destination;
 
-			sourceItem = GetContainerItem(source.ContainerId, source.Slot);
+			sourceItem = _player.GetContainerItem(source.fullContainerName.containerName, source.slot);
 			Log.Debug($"Take {sourceItem}");
 
 			if (sourceItem.Count == count || sourceItem.Count - count <= 0)
@@ -386,7 +416,7 @@ namespace MiNET
 				destItem = sourceItem;
 				sourceItem = new ItemAir();
 				sourceItem.UniqueId = 0;
-				SetContainerItem(source.ContainerId, source.Slot, sourceItem);
+				_player.SetContainerItem(source.fullContainerName.containerName, source.slot, sourceItem);
 			}
 			else
 			{
@@ -396,62 +426,71 @@ namespace MiNET
 				destItem.UniqueId = Environment.TickCount;
 			}
 
-			SetContainerItem(destination.ContainerId, destination.Slot, destItem);
+			_player.SetContainerItem(destination.fullContainerName.containerName, destination.slot, destItem);
 
-			if (source.ContainerId == 21 || source.ContainerId == 22)
+			if (source.fullContainerName.containerName == FullContainerName.ContainerEnumName.Recipebookcontainer || source.fullContainerName.containerName == FullContainerName.ContainerEnumName.Enchantinginputcontainer)
 			{
-				if (!(GetContainerItem(21, 14) is ItemAir) && !(GetContainerItem(22, 15) is ItemAir)) Enchantment.SendEnchantments(_player, GetContainerItem(21, 14));
+				if (!(_player.GetContainerItem(FullContainerName.ContainerEnumName.Recipebookcontainer, 14) is ItemAir) && !(_player.GetContainerItem(FullContainerName.ContainerEnumName.Enchantinginputcontainer, 15) is ItemAir)) Enchantment.SendEnchantments(_player, _player.GetContainerItem(FullContainerName.ContainerEnumName.Recipebookcontainer, 14));
 				else Enchantment.SendEmptyEnchantments(_player);
 			}
 
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = source.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) source.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = sourceItem.Count,
-						Slot = source.Slot,
-						HotbarSlot = source.Slot,
-						StackNetworkId = sourceItem.UniqueId
+						amount = sourceItem.Count,
+						requestedSlot = source.slot,
+						slot = source.slot,
+						itemStackNetId = sourceItem.UniqueId > 0 ? sourceItem.UniqueId : null
 					}
 				}
 			});
-			stackResponses.Add(new StackResponseContainerInfo
+			stackResponses.Add(new ItemStackResponseContainerInfo
 			{
-				ContainerId = destination.ContainerId,
-				Slots = new List<StackResponseSlotInfo>
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) destination.fullContainerName.containerName},
+				slots = new List<ItemStackResponseSlotInfo>
 				{
-					new StackResponseSlotInfo()
+					new ItemStackResponseSlotInfo()
 					{
-						Count = destItem.Count,
-						Slot = destination.Slot,
-						HotbarSlot = destination.Slot,
-						StackNetworkId = destItem.UniqueId
+						amount = destItem.Count,
+						requestedSlot = destination.slot,
+						slot = destination.slot,
+						itemStackNetId = destItem.UniqueId > 0 ? destItem.UniqueId : null
 					}
 				}
 			});
 		}
 
-		protected virtual void ProcessCraftResultDeprecatedAction(CraftResultDeprecatedAction action)
+		protected virtual void ProcessCraftResultDeprecatedAction(ItemStackRequestCraftResultsDeprecatedAction action)
 		{
 			// The client's own claim about what it crafted. Whenever the request named a recipe, the
 			// registry already produced the output (ProcessCraftAction) and this claim is ignored.
 			if (_activeRecipe != null) return;
 
 			//BUG: Won't work proper with anvil anymore.
-			if (GetContainerItem(59, 50).UniqueId > 0) return;
+			if (_player.GetContainerItem(FullContainerName.ContainerEnumName.Cursorcontainer, 50).UniqueId > 0) return;
 
 			//TODO: We only use this for anvils right now. Until we fixed the anvil merge ourselves.
-			Item craftingResult = action.ResultItems.FirstOrDefault();
-			if (craftingResult == null) return;
+			// The deprecated action carries a descriptor rather than an item, so the name has to be
+			// resolved before it can be put in a slot. Only the name form can be, which is what an
+			// anvil sends; anything else is refused rather than guessed at.
+			ItemStackRequestNetworkItemInstanceDescriptor craftingResult = action.craftResults.FirstOrDefault();
+			if (craftingResult?.itemDescriptor is not ItemNameDescriptor named)
+			{
+				if (craftingResult != null) Log.Warn($"Deprecated craft result carried {craftingResult.itemDescriptor?.GetType().Name ?? "nothing"}, which cannot name an item");
+				return;
+			}
 
-			craftingResult.UniqueId = Environment.TickCount;
-			SetContainerItem(59, 50, craftingResult);
+			Item result = ItemFactory.GetItemByName(named.fullName, (short) named.auxValue);
+			result.Count = (byte) craftingResult.stackSize;
+			result.UniqueId = Environment.TickCount;
+			_player.SetContainerItem(FullContainerName.ContainerEnumName.Cursorcontainer, 50, result);
 		}
 
-		protected virtual void ProcessCraftNotImplementedDeprecatedAction(CraftNotImplementedDeprecatedAction action)
+		protected virtual void ProcessCraftNotImplementedDeprecatedAction(ItemStackRequestCraftNonImplementedDeprecatedAction action)
 		{
 		}
 
@@ -461,16 +500,16 @@ namespace MiNET
 		/// </summary>
 		protected Recipe _activeRecipe;
 
-		protected virtual void ProcessCraftAction(CraftAction action)
+		protected virtual void ProcessCraftAction(ItemStackRequestCraftRecipeAction action)
 		{
-			_activeRecipe = SetRecipeResult(ResolveRecipe(action.RecipeNetworkId));
+			_activeRecipe = SetRecipeResult(ResolveRecipe(action.recipeNetId));
 		}
 
 		// Recipe-book "craft all/auto": same resolution, same server-produced output. The ingredients the
 		// client listed in the action are ignored; the Consume actions that follow do the consuming.
-		protected virtual void ProcessCraftAutoAction(CraftAutoAction action)
+		protected virtual void ProcessCraftAutoAction(ItemStackRequestCraftRecipeAutoAction action)
 		{
-			_activeRecipe = SetRecipeResult(ResolveRecipe(action.RecipeNetworkId));
+			_activeRecipe = SetRecipeResult(ResolveRecipe(action.recipeNetId));
 		}
 
 		// A recipe network id the server never published is a desync, or a crafting exploit attempt:
@@ -508,20 +547,20 @@ namespace MiNET
 			var craftingResult = (Item) result.Clone();
 			if (result.ExtraData != null) craftingResult.ExtraData = (NbtCompound) result.ExtraData.Clone();
 			craftingResult.UniqueId = Environment.TickCount;
-			SetContainerItem(59, 50, craftingResult);
+			_player.SetContainerItem(FullContainerName.ContainerEnumName.Cursorcontainer, 50, craftingResult);
 
 			return recipe;
 		}
 
-		protected virtual void ProcessCraftCreativeAction(CraftCreativeAction action)
+		protected virtual void ProcessCraftCreativeAction(ItemStackRequestCraftCreativeAction action)
 		{
 			// Creative entry ids are positional (index + 1), assigned by SendCreativeInventory
 			// over the same InventoryUtils list; sender and resolver share one source.
-			int index = (int) action.CreativeItemNetworkId - 1;
+			int index = (int) action.creativeItemNetId - 1;
 			Item creativeItem = index >= 0 && index < InventoryUtils.CreativeInventoryItems.Count
 				? InventoryUtils.CreativeInventoryItems[index]
 				: null;
-			if (creativeItem == null) throw new Exception($"Failed to find inventory item with unique id: {action.CreativeItemNetworkId}");
+			if (creativeItem == null) throw new Exception($"Failed to find inventory item with unique id: {action.creativeItemNetId}");
 			creativeItem = ItemFactory.GetItemByName(creativeItem.Name, creativeItem.Metadata);
 			creativeItem.Count = (byte) creativeItem.MaxStackSize;
 			creativeItem.UniqueId = Environment.TickCount;
@@ -529,107 +568,50 @@ namespace MiNET
 			_player.Inventory.UiInventory.Slots[50] = creativeItem;
 		}
 
-		protected virtual void ProcessCraftRecipeOptionalAction(CraftRecipeOptionalAction action)
+		protected virtual void ProcessCraftRecipeOptionalAction(ItemStackRequestCraftRecipeOptionalAction action)
 		{
 		}
 
-		private Item GetContainerItem(int containerId, int slot)
+		// Below: screens whose rules the server does not know yet. Accepting the action and leaving the
+		// output to the client's own CraftResultsDeprecated claim is what makes the screen usable at
+		// all, and it does mean the client decides what comes out of it. Refusing instead is not the
+		// safe option it looks like: an unhandled action fails the whole request, so the screen would
+		// reject every craft rather than produce a wrong one. Each of these is the hook a server that
+		// wants the real rules overrides.
+
+		/// <summary>Loom. The pattern the client picked, applied to the banner in the input slot.</summary>
+		protected virtual void ProcessCraftLoomAction(ItemStackRequestCraftLoomAction action)
 		{
-			if (_player.UsingAnvil && containerId < 3) containerId = 13;
-
-			Item item = null;
-			// Container ids per the 1.26 ContainerSlotType table (several shifted since 1.18:
-			// cursor 58->59, creative output 59->60, hotbar 27->28, inventory 28->29,
-			// offhand 33->34, enchanting 21/22->22/23).
-			switch (containerId)
-			{
-				case 13: // crafting input
-				case 14: // crafting output
-				case 22: // enchanting input
-				case 23: // enchanting lapis
-				case 41: // loom input
-				case 59: // cursor
-				case 60: // creative output
-					item = _player.Inventory.UiInventory.Slots[slot];
-					break;
-				case 12: // hotbar and inventory
-				case 28: // hotbar
-				case 29: // player inventory
-					item = _player.Inventory.Slots[slot];
-					break;
-				case 34: // off-hand
-					item = _player.Inventory.OffHand;
-					break;
-				case 6: // armor
-					item = slot switch
-					{
-						0 => _player.Inventory.Helmet,
-						1 => _player.Inventory.Chest,
-						2 => _player.Inventory.Leggings,
-						3 => _player.Inventory.Boots,
-						_ => null
-					};
-					break;
-				case 7: // chest/container
-					if (_player._openInventory is Inventory inventory) item = inventory.GetSlot((byte) slot);
-					break;
-				default:
-					// BDS answers a request against a container it can't resolve with an error
-					// response (and an inventory resync); silently no-op'ing here makes items
-					// vanish client-side instead.
-					throw new InvalidOperationException($"Unknown containerId: {containerId}");
-			}
-
-			return item;
+			if (Log.IsDebugEnabled) Log.Debug($"Loom craft of pattern {action.patternNameId} x{action.numCrafts} taken on the client's word");
 		}
 
-		private void SetContainerItem(int containerId, int slot, Item item)
+		/// <summary>Grindstone: strip the enchantments, merge the durability, pay out the experience.</summary>
+		protected virtual void ProcessCraftRepairAndDisenchantAction(ItemStackRequestCraftRepairAndDisenchantAction action)
 		{
-			if (_player.UsingAnvil && containerId < 3) containerId = 13;
+			if (Log.IsDebugEnabled) Log.Debug($"Grindstone craft of recipe {action.recipeNetId} at cost {action.repairCost} taken on the client's word");
+		}
 
-			switch (containerId)
-			{
-				case 13: // crafting input
-				case 14: // crafting output
-				case 22: // enchanting input
-				case 23: // enchanting lapis
-				case 41: // loom input
-				case 59: // cursor
-				case 60: // creative output
-					_player.Inventory.UiInventory.Slots[slot] = item;
-					break;
-				case 12: // hotbar and inventory
-				case 28: // hotbar
-				case 29: // player inventory
-					_player.Inventory.Slots[slot] = item;
-					break;
-				case 34: // off-hand
-					_player.Inventory.OffHand = item;
-					break;
-				case 6: // armor
-					switch (slot)
-					{
-						case 0:
-							_player.Inventory.Helmet = item;
-							break;
-						case 1:
-							_player.Inventory.Chest = item;
-							break;
-						case 2:
-							_player.Inventory.Leggings = item;
-							break;
-						case 3:
-							_player.Inventory.Boots = item;
-							break;
-					}
-					break;
-				case 7: // chest/container
-					if (_player._openInventory is Inventory inventory) inventory.SetSlot(_player, (byte) slot, item);
-					break;
-				default:
-					// See GetContainerItem: unknown container = error response, never a silent drop.
-					throw new InvalidOperationException($"Unknown containerId: {containerId}");
-			}
+		/// <summary>Beacon: consume the payment and apply the two effects it bought.</summary>
+		protected virtual void ProcessBeaconPaymentAction(ItemStackRequestBeaconPaymentAction action)
+		{
+			if (Log.IsDebugEnabled) Log.Debug($"Beacon paid for effects {action.primaryEffectId} and {action.secondaryEffectId}, which are not applied");
+		}
+
+		/// <summary>Education Edition lab table.</summary>
+		protected virtual void ProcessLabTableCombineAction(ItemStackRequestLabTableCombineAction action)
+		{
+		}
+
+		/// <summary>Taking one of several outputs a craft produced. The output the client is claiming
+		/// already reached the UI window through the deprecated result action.</summary>
+		protected virtual void ProcessCreateAction(ItemStackRequestCreateAction action)
+		{
+		}
+
+		/// <summary>The client's own durability prediction for the tool it just mined with. The server
+		/// damages the tool itself, so there is nothing to do with the prediction.</summary>
+		protected virtual void ProcessMineBlockAction(ItemStackRequestMineBlockAction action)
+		{
 		}
 	}
 }

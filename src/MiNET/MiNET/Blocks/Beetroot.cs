@@ -34,7 +34,7 @@ namespace MiNET.Blocks
 {
 	public partial class Beetroot : Crops
 	{
-		public Beetroot() : base(244)
+		public Beetroot()
 		{
 			MaxGrowth = 4;
 		}

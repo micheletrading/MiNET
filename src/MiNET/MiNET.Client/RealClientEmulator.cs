@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
 using log4net;
@@ -62,6 +63,12 @@ namespace MiNET.Client
 			// sent by every bot session, emulated or not.
 			SendInventoryOptions(client);
 
+			// A real client sends these two after the join burst; without them the server side
+			// they exercise is never reached. Values are what a real 1.26.40 client puts on the
+			// wire: game type 5, and three identical aim-assist frames.
+			SendSetPlayerGameType(client);
+			for (int i = 0; i < 3; i++) SendClientCameraAimAssist(client);
+
 			Vector3 position = client.CurrentLocation.ToVector3();
 			Vector3 lastPosition = position;
 			float yaw = client.CurrentLocation.Yaw;
@@ -92,22 +99,25 @@ namespace MiNET.Client
 				if (i == 160) flags |= AuthInputFlags.StopSprinting;
 
 				var input = McpePlayerAuthInput.CreateObject();
-				input.Pitch = pitch;
-				input.Yaw = yaw;
-				input.HeadYaw = headYaw;
-				input.Position = position;
-				input.MoveVector = moveVector;
-				input.InputFlags = flags;
-				input.SneakCurrentRaw = false;
-				input.InputMode = McpePlayerAuthInput.PlayerInputMode.Mouse;
-				input.PlayMode = McpePlayerAuthInput.PlayerPlayMode.Normal;
-				input.InteractionModel = McpePlayerAuthInput.PlayerInteractionModel.Touch;
-				input.InteractRotation = new Vector2(pitch, yaw);
-				input.Tick = tick++;
-				input.Delta = position - lastPosition;
-				input.AnalogMoveVector = moveVector;
-				input.CameraOrientation = new Vector3(pitch, yaw, 0);
-				input.RawMoveVector = moveVector;
+				input.playerRotation = new Vector2(pitch, yaw);
+				input.playerHeadRotation = headYaw;
+				input.position = position;
+				input.moveVector = moveVector;
+				input.inputData = flags;
+				input.inputMode = McpePlayerAuthInput.InputMode.Mouse;
+				input.playMode = McpePlayerAuthInput.ClientPlayMode.Normal;
+				input.newInteractionModel = McpePlayerAuthInput.NewInteractionModel.Touch;
+				input.interactRotation = new Vector2(pitch, yaw);
+				input.clientTick = tick++;
+				input.posDelta = position - lastPosition;
+				input.analogMoveVector = moveVector;
+				input.cameraOrientation = new Vector3(pitch, yaw, 0);
+				input.rawMoveVector = moveVector;
+				// Since 2168 block breaking rides inside auth input (a standalone PlayerAction
+				// StartBreak gets the session kicked for exploiting by BDS's anticheat).
+				if (i == 21) input.playerBlockActions = new List<PlayerBlockActionData> {new PlayerBlockActionData {playerActionType = (PlayerBlockActionData.PlayerActionType) 0, position = spawnBlock, facing = (int) BlockFace.Up}};
+				if (i == 30) input.playerBlockActions = new List<PlayerBlockActionData> {new PlayerBlockActionData {playerActionType = (PlayerBlockActionData.PlayerActionType) 1, position = spawnBlock, facing = (int) BlockFace.Up}};
+
 				client.SendPacket(input);
 
 				lastPosition = position;
@@ -115,9 +125,7 @@ namespace MiNET.Client
 
 				if (i % 100 == 0) SendDiagnostics(client);
 				if (i == 20) SendAnimate(client, "mine");
-				if (i == 21) SendPlayerAction(client, PlayerAction.StartBreak, spawnBlock, BlockFace.Up);
-				if (i == 30) SendPlayerAction(client, PlayerAction.AbortBreak, spawnBlock, BlockFace.Up);
-				if (i == 31) SendAnimate(client, null);
+					if (i == 31) SendAnimate(client, null);
 				if (i == 40) SendInteractMouseOver(client);
 				if (i == 45) SendInteractOpenInventory(client);
 				if (i == 50) SendMobEquipment(client);
@@ -130,6 +138,22 @@ namespace MiNET.Client
 			}
 
 			Log.Warn("RealClientEmulator: emulation complete");
+		}
+
+		private static void SendSetPlayerGameType(MiNetClient client)
+		{
+			var packet = McpeSetPlayerGameType.CreateObject();
+			packet.gamemode = 5; // GameType.Default, what the real client sends at join
+			client.SendPacket(packet);
+		}
+
+		private static void SendClientCameraAimAssist(MiNetClient client)
+		{
+			var packet = McpeClientCameraAimAssist.CreateObject();
+			packet.presetId = string.Empty;
+			packet.action = 1;
+			packet.allowAimAssist = false;
+			client.SendPacket(packet);
 		}
 
 		private static void SendInventoryOptions(MiNetClient client)
@@ -228,19 +252,34 @@ namespace MiNET.Client
 		// slot 0. Container id 60 = creative output; 0 = the player's own inventory (hotbar slot 9
 		// maps to hotbar 0). Mirrors PMMP ItemStackRequest::read / minecraft-data 1001 exactly (see
 		// Packet.Write(ItemStackRequests) and Write(StackRequestSlotInfo)).
+		private static ItemStackRequestSlotInfo Slot(int container, byte slot)
+		{
+			return new ItemStackRequestSlotInfo
+			{
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) container},
+				slot = slot
+			};
+		}
+
 		private static void SendItemStackRequest(MiNetClient client)
 		{
 			var packet = McpeItemStackRequest.CreateObject();
-			packet.requests = new ItemStackRequests();
+			packet.requests = new List<ItemStackRequest>();
 
-			var actions = new ItemStackActionList {RequestId = -1};
-			actions.Add(new CraftCreativeAction {CreativeItemNetworkId = 1});
-			actions.Add(new TakeAction
+			var actions = new ItemStackRequest
 			{
-				Count = 1,
-				Source = new StackRequestSlotInfo {ContainerId = 60, Slot = 50, StackNetworkId = 0},
-				Destination = new StackRequestSlotInfo {ContainerId = 0, Slot = 9, StackNetworkId = 0}
-			});
+				clientRequestId = -1,
+				actions = new List<ItemStackRequestBase>
+				{
+					new ItemStackRequestCraftCreativeAction {creativeItemNetId = 1},
+					new ItemStackRequestTakeAction
+					{
+						amount = 1,
+						source = Slot(60, 50),
+						destination = Slot(0, 9)
+					}
+				}
+			};
 			packet.requests.Add(actions);
 
 			client.SendPacket(packet);
@@ -249,21 +288,20 @@ namespace MiNET.Client
 		private static void SendInventoryTransactionPlace(MiNetClient client, BlockCoordinates position, Vector3 playerPosition)
 		{
 			var packet = McpeInventoryTransaction.CreateObject();
-			var transaction = new ItemUseTransaction
+			var transaction = new ItemUseInventoryTransaction
 			{
-				ActionType = McpeInventoryTransaction.ItemUseAction.Place,
-				TriggerType = 1,
-				Position = position,
-				Face = (int) BlockFace.Up,
-				Slot = 0,
-				Item = ItemFactory.GetItemByName("minecraft:dirt"),
-				FromPosition = playerPosition,
-				ClickPosition = new Vector3(0.5f, 1f, 0.5f),
-				BlockRuntimeId = 0,
-				ClientPrediction = 0,
-				ClientCooldownState = 0
+				actionType = ItemUseInventoryTransaction.ItemUseActionType.Place,
+				triggerType = ItemUseInventoryTransaction.ItemUseTriggerType.PlayerInput,
+				position = position,
+				face = (byte) BlockFace.Up,
+				slot = 0,
+				item = ItemFactory.GetItemByName("minecraft:dirt"),
+				fromPosition = playerPosition,
+				clickPosition = new Vector3(0.5f, 1f, 0.5f),
+				targetBlockId = 0,
+				actions = new List<InventoryAction>()
 			};
-			transaction.RequestId = 0;
+			packet.legacyRequestId = 0;
 			packet.transaction = transaction;
 			client.SendPacket(packet);
 		}

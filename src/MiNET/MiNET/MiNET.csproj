@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <!-- Release only: CI packs and pushes from Release, and packing on every local Debug
+         build just slows the edit-restart loop down. -->
+    <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
     <PackageId>MiNET</PackageId>
     <Version>0.0.0</Version>
     <Authors>gurun</Authors>
@@ -38,14 +40,25 @@
     <None Remove="Blocks\legacy_id_map.json" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Data\grey_skin.json" />
     <EmbeddedResource Include="Blocks\Data\block_id_map.json" />
     <EmbeddedResource Include="Blocks\Data\item_id_map.json" />
     <EmbeddedResource Include="Blocks\Data\legacy_id_map.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Blocks\Data\r12_to_current_block_map.bin" />
+    <!-- The block state upgrade schemas, verbatim from pmmp/BedrockBlockUpgradeSchema. Each file is
+         one version step and they are applied in name order, so the set is embedded whole. -->
+    <EmbeddedResource Include="Blocks\Data\BlockStateUpgradeSchema\*.json" />
+    <!-- The id and meta tables from the same repo, one per era. Block items carried blockstate
+         NBT from 1.9 while chunk blocks only did from 1.12, so an item stack and a stored block
+         with the same id and meta convert through different tables. -->
+    <EmbeddedResource Include="Blocks\Data\BlockStateUpgradeSchema\*.bin" />
     <EmbeddedResource Include="Items\Data\item_id_map.json" />
     <EmbeddedResource Include="Items\Data\r16_to_current_item_map.json" />
+    <!-- The item id and meta upgrade schemas, verbatim from pmmp/BedrockItemUpgradeSchema.
+         Same shape as the block ones: one file per version step, applied in name order. -->
+    <EmbeddedResource Include="Items\Data\ItemUpgradeSchema\*.json" />
     <EmbeddedResource Include="Items\Data\creative_groups.json" />
     <EmbeddedResource Include="Data\entity_properties.json" />
     <EmbeddedResource Include="Data\jigsaw_structures.json" />
@@ -64,21 +77,19 @@
     <None Remove="Items\r16_to_current_item_map.json" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="jose-jwt" Version="3.1.1" />
+    <PackageReference Include="jose-jwt" Version="5.3.0" />
     <PackageReference Include="LibNoise.NetStandart" Version="0.2.0" />
-    <PackageReference Include="log4net" Version="2.0.14" />
-    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
-    <PackageReference Include="Microsoft.TestPlatform.ObjectModel" Version="17.0.0" />
+    <PackageReference Include="log4net" Version="3.3.2" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
     <PackageReference Include="MiNET.astar" Version="1.0.14" />
     <PackageReference Include="MiNET.fnbt" Version="1.0.22" />
-    <PackageReference Include="MiNET.LevelDB" Version="1.0.36" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
-    <PackageReference Include="SharpAvi" Version="3.0.0" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.0" />
+    <PackageReference Include="MiNET.LevelDB" Version="1.0.49" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="SharpAvi" Version="3.0.1" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta14" />
     <PackageReference Include="System.IO.Hashing" Version="10.0.10" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="6.0.0" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.10" />
   </ItemGroup>
   <ItemGroup>
     <None Remove="Net\MCPE Protocol.xml" />

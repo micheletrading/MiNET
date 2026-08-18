@@ -25,6 +25,7 @@
 
 using System.Numerics;
 using MiNET.Blocks;
+using MiNET.Entities;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
@@ -45,12 +46,22 @@ namespace MiNET.Items
 		{
 			byte direction = player.GetDirection();
 
+			// The block state replaced the old numeric direction with minecraft:cardinal_direction.
+			// GetDirection returns Direction, whose order matches the state's values exactly.
+			string cardinalDirection = (Entity.Direction) direction switch
+			{
+				Entity.Direction.West => "west",
+				Entity.Direction.North => "north",
+				Entity.Direction.East => "east",
+				_ => "south"
+			};
+
 			var coordinates = GetNewCoordinatesFromFace(blockCoordinates, face);
 
-			// Base block, meta sets orientation
+			// Base block, the state sets orientation
 			var block = (DoorBase) BlockFactory.GetBlockByName(Name);
 			block.Coordinates = coordinates;
-			block.Direction = direction;
+			block.CardinalDirection = cardinalDirection;
 			block.UpperBlockBit = false;
 
 			int x = blockCoordinates.X;
@@ -67,8 +78,8 @@ namespace MiNET.Items
 
 			int i1 = (world.GetBlock(x - xd, y, z - zd).IsSolid ? 1 : 0) + (world.GetBlock(x - xd, y + 1, z - zd).IsSolid ? 1 : 0);
 			int j1 = (world.GetBlock(x + xd, y, z + zd).IsSolid ? 1 : 0) + (world.GetBlock(x + xd, y + 1, z + zd).IsSolid ? 1 : 0);
-			bool flag = world.GetBlock(x - xd, y, z - zd).Id == block.Id || world.GetBlock(x - xd, y + 1, z - zd).Id == block.Id;
-			bool flag1 = world.GetBlock(x + xd, y, z + zd).Id == block.Id || world.GetBlock(x + xd, y + 1, z + zd).Id == block.Id;
+			bool flag = world.GetBlock(x - xd, y, z - zd).GetType() == block.GetType() || world.GetBlock(x - xd, y + 1, z - zd).GetType() == block.GetType();
+			bool flag1 = world.GetBlock(x + xd, y, z + zd).GetType() == block.GetType() || world.GetBlock(x + xd, y + 1, z + zd).GetType() == block.GetType();
 			bool flag2 = false;
 
 			if (flag && !flag1)
@@ -88,7 +99,7 @@ namespace MiNET.Items
 			// sets orientation based on adjacent blocks
 			var blockUpper = (DoorBase) BlockFactory.GetBlockByName(Name);
 			blockUpper.Coordinates = coordinates + Level.Up;
-			blockUpper.Direction = direction;
+			blockUpper.CardinalDirection = cardinalDirection;
 			blockUpper.UpperBlockBit = true;
 			blockUpper.DoorHingeBit = flag2;
 

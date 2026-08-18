@@ -30,14 +30,9 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class DoorBase : Block
+	public abstract partial class DoorBase : Block
 	{
-		[StateRange(0, 3)] public virtual int Direction { get; set; }
-		[StateBit] public virtual bool DoorHingeBit { get; set; }
-		[StateBit] public virtual bool OpenBit { get; set; }
-		[StateBit] public virtual bool UpperBlockBit { get; set; }
-
-		protected DoorBase(byte id) : base(id)
+		protected DoorBase()
 		{
 		}
 

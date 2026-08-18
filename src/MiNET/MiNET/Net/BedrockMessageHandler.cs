@@ -23,8 +23,8 @@
 
 #endregion
 
+using System;
 using log4net;
-using MiNET.Net.RakNet;
 using MiNET.Plugins;
 
 namespace MiNET.Net
@@ -36,11 +36,15 @@ namespace MiNET.Net
 
 		public IMcpeMessageHandler Handler { get; set; }
 
-		public BedrockMessageHandler(RakSession session, IServerManager serverManager, PluginManager pluginManager) : base(session)
+		public BedrockMessageHandler(INetworkHandler session, IServerManager serverManager, PluginManager pluginManager) : base(session)
 		{
 			_pluginManager = pluginManager;
 			Handler = new LoginMessageHandler(this, session, serverManager);
 		}
+
+		protected override object HandlerTarget => Handler;
+
+		protected override bool HasPluginInterceptor(Type packetType) => _pluginManager?.HasReceivePacketHandler(packetType) ?? false;
 
 		public override void Connected()
 		{
@@ -51,15 +55,12 @@ namespace MiNET.Net
 			Handler.Disconnect(reason, sendDisconnect);
 		}
 
+		/// <summary>
+		///     Nothing here any more: plugins see outgoing packets in Player.SendPacket, before the
+		///     packet is queued, so a suppressed one never reaches the send lane at all.
+		/// </summary>
 		public override Packet OnSendCustomPacket(Packet packet)
 		{
-			if (Handler is Player player)
-			{
-				var result = _pluginManager.PluginPacketHandler(packet, false, player);
-				if (result != packet) packet.PutPool();
-				packet = result;
-			}
-
 			return packet;
 		}
 
@@ -78,6 +79,10 @@ namespace MiNET.Net
 			}
 
 			if (message == null) return;
+
+			// Raw intercept (MiNET.Tunnel and friends): a handler that consumes the frame here
+			// keeps it out of normal dispatch entirely.
+			if (handler is IRawPacketHandler raw && raw.HandleRawPacket(message)) return;
 
 			switch (message)
 			{
@@ -314,10 +319,13 @@ namespace MiNET.Net
 					handler.HandleMcpeDebugInfo(msg);
 					break;
 
+				case McpeSubChunkRequestPacket msg:
+					handler.HandleMcpeSubChunkRequestPacket(msg);
+					break;
+
 				default:
 				{
-					Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.EndPoint.Address}");
-					if (Log.IsDebugEnabled) Log.Warn($"Unknown packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
+					Log.Error($"Unhandled packet: {message.GetType().Name} 0x{message.Id:X2} for user: {_session.Username}, IP {_session.GetClientEndPoint().Address}");
 					break;
 				}
 			}

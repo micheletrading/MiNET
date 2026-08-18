@@ -37,7 +37,7 @@ namespace MiNET.Blocks
 	{
 		private int _tickRate = 1;
 
-		public Gravel() : base(13)
+		public Gravel()
 		{
 		}
 

@@ -18,7 +18,7 @@
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
 //
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
@@ -28,31 +28,43 @@ using MiNET.Utils.Vectors;
 
 namespace MiNET.Net
 {
-	public partial class McpeNetworkChunkPublisherUpdate : Packet<McpeNetworkChunkPublisherUpdate>
+	public partial class McpeNetworkChunkPublisherUpdate
 	{
-		// Saved chunks list, added protocol 544.
-		public List<ChunkCoordinates> savedChunks;
+		/// <summary>
+		///     "Server Built Chunks List": the trailing field the XML pdu never modeled. The count is a
+		///     raw le32 ("No size compression" in the schema), each entry a ChunkPos (two zigzag
+		///     varints). MiNET does not track server-built chunks, so it sends the list it has: empty
+		///     unless a caller fills this.
+		/// </summary>
+		public List<ChunkCoordinates> serverBuiltChunks;
 
 		partial void AfterEncode()
 		{
-			Write((uint) (savedChunks?.Count ?? 0));
-			if (savedChunks == null) return;
-
-			foreach (ChunkCoordinates coordinates in savedChunks)
+			Write(serverBuiltChunks?.Count ?? 0);
+			if (serverBuiltChunks != null)
 			{
-				WriteSignedVarInt(coordinates.X);
-				WriteSignedVarInt(coordinates.Z);
+				foreach (ChunkCoordinates chunk in serverBuiltChunks)
+				{
+					WriteSignedVarInt(chunk.X);
+					WriteSignedVarInt(chunk.Z);
+				}
 			}
 		}
 
 		partial void AfterDecode()
 		{
-			uint count = ReadUint();
-			savedChunks = new List<ChunkCoordinates>((int) count);
-			for (uint i = 0; i < count; i++)
+			int count = ReadInt();
+			serverBuiltChunks = new List<ChunkCoordinates>(count);
+			for (int i = 0; i < count; i++)
 			{
-				savedChunks.Add(new ChunkCoordinates(ReadSignedVarInt(), ReadSignedVarInt()));
+				serverBuiltChunks.Add(new ChunkCoordinates(ReadSignedVarInt(), ReadSignedVarInt()));
 			}
+		}
+
+		public override void Reset()
+		{
+			serverBuiltChunks = null;
+			base.Reset();
 		}
 	}
 }

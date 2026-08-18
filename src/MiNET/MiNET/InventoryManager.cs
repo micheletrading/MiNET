@@ -78,7 +78,7 @@ namespace MiNET
 						case Chest _:
 							blockEntity = new ChestBlockEntity();
 							break;
-						case ShulkerBox _:
+						case var b when b.Name.EndsWith("shulker_box"):
 							blockEntity = new ShulkerBoxBlockEntity();
 							break;
 					}
@@ -134,6 +134,31 @@ namespace MiNET
 						furnaceBlockEntity.Inventory = inventory;
 						break;
 					}
+					// Storage without the machine: the slots hold items and nothing ticks them. Every
+					// kind keeps its own window id, because the id is a property of the shared
+					// inventory rather than of the player looking at it, and two kinds answering to
+					// one id is a close for the wrong window waiting to happen.
+					case ContainerBlockEntity container:
+					{
+						(ContainerType type, byte windowId) = container switch
+						{
+							BarrelBlockEntity => (ContainerType.Container, (byte) 14),
+							SmokerBlockEntity => (ContainerType.Smoker, (byte) 15),
+							BrewingStandBlockEntity => (ContainerType.BrewingStand, (byte) 16),
+							HopperBlockEntity => (ContainerType.Hopper, (byte) 17),
+							DispenserBlockEntity => (ContainerType.Dispenser, (byte) 18),
+							DropperBlockEntity => (ContainerType.Dropper, (byte) 19),
+							CrafterBlockEntity => (ContainerType.Crafter, (byte) 20),
+							_ => (ContainerType.Container, (byte) 21)
+						};
+
+						inventory = new Inventory(GetInventoryId(), container, (short) container.SlotCount, (NbtList) comp["Items"])
+						{
+							Type = (byte) type,
+							WindowsId = windowId,
+						};
+						break;
+					}
 					default:
 					{
 						if (Log.IsDebugEnabled) Log.Warn($"Block entity did not have a matching inventory {blockEntity}");
@@ -141,9 +166,29 @@ namespace MiNET
 					}
 				}
 
+				inventory.Level = _level;
+
 				_cache[inventoryCoord] = inventory;
 
 				return inventory;
+			}
+		}
+
+		/// <summary>Drops the inventory held for these coordinates, and closes it for anyone still
+		/// looking at it. Called when the block entity goes away: the cache is keyed by position, so a
+		/// chest broken and rebuilt in the same spot would otherwise open holding the old chest's items
+		/// and write them into a block entity that is no longer in the chunk.</summary>
+		public virtual void RemoveInventory(BlockCoordinates inventoryCoord)
+		{
+			Inventory inventory;
+			lock (_cache)
+			{
+				if (!_cache.Remove(inventoryCoord, out inventory)) return;
+			}
+
+			foreach (Player observer in inventory.Observers)
+			{
+				observer.HandleMcpeContainerClose(null);
 			}
 		}
 

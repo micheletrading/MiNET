@@ -30,7 +30,6 @@ using System.Threading.Tasks;
 using log4net;
 using MiNET.Items;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.Skins;
@@ -135,13 +134,14 @@ namespace MiNET.Client
 			CryptoUtils.StampSkinId(clientData, client.Username);
 
 			Skin skin = clientData.ToSkin();
+			// Since 2168 the trusted flag rides inside SerializedSkin, not as a trailing packet field.
+			skin.IsVerified = true;
 
 			McpePlayerSkin message = McpePlayerSkin.CreateObject();
 			message.uuid = uuid;
 			message.skin = skin;
 			message.skinName = skin.SkinId;
 			message.oldSkinName = "";
-			message.isVerified = true;
 			client.SendPacket(message);
 		}
 
@@ -204,6 +204,8 @@ namespace MiNET.Client
 				McpeCommandRequest request = new McpeCommandRequest();
 				request.command = command;
 				request.origin = new CommandOriginData(CommandOriginType.Player, new UUID(Guid.NewGuid().ToString()), string.Empty, 0);
+				// CurrentCmdVersion, the newest real entry in Mojang's enum. The two after it,
+				// Count and Latest, are the C++ bookends rather than versions of anything.
 				request.version = "latest";
 				client.SendPacket(request);
 			};
@@ -223,11 +225,8 @@ namespace MiNET.Client
 					// First just rotate towards target pos
 					McpeMovePlayer movePlayerPacket = McpeMovePlayer.CreateObject();
 					movePlayerPacket.runtimeEntityId = client.EntityId;
-					movePlayerPacket.x = client.CurrentLocation.X;
-					movePlayerPacket.y = client.CurrentLocation.Y;
-					movePlayerPacket.z = client.CurrentLocation.Z;
-					movePlayerPacket.yaw = lookAtPos.Yaw;
-					movePlayerPacket.pitch = lookAtPos.Pitch;
+					movePlayerPacket.position = new Vector3(client.CurrentLocation.X, client.CurrentLocation.Y, client.CurrentLocation.Z);
+					movePlayerPacket.rotation = new Vector2(lookAtPos.Pitch, lookAtPos.Yaw);
 					movePlayerPacket.headYaw = lookAtPos.HeadYaw;
 				}
 				float lenght = Math.Abs((originalPosition - targetPosition).Length());
@@ -246,11 +245,8 @@ namespace MiNET.Client
 
 						McpeMovePlayer movePlayerPacket = McpeMovePlayer.CreateObject();
 						movePlayerPacket.runtimeEntityId = client.EntityId;
-						movePlayerPacket.x = client.CurrentLocation.X;
-						movePlayerPacket.y = client.CurrentLocation.Y;
-						movePlayerPacket.z = client.CurrentLocation.Z;
-						movePlayerPacket.yaw = lookAtPos.Yaw;
-						movePlayerPacket.pitch = lookAtPos.Pitch;
+						movePlayerPacket.position = new Vector3(client.CurrentLocation.X, client.CurrentLocation.Y, client.CurrentLocation.Z);
+						movePlayerPacket.rotation = new Vector2(lookAtPos.Pitch, lookAtPos.Yaw);
 						movePlayerPacket.headYaw = lookAtPos.HeadYaw;
 
 						client.SendPacket(movePlayerPacket);
@@ -263,11 +259,8 @@ namespace MiNET.Client
 
 						McpeMovePlayer movePlayerPacket = McpeMovePlayer.CreateObject();
 						movePlayerPacket.runtimeEntityId = client.EntityId;
-						movePlayerPacket.x = client.CurrentLocation.X;
-						movePlayerPacket.y = client.CurrentLocation.Y;
-						movePlayerPacket.z = client.CurrentLocation.Z;
-						movePlayerPacket.yaw = lookAtPos.Yaw;
-						movePlayerPacket.pitch = lookAtPos.Pitch;
+						movePlayerPacket.position = new Vector3(client.CurrentLocation.X, client.CurrentLocation.Y, client.CurrentLocation.Z);
+						movePlayerPacket.rotation = new Vector2(lookAtPos.Pitch, lookAtPos.Yaw);
 						movePlayerPacket.headYaw = lookAtPos.HeadYaw;
 
 						client.SendPacket(movePlayerPacket);

@@ -295,6 +295,29 @@ namespace TestPlugin
 			hologram.SpawnEntity();
 		}
 
+		[Command(Name = "players", Aliases = new[] {"list"}, Description = "Lists who is connected, across every level")]
+		public string ListPlayers(Player player)
+		{
+			// Enumerated off the plugin context rather than the calling player, so this answers the
+			// same way whether a player typed it or it arrived from the remote console, where the
+			// caller has no session and belongs to no level.
+			var lines = new List<string>();
+
+			foreach (Level level in Context.LevelManager.Levels.ToArray())
+			{
+				foreach (Player online in level.GetAllPlayers())
+				{
+					PlayerLocation at = online.KnownPosition;
+					lines.Add($"{online.Username} [{level.LevelId}] {at.X:F0},{at.Y:F0},{at.Z:F0} {online.GameMode}"
+							+ $"{(online.IsSpawned ? "" : " (connecting)")}");
+				}
+			}
+
+			if (lines.Count == 0) return "No players online";
+
+			return $"{lines.Count} online:\n" + string.Join("\n", lines);
+		}
+
 		[Command]
 		public string Info(Player player)
 		{
@@ -652,7 +675,7 @@ namespace TestPlugin
 			Stopwatch sw = new Stopwatch();
 			sw.Start();
 			Level level = player.Level;
-			int blockId = new Portal().Id;
+			string blockName = new Portal().Name;
 			BlockCoordinates start = (BlockCoordinates) player.KnownPosition;
 			for (int x = start.X - width; x < start.X + width; x++)
 			{
@@ -660,7 +683,7 @@ namespace TestPlugin
 				{
 					for (int y = height - 1; y >= 0; y--)
 					{
-						var b = level.IsBlock(new BlockCoordinates(x, y, z), blockId);
+						var b = level.IsBlock(new BlockCoordinates(x, y, z), blockName);
 						if (b) Log.Warn("Found portal block");
 					}
 				}
@@ -1201,7 +1224,7 @@ namespace TestPlugin
 			inventory.Slots[c++] = new ItemBlock(new Anvil()) {Count = 64};
 			inventory.Slots[c++] = new ItemBlock(new EnchantingTable()) {Count = 64};
 			inventory.Slots[c++] = ItemFactory.GetItemByName("minecraft:dye", 4, 64);
-			inventory.Slots[c++] = new ItemBlock(new Planks()) {Count = 64};
+			inventory.Slots[c++] = new ItemBlock(BlockFactory.GetBlockByName("minecraft:oak_planks")) {Count = 64};
 			inventory.Slots[c++] = new ItemCompass(); // Wooden Sword
 			inventory.Slots[c++] = new ItemWoodenSword(); // Wooden Sword
 			inventory.Slots[c++] = new ItemStoneSword(); // Stone Sword
@@ -1517,7 +1540,7 @@ namespace TestPlugin
 
 		[Command(Name = "r")]
 		//[Authorize(Permission = UserPermission.Op)]
-		public void DisplayRestartNotice(Player currentPlayer)
+		public void DisplayRestartNotice(Player currentPlayer, string address = "yodamine.com", int port = 19132, bool reloadWorld = false)
 		{
 			var players = currentPlayer.Level.GetSpawnedPlayers();
 			foreach (var player in players)
@@ -1542,8 +1565,9 @@ namespace TestPlugin
 			foreach (var player in players)
 			{
 				McpeTransfer transfer = McpeTransfer.CreateObject();
-				transfer.serverAddress = "yodamine.com";
-				transfer.port = 19132;
+				transfer.serverAddress = address;
+				transfer.port = (ushort) port;
+				transfer.reloadWorld = reloadWorld;
 				player.SendPacket(transfer);
 			}
 		}
@@ -1729,29 +1753,68 @@ namespace TestPlugin
 			objective.sortOrder = 0;
 			player.SendPacket(objective);
 
-			//McpeSetScoreboardIdentityPacket ident = McpeSetScoreboardIdentityPacket.CreateObject();
-			//ident.entries = new ScoreboardIdentityEntries() {new ScoreboardRegisterIdentityEntry(){}};
+			// A second between the two, so a client that rejects one of them disconnects inside a
+			// named gap instead of somewhere in a single batch.
+			System.Threading.Thread.Sleep(1000);
+
+			// Fake-player entries need no identity mapping. A real one ties a scoreboard id to a
+			// player, and since 2168 the player id is a per-entry optional rather than a field the
+			// packet type implies:
+			//
+			//   McpeSetScoreboardIdentity ident = McpeSetScoreboardIdentity.CreateObject();
+			//   ident.scoreboardIdentityPacketType = McpeSetScoreboardIdentity.ScoreboardIdentityPacketType.Update;
+			//   ident.scoreboardIdentityInfo = new List<ScoreboardIdentityPacketInfo>
+			//   {
+			//       new ScoreboardIdentityPacketInfo {scoreboardId = 3, playerUniqueId = player.EntityId}
+			//   };
 
 			McpeSetScore score = McpeSetScore.CreateObject();
-			score.entries = new ScoreEntries();
-			score.entries.Add(new ScoreEntryChangeFakePlayer
+			score.scoreInfo = new List<ScoreInfoElementBase>
 			{
-				Id = 3,
-				CustomName = "CustomName1",
-				ObjectiveName = "ObjectiveName",
-				Score = 2
-			});
-			score.entries.Add(new ScoreEntryChangeFakePlayer
-			{
-				Id = 4,
-				CustomName = "CustomName2",
-				ObjectiveName = "ObjectiveName",
-				Score = 3
-			});
+				new ChangeFakePlayerScore
+				{
+					scoreboardId = 3,
+					fakePlayerName = "CustomName1",
+					objectiveName = "ObjectiveName",
+					scoreValue = 2
+				},
+				new ChangeFakePlayerScore
+				{
+					scoreboardId = 4,
+					fakePlayerName = "CustomName2",
+					objectiveName = "ObjectiveName",
+					scoreValue = 3
+				}
+			};
 
 			player.SendPacket(score);
 
 			return "Added scoreboard";
+		}
+
+		/// <summary>
+		///     Takes down what ShowScoreboard put up. Drops the two lines by scoreboard id first,
+		///     which is the one SetScore variant nothing has ever sent, then removes the objective.
+		///     A second between them so a client that rejects one says which.
+		/// </summary>
+		[Command]
+		public string HideScoreboard(Player player)
+		{
+			McpeSetScore score = McpeSetScore.CreateObject();
+			score.scoreInfo = new List<ScoreInfoElementBase>
+			{
+				new RemoveScore {scoreboardId = 3, objectiveName = "ObjectiveName"},
+				new RemoveScore {scoreboardId = 4, objectiveName = "ObjectiveName"}
+			};
+			player.SendPacket(score);
+
+			System.Threading.Thread.Sleep(1000);
+
+			McpeRemoveObjective remove = McpeRemoveObjective.CreateObject();
+			remove.objectiveName = "ObjectiveName";
+			player.SendPacket(remove);
+
+			return "Removed scoreboard";
 		}
 
 

@@ -89,11 +89,11 @@ namespace MiNET.Utils
 		public string CdnUrl { get; set; }
 	}
 
-	public class ResourcePackIdVersions : List<PackIdVersion>
+	public class ResourcePackIdVersions : List<LegacyPackIdVersion>
 	{
 	}
 
-	public class PackIdVersion
+	public class LegacyPackIdVersion
 	{
 		public string Id { get; set; }
 		public string Version { get; set; }

@@ -37,7 +37,10 @@ namespace MiNET.Net
 
 		public UnknownPacket(int id, ReadOnlyMemory<byte> message)
 		{
-			Message = message;
+			// Copied. This is the one packet whose whole point is keeping the frame (a raw forwarder
+			// must not lose exactly the packets whose shape changed), and the buffer it was cut from
+			// belongs to the decode loop and is gone the moment that returns.
+			Message = message.ToArray();
 			Id = id;
 		}
 	}

@@ -24,15 +24,19 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Net.NetworkInformation;
+using log4net;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 
 namespace MiNET
 {
 	public class MotdProvider
 	{
+		private static readonly ILog Log = LogManager.GetLogger(typeof(MotdProvider));
+
 		public string Motd { get; set; }
 
 		public string SecondLine { get; set; }
@@ -86,12 +90,82 @@ namespace MiNET
 			return parts.Length < 2 ? gameVersion : $"{parts[0]}.{parts[1]}.0";
 		}
 
+		/// <summary>
+		///     The id this caller is told the server has.
+		///     <para>
+		///         The client keys its server list on it, so one server reachable both as localhost
+		///         and by name collapses into a single entry and the two cannot be tested side by
+		///         side. Answering loopback with an id of its own keeps them apart. Derived rather
+		///         than configured, so it stays stable across restarts and needs nothing set up.
+		///     </para>
+		///     <para>
+		///         Every packet that carries the id has to agree, the pong and both connection
+		///         replies alike, or the client is told one thing while listing the server and
+		///         another while connecting to it.
+		///     </para>
+		///     <para>
+		///         The low bit rather than a complement, which would turn a positive id negative and
+		///         print above <see cref="long.MaxValue" /> in the MOTD. The id is signed on the wire,
+		///         so a client parsing that field would overflow and drop the entry instead of
+		///         listing it.
+		///     </para>
+		/// </summary>
+		public virtual long GetServerId(IPEndPoint caller)
+		{
+			if (caller == null) return ServerId;
+
+			// Three routes to the same server, each with an id of its own: loopback, this machine's
+			// own address, and everything else. The client keys on the id, so this is what decides
+			// whether the routes list separately or collapse into one entry.
+			if (IPAddress.IsLoopback(caller.Address)) return ServerId ^ 1;
+			if (IsThisMachine(caller.Address)) return ServerId ^ 2;
+
+			return ServerId;
+		}
+
+		/// <summary>
+		///     Every unicast address on this host, loopback aside. Resolved once: an address added
+		///     after startup is not worth a lookup per ping, and pings arrive constantly.
+		/// </summary>
+		private static readonly Lazy<HashSet<IPAddress>> LocalAddresses = new(() =>
+		{
+			var addresses = new HashSet<IPAddress>();
+
+			try
+			{
+				foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+				{
+					foreach (UnicastIPAddressInformation address in adapter.GetIPProperties().UnicastAddresses)
+					{
+						if (!IPAddress.IsLoopback(address.Address)) addresses.Add(address.Address);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				// An empty set answers everything, which is the old behaviour, and is the right way
+				// to fail: enumerating interfaces is not worth losing the server list over.
+				Log.Warn($"Could not enumerate local addresses, pings from this machine will be answered: {e.Message}");
+			}
+
+			return addresses;
+		});
+
+		public static bool IsThisMachine(IPAddress address)
+		{
+			// A dual stack socket hands us "::ffff:192.168.1.10" for a v4 peer, which matches nothing
+			// in a set gathered as v4.
+			if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+
+			return LocalAddresses.Value.Contains(address);
+		}
+
 		public virtual string GetMotd(ConnectionInfo connectionInfo, IPEndPoint caller, bool eduMotd = false)
 		{
 			NumberOfPlayers = connectionInfo.NumberOfPlayers;
 			MaxNumberOfPlayers = connectionInfo.MaxNumberOfPlayers;
 
-			ulong serverId = (ulong) ServerId;
+			ulong serverId = (ulong) GetServerId(caller);
 
 			var protocolVersion = McpeProtocolInfo.ProtocolVersion.ToString();
 			var clientVersion = AdvertisedVersion;

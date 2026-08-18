@@ -40,7 +40,7 @@ namespace MiNET.Blocks
 			Fern = 2
 		}
 
-		public TallGrass() : base(31)
+		public TallGrass()
 		{
 
 			IsReplaceable = true;

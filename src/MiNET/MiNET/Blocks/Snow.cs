@@ -29,7 +29,7 @@ namespace MiNET.Blocks
 {
 	public partial class Snow : Block
 	{
-		public Snow() : base(80)
+		public Snow()
 		{
 		}
 

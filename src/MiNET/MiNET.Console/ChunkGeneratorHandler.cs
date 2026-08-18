@@ -57,30 +57,16 @@ namespace MiNET.Console
 			Log.Info($"Server told us to do {message.chunkRadius} chunk radius");
 		}
 
-		public override void HandleMcpePlayStatus(McpePlayStatus message)
-		{
-			base.HandleMcpePlayStatus(message);
-
-			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess && Client.UseBlobCache)
-			{
-				var packet = McpeClientCacheStatus.CreateObject();
-				packet.enabled = Client.UseBlobCache;
-				Client.SendPacket(packet);
-			}
-		}
-
 		public override void HandleMcpeStartGame(McpeStartGame message)
 		{
 			Client.EntityId = message.runtimeEntityId;
 			Client.NetworkEntityId = message.entityIdSelf;
-			Client.SpawnPoint = message.spawn;
+			Client.SpawnPoint = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
 			Client.CurrentLocation = new PlayerLocation(Client.SpawnPoint, message.rotation.X, message.rotation.X, message.rotation.Y);
 
 			Client.LevelInfo.LevelName = message.levelId;
 			Client.LevelInfo.Version = 19133;
-			Client.LevelInfo.GameType = message.levelSettings.gamemode;
-
-			BlockPalette = message.blockPalette;
+			Client.LevelInfo.GameType = (int) message.settings.gameType;
 
 			_internalStates = new HashSet<BlockStateContainer>(BlockFactory.BlockPalette);
 
@@ -99,6 +85,12 @@ namespace MiNET.Console
 			Client.LevelInfo.SpawnY = (int) Client.SpawnPoint.Y;
 			Client.LevelInfo.SpawnZ = (int) Client.SpawnPoint.Z;
 		}
+
+		/// <summary>
+		///     Blob payloads, not just their keys. This tool rebuilds real columns out of what the
+		///     server sends, so unlike an ordinary client it has to keep the bytes.
+		/// </summary>
+		private readonly ConcurrentDictionary<ulong, byte[]> _blobPayloads = new ConcurrentDictionary<ulong, byte[]>();
 
 		private ConcurrentDictionary<CachedChunk, object> _futureChunks = new ConcurrentDictionary<CachedChunk, object>();
 		private ConcurrentDictionary<BlockCoordinates, NbtCompound> _futureBlockEntities = new ConcurrentDictionary<BlockCoordinates, NbtCompound>();
@@ -142,7 +134,7 @@ namespace MiNET.Console
 				ulong hash = kv.Key;
 				byte[] data = kv.Value;
 
-				Client.BlobCache.TryAdd(hash, data);
+				_blobPayloads.TryAdd(hash, data);
 
 				var chunks = _futureChunks.Where(c => c.Key.SubChunks.Contains(hash) || c.Key.Biome == hash);
 				foreach (KeyValuePair<CachedChunk, object> kvp in chunks)
@@ -187,12 +179,12 @@ namespace MiNET.Console
 
 		public override void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
-			if (message.blobHashes != null) 
+			if (message.cacheEnabled) 
 			{
 				var chunk = new CachedChunk
 				{
-					X = message.chunkX,
-					Z = message.chunkZ,
+					X = message.chunkPosition.x,
+					Z = message.chunkPosition.z,
 				};
 				chunk.Chunk.X = chunk.X;
 				chunk.Chunk.Z = chunk.Z;
@@ -200,8 +192,8 @@ namespace MiNET.Console
 				var hits = new List<ulong>();
 				var misses = new List<ulong>();
 
-				ulong biomeHash = message.blobHashes.Last();
-				if (Client.BlobCache.TryGetValue(biomeHash, out byte[] biomes))
+				ulong biomeHash = message.cacheMetadata.Last();
+				if (_blobPayloads.TryGetValue(biomeHash, out byte[] biomes))
 				{
 					chunk.Chunk.biomeId = biomes;
 					hits.Add(biomeHash);
@@ -212,10 +204,10 @@ namespace MiNET.Console
 					misses.Add(biomeHash);
 				}
 
-				for (int i = 0; i < message.blobHashes.Length - 1; i++)
+				for (int i = 0; i < message.cacheMetadata.Count - 1; i++)
 				{
-					ulong hash = message.blobHashes[i];
-					if (Client.BlobCache.TryGetValue(hash, out byte[] data))
+					ulong hash = message.cacheMetadata[i];
+					if (_blobPayloads.TryGetValue(hash, out byte[] data))
 					{
 						chunk.Chunk[i] = ClientUtils.DecodeChunkColumn(1, data, BlockPalette, _internalStates)[0];
 						hits.Add(hash);
@@ -237,7 +229,7 @@ namespace MiNET.Console
 			}
 			else
 			{
-				var coord = new ChunkCoordinates(message.chunkX, message.chunkZ);
+				var coord = new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z);
 				int chunkCount = (int) message.subChunkCount;
 				byte[] data = message.chunkData;
 

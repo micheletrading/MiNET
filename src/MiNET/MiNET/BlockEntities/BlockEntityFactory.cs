@@ -58,6 +58,17 @@ namespace MiNET.BlockEntities
 			else if (blockEntityId == "ChalkboardBlock") blockEntity = new ChalkboardBlockEntity();
 			else if (blockEntityId == "ShulkerBox") blockEntity = new ShulkerBoxBlockEntity();
 			else if (blockEntityId == "StructureBlock") blockEntity = new StructureBlockBlockEntity();
+			// Storage only, no machine behind them. Every id here was read out of a world BDS 1.26.40
+			// wrote, one block at a time, so they are what vanilla saves rather than what convention
+			// suggests. Copper chests of every oxidation and waxed state save as "Chest", and all
+			// seventeen shulker boxes as "ShulkerBox", which is why neither needs an entry.
+			else if (blockEntityId == "Barrel") blockEntity = new BarrelBlockEntity();
+			else if (blockEntityId == "Smoker") blockEntity = new SmokerBlockEntity();
+			else if (blockEntityId == "BrewingStand") blockEntity = new BrewingStandBlockEntity();
+			else if (blockEntityId == "Hopper") blockEntity = new HopperBlockEntity();
+			else if (blockEntityId == "Dispenser") blockEntity = new DispenserBlockEntity();
+			else if (blockEntityId == "Dropper") blockEntity = new DropperBlockEntity();
+			else if (blockEntityId == "Crafter") blockEntity = new CrafterBlockEntity();
 
 			return blockEntity;
 		}

@@ -31,12 +31,6 @@ using System.Text;
 using Jose;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MiNET.Utils.Cryptography;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Engines;
-using Org.BouncyCastle.Crypto.Modes;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
-using SicStream;
 
 namespace MiNET.Test
 {
@@ -52,21 +46,12 @@ namespace MiNET.Test
 
 			byte[] keybytes = (byte[]) (Array) new sbyte[] {48, 118, 48, 16, 6, 7, 42, -122, 72, -50, 61, 2, 1, 6, 5, 43, -127, 4, 0, 34, 3, 98, 0, 4, 84, -22, 24, 17, 115, 88, 119, -3, 113, -103, -40, 3, -34, -59, 3, 51, 109, 19, 40, 6, -43, 41, 59, 46, 75, 65, 111, 15, 56, 112, 79, 121, 92, 38, 127, -14, 11, 114, 104, -75, 61, -123, -2, -103, 107, -75, -5, -77, 78, -127, -26, -62, -38, -24, 55, -34, 59, -4, -107, -72, 97, -47, 116, -83, -16, 21, -17, 44, -77, -85, -82, -102, 43, 92, 120, 8, -73, -10, 59, -64, 27, 28, 122, 57, 102, -87, -75, -27, 39, 56, -64, 20, 59, 16, -54, -59};
 
-			ECPublicKeyParameters x5KeyParam = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(keybytes);
-			Assert.AreEqual("Org.BouncyCastle.Math.EC.Custom.Sec.SecP384R1Curve", x5KeyParam.Parameters.Curve.GetType().FullName);
-			Assert.AreEqual("EC", x5KeyParam.AlgorithmName);
+			var key = ECDsa.Create();
+			key.ImportSubjectPublicKeyInfo(keybytes, out _);
 
-			var signParam = new ECParameters
-			{
-				Curve = ECCurve.NamedCurves.nistP384,
-				Q =
-				{
-					X = x5KeyParam.Q.AffineXCoord.GetEncoded(),
-					Y = x5KeyParam.Q.AffineYCoord.GetEncoded()
-				},
-			};
+			ECParameters signParam = key.ExportParameters(false);
 			signParam.Validate();
-			var key = ECDsa.Create(signParam);
+			Assert.AreEqual(ECCurve.NamedCurves.nistP384.Oid.Value, signParam.Curve.Oid.Value);
 
 			Assert.IsTrue(key.VerifyData(data, signature, HashAlgorithmName.SHA384));
 		}
@@ -94,21 +79,12 @@ namespace MiNET.Test
 			//string x5u = x5uVanilla;
 
 
-			ECPublicKeyParameters x5KeyParam = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(x5u.DecodeBase64());
-			Assert.AreEqual("Org.BouncyCastle.Math.EC.Custom.Sec.SecP384R1Curve", x5KeyParam.Parameters.Curve.GetType().FullName);
-			Assert.AreEqual("EC", x5KeyParam.AlgorithmName);
+			ECDsa key = ECDsa.Create();
+			key.ImportSubjectPublicKeyInfo(x5u.DecodeBase64(), out _);
 
-			var signParam = new ECParameters
-			{
-				Curve = ECCurve.NamedCurves.nistP384,
-				Q =
-				{
-					X = x5KeyParam.Q.AffineXCoord.GetEncoded(),
-					Y = x5KeyParam.Q.AffineYCoord.GetEncoded()
-				},
-			};
+			ECParameters signParam = key.ExportParameters(false);
 			signParam.Validate();
-			ECDsa key = ECDsa.Create(signParam);
+			Assert.AreEqual(ECCurve.NamedCurves.nistP384.Oid.Value, signParam.Curve.Oid.Value);
 
 			Assert.AreEqual(384, key.KeySize);
 			Assert.AreEqual(null, key.KeyExchangeAlgorithm);
@@ -184,103 +160,6 @@ namespace MiNET.Test
 			Assert.AreEqual(7, metadataMax);
 		}
 
-		// Kept as a reminder, not as coverage. This is the handshake built on .NET's own crypto
-		// instead of BouncyCastle, and it only runs on Windows: ToDerEncoded reads the raw CNG blob
-		// out of ECDiffieHellmanPublicKey.ToByteArray(), which the OpenSSL implementation does not
-		// support at all, so it throws PlatformNotSupportedException on Linux and the CI runner is
-		// Linux. The server itself does not go through here; LoginMessageHandler encodes the same
-		// key with BouncyCastle. Un-ignore this when .NET can produce the key cross-platform and
-		// the server can drop the dependency.
-		[Ignore("Windows only: ECDiffieHellmanPublicKey.ToByteArray() is unsupported on OpenSSL. Reminder to revisit .NET native crypto.")]
-		[TestMethod]
-		public void TestMethod1()
-		{
-			string b64InputKey = "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEVQxN/wFsMiYihwv1psUgKRIhgX02OPBQl0aKYNtKXoCk67hE/lsR8UC77Fqm1HPuMALWG8RcihSHoZwx2HfOz11QkwvlKEf8UuMrbp0yt/mQNJx6QQm6CiZ7e63sYqdV";
 
-			ECPublicKeyParameters asyKey = (ECPublicKeyParameters)
-				PublicKeyFactory.CreateKey(b64InputKey.DecodeBase64Url());
-
-			ECParameters param = new ECParameters();
-			param.Curve = ECCurve.NamedCurves.nistP384;
-			param.Q.X = asyKey.Q.AffineXCoord.GetEncoded();
-			param.Q.Y = asyKey.Q.AffineYCoord.GetEncoded();
-
-			var ecPublicKey = ECDiffieHellman.Create(param).PublicKey;
-
-			var effi = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP384);
-			ECParameters privateKey = effi.ExportParameters(true);
-			var secretPrepend = Encoding.UTF8.GetBytes("RANDOM SECRET");
-			byte[] secret = effi.DeriveKeyFromHash(ecPublicKey, HashAlgorithmName.SHA256, secretPrepend, new byte[0]);
-
-			IBufferedCipher decryptor = CipherUtilities.GetCipher("AES/CFB8/NoPadding");
-			IBufferedCipher encryptor = CipherUtilities.GetCipher("AES/CFB8/NoPadding");
-
-			decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(16).ToArray()));
-
-			encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(16).ToArray()));
-
-			string b64PublicKey = effi.PublicKey.ToDerEncoded().EncodeBase64();
-			var handshakeJson = new HandshakeData() {salt = secretPrepend.EncodeBase64()};
-
-			var signKey = ECDsa.Create(privateKey);
-
-			string val = JWT.Encode(handshakeJson, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64PublicKey}});
-			//Log.Warn($"Headers: {string.Join(";", JWT.Headers(val))}");
-			//Log.Warn($"Return salt:\n{JWT.Payload(val)}");
-		}
-
-		[TestMethod]
-		public void TestAES_GCM()
-		{
-			byte[] secret = "YYpS7Z92bpTazDa9exkclGF1RZoObERCfk6T123PELA=".DecodeBase64();
-			Assert.AreEqual(32, secret.Length);
-
-			//Assert.AreEqual("", decryptor.GetType().Name);
-			//var encryptor = (SicBlockCipher) CipherUtilities.GetCipher("AES/CTR/NoPadding");
-			//Assert.AreEqual("BufferedBlockCipher", encryptor.GetType().Name);
-			//Assert.AreEqual("AES/SIC", encryptor.AlgorithmName);
-			//var decryptor = CipherUtilities.GetCipher("AES/CTR/NoPadding") as BufferedBlockCipher;
-			//decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-			//encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-
-
-			var encryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-			var decryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-			decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-			encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-
-			//Log.Warn($"Headers: {string.Join(";", JWT.Headers(val))}");
-			//Log.Warn($"Return salt:\n{JWT.Payload(val)}");
-			byte[] payload = Encoding.UTF8.GetBytes("gurun");
-			Assert.AreEqual(5, payload.Length);
-
-
-			//encrypted = encryptor.ProcessBytes(payload, 0, payload.Length);
-			int originalLen = payload.Length;
-			//payload = PaddTo16(payload);
-			//Assert.AreEqual(16, payload.Length);
-			var encrypted = new byte[payload.Length];
-			var encrypted2 = new byte[payload.Length];
-			var encrypted3 = new byte[payload.Length];
-			encryptor.ProcessBytes(payload, 0, payload.Length, encrypted, 0);
-			encryptor.ProcessBytes(payload, 0, payload.Length, encrypted2, 0);
-			encryptor.ProcessBytes(payload, 0, payload.Length, encrypted3, 0);
-
-			Assert.AreEqual("41EgP6s=", encrypted.Take(originalLen).ToArray().EncodeBase64());
-			Assert.AreEqual("IDeJqk8=", encrypted2.Take(originalLen).ToArray().EncodeBase64());
-			Assert.AreEqual("6SAjD+8=", encrypted3.Take(originalLen).ToArray().EncodeBase64());
-
-			Assert.AreEqual(5, encrypted.Length);
-			Assert.AreEqual("gurun", Encoding.UTF8.GetString(decryptor.ProcessBytes(encrypted)));
-			Assert.AreEqual("gurun", Encoding.UTF8.GetString(decryptor.ProcessBytes(encrypted2)));
-			Assert.AreEqual("gurun", Encoding.UTF8.GetString(decryptor.ProcessBytes(encrypted3)));
-		}
-
-		private static byte[] PaddTo16(byte[] payload)
-		{
-			int len = payload.Length;
-			int padding = (16 - len) % 16;
-			return (byte[]) payload.Concat(new byte[padding]).ToArray();
-		}
 	}
 }

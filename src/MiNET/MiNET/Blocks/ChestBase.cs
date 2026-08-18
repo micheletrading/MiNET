@@ -33,13 +33,12 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class ChestBase : Block
+	public abstract partial class ChestBase : Block
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ChestBase));
 
-		[StateRange(0, 5)] public virtual int FacingDirection { get; set; }
 
-		public ChestBase(byte id) : base(id)
+		public ChestBase()
 		{
 			FuelEfficiency = 15;
 		}
@@ -47,7 +46,7 @@ namespace MiNET.Blocks
 
 		public override bool PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
 		{
-			FacingDirection = ItemBlock.GetFacingDirectionFromEntity(player);
+			CardinalDirection = ItemBlock.GetCardinalDirectionFromEntity(player);
 
 			var chestBlockEntity = new ChestBlockEntity {Coordinates = Coordinates};
 			world.SetBlockEntity(chestBlockEntity);

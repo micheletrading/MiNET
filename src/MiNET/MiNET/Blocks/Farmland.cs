@@ -37,7 +37,7 @@ namespace MiNET.Blocks
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Farmland));
 
-		public Farmland() : base(60)
+		public Farmland()
 		{
 		}
 

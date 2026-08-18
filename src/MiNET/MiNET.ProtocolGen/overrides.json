@@ -1,0 +1,762 @@
+﻿{
+	"_comment": "Patch layer applied on top of the Mojang schemas before emission. 'types' maps schema type refs to existing MiNET types (with the read/write calls the house code uses for them); every entry with a wire divergence from the schema carries a reason, which makes this file our running list of schema bugs. 'packets' holds per-packet field renames and escape hatches (not used yet).",
+	"types": {
+		"BlockPos": {
+			"csType": "BlockCoordinates",
+			"write": "Write({0});",
+			"read": "{0} = ReadBlockCoordinates();",
+			"reason": "Type mapping only, byte-identical to the schema (three zigzag varints, which is also what Write(BlockCoordinates) emits and what BDS accepted at 1001 in PlayerAuthInput block actions and item-use transactions). Note: Cloudburst's inherited writeBlockPosition disagrees (y unsigned varint); their encoding, not ours, is the suspect one for these fields. Confirm against BDS bytes when the 2168 trace loop runs."
+		},
+		"Vec3": {
+			"csType": "Vector3",
+			"write": "Write({0});",
+			"read": "{0} = ReadVector3();"
+		},
+		"Vec2": {
+			"csType": "Vector2",
+			"write": "Write({0});",
+			"read": "{0} = ReadVector2();"
+		},
+		"mce__UUID": {
+			"csType": "UUID",
+			"write": "Write({0});",
+			"read": "{0} = ReadUUID();"
+		},
+		"ItemStackNetIdVariant": {
+			"csType": "int",
+			"write": "Write({0});",
+			"read": "{0} = ReadInt();",
+			"reason": "Fixed li32, not the signed varint the 2168 changelog describes ('projects to and from a single signed-VarInt encoding, non-negative = server net id, negative-odd = client request id'). The sign convention holds, the width does not. Measured on a live 1.26.40 client: a creative pick sends client request id -93 and the slot info carries a3 ff ff ff, which is -93 as li32 and consumes one byte too many as a varint. Reading it as a varint ate the next slot info's container name, turning CursorContainer (59) into AnvilInputContainer (0), so the server answered that the item was in an anvil and the client rolled the pick back. It also left the two trailing bytes McpeItemStackRequest was warning about; as li32 the packet reads with zero left over and the text processing origin comes out -1 instead of -65536. The old hand-written ReadStackRequestSlotInfo read li32 and worked."
+		},
+		"StructureSettings": {
+			"csType": "StructureSettings",
+			"write": "Write({0});",
+			"read": "{0} = ReadStructureSettings();",
+			"reason": "Already hand-written in Net/StructureSettings.cs and still referenced by an XML pdu (structure template data request), so the generator maps onto it instead of emitting a second type and a second pair of Packet methods."
+		},
+		"SerializedSkin": {
+			"csType": "Skin",
+			"write": "Write({0});",
+			"read": "{0} = ReadSkin();",
+			"reason": "Not generatable: PieceTintColors is typed 'object' with no layout, so the schema does not say how it is written (it is a bare type name plus exactly four raw colours, no count). The hand-written ReadSkin/Write(Skin) is verified byte-identical against a real 284KB persona PlayerList from BDS 1.26.40, so packets that carry a skin use it."
+		},
+		"WebToken": {
+			"csType": "string",
+			"write": "Write({0});",
+			"read": "{0} = ReadString();",
+			"reason": "WebToken.json is a self-reference with no properties; the only thing it says is 'Verify the input is a valid JWT'. On the wire it is the length-prefixed JWT string the XML pdu already carried."
+		},
+		"Json__Value": {
+			"csType": "string",
+			"write": "Write({0});",
+			"read": "{0} = ReadString();"
+		},
+		"MinEngineVersion": {
+			"csType": "string",
+			"write": "Write({0});",
+			"read": "{0} = ReadString();"
+		},
+		"NetworkItemInstanceDescriptor": {
+			"csType": "Item",
+			"write": "WriteNetworkItemInstanceDescriptor({0});",
+			"read": "{0} = ReadNetworkItemInstanceDescriptor();",
+			"reason": "The schema declares no properties. This is the id/count/aux/nbt form without the stack-id section, which is what creative entries and recipe results carry; the hand-written pair is verified against live BDS CraftingData and CreativeContent."
+		},
+		"NetworkItemStackDescriptor": {
+			"csType": "Item",
+			"write": "WriteNetworkItemStackDescriptor({0});",
+			"read": "{0} = ReadNetworkItemStackDescriptor();",
+			"reason": "The schema declares the type with no properties, so it cannot be generated. Item stacks stay on the hand-written codec: at 2168 this variant is li16 network id, no air short-circuit, block runtime id as a plain varint (see ReadNetworkItemInstanceDescriptor/WriteNetworkItemInstanceDescriptor), verified against live BDS bytes."
+		},
+		"SerializedAbilitiesDataSerializedLayer": {
+			"csType": "AbilityLayer",
+			"write": "Write({0});",
+			"read": "{0} = ReadAbilityLayer();",
+			"reason": "Field-for-field the same wire as the hand-written AbilityLayer (ushort layer, two raw uint32 ability sets, three floats), which McpeUpdateAbilities and the whole ability layer already build."
+		},
+		"Experiments": {
+			"csType": "Experiments",
+			"write": "Write({0});",
+			"read": "{0} = ReadExperiments();"
+		},
+		"GameRulesChangedPacketData": {
+			"csType": "GameRules",
+			"write": "Write({0});",
+			"read": "{0} = ReadGameRules();"
+		},
+		"RecipeIngredient": {
+			"csType": "Item",
+			"write": "WriteRecipeIngredient({0});",
+			"read": "{0} = ReadRecipeIngredient();",
+			"reason": "The schema's four-option oneOf does not describe the wire, on four counts, all of them matching CloudburstMC's readIngredient/writeItemDescriptor at v2168. (1) The numeric tag is 0 for an empty slot and 1 for ANY real one, with a serialize-name string carrying the kind, where the schema numbers the kinds 0-3; measured, not inferred, by scanning three live BDS CraftingData frames, where item_tag appears 245 times and name 15504 times and every one of the 15749 is preceded by 0x01. This is the one divergence a round-trip cannot catch, because both codecs re-derive the kind from the string and only test the tag against 0. (2) The empty form writes aux 32767 and no name string, where the schema gives a const 'empty' string and no aux; the string never appears in a capture. (3) item_tag carries a trailing aux 32767 the schema does not mention. (4) The count is a signed varint where the schema declares a uint16 StackSize. The names differ too, wire 'item_tag' and 'name' against the schema's 'itemtag' and 'itemname', neither of which occurs in a capture. Divergences 2 to 4 each change the byte count, so the captures decoding with zero leftovers settles them. Still unmeasured: molang does not occur in any capture we hold, so its tag is inferred from the same pattern."
+		},
+		"SynchedActorDataList": {
+			"csType": "MetadataDictionary",
+			"write": "Write({0});",
+			"read": "{0} = ReadMetadataDictionary();",
+			"reason": "The tagged-variant entry wire ([id][tag varint][type byte][value], tag==type validated by vanilla) is implemented inside MetadataDictionary, which the whole entity layer already uses."
+		}
+	},
+	"packets": {
+		"SetActorDataPacket": {
+			"fields": {
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Actor Data": {
+					"name": "metadata"
+				}
+			}
+		},
+		"AddActorPacket": {
+			"fields": {
+				"Target Actor ID": {
+					"name": "entityIdSelf"
+				},
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Actor Type": {
+					"name": "entityType"
+				},
+				"Actor Data": {
+					"name": "metadata"
+				},
+				"Actor Links": {
+					"name": "links"
+				},
+				"Attributes List": {
+					"name": "attributes",
+					"type": {
+						"csType": "EntityAttributes",
+						"write": "Write({0});",
+						"read": "{0} = ReadEntityAttributes();"
+					},
+					"reason": "The whole entity layer builds EntityAttributes; the house codec carries the same wire as the SyncedAttribute array."
+				}
+			}
+		},
+		"MoveActorDeltaData": {
+			"fields": {
+				"Actor Runtime ID": {
+					"name": "runtimeEntityId"
+				}
+			}
+		},
+		"SubChunkHeightmapData": {
+			"fields": {
+				"Subchunk Height Map": {
+					"name": "heights",
+					"type": {
+						"csType": "byte[]",
+						"write": "Write({0});",
+						"read": "{0} = ReadBytes(256);"
+					},
+					"reason": "A fixed 16x16 int8 grid with no counts on the wire (minItems==maxItems); carried as the raw 256-byte blob like the old hand codec."
+				},
+				"Subchunk Render Height Map": {
+					"name": "renderHeights",
+					"type": {
+						"csType": "byte[]",
+						"write": "Write({0});",
+						"read": "{0} = ReadBytes(256);"
+					},
+					"reason": "Same fixed 16x16 int8 grid as the height map."
+				}
+			}
+		},
+		"SubChunkPacketData": {
+			"fields": {
+				"SubChunk Request Result": {
+					"enum": [
+						"Undefined",
+						"Success",
+						"LevelChunkDoesntExist",
+						"WrongDimension",
+						"PlayerDoesntExist",
+						"IndexOutOfBounds",
+						"SuccessAllAir"
+					],
+					"reason": "The field's inline enum omits the leading Undefined value; the standalone SubChunkPacketPayload::SubChunkRequestResult schema, Cloudburst's enum and live BDS bytes (Success=1, SuccessAllAir=6) all include it."
+				},
+				"Serialized Sub Chunk": {
+					"type": {
+						"csType": "byte[]",
+						"write": "WriteByteArray({0});",
+						"read": "{0} = ReadByteArray();"
+					},
+					"reason": "The schema calls the serialized subchunk a string; it is raw bytes with a varint length, the house byte-array codec."
+				}
+			}
+		},
+		"LevelChunkPacket": {
+			"fields": {
+				"Dimension Id": {
+					"name": "dimension"
+				},
+				"Sub-chunks Count": {
+					"name": "subChunkCount"
+				},
+				"Cache Metadata": {
+					"name": "cacheMetadata"
+				},
+				"Serialized Chunk Data": {
+					"name": "chunkData",
+					"type": {
+						"csType": "byte[]",
+						"write": "WriteByteArray({0});",
+						"read": "{0} = ReadByteArray();"
+					},
+					"reason": "The schema calls the chunk payload a string; it is the raw serialized chunk bytes with a varint length, which is exactly the house byte-array codec."
+				}
+			}
+		},
+		"StartGamePacket": {
+			"fields": {
+				"Player Property Data": {
+					"type": {
+						"csType": "Nbt",
+						"write": "Write({0});",
+						"read": "{0} = ReadNbt();"
+					}
+				},
+				"Entity ID": {
+					"name": "entityIdSelf"
+				},
+				"Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"BlockNetworkIds Are Hashes": {
+					"name": "blockNetworkIdsAreHashes"
+				},
+				"NetworkPermissions": {
+					"name": "serverAuthSoundEnabled"
+				},
+				"Game Type": {
+					"enum": [
+						"Survival",
+						"Creative",
+						"Adventure",
+						"SurvivalSpectator",
+						"CreativeSpectator",
+						"Default",
+						"Spectator"
+					],
+					"reason": "GameType.json lists Undefined first, but engine GameType::Undefined is -1 and never on the wire; wire values start at Survival=0 and include the deprecated 3/4 spectator pair the schema omits (BDS-verified at 1001, mirrored by MiNET.Worlds.GameMode). WorldDefault's value is undocumented and dropped."
+				}
+			}
+		},
+		"LevelSettings": {
+			"fields": {
+				"Rule Data": {
+					"name": "gamerules"
+				},
+				"Game Type": {
+					"enum": [
+						"Survival",
+						"Creative",
+						"Adventure",
+						"SurvivalSpectator",
+						"CreativeSpectator",
+						"Default",
+						"Spectator"
+					],
+					"reason": "Same GameType schema bug as StartGamePacket's Game Type: Undefined is -1 in the engine, wire starts at Survival=0."
+				}
+			}
+		},
+		"ServerBlockProperty": {
+			"fields": {
+				"Block Definition": {
+					"type": {
+						"csType": "Nbt",
+						"write": "Write({0});",
+						"read": "{0} = ReadNbt();"
+					}
+				}
+			}
+		},
+		"ResourcePacksInfoPacket": {
+			"fields": {
+				"Resource Pack Required": {
+					"name": "mustAccept"
+				}
+			}
+		},
+		"AddItemActorPacket": {
+			"fields": {
+				"Target Actor ID": {
+					"name": "entityIdSelf"
+				},
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Entity Data": {
+					"name": "metadata"
+				}
+			}
+		},
+		"AddPlayerPacket": {
+			"fields": {
+				"Player Name": {
+					"name": "username"
+				},
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Carried Item": {
+					"name": "item"
+				},
+				"Player Game Type": {
+					"name": "gamemode",
+					"enum": [
+						"Survival",
+						"Creative",
+						"Adventure",
+						"SurvivalSpectator",
+						"CreativeSpectator",
+						"Default",
+						"Spectator"
+					],
+					"reason": "Same GameType schema bug as StartGamePacket's Game Type: Undefined is -1 in the engine, wire starts at Survival=0."
+				},
+				"Entity Data": {
+					"name": "metadata"
+				},
+				"Actor Links": {
+					"name": "links"
+				}
+			}
+		},
+		"TransferPacket": {
+			"fields": {
+				"Server Port": {
+					"name": "port"
+				}
+			}
+		},
+		"ServerBoundDiagnosticsPacket": {
+			"fields": {
+				"AvgFps": {
+					"name": "averageFramesPerSecond"
+				},
+				"AvgServerSimTickTimeMS": {
+					"name": "averageServerSimTickTime"
+				},
+				"AvgClientSimTickTimeMS": {
+					"name": "averageClientSimTickTime"
+				},
+				"AvgBeginFrameTimeMS": {
+					"name": "averageBeginFrameTime"
+				},
+				"AvgInputTimeMS": {
+					"name": "averageInputTime"
+				},
+				"AvgRenderTimeMS": {
+					"name": "averageRenderTime"
+				},
+				"AvgEndFrameTimeMS": {
+					"name": "averageEndFrameTime"
+				},
+				"AvgRemainderTimePercent": {
+					"name": "averageRemainderTimePercent"
+				},
+				"AvgUnaccountedTimePercent": {
+					"name": "averageUnaccountedTimePercent"
+				}
+			}
+		},
+		"ServerToClientHandshakePacket": {
+			"fields": {
+				"Handshake WebToken": {
+					"name": "token"
+				}
+			}
+		},
+		"PlayerSkinPacket": {
+			"fields": {
+				"Serialized Skin": {
+					"name": "skin"
+				},
+				"Localized New Skin Name": {
+					"name": "skinName"
+				},
+				"Localized Old Skin Name": {
+					"name": "oldSkinName"
+				}
+			}
+		},
+		"MovePlayerPacket": {
+			"fields": {
+				"Player Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Riding Runtime ID": {
+					"name": "ridingRuntimeEntityId"
+				},
+				"Position Mode": {
+					"name": "mode"
+				},
+				"Y-Head Rotation": {
+					"name": "headYaw"
+				}
+			}
+		},
+		"CreativeGroupInfoPayload": {
+			"fields": {
+				"Creative Category": {
+					"enum": [
+						"All",
+						"Construction",
+						"Nature",
+						"Equipment",
+						"Items",
+						"ItemCommandOnly",
+						"Undefined"
+					],
+					"reason": "The inline enum lists only the five legal group categories and so starts numbering at 0, while its own description says 'Valid values are 1 through 5'. The standalone CreativeItemCategory schema and __protocoldoc.json both give the real numbering, All=0 first; our captured vanilla groups use 1-4."
+				}
+			}
+		},
+		"gatheringsConfig": {
+			"fields": {
+				"worldId": {
+					"optional": true,
+					"reason": "Schema bug: gatheringsConfig.json lists all eight fields as required, but Mojang's own 2168 changelog says 'GatheringsConfigurationJoinInfo: The worldId, worldName, targetId, scenarioId, and serverId fields are now optional.' Optional means a presence byte, so reading these unconditionally desyncs the rest of the struct. Not reproducible against BDS: it sends serverConfigurationJoinInfo with gathering null, so this path never runs against vanilla."
+				},
+				"worldName": {
+					"optional": true
+				},
+				"targetId": {
+					"optional": true
+				},
+				"scenarioId": {
+					"optional": true
+				},
+				"serverId": {
+					"optional": true
+				}
+			}
+		},
+		"PlayerListPacket": {
+			"fields": {
+				"Entries": {
+					"optional": false,
+					"name": "records",
+					"reason": "Schema bug, not version skew: the payload declares no required list at all, so Entries reads as optional and the generator puts a presence byte before the entry count. There is no such byte on the wire. Confirmed against BDS 1.26.40.8's own generated schemas (protocol 2168, same as 2169) and CloudburstMC PlayerListSerializer_v2168, which writes the count and then the entries."
+				}
+			}
+		},
+		"HiddenLocation": {
+			"fields": {
+				"Packet Type": {
+					"enum": [
+						"PlayerLocationCoordinates",
+						"PlayerLocationHide"
+					],
+					"reason": "Each location variant declares its discriminator as a single-value enum, so both forms number from 0 and the hide form writes 0 where the wire wants 1. The values belong to the shared PlayerLocationPacketType schema, PLAYER_LOCATION_COORDINATES=0 and PLAYER_LOCATION_HIDE=1. Only the hide form needs restating; the coordinates form's own numbering already gives 0."
+				}
+			}
+		},
+		"ItemStackRequest": {
+			"fields": {
+				"Actions": {
+					"variantConstIsByte": true,
+					"name": "actions",
+					"reason": "Each action repeats its tag as a byte right after the varint tag. CloudburstMC's readRequestActionData at v2168 opens with byteBuf.readByte() before switching on the type it was handed, and the hand-written codec wrote WriteUnsignedVarInt(tag) then Write((byte) tag). Not the same as SetScore, where the const is the name spelled out, which is why this is per field and not a rule."
+				}
+			}
+		},
+		"ItemStackRequestNetworkItemInstanceDescriptor": {
+			"fields": {
+				"Item Descriptor": {
+					"variantConstIsByte": true,
+					"name": "itemDescriptor",
+					"reason": "Descriptor Type is uint8 with Enum-as-Value in every one of the four option schemas, so the const after the tag is a byte, not the name spelled out. Measured on a live 1.26.40 client picking a chest out of creative: tag 01, const byte 01, then the 0x0f-length string \"minecraft:chest\". Reading the const as a string ate the length byte and the next ReadString took 0x6d as a length, which threw inside McpeItemStackRequest and dropped the whole request."
+				}
+			}
+		},
+		"InventoryTransactionPacket": {
+			"fields": {
+				"Legacy Request ID": {
+					"name": "legacyRequestId"
+				},
+				"Transaction": {
+					"variantPayloadGate": true,
+					"name": "transaction",
+					"reason": "The schema shows one required oneOf, but the engine keeps mTransactionType and mTransactionData as two separate optionals and the docs collapse them, so the wire is presence, tag, presence, payload. Measured from the hand-written codec that a real 1.26.40 client accepts: an item-use place encodes as 1e 00 00 01 02 01 00 ..., where the 01 either side of the type byte are those two presence bytes. The hand codec called them dummy optional bools."
+				}
+			}
+		},
+		"SetScorePacket": {
+			"fields": {
+				"Score Info": {
+					"optional": false,
+					"name": "scoreInfo",
+					"reason": "Same schema bug as PlayerListPacket.Entries: the payload declares no required list, so the vector reads as optional and the generator puts a presence byte in front of the count. There is no such byte on the wire; CloudburstMC's SetScoreSerializer_v2168 writes helper.writeArray, count then entries. Measured: with the byte, a 1.26.40 client renders the sidebar from SetDisplayObjective and then drops the connection 54ms after SetScore arrives, because it reads the presence byte as the entry count."
+				}
+			}
+		},
+		"PlayerListRemoveEntry": {
+			"fields": {
+				"Action": {
+					"enum": [
+						"Add",
+						"Remove"
+					],
+					"reason": "Each entry variant declares its discriminator as a single-value enum, so both Add and Remove number from 0 and every entry writes byte 0. The values belong to the shared PlayerListPacketType enum, Add=0 and Remove=1, which is what CloudburstMC writes (entry.getAction().ordinal()). Only the remove form needs restating; the add form's own numbering already gives 0."
+				}
+			}
+		},
+		"MobEquipmentPacket": {
+			"fields": {
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Container ID": {
+					"name": "windowsId"
+				}
+			}
+		},
+		"MobArmorEquipmentPacket": {
+			"fields": {
+				"Target Runtime ID": {
+					"name": "runtimeEntityId"
+				},
+				"Head": {
+					"name": "helmet"
+				},
+				"Torso": {
+					"name": "chestplate"
+				},
+				"Legs": {
+					"name": "leggings"
+				},
+				"Feet": {
+					"name": "boots"
+				}
+			}
+		},
+		"ItemStackResponseInfo": {
+			"fields": {
+				"Containers": {
+					"presenceBytes": 2,
+					"reason": "The 2168 changelog says 'Containers is present iff Result == Success', and that invariant is a byte of its own in front of the optional's presence byte. CloudburstMC's ItemStackResponseSerializer_v2168 writes true then the presence and reads 'readBoolean() && readBoolean()'; our hand-written ReadItemStackResponses did the same against live BDS. The schema says only that the field is optional, so the count of gate bytes cannot come from it."
+				}
+			}
+		},
+		"ItemStackResponseSlotInfo": {
+			"fields": {
+				"Item Stack Net Id": {
+					"presenceBytes": 2,
+					"reason": "Same invariant gating as ItemStackResponseInfo.Containers, for the changelog's 'a slot's Item Stack Net Id is present iff Amount > 0'. CloudburstMC's writeItemEntry writes a bare true then writeOptional(id > 0)."
+				}
+			}
+		},
+		"FullContainerName": {
+			"fields": {
+				"Container Name": {
+					"enum": [
+						"AnvilInputContainer",
+						"AnvilMaterialContainer",
+						"AnvilResultPreviewContainer",
+						"SmithingTableInputContainer",
+						"SmithingTableMaterialContainer",
+						"SmithingTableResultPreviewContainer",
+						"ArmorContainer",
+						"LevelEntityContainer",
+						"BeaconPaymentContainer",
+						"BrewingStandInputContainer",
+						"BrewingStandResultContainer",
+						"BrewingStandFuelContainer",
+						"CombinedHotbarAndInventoryContainer",
+						"CraftingInputContainer",
+						"CraftingOutputPreviewContainer",
+						"RecipeConstructionContainer",
+						"RecipeNatureContainer",
+						"RecipeItemsContainer",
+						"RecipeSearchContainer",
+						"RecipeSearchBarContainer",
+						"RecipeEquipmentContainer",
+						"RecipeBookContainer",
+						"EnchantingInputContainer",
+						"EnchantingMaterialContainer",
+						"FurnaceFuelContainer",
+						"FurnaceIngredientContainer",
+						"FurnaceResultContainer",
+						"HorseEquipContainer",
+						"HotbarContainer",
+						"InventoryContainer",
+						"ShulkerBoxContainer",
+						"TradeIngredient1Container",
+						"TradeIngredient2Container",
+						"TradeResultPreviewContainer",
+						"OffhandContainer",
+						"CompoundCreatorInput",
+						"CompoundCreatorOutputPreview",
+						"ElementConstructorOutputPreview",
+						"MaterialReducerInput",
+						"MaterialReducerOutput",
+						"LabTableInput",
+						"LoomInputContainer",
+						"LoomDyeContainer",
+						"LoomMaterialContainer",
+						"LoomResultPreviewContainer",
+						"BlastFurnaceIngredientContainer",
+						"SmokerIngredientContainer",
+						"Trade2Ingredient1Container",
+						"Trade2Ingredient2Container",
+						"Trade2ResultPreviewContainer",
+						"GrindstoneInputContainer",
+						"GrindstoneAdditionalContainer",
+						"GrindstoneResultPreviewContainer",
+						"StonecutterInputContainer",
+						"StonecutterResultPreviewContainer",
+						"CartographyInputContainer",
+						"CartographyAdditionalContainer",
+						"CartographyResultPreviewContainer",
+						"BarrelContainer",
+						"CursorContainer",
+						"CreatedOutputContainer",
+						"SmithingTableTemplateContainer",
+						"CrafterLevelEntityContainer",
+						"DynamicContainer",
+						"RecipeFoodContainer",
+						"RecipeBlocksContainer",
+						"RecipeFurnaceItemsContainer"
+					],
+					"reason": "ContainerEnumName.json lists the 67 names grouped by purpose, not in wire order, so declaration index is not the value. Mojang's own 924 changelog gives the numbers explicitly: 'Added RecipeFoodContainer (64)', 'RecipeBlocksContainer (65)', 'RecipeFurnaceItemsContainer (66)', where the schema puts them at 18, 19 and 20 and shifts every later name by three. CloudburstMC's CONTAINER_SLOT_TYPES table and PMMP's ContainerUIIds agree with the changelog against the schema. This list is that numbering, in Mojang's spelling; it is the same set as the schema's, reordered."
+				},
+				"Dynamic ID": {
+					"optional": true,
+					"reason": "Schema bug: FullContainerName.json lists Dynamic ID as required, which would make the struct five bytes. It is two on the wire, a container-name byte then a presence byte. Verified against BDS 1.26.40: an InventoryContent for the offhand is 21 bytes, 3 header + 8 item + 2 FullContainerName + 8 storage item, and the armour one is 53, 3 + 5*8 + 2 + 8. CloudburstMC has read it as an optional intLE since v729."
+				}
+			}
+		},
+		"InventoryContentPacket": {
+			"fields": {
+				"Container Id": {
+					"name": "inventoryId"
+				},
+				"Slots": {
+					"name": "input",
+					"type": {
+						"csType": "ItemStacks",
+						"write": "Write({0});",
+						"read": "{0} = ReadItemStacks();"
+					},
+					"reason": "Same wire as the generated array (unsigned varint count then one NetworkItemStackDescriptor each), carried in the house ItemStacks collection the whole inventory layer already builds."
+				},
+				"Full Container Name": {
+					"name": "containerName"
+				},
+				"Storage Item": {
+					"name": "storageItem"
+				}
+			}
+		},
+		"InventorySlotPacket": {
+			"fields": {
+				"Container Id": {
+					"name": "inventoryId",
+					"type": {
+						"csType": "uint",
+						"write": "WriteUnsignedVarInt({0});",
+						"read": "{0} = ReadUnsignedVarInt();"
+					},
+					"reason": "The generator leaves uint8 raw because one byte is one byte, which is right for MobEquipment's Container ID (CloudburstMC writes that one with writeByte). This field is declared the same way and is NOT the same on the wire: CloudburstMC's InventorySlotSerializer_v975 writes it with VarInts.writeUnsignedInt, as InventoryContent's own uint32 Container Id and our previous XML pdu both did. Identical bytes below 128, which is every container id we send, so the divergence is on the read path for 128-255."
+				},
+				"Full Container Name": {
+					"name": "containerName"
+				},
+				"Storage Item": {
+					"name": "storageItem"
+				}
+			}
+		},
+		"PlayerAuthInputPacket": {
+			"fields": {
+				"Input Data": {
+					"optional": true,
+					"type": {
+						"csType": "AuthInputFlags",
+						"write": "WriteAuthInputFlags({0});",
+						"read": "{0} = ReadAuthInputFlags();"
+					},
+					"reason": "The pressed flags are a varint count of ordinals as zigzag varints behind a presence bool, not an array of li32 enum values, so the codec is ours. AuthInputFlags is that enum, including the 65th ordinal that does not fit a 64-bit mask; naming a csType is what keeps it, since a field type override suppresses the inline one."
+				},
+				"New Interaction Model": {
+					"type": {
+						"write": "WriteUnsignedVarInt((uint) {0});",
+						"read": "{0} = ReadUnsignedVarInt();"
+					},
+					"reason": "Unsigned varint, not zigzag (PMMP VarInt::readUnsignedInt). The schema says int32 without saying how it travels, and the values are small and non-negative, so the two disagree from 1 upward."
+				},
+				"Item Use Transaction": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Item Stack Request": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Player Block Actions": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Vehicle Rotation": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				},
+				"Client Predicted Vehicle": {
+					"presenceBytes": 2,
+					"reason": "Marker bool then presence."
+				}
+			}
+		},
+		"PlayerBlockActionData": {
+			"fields": {
+				"Position": {
+					"presentWhen": {
+						"field": "playerActionType",
+						"in": [
+							0,
+							1,
+							18,
+							26,
+							27
+						]
+					},
+					"reason": "Only the destroy actions carry a position and a facing: start, abort, crack, predict and continue. Stop-break and every other action is the type alone, and reading them regardless takes the bytes of whatever follows the list."
+				},
+				"Facing": {
+					"presentWhen": {
+						"field": "playerActionType",
+						"in": [
+							0,
+							1,
+							18,
+							26,
+							27
+						]
+					},
+					"reason": "Rides with Position."
+				}
+			}
+		},
+		"PackedItemUseLegacyInventoryTransaction": {
+			"fields": {
+				"Legacy Set Item Slots": {
+					"presentWhen": {
+						"field": "legacyRequestId",
+						"notIn": [
+							0
+						]
+					},
+					"reason": "The changed-slot list rides only on a non-zero legacy request id, and that is its only gate. The schema marks it optional, which puts a presence bool on the wire the client does not send.",
+					"optional": false
+				}
+			}
+		}
+	}
+}

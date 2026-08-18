@@ -81,6 +81,41 @@ namespace MiNET.Items
 			};
 		}
 
+		/// <summary>
+		///     The same facing as <see cref="GetFacingDirectionFromEntity" />, except that a steep look
+		///     beats the heading. Past 45 degrees the nearest direction the player is looking is straight
+		///     up or down rather than any compass point, and the front still faces back along it: place a
+		///     barrel while looking at the floor and it opens on top. Pitch is positive looking down
+		///     (PlayerLocation.GetDirection negates its sine), so a downward look puts the front up.
+		/// </summary>
+		public static int GetFacingDirectionFromEntityWithPitch(Entity entity)
+		{
+			if (entity.KnownPosition.Pitch > 45) return (int) BlockFace.Up;
+			if (entity.KnownPosition.Pitch < -45) return (int) BlockFace.Down;
+
+			return GetFacingDirectionFromEntity(entity);
+		}
+
+		/// <summary>
+		///     The same facing as <see cref="GetFacingDirectionFromEntity" />, as the string the
+		///     minecraft:cardinal_direction state takes. Chests, furnaces and the rest moved to that
+		///     state at flattening; the facing they compute has not changed, only how it is written.
+		///     The front of the block faces the player who placed it, which is why this is not the
+		///     identity: the value is one step round from what <see cref="Entity.GetDirectionEmum" />
+		///     returns, exactly as the facing_direction table above turns West into 2 (north).
+		/// </summary>
+		public static string GetCardinalDirectionFromEntity(Entity entity)
+		{
+			return entity.GetDirectionEmum() switch
+			{
+				Entity.Direction.South => "west",
+				Entity.Direction.West => "north",
+				Entity.Direction.North => "east",
+				Entity.Direction.East => "south",
+				_ => throw new ArgumentOutOfRangeException()
+			};
+		}
+
 		public static BlockAxis GetPillarAxisFromFace(BlockFace face)
 		{
 			return face switch
@@ -131,7 +166,7 @@ namespace MiNET.Items
 				player.Inventory.SetInventorySlot(player.Inventory.InHandSlot, itemInHand);
 			}
 
-			world.BroadcastSound(newBlock.Coordinates, LevelSoundEventType.Place, newBlock.Id);
+			world.BroadcastSound(newBlock.Coordinates, LevelSoundEventType.Place, newBlock.GetRuntimeId());
 		}
 
 		public override string ToString()

@@ -175,54 +175,10 @@ namespace MiNET.Utils
 		public byte TimesCrafted { get; set; }
 	}
 
-	public class ItemStackResponses : List<ItemStackResponse>
-	{
-	}
-
-	public class ItemStackResponse
-	{
-		public int RequestId { get; set; }
-		public StackResponseStatus Result { get; set; } = StackResponseStatus.Ok;
-		public List<StackResponseContainerInfo> ResponseContainerInfos { get; set; } = new List<StackResponseContainerInfo>();
-	}
-
-	public enum StackResponseStatus
-	{
-		Ok = 0x00,
-		Error = 0x01
-	}
-
-	public class StackResponseContainerInfo
-	{
-		public byte ContainerId { get; set; }
-		public List<StackResponseSlotInfo> Slots { get; set; } = new List<StackResponseSlotInfo>();
-	}
-
-	public class StackResponseSlotInfo
-	{
-		public byte Slot           { get; set; }
-		public byte HotbarSlot     { get; set; }
-		public byte Count          { get; set; }
-		public int  StackNetworkId { get; set; }
-		public string  CustomName     { get; set; }
-		// Protocol 1001: a filtered (profanity-checked) variant follows the custom name.
-		public string  FilteredCustomName { get; set; }
-		public int DurabilityCorrection { get; set; }
-	}
-
 
 	/// <summary>
 	/// Old transactions
 	/// </summary>
-
-	public abstract class Transaction
-	{
-		public bool                    HasNetworkIds   { get; set; } = false;
-		
-		public int                     RequestId          { get; set; }
-		public List<RequestRecord>     RequestRecords     { get; set; } = new List<RequestRecord>();
-		public List<TransactionRecord> TransactionRecords { get; set; } = new List<TransactionRecord>();
-	}
 
 	public class RequestRecord
 	{
@@ -230,75 +186,4 @@ namespace MiNET.Utils
 		public List<byte> Slots { get; set; } = new List<byte>();
 	}
 
-	public class NormalTransaction : Transaction
-	{
-	}
-	public class InventoryMismatchTransaction : Transaction
-	{
-	}
-	public class ItemUseTransaction : Transaction
-	{
-		public McpeInventoryTransaction.ItemUseAction ActionType { get; set; }
-		// Protocol 1001 additions: client trigger source (0 unknown, 1 player input,
-		// 2 simulation tick) and the client's predicted result + cooldown state.
-		public byte TriggerType { get; set; }
-		public BlockCoordinates Position { get; set; }
-		public int Face { get; set; }
-		public int Slot { get; set; }
-		public Item Item { get; set; }
-		public Vector3 FromPosition { get; set; }
-		public Vector3 ClickPosition { get; set; }
-		public uint BlockRuntimeId { get; set; }
-		public byte ClientPrediction { get; set; }
-		public byte ClientCooldownState { get; set; }
-	}
-	public class ItemUseOnEntityTransaction : Transaction
-	{
-		public long EntityId { get; set; }
-		public McpeInventoryTransaction.ItemUseOnEntityAction ActionType { get; set; }
-		public int Slot { get; set; }
-		public Item Item { get; set; }
-		public Vector3 FromPosition { get; set; }
-		public Vector3 ClickPosition { get; set; }
-	}
-	public class ItemReleaseTransaction : Transaction
-	{
-		public McpeInventoryTransaction.ItemReleaseAction ActionType { get; set; }
-		public int Slot { get; set; }
-		public Item Item { get; set; }
-		public Vector3 FromPosition { get; set; }
-	}
-
-	public abstract class TransactionRecord
-	{
-		public int  StackNetworkId { get; set; }
-		
-		public int  Slot      { get;  set; }
-		public Item OldItem   { get;  set; }
-		public Item NewItem   { get;  set; }
-	}
-
-	public class ContainerTransactionRecord : TransactionRecord
-	{
-		public int InventoryId { get; set; }
-	}
-
-	public class GlobalTransactionRecord : TransactionRecord
-	{
-	}
-
-	public class WorldInteractionTransactionRecord : TransactionRecord
-	{
-		public int Flags { get; set; } // NoFlag = 0 WorldInteractionRandom = 1
-	}
-
-	public class CreativeTransactionRecord : TransactionRecord
-	{
-		public int InventoryId { get; set; } = 0x79; // Creative
-	}
-
-	public class CraftTransactionRecord : TransactionRecord
-	{
-		public McpeInventoryTransaction.CraftingAction Action { get; set; }
-	}
 }

@@ -34,8 +34,6 @@ using MiNET.Net;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.Vectors;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
 
 namespace MiNET.Client
 {
@@ -53,6 +51,15 @@ namespace MiNET.Client
 		public virtual void HandleMcpePlayStatus(McpePlayStatus message)
 		{
 			Client.PlayerStatus = (McpePlayStatus.PlayStatus) message.status;
+
+			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess)
+			{
+				// A real client announces its blob cache right after login success; the server
+				// keys the chunk send path (cached or plain) off this packet.
+				var packet = McpeClientCacheStatus.CreateObject();
+				packet.enabled = Client.UseBlobCache;
+				Client.SendPacket(packet);
+			}
 
 			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.PlayerSpawn)
 			{
@@ -87,26 +94,18 @@ namespace MiNET.Client
 
 			if (Log.IsDebugEnabled) Log.Debug($"JWT payload:\n{JWT.Payload(token)}");
 
-			var remotePublicKey = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(x5u.DecodeBase64());
-
-			var signParam = new ECParameters
-			{
-				Curve = ECCurve.NamedCurves.nistP384,
-				Q =
-				{
-					X = remotePublicKey.Q.AffineXCoord.GetEncoded(),
-					Y = remotePublicKey.Q.AffineYCoord.GetEncoded()
-				},
-			};
-			signParam.Validate();
-
-			var signKey = ECDsa.Create(signParam);
+			// x5u is a DER SubjectPublicKeyInfo; the curve and the point come out of the encoding.
+			using var signKey = ECDsa.Create();
+			signKey.ImportSubjectPublicKeyInfo(x5u.DecodeBase64(), out _);
 
 			try
 			{
-				var data = JWT.Decode<HandshakeData>(token, signKey);
+				// Decoded to prove the token really is signed by the key it names. The salt it carries
+				// seeded the Bedrock session cipher, which nothing runs any more: the transport is
+				// DTLS, so the handshake is acknowledged and nothing is enciphered.
+				JWT.Decode<HandshakeData>(token, signKey);
 
-				Client.InitiateEncryption(Base64Url.Decode(x5u), Base64Url.Decode(data.salt));
+				Client.AcknowledgeHandshake();
 			}
 			catch (Exception e)
 			{
@@ -126,24 +125,23 @@ namespace MiNET.Client
 			//response.responseStatus = 3;
 			//SendPackage(response);
 
-			if (message.texturepacks.Count != 0)
+			if (message.resourcePacks.Count != 0)
 			{
-				var resourcePackIds = new ResourcePackIds();
+				var downloadingPacks = new List<string>();
 
-				foreach (ResourcePackInfo packInfo in message.texturepacks)
+				foreach (PackInfoData packInfo in message.resourcePacks)
 				{
-					resourcePackIds.Add(packInfo.UUID);
+					downloadingPacks.Add(packInfo.packIdVersion.packUuid.ToString());
 				}
 
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 2;
-				response.resourcepackids = resourcePackIds;
+				response.response = new ResourcePackClientResponseDownloading {downloadingPacks = downloadingPacks};
 				Client.SendPacket(response);
 			}
 			else
 			{
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 3;
+				response.response = new ResourcePackClientResponseDownloadingFinished();
 				Client.SendPacket(response);
 			}
 		}
@@ -160,7 +158,7 @@ namespace MiNET.Client
 			//else
 			{
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 4;
+				response.response = new ResourcePackClientResponseResourcePackStackFinished();
 				Client.SendPacket(response);
 			}
 		}
@@ -178,26 +176,27 @@ namespace MiNET.Client
 			var client = Client;
 			client.EntityId = message.runtimeEntityId;
 			client.NetworkEntityId = message.entityIdSelf;
-			client.SpawnPoint = message.spawn;
+			client.SpawnPoint = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
 			client.CurrentLocation = new PlayerLocation(client.SpawnPoint, message.rotation.X, message.rotation.X, message.rotation.Y);
 
-			BlockPalette blockPalette = message.blockPalette;
-			client.BlockPalette = blockPalette;
-			client.LevelInfo.LevelName = message.worldName;
+			// The LEVEL spawn, distinct from the player position above: plugins (Plotter) persist
+			// per-player spawns, so position is wherever this player last stood, while this is the
+			// world's fixed point. The emulator anchors its walk band on it.
+			client.WorldSpawn = new Vector3(
+				message.settings.defaultSpawnBlockPosition.X,
+				message.settings.defaultSpawnBlockPosition.Y,
+				message.settings.defaultSpawnBlockPosition.Z);
+
+			client.LevelInfo.LevelName = message.levelName;
 			client.LevelInfo.Version = 19133;
-			client.LevelInfo.GameType = message.levelSettings.gamemode;
+			client.LevelInfo.GameType = (int) message.settings.gameType;
 
 			var packet = McpeRequestChunkRadius.CreateObject();
-			client.ChunkRadius = 5;
+			// Whatever the client was configured with (bots take it from the CLI), floored at 4:
+			// the join-burst radius that must be covered for the client to spawn.
+			client.ChunkRadius = Math.Max(4, client.ChunkRadius);
 			packet.chunkRadius = client.ChunkRadius;
 			packet.maxRadius = 32;
-
-			if (Client.IsEmulator)
-			{
-				Client.HasSpawned = true;
-				Client.PlayerStatusChangedWaitHandle.Set();
-				Client.SendMcpeMovePlayer();
-			}
 
 			client.SendPacket(packet);
 
@@ -241,11 +240,11 @@ namespace MiNET.Client
 		{
 			if (message.runtimeEntityId != Client.EntityId) return;
 
-			Client.CurrentLocation = new PlayerLocation(message.x, message.y, message.z);
+			Client.CurrentLocation = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
 
-			//Client.LevelInfo.SpawnX = (int) message.x;
-			//Client.LevelInfo.SpawnY = (int) message.y;
-			//Client.LevelInfo.SpawnZ = (int) message.z;
+			//Client.LevelInfo.SpawnX = (int) message.position.X;
+			//Client.LevelInfo.SpawnY = (int) message.position.Y;
+			//Client.LevelInfo.SpawnZ = (int) message.position.Z;
 
 			//Client.SendMcpeMovePlayer();
 		}
@@ -368,8 +367,50 @@ namespace MiNET.Client
 		{
 		}
 
+		/// <summary>
+		///     Queues the verdicts owed for a batch of announced hashes, and sends them straight
+		///     away unless the consumer batches on its own tick.
+		/// </summary>
+		private void AnswerVerdicts(List<ulong> hits, List<ulong> misses)
+		{
+			foreach (ulong hash in hits) Client.PendingBlobHits.Enqueue(hash);
+			foreach (ulong hash in misses) Client.PendingBlobMisses.Enqueue(hash);
+
+			if (!Client.BatchChunkResponses) Client.FlushChunkResponses();
+		}
+
+		/// <summary>
+		///     A column in any of its three forms: legacy push (everything inline), cached push
+		///     (every section announced by hash) and the skeleton the join burst uses (biomes only,
+		///     block data asked for a section at a time). The cache sorts out which one this is,
+		///     answers for the hashes it announces, and holds what arrives.
+		/// </summary>
 		public virtual void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
+			// The publisher's acceptance window, first thing and cheap: "this is the area I
+			// will publish chunks for" - an arrival outside it is an in-flight stray from a
+			// window the stream moved past. Discard on receive, no further work.
+			if (Client.PublishedRadiusChunks > 0)
+			{
+				var arrived = new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z);
+				if (arrived.DistanceTo(Client.PublishedCenter) > Client.PublishedRadiusChunks) return;
+			}
+
+			var hits = new List<ulong>();
+			var misses = new List<ulong>();
+
+			// The sub-chunks are asked for once per column. A real client keeps what it was sent;
+			// re-asking for all 24 sections every time the server re-pushes a column is what made a
+			// walking bot pull its whole surroundings again on every chunk boundary it crossed.
+			bool needsRequest = Client.ChunkCache.OnLevelChunk(message, hits, misses);
+
+			AnswerVerdicts(hits, misses);
+
+			if (!needsRequest) return;
+
+			Client.PendingSubChunkColumns.Enqueue((message.chunkPosition.x, message.chunkPosition.z, message.clientRequestSubchunkLimit.Value, message.dimension));
+
+			if (!Client.BatchChunkResponses) Client.FlushChunkResponses();
 		}
 
 		public virtual void HandleMcpeSetCommandsEnabled(McpeSetCommandsEnabled message)
@@ -486,7 +527,7 @@ namespace MiNET.Client
 			if (_resourcePackDataInfos.Count == 0)
 			{
 				var response = new McpeResourcePackClientResponse();
-				response.responseStatus = 3;
+				response.response = new ResourcePackClientResponseDownloadingFinished();
 				Client.SendPacket(response);
 			}
 		}
@@ -610,6 +651,13 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpeNetworkChunkPublisherUpdate(McpeNetworkChunkPublisherUpdate message)
 		{
+			// The acceptance window, NOT an eviction order: "this is the area being streamed,
+			// ignore anything arriving outside it". Its job is discarding in-flight columns
+			// the stream has moved past. What the client HOLDS is a separate mechanism
+			// entirely: the disc around its own position and radius, forgotten position-driven
+			// as it moves (see BotWalker).
+			Client.PublishedCenter = new ChunkCoordinates(message.coordinates.X >> 4, message.coordinates.Z >> 4);
+			Client.PublishedRadiusChunks = (int) (message.radius >> 4);
 		}
 
 		public virtual void HandleMcpeBiomeDefinitionList(McpeBiomeDefinitionList message)
@@ -652,8 +700,14 @@ namespace MiNET.Client
 		{
 		}
 
+		/// <summary>
+		///     The bytes behind the hashes we reported as missing. This is where terrain actually
+		///     arrives in both cached flows, so a client that drops these has announced chunks it can
+		///     never draw.
+		/// </summary>
 		public virtual void HandleMcpeClientCacheMissResponse(McpeClientCacheMissResponse message)
 		{
+			Client.ChunkCache.OnBlobPayloads(message.blobs);
 		}
 
 		public virtual void HandleMcpeEducationSettings(McpeEducationSettings message)
@@ -674,10 +728,6 @@ namespace MiNET.Client
 
 		public virtual void HandleMcpeNetworkSettings(McpeNetworkSettings message)
 		{
-			var handler = (BedrockMessageHandlerBase) Client.Session.CustomMessageHandler;
-			handler.CompressionEnabled = true;
-			handler.CompressionThreshold = message.compressionThreshold;
-
 			if (message.compressionAlgorithm == 1) Log.Warn("Server negotiated snappy compression, which is not implemented. Expect failures.");
 
 			Client.SendLogin(Client.Username);
@@ -739,7 +789,19 @@ namespace MiNET.Client
 		/// <inheritdoc />
 		public virtual void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
-			
+			// The answers to what this client asked for. Cache-enabled, the entries announce section
+			// blobs by hash exactly like a cached LevelChunk announces the biome blob, and they get
+			// the same verdicts: a cold client misses and the server answers with the payload, which
+			// is most of the terrain bandwidth a real join costs. Uncached, the section payload is in
+			// the entry itself.
+			var hits = new List<ulong>();
+			var misses = new List<ulong>();
+
+			Client.ChunkCache.OnSubChunkResponse(message, hits, misses);
+
+			if (hits.Count + misses.Count == 0) return;
+
+			AnswerVerdicts(hits, misses);
 		}
 
 		/// <inheritdoc />

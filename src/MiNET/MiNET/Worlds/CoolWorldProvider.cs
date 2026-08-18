@@ -196,7 +196,7 @@ namespace MiNET.Worlds
 			double overhangsMagnitude = 16;
 			double bottomsMagnitude = 32;
 
-			int grassId = new Grass().GetRuntimeId();
+			int grassId = new GrassBlock().GetRuntimeId();
 			int dirtId = new Dirt().GetRuntimeId();
 			int stoneId = new Stone().GetRuntimeId();
 
@@ -236,7 +236,7 @@ namespace MiNET.Worlds
 					}
 
 					//turn the tops into grass
-					chunk.SetBlock(x, bottomHeight, z, new Grass()); //the top of the base hills
+					chunk.SetBlock(x, bottomHeight, z, new GrassBlock()); //the top of the base hills
 					chunk.SetBlock(x, bottomHeight - 1, z, new Dirt());
 					chunk.SetBlock(x, bottomHeight - 2, z, new Dirt());
 
@@ -248,7 +248,7 @@ namespace MiNET.Worlds
 
 						if (!BlockFactory.IsAir(thisblock) && BlockFactory.IsAir(blockabove))
 						{
-							if (thisblock == dirtId || thisblock == stoneId) chunk.SetBlock(x, y, z, new Grass());
+							if (thisblock == dirtId || thisblock == stoneId) chunk.SetBlock(x, y, z, new GrassBlock());
 							if (!BlockFactory.IsAir(chunk.GetBlockRuntimeId(x, y - 1, z)))
 								chunk.SetBlock(x, y - 1, z, new Dirt());
 							if (!BlockFactory.IsAir(chunk.GetBlockRuntimeId(x, y - 2, z)))

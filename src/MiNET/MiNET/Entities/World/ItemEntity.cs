@@ -79,12 +79,8 @@ namespace MiNET.Entities.World
 			mcpeAddItemEntity.entityIdSelf = EntityId;
 			mcpeAddItemEntity.runtimeEntityId = EntityId;
 			mcpeAddItemEntity.item = GetItemStack();
-			mcpeAddItemEntity.x = KnownPosition.X;
-			mcpeAddItemEntity.y = KnownPosition.Y;
-			mcpeAddItemEntity.z = KnownPosition.Z;
-			mcpeAddItemEntity.speedX = Velocity.X;
-			mcpeAddItemEntity.speedY = Velocity.Y;
-			mcpeAddItemEntity.speedZ = Velocity.Z;
+			mcpeAddItemEntity.position = KnownPosition.ToVector3();
+			mcpeAddItemEntity.velocity = Velocity;
 			mcpeAddItemEntity.metadata = GetMetadata();
 			LastSentPosition = (PlayerLocation) KnownPosition.Clone();
 			Level.RelayBroadcast(players, mcpeAddItemEntity);

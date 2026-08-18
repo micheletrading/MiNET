@@ -8,47 +8,25 @@
 // and 15 have been added to cover use of software over a computer network and
 // provide for limited attribution for the Original Developer. In addition, Exhibit A has
 // been modified to be consistent with Exhibit B.
-// 
+//
 // Software distributed under the License is distributed on an "AS IS" basis,
 // WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 // the specific language governing rights and limitations under the License.
-// 
+//
 // The Original Code is MiNET.
-// 
+//
 // The Original Developer is the Initial Developer.  The Initial Developer of
 // the Original Code is Niclas Olofsson.
-// 
-// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2020 Niclas Olofsson.
+//
+// All portions of the code written by Niclas Olofsson are Copyright (c) 2014-2026 Niclas Olofsson.
 // All Rights Reserved.
 
 #endregion
 
-using System.Numerics;
-using MiNET.Utils;
-using MiNET.Utils.Vectors;
-using MiNET.Worlds;
-
 namespace MiNET.Blocks
 {
-	public partial class IronTrapdoor : Block
+	/// <summary>An iron trapdoor is a trapdoor. It opens by redstone rather than by hand.</summary>
+	public partial class IronTrapdoor : TrapdoorBase
 	{
-		public IronTrapdoor() : base(167)
-		{
-		}
-
-		public override bool PlaceBlock(Level world, Player player, BlockCoordinates targetCoordinates, BlockFace face, Vector3 faceCoords)
-		{
-			UpsideDownBit = faceCoords.Y > 0.5 && face != BlockFace.Up || face == BlockFace.Down;
-
-			return false;
-		}
-
-		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
-		{
-			OpenBit = !OpenBit;
-			world.SetBlock(this);
-
-			return true;
-		}
 	}
 }

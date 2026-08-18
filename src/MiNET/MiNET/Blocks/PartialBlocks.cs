@@ -24,8 +24,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59,7 +57,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 14574 + d0 * 6 + d1;
+			return 15117 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -79,10 +77,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -133,7 +127,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 6942 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 7372 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -187,7 +181,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 10354 + d0;
+			return 10816 + d0;
 		} // method
 	} // class
 
@@ -226,7 +220,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16137;
+		public override int GetRuntimeId() => 16720;
 	} // class
 
 	public partial class AcaciaFenceGate // minecraft:acacia_fence_gate
@@ -245,9 +239,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -293,7 +284,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 15182 + d0 * 8 + d1 + d2 * 4;
+			return 15738 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -361,7 +352,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 4167 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 4597 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -381,8 +372,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -415,7 +404,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 3985 + d0 * 2 + d1;
+			return 4415 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -435,7 +424,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -470,7 +458,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6825 + d0;
+			return 7255 + d0;
 		} // method
 	} // class
 
@@ -509,7 +497,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6992;
+		public override int GetRuntimeId() => 7422;
 	} // class
 
 	public partial class AcaciaPressurePlate // minecraft:acacia_pressure_plate
@@ -557,7 +545,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 9075 + d0;
+			return 9505 + d0;
 		} // method
 	} // class
 
@@ -605,7 +593,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 12736 + d0;
+			return 13253 + d0;
 		} // method
 	} // class
 
@@ -674,7 +662,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 383 + d0 * 8 + d1 * 4 + d2;
+			return 395 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -694,7 +682,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -728,7 +715,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15148 + d0;
+			return 15698 + d0;
 		} // method
 	} // class
 
@@ -748,8 +735,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -783,7 +768,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12574 + d0 * 4 + d1;
+			return 13090 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -803,7 +788,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -832,7 +816,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 12620 + d0;
+			return 13136 + d0;
 		} // method
 	} // class
 
@@ -852,9 +836,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -893,7 +874,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 10213 + d0 + d1 * 8 + d2 * 4;
+			return 10675 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -913,7 +894,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -942,7 +922,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 5393 + d0;
+			return 5823 + d0;
 		} // method
 	} // class
 
@@ -997,7 +977,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13348 + d0;
+			return 13891 + d0;
 		} // method
 	} // class
 
@@ -1052,7 +1032,7 @@ namespace MiNET.Blocks
 			if (RailDirection < 0 || RailDirection > 5) return -1;
 			int d1 = RailDirection;
 
-			return 1878 + d0 * 6 + d1;
+			return 1906 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -1091,7 +1071,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13094;
+		public override int GetRuntimeId() => 13629;
 	} // class
 
 	public partial class Allium // minecraft:allium
@@ -1129,7 +1109,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1961;
+		public override int GetRuntimeId() => 1989;
 	} // class
 
 	public partial class Allow // minecraft:allow
@@ -1167,7 +1147,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13967;
+		public override int GetRuntimeId() => 14510;
 	} // class
 
 	public partial class AmethystBlock // minecraft:amethyst_block
@@ -1205,7 +1185,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1597;
+		public override int GetRuntimeId() => 1625;
 	} // class
 
 	public partial class AmethystCluster // minecraft:amethyst_cluster
@@ -1262,7 +1242,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15693 + d0;
+			return 16257 + d0;
 		} // method
 	} // class
 
@@ -1301,7 +1281,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12462;
+		public override int GetRuntimeId() => 12972;
 	} // class
 
 	public partial class Andesite // minecraft:andesite
@@ -1339,7 +1319,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2704;
+		public override int GetRuntimeId() => 2734;
 	} // class
 
 	public partial class AndesiteDoubleSlab // minecraft:andesite_double_slab
@@ -1392,7 +1372,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11606 + d0;
+			return 12084 + d0;
 		} // method
 	} // class
 
@@ -1412,7 +1392,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1446,7 +1425,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12739 + d0;
+			return 13256 + d0;
 		} // method
 	} // class
 
@@ -1466,8 +1445,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1501,7 +1478,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 9181 + d0 * 4 + d1;
+			return 9611 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -1601,7 +1578,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 10037 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 10499 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -1657,7 +1634,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13059 + d0;
+			return 13576 + d0;
 		} // method
 	} // class
 
@@ -1696,7 +1673,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13334;
+		public override int GetRuntimeId() => 13877;
 	} // class
 
 	public partial class AzaleaLeaves // minecraft:azalea_leaves
@@ -1715,8 +1692,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1749,7 +1724,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 15340 + d0 * 2 + d1;
+			return 15896 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -1769,8 +1744,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -1803,7 +1776,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 12722 + d0 * 2 + d1;
+			return 13239 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -1842,7 +1815,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 845;
+		public override int GetRuntimeId() => 857;
 	} // class
 
 	public partial class Bamboo // minecraft:bamboo
@@ -1914,7 +1887,7 @@ namespace MiNET.Blocks
 			};
 			if (d2 < 0) return -1;
 
-			return 5430 + d0 * 6 + d1 * 2 + d2;
+			return 5860 + d0 * 6 + d1 * 2 + d2;
 		} // method
 	} // class
 
@@ -2024,7 +1997,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 12863 + d0 * 6 + d1;
+			return 13380 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -2044,10 +2017,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2098,7 +2067,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 1565 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 1593 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -2152,7 +2121,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6546 + d0;
+			return 6976 + d0;
 		} // method
 	} // class
 
@@ -2191,7 +2160,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2247;
+		public override int GetRuntimeId() => 2277;
 	} // class
 
 	public partial class BambooFenceGate // minecraft:bamboo_fence_gate
@@ -2210,9 +2179,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2258,7 +2224,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 8876 + d0 * 8 + d1 + d2 * 4;
+			return 9306 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -2326,7 +2292,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 7432 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 7862 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -2365,7 +2331,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16841;
+		public override int GetRuntimeId() => 17424;
 	} // class
 
 	public partial class BambooMosaicDoubleSlab // minecraft:bamboo_mosaic_double_slab
@@ -2418,7 +2384,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6392 + d0;
+			return 6822 + d0;
 		} // method
 	} // class
 
@@ -2438,7 +2404,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2472,7 +2437,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 4162 + d0;
+			return 4592 + d0;
 		} // method
 	} // class
 
@@ -2492,8 +2457,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2527,7 +2490,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12582 + d0 * 4 + d1;
+			return 13098 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -2566,7 +2529,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10253;
+		public override int GetRuntimeId() => 10715;
 	} // class
 
 	public partial class BambooPressurePlate // minecraft:bamboo_pressure_plate
@@ -2614,7 +2577,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 12393 + d0;
+			return 12903 + d0;
 		} // method
 	} // class
 
@@ -2662,7 +2625,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 15136 + d0;
+			return 15686 + d0;
 		} // method
 	} // class
 
@@ -2731,7 +2694,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 6513 + d0 * 8 + d1 * 4 + d2;
+			return 6943 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -2751,7 +2714,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2785,7 +2747,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12942 + d0;
+			return 13459 + d0;
 		} // method
 	} // class
 
@@ -2805,8 +2767,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2840,7 +2800,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 3160 + d0 * 4 + d1;
+			return 3190 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -2889,7 +2849,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 14533 + d0;
+			return 15076 + d0;
 		} // method
 	} // class
 
@@ -2909,9 +2869,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -2950,7 +2907,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 9103 + d0 + d1 * 8 + d2 * 4;
+			return 9533 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -2999,7 +2956,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 13342 + d0;
+			return 13885 + d0;
 		} // method
 	} // class
 
@@ -3054,7 +3011,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = OpenBit ? 1 : 0;
 
-			return 7069 + d0 + d1 * 6;
+			return 7499 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -3093,7 +3050,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12158;
+		public override int GetRuntimeId() => 12636;
 	} // class
 
 	public partial class Basalt // minecraft:basalt
@@ -3147,7 +3104,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6844 + d0;
+			return 7274 + d0;
 		} // method
 	} // class
 
@@ -3186,7 +3143,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 846;
+		public override int GetRuntimeId() => 858;
 	} // class
 
 	public partial class Bed // minecraft:bed
@@ -3246,7 +3203,7 @@ namespace MiNET.Blocks
 			int d1 = HeadPieceBit ? 1 : 0;
 			int d2 = OccupiedBit ? 1 : 0;
 
-			return 13095 + d0 + d1 * 8 + d2 * 4;
+			return 13630 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -3294,7 +3251,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = InfiniburnBit ? 1 : 0;
 
-			return 13805 + d0;
+			return 14348 + d0;
 		} // method
 	} // class
 
@@ -3350,7 +3307,7 @@ namespace MiNET.Blocks
 			if (HoneyLevel < 0 || HoneyLevel > 5) return -1;
 			int d1 = HoneyLevel;
 
-			return 10395 + d0 + d1 * 4;
+			return 10857 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -3406,7 +3363,7 @@ namespace MiNET.Blocks
 			if (HoneyLevel < 0 || HoneyLevel > 5) return -1;
 			int d1 = HoneyLevel;
 
-			return 12495 + d0 + d1 * 4;
+			return 13005 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -3426,7 +3383,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3455,7 +3411,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d0 = Growth;
 
-			return 9163 + d0;
+			return 9593 + d0;
 		} // method
 	} // class
 
@@ -3524,7 +3480,7 @@ namespace MiNET.Blocks
 			int d1 = Direction;
 			int d2 = ToggleBit ? 1 : 0;
 
-			return 13527 + d0 * 4 + d1 + d2 * 16;
+			return 14070 + d0 * 4 + d1 + d2 * 16;
 		} // method
 	} // class
 
@@ -3600,7 +3556,7 @@ namespace MiNET.Blocks
 			};
 			if (d2 < 0) return -1;
 
-			return 11704 + d0 * 4 + d1 + d2 * 8;
+			return 12182 + d0 * 4 + d1 + d2 * 8;
 		} // method
 	} // class
 
@@ -3620,8 +3576,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3655,7 +3609,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 15599 + d0 * 6 + d1;
+			return 16163 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -3675,10 +3629,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3729,7 +3679,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 13975 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 14518 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -3783,7 +3733,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 16118 + d0;
+			return 16701 + d0;
 		} // method
 	} // class
 
@@ -3822,7 +3772,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16110;
+		public override int GetRuntimeId() => 16693;
 	} // class
 
 	public partial class BirchFenceGate // minecraft:birch_fence_gate
@@ -3841,9 +3791,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -3889,7 +3836,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 5549 + d0 * 8 + d1 + d2 * 4;
+			return 5979 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -3957,7 +3904,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 2261 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 2291 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -3977,8 +3924,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4011,7 +3956,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 6339 + d0 * 2 + d1;
+			return 6769 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -4031,7 +3976,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4066,7 +4010,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2709 + d0;
+			return 2739 + d0;
 		} // method
 	} // class
 
@@ -4105,7 +4049,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9189;
+		public override int GetRuntimeId() => 9619;
 	} // class
 
 	public partial class BirchPressurePlate // minecraft:birch_pressure_plate
@@ -4153,7 +4097,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 5201 + d0;
+			return 5631 + d0;
 		} // method
 	} // class
 
@@ -4201,7 +4145,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 15097 + d0;
+			return 15647 + d0;
 		} // method
 	} // class
 
@@ -4290,7 +4234,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4324,7 +4267,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5985 + d0;
+			return 6415 + d0;
 		} // method
 	} // class
 
@@ -4344,8 +4287,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4379,7 +4320,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 13628 + d0 * 4 + d1;
+			return 14171 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -4399,7 +4340,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4448,9 +4388,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4489,7 +4426,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 13063 + d0 + d1 * 8 + d2 * 4;
+			return 13580 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -4509,7 +4446,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4538,7 +4474,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 13336 + d0;
+			return 13879 + d0;
 		} // method
 	} // class
 
@@ -4593,7 +4529,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2903 + d0;
+			return 2933 + d0;
 		} // method
 	} // class
 
@@ -4648,7 +4584,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 1038 + d0 + d1 * 4;
+			return 1050 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -4696,7 +4632,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 7328 + d0;
+			return 7758 + d0;
 		} // method
 	} // class
 
@@ -4735,7 +4671,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12167;
+		public override int GetRuntimeId() => 12645;
 	} // class
 
 	public partial class BlackConcrete // minecraft:black_concrete
@@ -4773,7 +4709,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13111;
+		public override int GetRuntimeId() => 13646;
 	} // class
 
 	public partial class BlackConcretePowder // minecraft:black_concrete_powder
@@ -4811,7 +4747,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2002;
+		public override int GetRuntimeId() => 2030;
 	} // class
 
 	public partial class BlackGlazedTerracotta // minecraft:black_glazed_terracotta
@@ -4830,7 +4766,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -4859,7 +4794,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 10993 + d0;
+			return 11455 + d0;
 		} // method
 	} // class
 
@@ -4898,7 +4833,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12150;
+		public override int GetRuntimeId() => 12628;
 	} // class
 
 	public partial class BlackStainedGlass // minecraft:black_stained_glass
@@ -4936,7 +4871,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11572;
+		public override int GetRuntimeId() => 12050;
 	} // class
 
 	public partial class BlackStainedGlassPane // minecraft:black_stained_glass_pane
@@ -4974,7 +4909,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3989;
+		public override int GetRuntimeId() => 4419;
 	} // class
 
 	public partial class BlackTerracotta // minecraft:black_terracotta
@@ -5012,7 +4947,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12444;
+		public override int GetRuntimeId() => 12954;
 	} // class
 
 	public partial class BlackWool // minecraft:black_wool
@@ -5050,7 +4985,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1964;
+		public override int GetRuntimeId() => 1992;
 	} // class
 
 	public partial class Blackstone // minecraft:blackstone
@@ -5088,7 +5023,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15181;
+		public override int GetRuntimeId() => 15737;
 	} // class
 
 	public partial class BlackstoneDoubleSlab // minecraft:blackstone_double_slab
@@ -5161,7 +5096,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5195,7 +5129,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 3376 + d0;
+			return 3406 + d0;
 		} // method
 	} // class
 
@@ -5215,8 +5149,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5250,7 +5182,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 13809 + d0 * 4 + d1;
+			return 14352 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -5350,7 +5282,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 6145 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 6575 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -5370,7 +5302,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5406,7 +5337,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15143 + d0;
+			return 15693 + d0;
 		} // method
 	} // class
 
@@ -5509,7 +5440,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 12122 + d0;
+			return 12600 + d0;
 		} // method
 	} // class
 
@@ -5548,7 +5479,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1046;
+		public override int GetRuntimeId() => 1058;
 	} // class
 
 	public partial class BlueConcrete // minecraft:blue_concrete
@@ -5586,7 +5517,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14634;
+		public override int GetRuntimeId() => 15177;
 	} // class
 
 	public partial class BlueConcretePowder // minecraft:blue_concrete_powder
@@ -5624,7 +5555,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13150;
+		public override int GetRuntimeId() => 13685;
 	} // class
 
 	public partial class BlueGlazedTerracotta // minecraft:blue_glazed_terracotta
@@ -5643,7 +5574,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -5672,7 +5602,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 9380 + d0;
+			return 9810 + d0;
 		} // method
 	} // class
 
@@ -5711,7 +5641,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13817;
+		public override int GetRuntimeId() => 14360;
 	} // class
 
 	public partial class BlueOrchid // minecraft:blue_orchid
@@ -5749,7 +5679,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6329;
+		public override int GetRuntimeId() => 6759;
 	} // class
 
 	public partial class BlueShulkerBox // minecraft:blue_shulker_box
@@ -5787,7 +5717,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12649;
+		public override int GetRuntimeId() => 13165;
 	} // class
 
 	public partial class BlueStainedGlass // minecraft:blue_stained_glass
@@ -5825,7 +5755,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10393;
+		public override int GetRuntimeId() => 10855;
 	} // class
 
 	public partial class BlueStainedGlassPane // minecraft:blue_stained_glass_pane
@@ -5901,7 +5831,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5389;
+		public override int GetRuntimeId() => 5819;
 	} // class
 
 	public partial class BlueWool // minecraft:blue_wool
@@ -5939,7 +5869,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9396;
+		public override int GetRuntimeId() => 9858;
 	} // class
 
 	public partial class BoneBlock // minecraft:bone_block
@@ -6000,7 +5930,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 6465 + d0 + d1 * 4;
+			return 6895 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -6039,7 +5969,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13087;
+		public override int GetRuntimeId() => 13622;
 	} // class
 
 	public partial class BorderBlock // minecraft:border_block
@@ -6138,7 +6068,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 8713 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 9143 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -6177,7 +6107,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2877;
+		public override int GetRuntimeId() => 2907;
 	} // class
 
 	public partial class BrainCoralBlock // minecraft:brain_coral_block
@@ -6215,7 +6145,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10233;
+		public override int GetRuntimeId() => 10695;
 	} // class
 
 	public partial class BrainCoralFan // minecraft:brain_coral_fan
@@ -6263,7 +6193,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 2994 + d0;
+			return 3024 + d0;
 		} // method
 	} // class
 
@@ -6312,7 +6242,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 6350 + d0;
+			return 6780 + d0;
 		} // method
 	} // class
 
@@ -6372,7 +6302,7 @@ namespace MiNET.Blocks
 			int d1 = BrewingStandSlotBBit ? 1 : 0;
 			int d2 = BrewingStandSlotCBit ? 1 : 0;
 
-			return 15128 + d0 + d1 * 2 + d2 * 4;
+			return 15678 + d0 + d1 * 2 + d2 * 4;
 		} // method
 	} // class
 
@@ -6411,7 +6341,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7988;
+		public override int GetRuntimeId() => 8418;
 	} // class
 
 	public partial class BrickDoubleSlab // minecraft:brick_double_slab
@@ -6464,7 +6394,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1036 + d0;
+			return 1048 + d0;
 		} // method
 	} // class
 
@@ -6484,7 +6414,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -6518,7 +6447,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15117 + d0;
+			return 15667 + d0;
 		} // method
 	} // class
 
@@ -6538,8 +6467,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -6573,7 +6500,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12945 + d0 * 4 + d1;
+			return 13462 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -6673,7 +6600,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 848 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 860 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -6728,7 +6655,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 11518 + d0 + d1 * 4;
+			return 11980 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -6776,7 +6703,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 5391 + d0;
+			return 5821 + d0;
 		} // method
 	} // class
 
@@ -6815,7 +6742,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3409;
+		public override int GetRuntimeId() => 3455;
 	} // class
 
 	public partial class BrownConcrete // minecraft:brown_concrete
@@ -6853,7 +6780,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12590;
+		public override int GetRuntimeId() => 13106;
 	} // class
 
 	public partial class BrownConcretePowder // minecraft:brown_concrete_powder
@@ -6891,7 +6818,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11117;
+		public override int GetRuntimeId() => 11579;
 	} // class
 
 	public partial class BrownGlazedTerracotta // minecraft:brown_glazed_terracotta
@@ -6910,7 +6837,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -6939,7 +6865,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 5140 + d0;
+			return 5570 + d0;
 		} // method
 	} // class
 
@@ -6978,7 +6904,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5134;
+		public override int GetRuntimeId() => 5564;
 	} // class
 
 	public partial class BrownMushroomBlock // minecraft:brown_mushroom_block
@@ -7026,7 +6952,7 @@ namespace MiNET.Blocks
 			if (HugeMushroomBits < 0 || HugeMushroomBits > 15) return -1;
 			int d0 = HugeMushroomBits;
 
-			return 14734 + d0;
+			return 15277 + d0;
 		} // method
 	} // class
 
@@ -7065,7 +6991,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13333;
+		public override int GetRuntimeId() => 13868;
 	} // class
 
 	public partial class BrownStainedGlass // minecraft:brown_stained_glass
@@ -7103,7 +7029,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2703;
+		public override int GetRuntimeId() => 2733;
 	} // class
 
 	public partial class BrownStainedGlassPane // minecraft:brown_stained_glass_pane
@@ -7141,7 +7067,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1532;
+		public override int GetRuntimeId() => 1560;
 	} // class
 
 	public partial class BrownTerracotta // minecraft:brown_terracotta
@@ -7179,7 +7105,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15898;
+		public override int GetRuntimeId() => 16465;
 	} // class
 
 	public partial class BrownWool // minecraft:brown_wool
@@ -7217,7 +7143,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1331;
+		public override int GetRuntimeId() => 1359;
 	} // class
 
 	public partial class BubbleColumn // minecraft:bubble_column
@@ -7264,7 +7190,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = DragDown ? 1 : 0;
 
-			return 10419 + d0;
+			return 10881 + d0;
 		} // method
 	} // class
 
@@ -7303,7 +7229,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12594;
+		public override int GetRuntimeId() => 13110;
 	} // class
 
 	public partial class BubbleCoralBlock // minecraft:bubble_coral_block
@@ -7341,7 +7267,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6556;
+		public override int GetRuntimeId() => 6986;
 	} // class
 
 	public partial class BubbleCoralFan // minecraft:bubble_coral_fan
@@ -7389,7 +7315,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 1264 + d0;
+			return 1276 + d0;
 		} // method
 	} // class
 
@@ -7438,7 +7364,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 13328 + d0;
+			return 13863 + d0;
 		} // method
 	} // class
 
@@ -7477,7 +7403,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13622;
+		public override int GetRuntimeId() => 14165;
 	} // class
 
 	public partial class Bush // minecraft:bush
@@ -7515,7 +7441,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13567;
+		public override int GetRuntimeId() => 14110;
 	} // class
 
 	public partial class Cactus // minecraft:cactus
@@ -7563,7 +7489,7 @@ namespace MiNET.Blocks
 			if (Age < 0 || Age > 15) return -1;
 			int d0 = Age;
 
-			return 13606 + d0;
+			return 14149 + d0;
 		} // method
 	} // class
 
@@ -7602,7 +7528,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1298;
+		public override int GetRuntimeId() => 1310;
 	} // class
 
 	public partial class Cake // minecraft:cake
@@ -7650,7 +7576,7 @@ namespace MiNET.Blocks
 			if (BiteCounter < 0 || BiteCounter > 6) return -1;
 			int d0 = BiteCounter;
 
-			return 14055 + d0;
+			return 14598 + d0;
 		} // method
 	} // class
 
@@ -7689,7 +7615,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1252;
+		public override int GetRuntimeId() => 1264;
 	} // class
 
 	public partial class CalibratedSculkSensor // minecraft:calibrated_sculk_sensor
@@ -7751,7 +7677,7 @@ namespace MiNET.Blocks
 			if (SculkSensorPhase < 0 || SculkSensorPhase > 2) return -1;
 			int d1 = SculkSensorPhase;
 
-			return 11018 + d0 * 3 + d1;
+			return 11480 + d0 * 3 + d1;
 		} // method
 	} // class
 
@@ -7790,7 +7716,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14648;
+		public override int GetRuntimeId() => 15191;
 	} // class
 
 	public partial class Campfire // minecraft:campfire
@@ -7851,7 +7777,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 10421 + d0 * 4 + d1;
+			return 10883 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -7906,7 +7832,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 14950 + d0 + d1 * 4;
+			return 15493 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -7954,7 +7880,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 15161 + d0;
+			return 15717 + d0;
 		} // method
 	} // class
 
@@ -7974,7 +7900,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8003,7 +7928,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d0 = Growth;
 
-			return 11554 + d0;
+			return 12032 + d0;
 		} // method
 	} // class
 
@@ -8042,7 +7967,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16875;
+		public override int GetRuntimeId() => 17461;
 	} // class
 
 	public partial class CarvedPumpkin // minecraft:carved_pumpkin
@@ -8097,7 +8022,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14925 + d0;
+			return 15468 + d0;
 		} // method
 	} // class
 
@@ -8159,7 +8084,7 @@ namespace MiNET.Blocks
 			if (FillLevel < 0 || FillLevel > 6) return -1;
 			int d1 = FillLevel;
 
-			return 15044 + d0 * 7 + d1;
+			return 15594 + d0 * 7 + d1;
 		} // method
 	} // class
 
@@ -8208,7 +8133,7 @@ namespace MiNET.Blocks
 			if (GrowingPlantAge < 0 || GrowingPlantAge > 25) return -1;
 			int d0 = GrowingPlantAge;
 
-			return 8014 + d0;
+			return 8444 + d0;
 		} // method
 	} // class
 
@@ -8257,7 +8182,7 @@ namespace MiNET.Blocks
 			if (GrowingPlantAge < 0 || GrowingPlantAge > 25) return -1;
 			int d0 = GrowingPlantAge;
 
-			return 11625 + d0;
+			return 12103 + d0;
 		} // method
 	} // class
 
@@ -8306,7 +8231,7 @@ namespace MiNET.Blocks
 			if (GrowingPlantAge < 0 || GrowingPlantAge > 25) return -1;
 			int d0 = GrowingPlantAge;
 
-			return 15065 + d0;
+			return 15615 + d0;
 		} // method
 	} // class
 
@@ -8361,7 +8286,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 13006 + d0 * 6 + d1;
+			return 13523 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -8410,7 +8335,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 15) return -1;
 			int d0 = Direction;
 
-			return 5373 + d0;
+			return 5803 + d0;
 		} // method
 	} // class
 
@@ -8449,7 +8374,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15027;
+		public override int GetRuntimeId() => 15575;
 	} // class
 
 	public partial class CherryButton // minecraft:cherry_button
@@ -8503,7 +8428,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 7368 + d0 * 6 + d1;
+			return 7798 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -8523,10 +8448,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8577,7 +8498,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 6738 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 7168 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -8631,7 +8552,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12187 + d0;
+			return 12665 + d0;
 		} // method
 	} // class
 
@@ -8670,7 +8591,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3427;
+		public override int GetRuntimeId() => 3473;
 	} // class
 
 	public partial class CherryFenceGate // minecraft:cherry_fence_gate
@@ -8689,9 +8610,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8737,7 +8655,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 16812 + d0 * 8 + d1 + d2 * 4;
+			return 17395 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -8805,7 +8723,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 452 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 464 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -8825,8 +8743,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8859,7 +8775,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 10983 + d0 * 2 + d1;
+			return 11445 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -8879,7 +8795,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -8914,7 +8829,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14610 + d0;
+			return 15153 + d0;
 		} // method
 	} // class
 
@@ -8953,7 +8868,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15388;
+		public override int GetRuntimeId() => 15952;
 	} // class
 
 	public partial class CherryPressurePlate // minecraft:cherry_pressure_plate
@@ -9001,7 +8916,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 436 + d0;
+			return 448 + d0;
 		} // method
 	} // class
 
@@ -9049,7 +8964,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 14608 + d0;
+			return 15151 + d0;
 		} // method
 	} // class
 
@@ -9118,7 +9033,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 14007 + d0 * 8 + d1 * 4 + d2;
+			return 14550 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -9138,7 +9053,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9172,7 +9086,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12591 + d0;
+			return 13107 + d0;
 		} // method
 	} // class
 
@@ -9192,8 +9106,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9227,7 +9139,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 14047 + d0 * 4 + d1;
+			return 14590 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -9276,7 +9188,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 11064 + d0;
+			return 11526 + d0;
 		} // method
 	} // class
 
@@ -9296,9 +9208,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9337,7 +9246,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 3360 + d0 + d1 * 8 + d2 * 4;
+			return 3390 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -9386,7 +9295,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 15347 + d0;
+			return 15903 + d0;
 		} // method
 	} // class
 
@@ -9441,7 +9350,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14043 + d0;
+			return 14586 + d0;
 		} // method
 	} // class
 
@@ -9461,7 +9370,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -9497,7 +9405,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14039 + d0;
+			return 14582 + d0;
 		} // method
 	} // class
 
@@ -9553,7 +9461,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7906 + d0;
+			return 8336 + d0;
 		} // method
 	} // class
 
@@ -9609,7 +9517,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d1 = Direction;
 
-			return 1605 + d0 * 4 + d1;
+			return 1633 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -9648,7 +9556,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12733;
+		public override int GetRuntimeId() => 13250;
 	} // class
 
 	public partial class ChiseledCopper // minecraft:chiseled_copper
@@ -9686,7 +9594,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10353;
+		public override int GetRuntimeId() => 10815;
 	} // class
 
 	public partial class ChiseledDeepslate // minecraft:chiseled_deepslate
@@ -9724,7 +9632,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9065;
+		public override int GetRuntimeId() => 9495;
 	} // class
 
 	public partial class ChiseledNetherBricks // minecraft:chiseled_nether_bricks
@@ -9762,7 +9670,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14591;
+		public override int GetRuntimeId() => 15134;
 	} // class
 
 	public partial class ChiseledPolishedBlackstone // minecraft:chiseled_polished_blackstone
@@ -9800,7 +9708,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8893;
+		public override int GetRuntimeId() => 9323;
 	} // class
 
 	public partial class ChiseledQuartzBlock // minecraft:chiseled_quartz_block
@@ -9854,7 +9762,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14685 + d0;
+			return 15228 + d0;
 		} // method
 	} // class
 
@@ -9893,7 +9801,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15092;
+		public override int GetRuntimeId() => 15642;
 	} // class
 
 	public partial class ChiseledResinBricks // minecraft:chiseled_resin_bricks
@@ -9931,7 +9839,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12593;
+		public override int GetRuntimeId() => 13109;
 	} // class
 
 	public partial class ChiseledSandstone // minecraft:chiseled_sandstone
@@ -9969,7 +9877,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12157;
+		public override int GetRuntimeId() => 12635;
 	} // class
 
 	public partial class ChiseledStoneBricks // minecraft:chiseled_stone_bricks
@@ -10045,7 +9953,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8548;
+		public override int GetRuntimeId() => 8978;
 	} // class
 
 	public partial class ChiseledTuff // minecraft:chiseled_tuff
@@ -10083,7 +9991,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15871;
+		public override int GetRuntimeId() => 16438;
 	} // class
 
 	public partial class ChiseledTuffBricks // minecraft:chiseled_tuff_bricks
@@ -10121,7 +10029,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15020;
+		public override int GetRuntimeId() => 15564;
 	} // class
 
 	public partial class ChorusFlower // minecraft:chorus_flower
@@ -10169,7 +10077,7 @@ namespace MiNET.Blocks
 			if (Age < 0 || Age > 5) return -1;
 			int d0 = Age;
 
-			return 7085 + d0;
+			return 7515 + d0;
 		} // method
 	} // class
 
@@ -10208,7 +10116,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9807;
+		public override int GetRuntimeId() => 10269;
 	} // class
 
 	public partial class Cinnabar // minecraft:cinnabar
@@ -10246,7 +10154,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12638;
+		public override int GetRuntimeId() => 13154;
 	} // class
 
 	public partial class CinnabarBrickDoubleSlab // minecraft:cinnabar_brick_double_slab
@@ -10299,7 +10207,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7093 + d0;
+			return 7523 + d0;
 		} // method
 	} // class
 
@@ -10319,7 +10227,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10353,7 +10260,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13963 + d0;
+			return 14506 + d0;
 		} // method
 	} // class
 
@@ -10373,8 +10280,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10408,7 +10313,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12453 + d0 * 4 + d1;
+			return 12963 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -10508,7 +10413,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 15437 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 16001 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -10547,7 +10452,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11051;
+		public override int GetRuntimeId() => 11513;
 	} // class
 
 	public partial class CinnabarDoubleSlab // minecraft:cinnabar_double_slab
@@ -10600,7 +10505,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6506 + d0;
+			return 6936 + d0;
 		} // method
 	} // class
 
@@ -10620,7 +10525,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10654,7 +10558,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15869 + d0;
+			return 16436 + d0;
 		} // method
 	} // class
 
@@ -10674,8 +10578,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -10709,7 +10611,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12934 + d0 * 4 + d1;
+			return 13451 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -10809,7 +10711,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 1335 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 1363 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -10848,7 +10750,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14046;
+		public override int GetRuntimeId() => 14589;
 	} // class
 
 	public partial class ClientRequestPlaceholderBlock // minecraft:client_request_placeholder_block
@@ -10886,7 +10788,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6512;
+		public override int GetRuntimeId() => 6942;
 	} // class
 
 	public partial class ClosedEyeblossom // minecraft:closed_eyeblossom
@@ -10924,7 +10826,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13154;
+		public override int GetRuntimeId() => 13689;
 	} // class
 
 	public partial class CoalBlock // minecraft:coal_block
@@ -10962,7 +10864,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9275;
+		public override int GetRuntimeId() => 9705;
 	} // class
 
 	public partial class CoalOre // minecraft:coal_ore
@@ -11000,7 +10902,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6505;
+		public override int GetRuntimeId() => 6935;
 	} // class
 
 	public partial class CoarseDirt // minecraft:coarse_dirt
@@ -11038,7 +10940,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7084;
+		public override int GetRuntimeId() => 7514;
 	} // class
 
 	public partial class CobbledDeepslate // minecraft:cobbled_deepslate
@@ -11076,7 +10978,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13084;
+		public override int GetRuntimeId() => 13617;
 	} // class
 
 	public partial class CobbledDeepslateDoubleSlab // minecraft:cobbled_deepslate_double_slab
@@ -11129,7 +11031,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11052 + d0;
+			return 11514 + d0;
 		} // method
 	} // class
 
@@ -11149,7 +11051,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -11183,7 +11084,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14665 + d0;
+			return 15208 + d0;
 		} // method
 	} // class
 
@@ -11203,8 +11104,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -11238,7 +11137,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 1011 + d0 * 4 + d1;
+			return 1023 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -11338,7 +11237,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 16301 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 16884 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -11377,7 +11276,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5265;
+		public override int GetRuntimeId() => 5695;
 	} // class
 
 	public partial class CobblestoneDoubleSlab // minecraft:cobblestone_double_slab
@@ -11430,7 +11329,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15899 + d0;
+			return 16466 + d0;
 		} // method
 	} // class
 
@@ -11450,7 +11349,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -11484,7 +11382,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6394 + d0;
+			return 6824 + d0;
 		} // method
 	} // class
 
@@ -11584,7 +11482,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 3990 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 4420 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -11640,7 +11538,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d1 = Direction;
 
-			return 12906 + d0 * 4 + d1;
+			return 13423 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -11698,7 +11596,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6770 + d0;
+			return 7200 + d0;
 		} // method
 	} // class
 
@@ -11756,7 +11654,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12953 + d0;
+			return 13470 + d0;
 		} // method
 	} // class
 
@@ -11814,7 +11712,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15374 + d0;
+			return 15930 + d0;
 		} // method
 	} // class
 
@@ -11872,7 +11770,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 16834 + d0;
+			return 17417 + d0;
 		} // method
 	} // class
 
@@ -11927,7 +11825,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 15613 + d0 * 6 + d1;
+			return 16177 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -11976,7 +11874,7 @@ namespace MiNET.Blocks
 			if (ComposterFillLevel < 0 || ComposterFillLevel > 8) return -1;
 			int d0 = ComposterFillLevel;
 
-			return 9308 + d0;
+			return 9738 + d0;
 		} // method
 	} // class
 
@@ -12025,7 +11923,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d0 = Direction;
 
-			return 5526 + d0;
+			return 5956 + d0;
 		} // method
 	} // class
 
@@ -12064,7 +11962,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6457;
+		public override int GetRuntimeId() => 6887;
 	} // class
 
 	public partial class CopperBars // minecraft:copper_bars
@@ -12102,7 +12000,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6896;
+		public override int GetRuntimeId() => 7326;
 	} // class
 
 	public partial class CopperBlock // minecraft:copper_block
@@ -12140,7 +12038,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7826;
+		public override int GetRuntimeId() => 8256;
 	} // class
 
 	public partial class CopperBulb // minecraft:copper_bulb
@@ -12193,7 +12091,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 6892 + d0 + d1 * 2;
+			return 7322 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -12248,7 +12146,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5480 + d0;
+			return 5910 + d0;
 		} // method
 	} // class
 
@@ -12268,7 +12166,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -12304,7 +12201,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5483 + d0;
+			return 5913 + d0;
 		} // method
 	} // class
 
@@ -12324,10 +12221,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -12378,7 +12271,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 11667 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 12145 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -12434,7 +12327,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6854 + d0;
+			return 7284 + d0;
 		} // method
 	} // class
 
@@ -12473,7 +12366,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1963;
+		public override int GetRuntimeId() => 1991;
 	} // class
 
 	public partial class CopperLantern // minecraft:copper_lantern
@@ -12520,7 +12413,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 16872 + d0;
+			return 17458 + d0;
 		} // method
 	} // class
 
@@ -12559,7 +12452,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5197;
+		public override int GetRuntimeId() => 5627;
 	} // class
 
 	public partial class CopperTorch // minecraft:copper_torch
@@ -12616,7 +12509,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6459 + d0;
+			return 6889 + d0;
 		} // method
 	} // class
 
@@ -12636,9 +12529,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -12677,7 +12567,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 11032 + d0 + d1 * 8 + d2 * 4;
+			return 11494 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -12716,7 +12606,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8892;
+		public override int GetRuntimeId() => 9322;
 	} // class
 
 	public partial class CrackedDeepslateBricks // minecraft:cracked_deepslate_bricks
@@ -12754,7 +12644,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9234;
+		public override int GetRuntimeId() => 9664;
 	} // class
 
 	public partial class CrackedDeepslateTiles // minecraft:cracked_deepslate_tiles
@@ -12792,7 +12682,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6349;
+		public override int GetRuntimeId() => 6779;
 	} // class
 
 	public partial class CrackedNetherBricks // minecraft:cracked_nether_bricks
@@ -12830,7 +12720,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7270;
+		public override int GetRuntimeId() => 7700;
 	} // class
 
 	public partial class CrackedPolishedBlackstoneBricks // minecraft:cracked_polished_blackstone_bricks
@@ -12868,7 +12758,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14532;
+		public override int GetRuntimeId() => 15075;
 	} // class
 
 	public partial class CrackedStoneBricks // minecraft:cracked_stone_bricks
@@ -12906,7 +12796,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5262;
+		public override int GetRuntimeId() => 5692;
 	} // class
 
 	public partial class Crafter // minecraft:crafter
@@ -12981,7 +12871,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = TriggeredBit ? 1 : 0;
 
-			return 15637 + d0 * 24 + d1 + d2 * 12;
+			return 16201 + d0 * 24 + d1 + d2 * 12;
 		} // method
 	} // class
 
@@ -13020,7 +12910,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11055;
+		public override int GetRuntimeId() => 11517;
 	} // class
 
 	public partial class CreakingHeart // minecraft:creaking_heart
@@ -13093,7 +12983,7 @@ namespace MiNET.Blocks
 			};
 			if (d2 < 0) return -1;
 
-			return 14990 + d0 * 3 + d1 * 9 + d2;
+			return 15534 + d0 * 3 + d1 * 9 + d2;
 		} // method
 	} // class
 
@@ -13142,7 +13032,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 10987 + d0;
+			return 11449 + d0;
 		} // method
 	} // class
 
@@ -13197,7 +13087,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 6980 + d0 * 6 + d1;
+			return 7410 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -13217,10 +13107,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13271,7 +13157,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 5997 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 6427 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -13325,7 +13211,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2884 + d0;
+			return 2914 + d0;
 		} // method
 	} // class
 
@@ -13364,7 +13250,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15868;
+		public override int GetRuntimeId() => 16435;
 	} // class
 
 	public partial class CrimsonFenceGate // minecraft:crimson_fence_gate
@@ -13383,9 +13269,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13431,7 +13314,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 7836 + d0 * 8 + d1 + d2 * 4;
+			return 8266 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -13470,7 +13353,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15387;
+		public override int GetRuntimeId() => 15951;
 	} // class
 
 	public partial class CrimsonHangingSign // minecraft:crimson_hanging_sign
@@ -13537,7 +13420,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 14062 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 14605 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -13592,7 +13475,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6776 + d0;
+			return 7206 + d0;
 		} // method
 	} // class
 
@@ -13631,7 +13514,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6396;
+		public override int GetRuntimeId() => 6826;
 	} // class
 
 	public partial class CrimsonPlanks // minecraft:crimson_planks
@@ -13669,7 +13552,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8480;
+		public override int GetRuntimeId() => 8910;
 	} // class
 
 	public partial class CrimsonPressurePlate // minecraft:crimson_pressure_plate
@@ -13717,7 +13600,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 16853 + d0;
+			return 17439 + d0;
 		} // method
 	} // class
 
@@ -13756,7 +13639,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15147;
+		public override int GetRuntimeId() => 15697;
 	} // class
 
 	public partial class CrimsonShelf // minecraft:crimson_shelf
@@ -13824,7 +13707,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 13882 + d0 * 8 + d1 * 4 + d2;
+			return 14425 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -13844,7 +13727,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13878,7 +13760,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11546 + d0;
+			return 12008 + d0;
 		} // method
 	} // class
 
@@ -13898,8 +13780,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13933,7 +13813,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12658 + d0 * 4 + d1;
+			return 13174 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -13953,7 +13833,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -13982,7 +13861,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 14691 + d0;
+			return 15234 + d0;
 		} // method
 	} // class
 
@@ -14002,7 +13881,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14037,7 +13915,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11540 + d0;
+			return 12002 + d0;
 		} // method
 	} // class
 
@@ -14057,9 +13935,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14098,7 +13973,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 6828 + d0 + d1 * 8 + d2 * 4;
+			return 7258 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -14118,7 +13993,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14147,7 +14021,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 837 + d0;
+			return 849 + d0;
 		} // method
 	} // class
 
@@ -14186,7 +14060,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13152;
+		public override int GetRuntimeId() => 13687;
 	} // class
 
 	public partial class CutCopper // minecraft:cut_copper
@@ -14224,7 +14098,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7864;
+		public override int GetRuntimeId() => 8294;
 	} // class
 
 	public partial class CutCopperSlab // minecraft:cut_copper_slab
@@ -14243,7 +14117,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14277,7 +14150,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9066 + d0;
+			return 9496 + d0;
 		} // method
 	} // class
 
@@ -14297,8 +14170,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14332,7 +14203,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 7353 + d0 * 4 + d1;
+			return 7783 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -14371,7 +14242,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6134;
+		public override int GetRuntimeId() => 6564;
 	} // class
 
 	public partial class CutRedSandstoneDoubleSlab // minecraft:cut_red_sandstone_double_slab
@@ -14424,7 +14295,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6510 + d0;
+			return 6940 + d0;
 		} // method
 	} // class
 
@@ -14444,7 +14315,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14478,7 +14348,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14972 + d0;
+			return 15515 + d0;
 		} // method
 	} // class
 
@@ -14517,7 +14387,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11736;
+		public override int GetRuntimeId() => 12214;
 	} // class
 
 	public partial class CutSandstoneDoubleSlab // minecraft:cut_sandstone_double_slab
@@ -14570,7 +14440,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1990 + d0;
+			return 2018 + d0;
 		} // method
 	} // class
 
@@ -14590,7 +14460,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14624,7 +14493,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9293 + d0;
+			return 9723 + d0;
 		} // method
 	} // class
 
@@ -14679,7 +14548,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 15353 + d0 + d1 * 4;
+			return 15909 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -14727,7 +14596,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 2996 + d0;
+			return 3026 + d0;
 		} // method
 	} // class
 
@@ -14766,7 +14635,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5312;
+		public override int GetRuntimeId() => 5742;
 	} // class
 
 	public partial class CyanConcrete // minecraft:cyan_concrete
@@ -14804,7 +14673,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14624;
+		public override int GetRuntimeId() => 15167;
 	} // class
 
 	public partial class CyanConcretePowder // minecraft:cyan_concrete_powder
@@ -14842,7 +14711,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5135;
+		public override int GetRuntimeId() => 5565;
 	} // class
 
 	public partial class CyanGlazedTerracotta // minecraft:cyan_glazed_terracotta
@@ -14861,7 +14730,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -14890,7 +14758,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 9228 + d0;
+			return 9658 + d0;
 		} // method
 	} // class
 
@@ -14929,7 +14797,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13818;
+		public override int GetRuntimeId() => 14361;
 	} // class
 
 	public partial class CyanStainedGlass // minecraft:cyan_stained_glass
@@ -14967,7 +14835,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11571;
+		public override int GetRuntimeId() => 12049;
 	} // class
 
 	public partial class CyanStainedGlassPane // minecraft:cyan_stained_glass_pane
@@ -15005,7 +14873,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12886;
+		public override int GetRuntimeId() => 13403;
 	} // class
 
 	public partial class CyanTerracotta // minecraft:cyan_terracotta
@@ -15081,7 +14949,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9202;
+		public override int GetRuntimeId() => 9632;
 	} // class
 
 	public partial class DamagedAnvil // minecraft:damaged_anvil
@@ -15136,7 +15004,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 16114 + d0;
+			return 16697 + d0;
 		} // method
 	} // class
 
@@ -15175,7 +15043,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16912;
+		public override int GetRuntimeId() => 17498;
 	} // class
 
 	public partial class DarkOakButton // minecraft:dark_oak_button
@@ -15194,8 +15062,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15249,10 +15115,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15303,7 +15165,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 10356 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 10818 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -15357,7 +15219,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6344 + d0;
+			return 6774 + d0;
 		} // method
 	} // class
 
@@ -15396,7 +15258,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13968;
+		public override int GetRuntimeId() => 14511;
 	} // class
 
 	public partial class DarkOakFenceGate // minecraft:dark_oak_fence_gate
@@ -15415,9 +15277,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15463,7 +15322,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 6374 + d0 * 8 + d1 + d2 * 4;
+			return 6804 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -15531,7 +15390,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 4749 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 5179 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -15551,8 +15410,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15585,7 +15442,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 12193 + d0 * 2 + d1;
+			return 12703 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -15605,7 +15462,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15640,7 +15496,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 4164 + d0;
+			return 4594 + d0;
 		} // method
 	} // class
 
@@ -15679,7 +15535,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5198;
+		public override int GetRuntimeId() => 5628;
 	} // class
 
 	public partial class DarkOakPressurePlate // minecraft:dark_oak_pressure_plate
@@ -15727,7 +15583,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 11651 + d0;
+			return 12129 + d0;
 		} // method
 	} // class
 
@@ -15775,7 +15631,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 1999 + d0;
+			return 2027 + d0;
 		} // method
 	} // class
 
@@ -15844,7 +15700,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 9131 + d0 * 8 + d1 * 4 + d2;
+			return 9561 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -15864,7 +15720,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15898,7 +15753,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2055 + d0;
+			return 2085 + d0;
 		} // method
 	} // class
 
@@ -15918,8 +15773,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -15953,7 +15806,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 8894 + d0 * 4 + d1;
+			return 9324 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -15973,9 +15826,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16014,7 +15864,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 15099 + d0 + d1 * 8 + d2 * 4;
+			return 15649 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -16108,7 +15958,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6863;
+		public override int GetRuntimeId() => 7293;
 	} // class
 
 	public partial class DarkPrismarineDoubleSlab // minecraft:dark_prismarine_double_slab
@@ -16161,7 +16011,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1518 + d0;
+			return 1546 + d0;
 		} // method
 	} // class
 
@@ -16181,7 +16031,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16215,7 +16064,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11030 + d0;
+			return 11492 + d0;
 		} // method
 	} // class
 
@@ -16235,8 +16084,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16270,7 +16117,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 14982 + d0 * 4 + d1;
+			return 15526 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -16290,7 +16137,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16319,7 +16165,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 14707 + d0;
+			return 15250 + d0;
 		} // method
 	} // class
 
@@ -16339,7 +16185,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -16368,7 +16213,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 9209 + d0;
+			return 9639 + d0;
 		} // method
 	} // class
 
@@ -16417,7 +16262,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 6422 + d0;
+			return 6852 + d0;
 		} // method
 	} // class
 
@@ -16466,7 +16311,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 7053 + d0;
+			return 7483 + d0;
 		} // method
 	} // class
 
@@ -16505,7 +16350,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14510;
+		public override int GetRuntimeId() => 15053;
 	} // class
 
 	public partial class DeadBrainCoralBlock // minecraft:dead_brain_coral_block
@@ -16543,7 +16388,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13056;
+		public override int GetRuntimeId() => 13573;
 	} // class
 
 	public partial class DeadBrainCoralFan // minecraft:dead_brain_coral_fan
@@ -16591,7 +16436,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 1299 + d0;
+			return 1311 + d0;
 		} // method
 	} // class
 
@@ -16640,7 +16485,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 6130 + d0;
+			return 6560 + d0;
 		} // method
 	} // class
 
@@ -16679,7 +16524,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14607;
+		public override int GetRuntimeId() => 15150;
 	} // class
 
 	public partial class DeadBubbleCoralBlock // minecraft:dead_bubble_coral_block
@@ -16717,7 +16562,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3418;
+		public override int GetRuntimeId() => 3464;
 	} // class
 
 	public partial class DeadBubbleCoralFan // minecraft:dead_bubble_coral_fan
@@ -16765,7 +16610,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 1259 + d0;
+			return 1271 + d0;
 		} // method
 	} // class
 
@@ -16814,7 +16659,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 1598 + d0;
+			return 1626 + d0;
 		} // method
 	} // class
 
@@ -16853,7 +16698,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12655;
+		public override int GetRuntimeId() => 13171;
 	} // class
 
 	public partial class DeadFireCoralBlock // minecraft:dead_fire_coral_block
@@ -16891,7 +16736,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3593;
+		public override int GetRuntimeId() => 3639;
 	} // class
 
 	public partial class DeadFireCoralFan // minecraft:dead_fire_coral_fan
@@ -16939,7 +16784,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 13155 + d0;
+			return 13690 + d0;
 		} // method
 	} // class
 
@@ -16988,7 +16833,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 5136 + d0;
+			return 5566 + d0;
 		} // method
 	} // class
 
@@ -17027,7 +16872,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11605;
+		public override int GetRuntimeId() => 12083;
 	} // class
 
 	public partial class DeadHornCoralBlock // minecraft:dead_horn_coral_block
@@ -17065,7 +16910,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12887;
+		public override int GetRuntimeId() => 13404;
 	} // class
 
 	public partial class DeadHornCoralFan // minecraft:dead_horn_coral_fan
@@ -17113,7 +16958,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 13878 + d0;
+			return 14421 + d0;
 		} // method
 	} // class
 
@@ -17162,7 +17007,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 13828 + d0;
+			return 14371 + d0;
 		} // method
 	} // class
 
@@ -17201,7 +17046,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6732;
+		public override int GetRuntimeId() => 7162;
 	} // class
 
 	public partial class DeadTubeCoralBlock // minecraft:dead_tube_coral_block
@@ -17239,7 +17084,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5993;
+		public override int GetRuntimeId() => 6423;
 	} // class
 
 	public partial class DeadTubeCoralFan // minecraft:dead_tube_coral_fan
@@ -17287,7 +17132,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 13117 + d0;
+			return 13652 + d0;
 		} // method
 	} // class
 
@@ -17336,7 +17181,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 15093 + d0;
+			return 15643 + d0;
 		} // method
 	} // class
 
@@ -17375,7 +17220,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7852;
+		public override int GetRuntimeId() => 8282;
 	} // class
 
 	public partial class DecoratedPot // minecraft:decorated_pot
@@ -17423,7 +17268,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d0 = Direction;
 
-			return 13157 + d0;
+			return 13692 + d0;
 		} // method
 	} // class
 
@@ -17478,7 +17323,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1311 + d0;
+			return 1323 + d0;
 		} // method
 	} // class
 
@@ -17532,7 +17377,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 4158 + d0;
+			return 4588 + d0;
 		} // method
 	} // class
 
@@ -17552,7 +17397,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -17586,7 +17430,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5457 + d0;
+			return 5887 + d0;
 		} // method
 	} // class
 
@@ -17606,8 +17450,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -17641,7 +17483,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 14974 + d0 * 4 + d1;
+			return 15517 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -17741,7 +17583,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 2057 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 2087 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -17780,7 +17622,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9379;
+		public override int GetRuntimeId() => 9809;
 	} // class
 
 	public partial class DeepslateCoalOre // minecraft:deepslate_coal_ore
@@ -17818,7 +17660,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14511;
+		public override int GetRuntimeId() => 15054;
 	} // class
 
 	public partial class DeepslateCopperOre // minecraft:deepslate_copper_ore
@@ -17894,7 +17736,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15901;
+		public override int GetRuntimeId() => 16468;
 	} // class
 
 	public partial class DeepslateEmeraldOre // minecraft:deepslate_emerald_ore
@@ -17932,7 +17774,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12735;
+		public override int GetRuntimeId() => 13252;
 	} // class
 
 	public partial class DeepslateGoldOre // minecraft:deepslate_gold_ore
@@ -17970,7 +17812,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12461;
+		public override int GetRuntimeId() => 12971;
 	} // class
 
 	public partial class DeepslateIronOre // minecraft:deepslate_iron_ore
@@ -18008,7 +17850,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14636;
+		public override int GetRuntimeId() => 15179;
 	} // class
 
 	public partial class DeepslateLapisOre // minecraft:deepslate_lapis_ore
@@ -18046,7 +17888,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14606;
+		public override int GetRuntimeId() => 15149;
 	} // class
 
 	public partial class DeepslateRedstoneOre // minecraft:deepslate_redstone_ore
@@ -18084,7 +17926,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13055;
+		public override int GetRuntimeId() => 13572;
 	} // class
 
 	public partial class DeepslateTileDoubleSlab // minecraft:deepslate_tile_double_slab
@@ -18137,7 +17979,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1954 + d0;
+			return 1982 + d0;
 		} // method
 	} // class
 
@@ -18157,7 +17999,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18191,7 +18032,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6727 + d0;
+			return 7157 + d0;
 		} // method
 	} // class
 
@@ -18211,8 +18052,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18246,7 +18085,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 7828 + d0 * 4 + d1;
+			return 8258 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -18346,7 +18185,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 8902 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 9332 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -18385,7 +18224,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7304;
+		public override int GetRuntimeId() => 7734;
 	} // class
 
 	public partial class Deny // minecraft:deny
@@ -18423,7 +18262,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10394;
+		public override int GetRuntimeId() => 10856;
 	} // class
 
 	public partial class DeprecatedAnvil // minecraft:deprecated_anvil
@@ -18478,7 +18317,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9205 + d0;
+			return 9635 + d0;
 		} // method
 	} // class
 
@@ -18533,7 +18372,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13972 + d0;
+			return 14515 + d0;
 		} // method
 	} // class
 
@@ -18588,7 +18427,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13969 + d0;
+			return 14512 + d0;
 		} // method
 	} // class
 
@@ -18643,7 +18482,7 @@ namespace MiNET.Blocks
 			if (RailDirection < 0 || RailDirection > 5) return -1;
 			int d1 = RailDirection;
 
-			return 6317 + d0 * 6 + d1;
+			return 6747 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -18682,7 +18521,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1517;
+		public override int GetRuntimeId() => 1545;
 	} // class
 
 	public partial class DiamondOre // minecraft:diamond_ore
@@ -18720,7 +18559,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6860;
+		public override int GetRuntimeId() => 7290;
 	} // class
 
 	public partial class Diorite // minecraft:diorite
@@ -18758,7 +18597,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 415;
+		public override int GetRuntimeId() => 427;
 	} // class
 
 	public partial class DioriteDoubleSlab // minecraft:diorite_double_slab
@@ -18811,7 +18650,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2256 + d0;
+			return 2286 + d0;
 		} // method
 	} // class
 
@@ -18831,7 +18670,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18865,7 +18703,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1253 + d0;
+			return 1265 + d0;
 		} // method
 	} // class
 
@@ -18885,8 +18723,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -18920,7 +18756,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6929 + d0 * 4 + d1;
+			return 7359 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -19020,7 +18856,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 3431 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 3477 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -19059,7 +18895,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10392;
+		public override int GetRuntimeId() => 10854;
 	} // class
 
 	public partial class DirtWithRoots // minecraft:dirt_with_roots
@@ -19097,7 +18933,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9274;
+		public override int GetRuntimeId() => 9704;
 	} // class
 
 	public partial class Dispenser // minecraft:dispenser
@@ -19151,7 +18987,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = TriggeredBit ? 1 : 0;
 
-			return 15886 + d0 + d1 * 6;
+			return 16453 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -19205,7 +19041,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5371 + d0;
+			return 5801 + d0;
 		} // method
 	} // class
 
@@ -19244,7 +19080,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14633;
+		public override int GetRuntimeId() => 15176;
 	} // class
 
 	public partial class DragonHead // minecraft:dragon_head
@@ -19292,7 +19128,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 11011 + d0;
+			return 11473 + d0;
 		} // method
 	} // class
 
@@ -19355,7 +19191,7 @@ namespace MiNET.Blocks
 			if (RehydrationLevel < 0 || RehydrationLevel > 3) return -1;
 			int d1 = RehydrationLevel;
 
-			return 3386 + d0 + d1 * 4;
+			return 3432 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -19394,7 +19230,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15866;
+		public override int GetRuntimeId() => 16430;
 	} // class
 
 	public partial class DripstoneBlock // minecraft:dripstone_block
@@ -19432,7 +19268,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3341;
+		public override int GetRuntimeId() => 3371;
 	} // class
 
 	public partial class Dropper // minecraft:dropper
@@ -19486,7 +19322,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = TriggeredBit ? 1 : 0;
 
-			return 14929 + d0 + d1 * 6;
+			return 15472 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -19525,7 +19361,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14638;
+		public override int GetRuntimeId() => 15181;
 	} // class
 
 	public partial class Element1 // minecraft:element_1
@@ -19563,7 +19399,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14637;
+		public override int GetRuntimeId() => 15180;
 	} // class
 
 	public partial class Element10 // minecraft:element_10
@@ -19601,7 +19437,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15231;
+		public override int GetRuntimeId() => 15787;
 	} // class
 
 	public partial class Element100 // minecraft:element_100
@@ -19639,7 +19475,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10018;
+		public override int GetRuntimeId() => 10480;
 	} // class
 
 	public partial class Element101 // minecraft:element_101
@@ -19677,7 +19513,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10019;
+		public override int GetRuntimeId() => 10481;
 	} // class
 
 	public partial class Element102 // minecraft:element_102
@@ -19715,7 +19551,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10020;
+		public override int GetRuntimeId() => 10482;
 	} // class
 
 	public partial class Element103 // minecraft:element_103
@@ -19753,7 +19589,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10021;
+		public override int GetRuntimeId() => 10483;
 	} // class
 
 	public partial class Element104 // minecraft:element_104
@@ -19791,7 +19627,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10022;
+		public override int GetRuntimeId() => 10484;
 	} // class
 
 	public partial class Element105 // minecraft:element_105
@@ -19829,7 +19665,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10023;
+		public override int GetRuntimeId() => 10485;
 	} // class
 
 	public partial class Element106 // minecraft:element_106
@@ -19867,7 +19703,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10024;
+		public override int GetRuntimeId() => 10486;
 	} // class
 
 	public partial class Element107 // minecraft:element_107
@@ -19905,7 +19741,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10025;
+		public override int GetRuntimeId() => 10487;
 	} // class
 
 	public partial class Element108 // minecraft:element_108
@@ -19943,7 +19779,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10026;
+		public override int GetRuntimeId() => 10488;
 	} // class
 
 	public partial class Element109 // minecraft:element_109
@@ -19981,7 +19817,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10027;
+		public override int GetRuntimeId() => 10489;
 	} // class
 
 	public partial class Element11 // minecraft:element_11
@@ -20019,7 +19855,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15232;
+		public override int GetRuntimeId() => 15788;
 	} // class
 
 	public partial class Element110 // minecraft:element_110
@@ -20057,7 +19893,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10031;
+		public override int GetRuntimeId() => 10493;
 	} // class
 
 	public partial class Element111 // minecraft:element_111
@@ -20095,7 +19931,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10030;
+		public override int GetRuntimeId() => 10492;
 	} // class
 
 	public partial class Element112 // minecraft:element_112
@@ -20133,7 +19969,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10029;
+		public override int GetRuntimeId() => 10491;
 	} // class
 
 	public partial class Element113 // minecraft:element_113
@@ -20171,7 +20007,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10028;
+		public override int GetRuntimeId() => 10490;
 	} // class
 
 	public partial class Element114 // minecraft:element_114
@@ -20209,7 +20045,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10035;
+		public override int GetRuntimeId() => 10497;
 	} // class
 
 	public partial class Element115 // minecraft:element_115
@@ -20247,7 +20083,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10034;
+		public override int GetRuntimeId() => 10496;
 	} // class
 
 	public partial class Element116 // minecraft:element_116
@@ -20285,7 +20121,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10033;
+		public override int GetRuntimeId() => 10495;
 	} // class
 
 	public partial class Element117 // minecraft:element_117
@@ -20323,7 +20159,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10032;
+		public override int GetRuntimeId() => 10494;
 	} // class
 
 	public partial class Element118 // minecraft:element_118
@@ -20361,7 +20197,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10036;
+		public override int GetRuntimeId() => 10498;
 	} // class
 
 	public partial class Element12 // minecraft:element_12
@@ -20399,7 +20235,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15233;
+		public override int GetRuntimeId() => 15789;
 	} // class
 
 	public partial class Element13 // minecraft:element_13
@@ -20437,7 +20273,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15234;
+		public override int GetRuntimeId() => 15790;
 	} // class
 
 	public partial class Element14 // minecraft:element_14
@@ -20475,7 +20311,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15235;
+		public override int GetRuntimeId() => 15791;
 	} // class
 
 	public partial class Element15 // minecraft:element_15
@@ -20513,7 +20349,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15236;
+		public override int GetRuntimeId() => 15792;
 	} // class
 
 	public partial class Element16 // minecraft:element_16
@@ -20551,7 +20387,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15237;
+		public override int GetRuntimeId() => 15793;
 	} // class
 
 	public partial class Element17 // minecraft:element_17
@@ -20589,7 +20425,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15238;
+		public override int GetRuntimeId() => 15794;
 	} // class
 
 	public partial class Element18 // minecraft:element_18
@@ -20627,7 +20463,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15239;
+		public override int GetRuntimeId() => 15795;
 	} // class
 
 	public partial class Element19 // minecraft:element_19
@@ -20665,7 +20501,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15240;
+		public override int GetRuntimeId() => 15796;
 	} // class
 
 	public partial class Element2 // minecraft:element_2
@@ -20703,7 +20539,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14640;
+		public override int GetRuntimeId() => 15183;
 	} // class
 
 	public partial class Element20 // minecraft:element_20
@@ -20741,7 +20577,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15254;
+		public override int GetRuntimeId() => 15810;
 	} // class
 
 	public partial class Element21 // minecraft:element_21
@@ -20779,7 +20615,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15253;
+		public override int GetRuntimeId() => 15809;
 	} // class
 
 	public partial class Element22 // minecraft:element_22
@@ -20817,7 +20653,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15256;
+		public override int GetRuntimeId() => 15812;
 	} // class
 
 	public partial class Element23 // minecraft:element_23
@@ -20855,7 +20691,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15255;
+		public override int GetRuntimeId() => 15811;
 	} // class
 
 	public partial class Element24 // minecraft:element_24
@@ -20893,7 +20729,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15258;
+		public override int GetRuntimeId() => 15814;
 	} // class
 
 	public partial class Element25 // minecraft:element_25
@@ -20931,7 +20767,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15257;
+		public override int GetRuntimeId() => 15813;
 	} // class
 
 	public partial class Element26 // minecraft:element_26
@@ -20969,7 +20805,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15260;
+		public override int GetRuntimeId() => 15816;
 	} // class
 
 	public partial class Element27 // minecraft:element_27
@@ -21007,7 +20843,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15259;
+		public override int GetRuntimeId() => 15815;
 	} // class
 
 	public partial class Element28 // minecraft:element_28
@@ -21045,7 +20881,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15252;
+		public override int GetRuntimeId() => 15808;
 	} // class
 
 	public partial class Element29 // minecraft:element_29
@@ -21083,7 +20919,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15251;
+		public override int GetRuntimeId() => 15807;
 	} // class
 
 	public partial class Element3 // minecraft:element_3
@@ -21121,7 +20957,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14639;
+		public override int GetRuntimeId() => 15182;
 	} // class
 
 	public partial class Element30 // minecraft:element_30
@@ -21159,7 +20995,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15247;
+		public override int GetRuntimeId() => 15803;
 	} // class
 
 	public partial class Element31 // minecraft:element_31
@@ -21197,7 +21033,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15248;
+		public override int GetRuntimeId() => 15804;
 	} // class
 
 	public partial class Element32 // minecraft:element_32
@@ -21235,7 +21071,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15245;
+		public override int GetRuntimeId() => 15801;
 	} // class
 
 	public partial class Element33 // minecraft:element_33
@@ -21273,7 +21109,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15246;
+		public override int GetRuntimeId() => 15802;
 	} // class
 
 	public partial class Element34 // minecraft:element_34
@@ -21311,7 +21147,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15243;
+		public override int GetRuntimeId() => 15799;
 	} // class
 
 	public partial class Element35 // minecraft:element_35
@@ -21349,7 +21185,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15244;
+		public override int GetRuntimeId() => 15800;
 	} // class
 
 	public partial class Element36 // minecraft:element_36
@@ -21387,7 +21223,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15241;
+		public override int GetRuntimeId() => 15797;
 	} // class
 
 	public partial class Element37 // minecraft:element_37
@@ -21425,7 +21261,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15242;
+		public override int GetRuntimeId() => 15798;
 	} // class
 
 	public partial class Element38 // minecraft:element_38
@@ -21463,7 +21299,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15249;
+		public override int GetRuntimeId() => 15805;
 	} // class
 
 	public partial class Element39 // minecraft:element_39
@@ -21501,7 +21337,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15250;
+		public override int GetRuntimeId() => 15806;
 	} // class
 
 	public partial class Element4 // minecraft:element_4
@@ -21539,7 +21375,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14642;
+		public override int GetRuntimeId() => 15185;
 	} // class
 
 	public partial class Element40 // minecraft:element_40
@@ -21577,7 +21413,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15280;
+		public override int GetRuntimeId() => 15836;
 	} // class
 
 	public partial class Element41 // minecraft:element_41
@@ -21615,7 +21451,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15279;
+		public override int GetRuntimeId() => 15835;
 	} // class
 
 	public partial class Element42 // minecraft:element_42
@@ -21653,7 +21489,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15278;
+		public override int GetRuntimeId() => 15834;
 	} // class
 
 	public partial class Element43 // minecraft:element_43
@@ -21691,7 +21527,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15277;
+		public override int GetRuntimeId() => 15833;
 	} // class
 
 	public partial class Element44 // minecraft:element_44
@@ -21729,7 +21565,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15276;
+		public override int GetRuntimeId() => 15832;
 	} // class
 
 	public partial class Element45 // minecraft:element_45
@@ -21767,7 +21603,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15275;
+		public override int GetRuntimeId() => 15831;
 	} // class
 
 	public partial class Element46 // minecraft:element_46
@@ -21805,7 +21641,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15274;
+		public override int GetRuntimeId() => 15830;
 	} // class
 
 	public partial class Element47 // minecraft:element_47
@@ -21843,7 +21679,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15273;
+		public override int GetRuntimeId() => 15829;
 	} // class
 
 	public partial class Element48 // minecraft:element_48
@@ -21881,7 +21717,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15272;
+		public override int GetRuntimeId() => 15828;
 	} // class
 
 	public partial class Element49 // minecraft:element_49
@@ -21919,7 +21755,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15271;
+		public override int GetRuntimeId() => 15827;
 	} // class
 
 	public partial class Element5 // minecraft:element_5
@@ -21957,7 +21793,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14641;
+		public override int GetRuntimeId() => 15184;
 	} // class
 
 	public partial class Element50 // minecraft:element_50
@@ -21995,7 +21831,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15267;
+		public override int GetRuntimeId() => 15823;
 	} // class
 
 	public partial class Element51 // minecraft:element_51
@@ -22033,7 +21869,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15268;
+		public override int GetRuntimeId() => 15824;
 	} // class
 
 	public partial class Element52 // minecraft:element_52
@@ -22071,7 +21907,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15269;
+		public override int GetRuntimeId() => 15825;
 	} // class
 
 	public partial class Element53 // minecraft:element_53
@@ -22109,7 +21945,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15270;
+		public override int GetRuntimeId() => 15826;
 	} // class
 
 	public partial class Element54 // minecraft:element_54
@@ -22147,7 +21983,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15263;
+		public override int GetRuntimeId() => 15819;
 	} // class
 
 	public partial class Element55 // minecraft:element_55
@@ -22185,7 +22021,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15264;
+		public override int GetRuntimeId() => 15820;
 	} // class
 
 	public partial class Element56 // minecraft:element_56
@@ -22223,7 +22059,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15265;
+		public override int GetRuntimeId() => 15821;
 	} // class
 
 	public partial class Element57 // minecraft:element_57
@@ -22261,7 +22097,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15266;
+		public override int GetRuntimeId() => 15822;
 	} // class
 
 	public partial class Element58 // minecraft:element_58
@@ -22299,7 +22135,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15261;
+		public override int GetRuntimeId() => 15817;
 	} // class
 
 	public partial class Element59 // minecraft:element_59
@@ -22337,7 +22173,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15262;
+		public override int GetRuntimeId() => 15818;
 	} // class
 
 	public partial class Element6 // minecraft:element_6
@@ -22375,7 +22211,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14644;
+		public override int GetRuntimeId() => 15187;
 	} // class
 
 	public partial class Element60 // minecraft:element_60
@@ -22413,7 +22249,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15296;
+		public override int GetRuntimeId() => 15852;
 	} // class
 
 	public partial class Element61 // minecraft:element_61
@@ -22451,7 +22287,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15295;
+		public override int GetRuntimeId() => 15851;
 	} // class
 
 	public partial class Element62 // minecraft:element_62
@@ -22489,7 +22325,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15298;
+		public override int GetRuntimeId() => 15854;
 	} // class
 
 	public partial class Element63 // minecraft:element_63
@@ -22527,7 +22363,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15297;
+		public override int GetRuntimeId() => 15853;
 	} // class
 
 	public partial class Element64 // minecraft:element_64
@@ -22565,7 +22401,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15292;
+		public override int GetRuntimeId() => 15848;
 	} // class
 
 	public partial class Element65 // minecraft:element_65
@@ -22603,7 +22439,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15291;
+		public override int GetRuntimeId() => 15847;
 	} // class
 
 	public partial class Element66 // minecraft:element_66
@@ -22641,7 +22477,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15294;
+		public override int GetRuntimeId() => 15850;
 	} // class
 
 	public partial class Element67 // minecraft:element_67
@@ -22679,7 +22515,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15293;
+		public override int GetRuntimeId() => 15849;
 	} // class
 
 	public partial class Element68 // minecraft:element_68
@@ -22717,7 +22553,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15300;
+		public override int GetRuntimeId() => 15856;
 	} // class
 
 	public partial class Element69 // minecraft:element_69
@@ -22755,7 +22591,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15299;
+		public override int GetRuntimeId() => 15855;
 	} // class
 
 	public partial class Element7 // minecraft:element_7
@@ -22793,7 +22629,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14643;
+		public override int GetRuntimeId() => 15186;
 	} // class
 
 	public partial class Element70 // minecraft:element_70
@@ -22831,7 +22667,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15283;
+		public override int GetRuntimeId() => 15839;
 	} // class
 
 	public partial class Element71 // minecraft:element_71
@@ -22869,7 +22705,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15284;
+		public override int GetRuntimeId() => 15840;
 	} // class
 
 	public partial class Element72 // minecraft:element_72
@@ -22907,7 +22743,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15281;
+		public override int GetRuntimeId() => 15837;
 	} // class
 
 	public partial class Element73 // minecraft:element_73
@@ -22945,7 +22781,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15282;
+		public override int GetRuntimeId() => 15838;
 	} // class
 
 	public partial class Element74 // minecraft:element_74
@@ -22983,7 +22819,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15287;
+		public override int GetRuntimeId() => 15843;
 	} // class
 
 	public partial class Element75 // minecraft:element_75
@@ -23021,7 +22857,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15288;
+		public override int GetRuntimeId() => 15844;
 	} // class
 
 	public partial class Element76 // minecraft:element_76
@@ -23059,7 +22895,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15285;
+		public override int GetRuntimeId() => 15841;
 	} // class
 
 	public partial class Element77 // minecraft:element_77
@@ -23097,7 +22933,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15286;
+		public override int GetRuntimeId() => 15842;
 	} // class
 
 	public partial class Element78 // minecraft:element_78
@@ -23135,7 +22971,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15289;
+		public override int GetRuntimeId() => 15845;
 	} // class
 
 	public partial class Element79 // minecraft:element_79
@@ -23173,7 +23009,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15290;
+		public override int GetRuntimeId() => 15846;
 	} // class
 
 	public partial class Element8 // minecraft:element_8
@@ -23211,7 +23047,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14646;
+		public override int GetRuntimeId() => 15189;
 	} // class
 
 	public partial class Element80 // minecraft:element_80
@@ -23249,7 +23085,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15316;
+		public override int GetRuntimeId() => 15872;
 	} // class
 
 	public partial class Element81 // minecraft:element_81
@@ -23287,7 +23123,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15315;
+		public override int GetRuntimeId() => 15871;
 	} // class
 
 	public partial class Element82 // minecraft:element_82
@@ -23325,7 +23161,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15314;
+		public override int GetRuntimeId() => 15870;
 	} // class
 
 	public partial class Element83 // minecraft:element_83
@@ -23363,7 +23199,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15313;
+		public override int GetRuntimeId() => 15869;
 	} // class
 
 	public partial class Element84 // minecraft:element_84
@@ -23401,7 +23237,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15320;
+		public override int GetRuntimeId() => 15876;
 	} // class
 
 	public partial class Element85 // minecraft:element_85
@@ -23439,7 +23275,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15319;
+		public override int GetRuntimeId() => 15875;
 	} // class
 
 	public partial class Element86 // minecraft:element_86
@@ -23477,7 +23313,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15318;
+		public override int GetRuntimeId() => 15874;
 	} // class
 
 	public partial class Element87 // minecraft:element_87
@@ -23515,7 +23351,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15317;
+		public override int GetRuntimeId() => 15873;
 	} // class
 
 	public partial class Element88 // minecraft:element_88
@@ -23553,7 +23389,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15312;
+		public override int GetRuntimeId() => 15868;
 	} // class
 
 	public partial class Element89 // minecraft:element_89
@@ -23591,7 +23427,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15311;
+		public override int GetRuntimeId() => 15867;
 	} // class
 
 	public partial class Element9 // minecraft:element_9
@@ -23629,7 +23465,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14645;
+		public override int GetRuntimeId() => 15188;
 	} // class
 
 	public partial class Element90 // minecraft:element_90
@@ -23667,7 +23503,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15303;
+		public override int GetRuntimeId() => 15859;
 	} // class
 
 	public partial class Element91 // minecraft:element_91
@@ -23705,7 +23541,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15304;
+		public override int GetRuntimeId() => 15860;
 	} // class
 
 	public partial class Element92 // minecraft:element_92
@@ -23743,7 +23579,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15305;
+		public override int GetRuntimeId() => 15861;
 	} // class
 
 	public partial class Element93 // minecraft:element_93
@@ -23781,7 +23617,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15306;
+		public override int GetRuntimeId() => 15862;
 	} // class
 
 	public partial class Element94 // minecraft:element_94
@@ -23819,7 +23655,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15307;
+		public override int GetRuntimeId() => 15863;
 	} // class
 
 	public partial class Element95 // minecraft:element_95
@@ -23857,7 +23693,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15308;
+		public override int GetRuntimeId() => 15864;
 	} // class
 
 	public partial class Element96 // minecraft:element_96
@@ -23895,7 +23731,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15309;
+		public override int GetRuntimeId() => 15865;
 	} // class
 
 	public partial class Element97 // minecraft:element_97
@@ -23933,7 +23769,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15310;
+		public override int GetRuntimeId() => 15866;
 	} // class
 
 	public partial class Element98 // minecraft:element_98
@@ -23971,7 +23807,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15301;
+		public override int GetRuntimeId() => 15857;
 	} // class
 
 	public partial class Element99 // minecraft:element_99
@@ -24009,7 +23845,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15302;
+		public override int GetRuntimeId() => 15858;
 	} // class
 
 	public partial class ElementConstructor // minecraft:element_constructor
@@ -24057,7 +23893,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d0 = Direction;
 
-			return 7300 + d0;
+			return 7730 + d0;
 		} // method
 	} // class
 
@@ -24096,7 +23932,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3785;
+		public override int GetRuntimeId() => 3831;
 	} // class
 
 	public partial class EmeraldOre // minecraft:emerald_ore
@@ -24134,7 +23970,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14733;
+		public override int GetRuntimeId() => 15276;
 	} // class
 
 	public partial class EnchantingTable // minecraft:enchanting_table
@@ -24172,7 +24008,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13163;
+		public override int GetRuntimeId() => 13698;
 	} // class
 
 	public partial class EndBrickStairs // minecraft:end_brick_stairs
@@ -24191,8 +24027,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -24226,7 +24060,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12771 + d0 * 4 + d1;
+			return 13288 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -24265,7 +24099,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1543;
+		public override int GetRuntimeId() => 1571;
 	} // class
 
 	public partial class EndGateway // minecraft:end_gateway
@@ -24303,7 +24137,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 844;
+		public override int GetRuntimeId() => 856;
 	} // class
 
 	public partial class EndPortal // minecraft:end_portal
@@ -24341,7 +24175,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15164;
+		public override int GetRuntimeId() => 15720;
 	} // class
 
 	public partial class EndPortalFrame // minecraft:end_portal_frame
@@ -24402,7 +24236,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 12385 + d0 * 4 + d1;
+			return 12895 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -24451,7 +24285,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 11534 + d0;
+			return 11996 + d0;
 		} // method
 	} // class
 
@@ -24490,7 +24324,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5994;
+		public override int GetRuntimeId() => 6424;
 	} // class
 
 	public partial class EndStoneBrickDoubleSlab // minecraft:end_stone_brick_double_slab
@@ -24543,7 +24377,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12825 + d0;
+			return 13342 + d0;
 		} // method
 	} // class
 
@@ -24563,7 +24397,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -24597,7 +24430,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2258 + d0;
+			return 2288 + d0;
 		} // method
 	} // class
 
@@ -24717,7 +24550,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -24753,7 +24585,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6870 + d0;
+			return 7300 + d0;
 		} // method
 	} // class
 
@@ -24792,7 +24624,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13021;
+		public override int GetRuntimeId() => 13538;
 	} // class
 
 	public partial class ExposedCopper // minecraft:exposed_copper
@@ -24830,7 +24662,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2222;
+		public override int GetRuntimeId() => 2252;
 	} // class
 
 	public partial class ExposedCopperBars // minecraft:exposed_copper_bars
@@ -24868,7 +24700,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12654;
+		public override int GetRuntimeId() => 13170;
 	} // class
 
 	public partial class ExposedCopperBulb // minecraft:exposed_copper_bulb
@@ -24921,7 +24753,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 12650 + d0 + d1 * 2;
+			return 13166 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -24976,7 +24808,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9305 + d0;
+			return 9735 + d0;
 		} // method
 	} // class
 
@@ -24996,7 +24828,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25032,7 +24863,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9301 + d0;
+			return 9731 + d0;
 		} // method
 	} // class
 
@@ -25052,10 +24883,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25106,7 +24933,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 7916 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 8346 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -25162,7 +24989,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15022 + d0;
+			return 15566 + d0;
 		} // method
 	} // class
 
@@ -25201,7 +25028,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9255;
+		public override int GetRuntimeId() => 9685;
 	} // class
 
 	public partial class ExposedCopperLantern // minecraft:exposed_copper_lantern
@@ -25248,7 +25075,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 6120 + d0;
+			return 6550 + d0;
 		} // method
 	} // class
 
@@ -25268,9 +25095,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25309,7 +25133,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 12412 + d0 + d1 * 8 + d2 * 4;
+			return 12922 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -25348,7 +25172,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12556;
+		public override int GetRuntimeId() => 13072;
 	} // class
 
 	public partial class ExposedCutCopperSlab // minecraft:exposed_cut_copper_slab
@@ -25367,7 +25191,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25401,7 +25224,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13038 + d0;
+			return 13555 + d0;
 		} // method
 	} // class
 
@@ -25421,8 +25244,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25456,7 +25277,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 7334 + d0 * 4 + d1;
+			return 7764 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -25510,7 +25331,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2245 + d0;
+			return 2275 + d0;
 		} // method
 	} // class
 
@@ -25565,7 +25386,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 5418 + d0 + d1 * 6;
+			return 5848 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -25614,7 +25435,7 @@ namespace MiNET.Blocks
 			if (MoisturizedAmount < 0 || MoisturizedAmount > 7) return -1;
 			int d0 = MoisturizedAmount;
 
-			return 6122 + d0;
+			return 6552 + d0;
 		} // method
 	} // class
 
@@ -25634,9 +25455,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -25721,7 +25539,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12215;
+		public override int GetRuntimeId() => 12725;
 	} // class
 
 	public partial class Fire // minecraft:fire
@@ -25769,7 +25587,7 @@ namespace MiNET.Blocks
 			if (Age < 0 || Age > 15) return -1;
 			int d0 = Age;
 
-			return 12199 + d0;
+			return 12709 + d0;
 		} // method
 	} // class
 
@@ -25808,7 +25626,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2705;
+		public override int GetRuntimeId() => 2735;
 	} // class
 
 	public partial class FireCoralBlock // minecraft:fire_coral_block
@@ -25846,7 +25664,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6993;
+		public override int GetRuntimeId() => 7423;
 	} // class
 
 	public partial class FireCoralFan // minecraft:fire_coral_fan
@@ -25894,7 +25712,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 12988 + d0;
+			return 13505 + d0;
 		} // method
 	} // class
 
@@ -25943,7 +25761,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 9235 + d0;
+			return 9665 + d0;
 		} // method
 	} // class
 
@@ -25982,7 +25800,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1516;
+		public override int GetRuntimeId() => 1544;
 	} // class
 
 	public partial class FletchingTable // minecraft:fletching_table
@@ -26020,7 +25838,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10982;
+		public override int GetRuntimeId() => 11444;
 	} // class
 
 	public partial class FlowerPot // minecraft:flower_pot
@@ -26067,7 +25885,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpdateBit ? 1 : 0;
 
-			return 1603 + d0;
+			return 1631 + d0;
 		} // method
 	} // class
 
@@ -26106,7 +25924,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9394;
+		public override int GetRuntimeId() => 9824;
 	} // class
 
 	public partial class FlowingLava // minecraft:flowing_lava
@@ -26125,7 +25943,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -26154,7 +25971,7 @@ namespace MiNET.Blocks
 			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
 			int d0 = LiquidDepth;
 
-			return 14549 + d0;
+			return 15092 + d0;
 		} // method
 	} // class
 
@@ -26174,7 +25991,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -26203,7 +26019,7 @@ namespace MiNET.Blocks
 			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
 			int d0 = LiquidDepth;
 
-			return 7972 + d0;
+			return 8402 + d0;
 		} // method
 	} // class
 
@@ -26264,7 +26080,7 @@ namespace MiNET.Blocks
 			int d1 = ItemFrameMapBit ? 1 : 0;
 			int d2 = ItemFramePhotoBit ? 1 : 0;
 
-			return 6477 + d0 + d1 * 6 + d2 * 12;
+			return 6907 + d0 + d1 * 6 + d2 * 12;
 		} // method
 	} // class
 
@@ -26303,7 +26119,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6941;
+		public override int GetRuntimeId() => 7371;
 	} // class
 
 	public partial class FrostedIce // minecraft:frosted_ice
@@ -26351,7 +26167,7 @@ namespace MiNET.Blocks
 			if (Age < 0 || Age > 3) return -1;
 			int d0 = Age;
 
-			return 7902 + d0;
+			return 8332 + d0;
 		} // method
 	} // class
 
@@ -26371,7 +26187,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -26407,7 +26222,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15688 + d0;
+			return 16252 + d0;
 		} // method
 	} // class
 
@@ -26446,7 +26261,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7331;
+		public override int GetRuntimeId() => 7761;
 	} // class
 
 	public partial class Glass // minecraft:glass
@@ -26484,7 +26299,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12552;
+		public override int GetRuntimeId() => 13065;
 	} // class
 
 	public partial class GlassPane // minecraft:glass_pane
@@ -26522,7 +26337,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9064;
+		public override int GetRuntimeId() => 9494;
 	} // class
 
 	public partial class GlowFrame // minecraft:glow_frame
@@ -26582,7 +26397,7 @@ namespace MiNET.Blocks
 			int d1 = ItemFrameMapBit ? 1 : 0;
 			int d2 = ItemFramePhotoBit ? 1 : 0;
 
-			return 1047 + d0 + d1 * 6 + d2 * 12;
+			return 1059 + d0 + d1 * 6 + d2 * 12;
 		} // method
 	} // class
 
@@ -26631,7 +26446,7 @@ namespace MiNET.Blocks
 			if (MultiFaceDirectionBits < 0 || MultiFaceDirectionBits > 63) return -1;
 			int d0 = MultiFaceDirectionBits;
 
-			return 10254 + d0;
+			return 10716 + d0;
 		} // method
 	} // class
 
@@ -26670,7 +26485,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5133;
+		public override int GetRuntimeId() => 5563;
 	} // class
 
 	public partial class Glowstone // minecraft:glowstone
@@ -26708,7 +26523,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6080;
+		public override int GetRuntimeId() => 6510;
 	} // class
 
 	public partial class GoldBlock // minecraft:gold_block
@@ -26746,7 +26561,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1602;
+		public override int GetRuntimeId() => 1630;
 	} // class
 
 	public partial class GoldOre // minecraft:gold_ore
@@ -26784,7 +26599,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3378;
+		public override int GetRuntimeId() => 3408;
 	} // class
 
 	public partial class GoldenDandelion // minecraft:golden_dandelion
@@ -26822,7 +26637,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1877;
+		public override int GetRuntimeId() => 1905;
 	} // class
 
 	public partial class GoldenRail // minecraft:golden_rail
@@ -26876,7 +26691,7 @@ namespace MiNET.Blocks
 			if (RailDirection < 0 || RailDirection > 5) return -1;
 			int d1 = RailDirection;
 
-			return 9190 + d0 * 6 + d1;
+			return 9620 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -26968,7 +26783,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13161 + d0;
+			return 13696 + d0;
 		} // method
 	} // class
 
@@ -26988,7 +26803,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -27022,7 +26836,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7324 + d0;
+			return 7754 + d0;
 		} // method
 	} // class
 
@@ -27042,8 +26856,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -27077,7 +26889,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 4740 + d0 * 4 + d1;
+			return 5170 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -27177,7 +26989,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 10434 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 10896 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -27216,7 +27028,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11608;
+		public override int GetRuntimeId() => 12086;
 	} // class
 
 	public partial class GrassPath // minecraft:grass_path
@@ -27254,7 +27066,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16138;
+		public override int GetRuntimeId() => 16721;
 	} // class
 
 	public partial class Gravel // minecraft:gravel
@@ -27292,7 +27104,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16874;
+		public override int GetRuntimeId() => 17460;
 	} // class
 
 	public partial class GrayCandle // minecraft:gray_candle
@@ -27346,7 +27158,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 3419 + d0 + d1 * 4;
+			return 3465 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -27394,7 +27206,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 432 + d0;
+			return 444 + d0;
 		} // method
 	} // class
 
@@ -27433,7 +27245,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1274;
+		public override int GetRuntimeId() => 1286;
 	} // class
 
 	public partial class GrayConcrete // minecraft:gray_concrete
@@ -27471,7 +27283,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14753;
+		public override int GetRuntimeId() => 15296;
 	} // class
 
 	public partial class GrayConcretePowder // minecraft:gray_concrete_powder
@@ -27509,7 +27321,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14750;
+		public override int GetRuntimeId() => 15293;
 	} // class
 
 	public partial class GrayGlazedTerracotta // minecraft:gray_glazed_terracotta
@@ -27528,7 +27340,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -27557,7 +27368,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 16828 + d0;
+			return 17411 + d0;
 		} // method
 	} // class
 
@@ -27596,7 +27407,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9219;
+		public override int GetRuntimeId() => 9649;
 	} // class
 
 	public partial class GrayStainedGlass // minecraft:gray_stained_glass
@@ -27634,7 +27445,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5455;
+		public override int GetRuntimeId() => 5885;
 	} // class
 
 	public partial class GrayStainedGlassPane // minecraft:gray_stained_glass_pane
@@ -27672,7 +27483,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13513;
+		public override int GetRuntimeId() => 14056;
 	} // class
 
 	public partial class GrayTerracotta // minecraft:gray_terracotta
@@ -27710,7 +27521,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7307;
+		public override int GetRuntimeId() => 7737;
 	} // class
 
 	public partial class GrayWool // minecraft:gray_wool
@@ -27748,7 +27559,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1271;
+		public override int GetRuntimeId() => 1283;
 	} // class
 
 	public partial class GreenCandle // minecraft:green_candle
@@ -27802,7 +27613,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 2892 + d0 + d1 * 4;
+			return 2922 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -27850,7 +27661,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 5241 + d0;
+			return 5671 + d0;
 		} // method
 	} // class
 
@@ -27889,7 +27700,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5489;
+		public override int GetRuntimeId() => 5919;
 	} // class
 
 	public partial class GreenConcrete // minecraft:green_concrete
@@ -27927,7 +27738,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11543;
+		public override int GetRuntimeId() => 12005;
 	} // class
 
 	public partial class GreenConcretePowder // minecraft:green_concrete_powder
@@ -27965,7 +27776,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13804;
+		public override int GetRuntimeId() => 14347;
 	} // class
 
 	public partial class GreenGlazedTerracotta // minecraft:green_glazed_terracotta
@@ -27984,7 +27795,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -28013,7 +27823,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 13048 + d0;
+			return 13565 + d0;
 		} // method
 	} // class
 
@@ -28052,7 +27862,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12900;
+		public override int GetRuntimeId() => 13417;
 	} // class
 
 	public partial class GreenStainedGlass // minecraft:green_stained_glass
@@ -28090,7 +27900,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6552;
+		public override int GetRuntimeId() => 6982;
 	} // class
 
 	public partial class GreenStainedGlassPane // minecraft:green_stained_glass_pane
@@ -28128,7 +27938,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6330;
+		public override int GetRuntimeId() => 6760;
 	} // class
 
 	public partial class GreenTerracotta // minecraft:green_terracotta
@@ -28166,7 +27976,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5456;
+		public override int GetRuntimeId() => 5886;
 	} // class
 
 	public partial class GreenWool // minecraft:green_wool
@@ -28204,7 +28014,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5488;
+		public override int GetRuntimeId() => 5918;
 	} // class
 
 	public partial class Grindstone // minecraft:grindstone
@@ -28266,7 +28076,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d1 = Direction;
 
-			return 15902 + d0 * 4 + d1;
+			return 16469 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -28305,7 +28115,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1073;
+		public override int GetRuntimeId() => 1085;
 	} // class
 
 	public partial class HardBlackStainedGlass // minecraft:hard_black_stained_glass
@@ -28343,7 +28153,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11699;
+		public override int GetRuntimeId() => 12177;
 	} // class
 
 	public partial class HardBlackStainedGlassPane // minecraft:hard_black_stained_glass_pane
@@ -28381,7 +28191,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1273;
+		public override int GetRuntimeId() => 1285;
 	} // class
 
 	public partial class HardBlueStainedGlass // minecraft:hard_blue_stained_glass
@@ -28419,7 +28229,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6858;
+		public override int GetRuntimeId() => 7288;
 	} // class
 
 	public partial class HardBlueStainedGlassPane // minecraft:hard_blue_stained_glass_pane
@@ -28457,7 +28267,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16842;
+		public override int GetRuntimeId() => 17425;
 	} // class
 
 	public partial class HardBrownStainedGlass // minecraft:hard_brown_stained_glass
@@ -28495,7 +28305,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1266;
+		public override int GetRuntimeId() => 1278;
 	} // class
 
 	public partial class HardBrownStainedGlassPane // minecraft:hard_brown_stained_glass_pane
@@ -28533,7 +28343,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3778;
+		public override int GetRuntimeId() => 3824;
 	} // class
 
 	public partial class HardCyanStainedGlass // minecraft:hard_cyan_stained_glass
@@ -28571,7 +28381,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6847;
+		public override int GetRuntimeId() => 7277;
 	} // class
 
 	public partial class HardCyanStainedGlassPane // minecraft:hard_cyan_stained_glass_pane
@@ -28609,7 +28419,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14586;
+		public override int GetRuntimeId() => 15129;
 	} // class
 
 	public partial class HardGlass // minecraft:hard_glass
@@ -28647,7 +28457,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7989;
+		public override int GetRuntimeId() => 8419;
 	} // class
 
 	public partial class HardGlassPane // minecraft:hard_glass_pane
@@ -28685,7 +28495,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2712;
+		public override int GetRuntimeId() => 2742;
 	} // class
 
 	public partial class HardGrayStainedGlass // minecraft:hard_gray_stained_glass
@@ -28723,7 +28533,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1528;
+		public override int GetRuntimeId() => 1556;
 	} // class
 
 	public partial class HardGrayStainedGlassPane // minecraft:hard_gray_stained_glass_pane
@@ -28761,7 +28571,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12891;
+		public override int GetRuntimeId() => 13408;
 	} // class
 
 	public partial class HardGreenStainedGlass // minecraft:hard_green_stained_glass
@@ -28799,7 +28609,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12944;
+		public override int GetRuntimeId() => 13461;
 	} // class
 
 	public partial class HardGreenStainedGlassPane // minecraft:hard_green_stained_glass_pane
@@ -28837,7 +28647,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 382;
+		public override int GetRuntimeId() => 394;
 	} // class
 
 	public partial class HardLightBlueStainedGlass // minecraft:hard_light_blue_stained_glass
@@ -28875,7 +28685,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3784;
+		public override int GetRuntimeId() => 3830;
 	} // class
 
 	public partial class HardLightBlueStainedGlassPane // minecraft:hard_light_blue_stained_glass_pane
@@ -28913,7 +28723,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9257;
+		public override int GetRuntimeId() => 9687;
 	} // class
 
 	public partial class HardLightGrayStainedGlass // minecraft:hard_light_gray_stained_glass
@@ -28951,7 +28761,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15867;
+		public override int GetRuntimeId() => 16434;
 	} // class
 
 	public partial class HardLightGrayStainedGlassPane // minecraft:hard_light_gray_stained_glass_pane
@@ -28989,7 +28799,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7306;
+		public override int GetRuntimeId() => 7736;
 	} // class
 
 	public partial class HardLimeStainedGlass // minecraft:hard_lime_stained_glass
@@ -29027,7 +28837,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12827;
+		public override int GetRuntimeId() => 13344;
 	} // class
 
 	public partial class HardLimeStainedGlassPane // minecraft:hard_lime_stained_glass_pane
@@ -29065,7 +28875,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7295;
+		public override int GetRuntimeId() => 7725;
 	} // class
 
 	public partial class HardMagentaStainedGlass // minecraft:hard_magenta_stained_glass
@@ -29103,7 +28913,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6316;
+		public override int GetRuntimeId() => 6746;
 	} // class
 
 	public partial class HardMagentaStainedGlassPane // minecraft:hard_magenta_stained_glass_pane
@@ -29141,7 +28951,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12726;
+		public override int GetRuntimeId() => 13243;
 	} // class
 
 	public partial class HardOrangeStainedGlass // minecraft:hard_orange_stained_glass
@@ -29179,7 +28989,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12519;
+		public override int GetRuntimeId() => 13032;
 	} // class
 
 	public partial class HardOrangeStainedGlassPane // minecraft:hard_orange_stained_glass_pane
@@ -29217,7 +29027,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1258;
+		public override int GetRuntimeId() => 1270;
 	} // class
 
 	public partial class HardPinkStainedGlass // minecraft:hard_pink_stained_glass
@@ -29293,7 +29103,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15115;
+		public override int GetRuntimeId() => 15665;
 	} // class
 
 	public partial class HardPurpleStainedGlass // minecraft:hard_purple_stained_glass
@@ -29331,7 +29141,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6859;
+		public override int GetRuntimeId() => 7289;
 	} // class
 
 	public partial class HardPurpleStainedGlassPane // minecraft:hard_purple_stained_glass_pane
@@ -29369,7 +29179,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13839;
+		public override int GetRuntimeId() => 14382;
 	} // class
 
 	public partial class HardRedStainedGlass // minecraft:hard_red_stained_glass
@@ -29407,7 +29217,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13526;
+		public override int GetRuntimeId() => 14069;
 	} // class
 
 	public partial class HardRedStainedGlassPane // minecraft:hard_red_stained_glass_pane
@@ -29445,7 +29255,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13819;
+		public override int GetRuntimeId() => 14362;
 	} // class
 
 	public partial class HardWhiteStainedGlass // minecraft:hard_white_stained_glass
@@ -29483,7 +29293,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6105;
+		public override int GetRuntimeId() => 6535;
 	} // class
 
 	public partial class HardWhiteStainedGlassPane // minecraft:hard_white_stained_glass_pane
@@ -29521,7 +29331,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14573;
+		public override int GetRuntimeId() => 15116;
 	} // class
 
 	public partial class HardYellowStainedGlass // minecraft:hard_yellow_stained_glass
@@ -29559,7 +29369,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7332;
+		public override int GetRuntimeId() => 7762;
 	} // class
 
 	public partial class HardYellowStainedGlassPane // minecraft:hard_yellow_stained_glass_pane
@@ -29597,7 +29407,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6416;
+		public override int GetRuntimeId() => 6846;
 	} // class
 
 	public partial class HardenedClay // minecraft:hardened_clay
@@ -29635,7 +29445,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2260;
+		public override int GetRuntimeId() => 2290;
 	} // class
 
 	public partial class HayBlock // minecraft:hay_block
@@ -29696,7 +29506,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 2907 + d0 + d1 * 4;
+			return 2937 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -29735,7 +29545,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14664;
+		public override int GetRuntimeId() => 15207;
 	} // class
 
 	public partial class HeavyWeightedPressurePlate // minecraft:heavy_weighted_pressure_plate
@@ -29783,7 +29593,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 3956 + d0;
+			return 4002 + d0;
 		} // method
 	} // class
 
@@ -29822,7 +29632,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3338;
+		public override int GetRuntimeId() => 3368;
 	} // class
 
 	public partial class HoneycombBlock // minecraft:honeycomb_block
@@ -29860,7 +29670,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7027;
+		public override int GetRuntimeId() => 7457;
 	} // class
 
 	public partial class Hopper // minecraft:hopper
@@ -29914,7 +29724,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = ToggleBit ? 1 : 0;
 
-			return 13514 + d0 + d1 * 6;
+			return 14057 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -29953,7 +29763,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5278;
+		public override int GetRuntimeId() => 5708;
 	} // class
 
 	public partial class HornCoralBlock // minecraft:horn_coral_block
@@ -29991,7 +29801,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9130;
+		public override int GetRuntimeId() => 9560;
 	} // class
 
 	public partial class HornCoralFan // minecraft:horn_coral_fan
@@ -30039,7 +29849,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 12898 + d0;
+			return 13415 + d0;
 		} // method
 	} // class
 
@@ -30088,7 +29898,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 8486 + d0;
+			return 8916 + d0;
 		} // method
 	} // class
 
@@ -30127,7 +29937,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13093;
+		public override int GetRuntimeId() => 13628;
 	} // class
 
 	public partial class InfestedChiseledStoneBricks // minecraft:infested_chiseled_stone_bricks
@@ -30165,7 +29975,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6557;
+		public override int GetRuntimeId() => 6987;
 	} // class
 
 	public partial class InfestedCobblestone // minecraft:infested_cobblestone
@@ -30203,7 +30013,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6346;
+		public override int GetRuntimeId() => 6776;
 	} // class
 
 	public partial class InfestedCrackedStoneBricks // minecraft:infested_cracked_stone_bricks
@@ -30241,7 +30051,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2923;
+		public override int GetRuntimeId() => 2953;
 	} // class
 
 	public partial class InfestedDeepslate // minecraft:infested_deepslate
@@ -30295,7 +30105,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7816 + d0;
+			return 8246 + d0;
 		} // method
 	} // class
 
@@ -30334,7 +30144,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3168;
+		public override int GetRuntimeId() => 3198;
 	} // class
 
 	public partial class InfestedStone // minecraft:infested_stone
@@ -30372,7 +30182,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12220;
+		public override int GetRuntimeId() => 12730;
 	} // class
 
 	public partial class InfestedStoneBricks // minecraft:infested_stone_bricks
@@ -30410,7 +30220,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9074;
+		public override int GetRuntimeId() => 9504;
 	} // class
 
 	public partial class InfoUpdate // minecraft:info_update
@@ -30448,7 +30258,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1301;
+		public override int GetRuntimeId() => 1313;
 	} // class
 
 	public partial class InfoUpdate2 // minecraft:info_update2
@@ -30486,7 +30296,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15692;
+		public override int GetRuntimeId() => 16256;
 	} // class
 
 	public partial class InvisibleBedrock // minecraft:invisible_bedrock
@@ -30524,7 +30334,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3429;
+		public override int GetRuntimeId() => 3475;
 	} // class
 
 	public partial class IronBars // minecraft:iron_bars
@@ -30562,7 +30372,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8041;
+		public override int GetRuntimeId() => 8471;
 	} // class
 
 	public partial class IronBlock // minecraft:iron_block
@@ -30600,7 +30410,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16846;
+		public override int GetRuntimeId() => 17432;
 	} // class
 
 	public partial class IronChain // minecraft:iron_chain
@@ -30654,7 +30464,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14659 + d0;
+			return 15202 + d0;
 		} // method
 	} // class
 
@@ -30674,10 +30484,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -30728,7 +30534,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 6995 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 7425 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -30767,7 +30573,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7869;
+		public override int GetRuntimeId() => 8299;
 	} // class
 
 	public partial class IronTrapdoor // minecraft:iron_trapdoor
@@ -30786,9 +30592,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -30827,7 +30630,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 1890 + d0 + d1 * 8 + d2 * 4;
+			return 1918 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -30883,7 +30686,7 @@ namespace MiNET.Blocks
 			if (Rotation < 0 || Rotation > 3) return -1;
 			int d1 = Rotation;
 
-			return 8520 + d0 + d1 * 6;
+			return 8950 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -30922,7 +30725,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8516;
+		public override int GetRuntimeId() => 8946;
 	} // class
 
 	public partial class JungleButton // minecraft:jungle_button
@@ -30941,8 +30744,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -30976,7 +30777,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 362 + d0 * 6 + d1;
+			return 374 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -30996,10 +30797,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31050,7 +30847,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 12520 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 13033 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -31104,7 +30901,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15174 + d0;
+			return 15730 + d0;
 		} // method
 	} // class
 
@@ -31143,7 +30940,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1989;
+		public override int GetRuntimeId() => 2017;
 	} // class
 
 	public partial class JungleFenceGate // minecraft:jungle_fence_gate
@@ -31162,9 +30959,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31210,7 +31004,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 9239 + d0 * 8 + d1 + d2 * 4;
+			return 9669 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -31278,7 +31072,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 5601 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 6031 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -31298,8 +31092,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31332,7 +31124,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 9215 + d0 * 2 + d1;
+			return 9645 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -31352,7 +31144,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31387,7 +31178,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1261 + d0;
+			return 1273 + d0;
 		} // method
 	} // class
 
@@ -31426,7 +31217,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13054;
+		public override int GetRuntimeId() => 13571;
 	} // class
 
 	public partial class JunglePressurePlate // minecraft:jungle_pressure_plate
@@ -31474,7 +31265,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 5355 + d0;
+			return 5785 + d0;
 		} // method
 	} // class
 
@@ -31522,7 +31313,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 12155 + d0;
+			return 12633 + d0;
 		} // method
 	} // class
 
@@ -31591,7 +31382,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 6045 + d0 * 8 + d1 * 4 + d2;
+			return 6475 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -31611,7 +31402,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31645,7 +31435,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6077 + d0;
+			return 6507 + d0;
 		} // method
 	} // class
 
@@ -31665,8 +31455,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31700,7 +31488,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 13588 + d0 * 4 + d1;
+			return 14131 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -31720,7 +31508,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31749,7 +31536,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 12171 + d0;
+			return 12649 + d0;
 		} // method
 	} // class
 
@@ -31769,9 +31556,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31810,7 +31594,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 9258 + d0 + d1 * 8 + d2 * 4;
+			return 9688 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -31830,7 +31614,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -31859,7 +31642,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 6883 + d0;
+			return 7313 + d0;
 		} // method
 	} // class
 
@@ -31914,7 +31697,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2919 + d0;
+			return 2949 + d0;
 		} // method
 	} // class
 
@@ -31963,7 +31746,7 @@ namespace MiNET.Blocks
 			if (KelpAge < 0 || KelpAge > 25) return -1;
 			int d0 = KelpAge;
 
-			return 9319 + d0;
+			return 9749 + d0;
 		} // method
 	} // class
 
@@ -32012,7 +31795,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d0 = Direction;
 
-			return 7362 + d0;
+			return 7792 + d0;
 		} // method
 	} // class
 
@@ -32061,7 +31844,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 16847 + d0;
+			return 17433 + d0;
 		} // method
 	} // class
 
@@ -32109,7 +31892,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 13880 + d0;
+			return 14423 + d0;
 		} // method
 	} // class
 
@@ -32148,7 +31931,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6504;
+		public override int GetRuntimeId() => 6934;
 	} // class
 
 	public partial class LapisOre // minecraft:lapis_ore
@@ -32186,7 +31969,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15325;
+		public override int GetRuntimeId() => 15881;
 	} // class
 
 	public partial class LargeAmethystBud // minecraft:large_amethyst_bud
@@ -32243,7 +32026,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7910 + d0;
+			return 8340 + d0;
 		} // method
 	} // class
 
@@ -32291,7 +32074,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpperBlockBit ? 1 : 0;
 
-			return 12901 + d0;
+			return 13418 + d0;
 		} // method
 	} // class
 
@@ -32311,7 +32094,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -32340,7 +32122,7 @@ namespace MiNET.Blocks
 			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
 			int d0 = LiquidDepth;
 
-			return 5585 + d0;
+			return 6015 + d0;
 		} // method
 	} // class
 
@@ -32465,7 +32247,7 @@ namespace MiNET.Blocks
 			if (d0 < 0) return -1;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 13559 + d0 + d1 * 4;
+			return 14102 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -32531,7 +32313,7 @@ namespace MiNET.Blocks
 			if (d0 < 0) return -1;
 			int d1 = OpenBit ? 1 : 0;
 
-			return 12918 + d0 + d1 * 8;
+			return 13435 + d0 + d1 * 8;
 		} // method
 	} // class
 
@@ -32570,7 +32352,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2661;
+		public override int GetRuntimeId() => 2691;
 	} // class
 
 	public partial class LightBlock1 // minecraft:light_block_1
@@ -32608,7 +32390,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2660;
+		public override int GetRuntimeId() => 2690;
 	} // class
 
 	public partial class LightBlock10 // minecraft:light_block_10
@@ -32646,7 +32428,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12881;
+		public override int GetRuntimeId() => 13398;
 	} // class
 
 	public partial class LightBlock11 // minecraft:light_block_11
@@ -32684,7 +32466,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12882;
+		public override int GetRuntimeId() => 13399;
 	} // class
 
 	public partial class LightBlock12 // minecraft:light_block_12
@@ -32722,7 +32504,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12879;
+		public override int GetRuntimeId() => 13396;
 	} // class
 
 	public partial class LightBlock13 // minecraft:light_block_13
@@ -32760,7 +32542,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12880;
+		public override int GetRuntimeId() => 13397;
 	} // class
 
 	public partial class LightBlock14 // minecraft:light_block_14
@@ -32798,7 +32580,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12883;
+		public override int GetRuntimeId() => 13400;
 	} // class
 
 	public partial class LightBlock15 // minecraft:light_block_15
@@ -32836,7 +32618,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12884;
+		public override int GetRuntimeId() => 13401;
 	} // class
 
 	public partial class LightBlock2 // minecraft:light_block_2
@@ -32874,7 +32656,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2659;
+		public override int GetRuntimeId() => 2689;
 	} // class
 
 	public partial class LightBlock3 // minecraft:light_block_3
@@ -32912,7 +32694,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2658;
+		public override int GetRuntimeId() => 2688;
 	} // class
 
 	public partial class LightBlock4 // minecraft:light_block_4
@@ -32950,7 +32732,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2657;
+		public override int GetRuntimeId() => 2687;
 	} // class
 
 	public partial class LightBlock5 // minecraft:light_block_5
@@ -32988,7 +32770,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2656;
+		public override int GetRuntimeId() => 2686;
 	} // class
 
 	public partial class LightBlock6 // minecraft:light_block_6
@@ -33026,7 +32808,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2655;
+		public override int GetRuntimeId() => 2685;
 	} // class
 
 	public partial class LightBlock7 // minecraft:light_block_7
@@ -33064,7 +32846,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2654;
+		public override int GetRuntimeId() => 2684;
 	} // class
 
 	public partial class LightBlock8 // minecraft:light_block_8
@@ -33102,7 +32884,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2653;
+		public override int GetRuntimeId() => 2683;
 	} // class
 
 	public partial class LightBlock9 // minecraft:light_block_9
@@ -33140,7 +32922,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2652;
+		public override int GetRuntimeId() => 2682;
 	} // class
 
 	public partial class LightBlueCandle // minecraft:light_blue_candle
@@ -33194,7 +32976,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 7287 + d0 + d1 * 4;
+			return 7717 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -33242,7 +33024,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 1547 + d0;
+			return 1575 + d0;
 		} // method
 	} // class
 
@@ -33281,7 +33063,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8046;
+		public override int GetRuntimeId() => 8476;
 	} // class
 
 	public partial class LightBlueConcrete // minecraft:light_blue_concrete
@@ -33319,7 +33101,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15021;
+		public override int GetRuntimeId() => 15565;
 	} // class
 
 	public partial class LightBlueConcretePowder // minecraft:light_blue_concrete_powder
@@ -33376,7 +33158,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -33405,7 +33186,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 9386 + d0;
+			return 9816 + d0;
 		} // method
 	} // class
 
@@ -33444,7 +33225,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13587;
+		public override int GetRuntimeId() => 14130;
 	} // class
 
 	public partial class LightBlueStainedGlass // minecraft:light_blue_stained_glass
@@ -33482,7 +33263,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10431;
+		public override int GetRuntimeId() => 10893;
 	} // class
 
 	public partial class LightBlueStainedGlassPane // minecraft:light_blue_stained_glass_pane
@@ -33520,7 +33301,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6079;
+		public override int GetRuntimeId() => 6509;
 	} // class
 
 	public partial class LightBlueTerracotta // minecraft:light_blue_terracotta
@@ -33558,7 +33339,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6852;
+		public override int GetRuntimeId() => 7282;
 	} // class
 
 	public partial class LightBlueWool // minecraft:light_blue_wool
@@ -33596,7 +33377,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13966;
+		public override int GetRuntimeId() => 14509;
 	} // class
 
 	public partial class LightGrayCandle // minecraft:light_gray_candle
@@ -33650,7 +33431,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 12596 + d0 + d1 * 4;
+			return 13112 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -33698,7 +33479,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 9171 + d0;
+			return 9601 + d0;
 		} // method
 	} // class
 
@@ -33737,7 +33518,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16844;
+		public override int GetRuntimeId() => 17430;
 	} // class
 
 	public partial class LightGrayConcrete // minecraft:light_gray_concrete
@@ -33775,7 +33556,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2891;
+		public override int GetRuntimeId() => 2921;
 	} // class
 
 	public partial class LightGrayConcretePowder // minecraft:light_gray_concrete_powder
@@ -33813,7 +33594,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14605;
+		public override int GetRuntimeId() => 15148;
 	} // class
 
 	public partial class LightGrayShulkerBox // minecraft:light_gray_shulker_box
@@ -33851,7 +33632,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11552;
+		public override int GetRuntimeId() => 12030;
 	} // class
 
 	public partial class LightGrayStainedGlass // minecraft:light_gray_stained_glass
@@ -33889,7 +33670,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2052;
+		public override int GetRuntimeId() => 2082;
 	} // class
 
 	public partial class LightGrayStainedGlassPane // minecraft:light_gray_stained_glass_pane
@@ -33927,7 +33708,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2054;
+		public override int GetRuntimeId() => 2084;
 	} // class
 
 	public partial class LightGrayTerracotta // minecraft:light_gray_terracotta
@@ -33965,7 +33746,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2698;
+		public override int GetRuntimeId() => 2728;
 	} // class
 
 	public partial class LightGrayWool // minecraft:light_gray_wool
@@ -34003,7 +33784,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15922;
+		public override int GetRuntimeId() => 16489;
 	} // class
 
 	public partial class LightWeightedPressurePlate // minecraft:light_weighted_pressure_plate
@@ -34051,7 +33832,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 5399 + d0;
+			return 5829 + d0;
 		} // method
 	} // class
 
@@ -34106,7 +33887,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 3973 + d0 + d1 * 6;
+			return 4403 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -34154,7 +33935,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpperBlockBit ? 1 : 0;
 
-			return 14667 + d0;
+			return 15210 + d0;
 		} // method
 	} // class
 
@@ -34193,7 +33974,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1275;
+		public override int GetRuntimeId() => 1287;
 	} // class
 
 	public partial class LimeCandle // minecraft:lime_candle
@@ -34247,7 +34028,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 12757 + d0 + d1 * 4;
+			return 13274 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -34295,7 +34076,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 16111 + d0;
+			return 16694 + d0;
 		} // method
 	} // class
 
@@ -34334,7 +34115,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13153;
+		public override int GetRuntimeId() => 13688;
 	} // class
 
 	public partial class LimeConcrete // minecraft:lime_concrete
@@ -34372,7 +34153,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7327;
+		public override int GetRuntimeId() => 7757;
 	} // class
 
 	public partial class LimeConcretePowder // minecraft:lime_concrete_powder
@@ -34410,7 +34191,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15872;
+		public override int GetRuntimeId() => 16439;
 	} // class
 
 	public partial class LimeGlazedTerracotta // minecraft:lime_glazed_terracotta
@@ -34429,7 +34210,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -34458,7 +34238,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 1276 + d0;
+			return 1288 + d0;
 		} // method
 	} // class
 
@@ -34497,7 +34277,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1869;
+		public override int GetRuntimeId() => 1897;
 	} // class
 
 	public partial class LimeStainedGlass // minecraft:lime_stained_glass
@@ -34573,7 +34353,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15163;
+		public override int GetRuntimeId() => 15719;
 	} // class
 
 	public partial class LimeTerracotta // minecraft:lime_terracotta
@@ -34611,7 +34391,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16811;
+		public override int GetRuntimeId() => 17394;
 	} // class
 
 	public partial class LimeWool // minecraft:lime_wool
@@ -34649,7 +34429,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12121;
+		public override int GetRuntimeId() => 12599;
 	} // class
 
 	public partial class LitBlastFurnace // minecraft:lit_blast_furnace
@@ -34668,7 +34448,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -34704,7 +34483,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13947 + d0;
+			return 14490 + d0;
 		} // method
 	} // class
 
@@ -34743,7 +34522,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15198;
+		public override int GetRuntimeId() => 15754;
 	} // class
 
 	public partial class LitFurnace // minecraft:lit_furnace
@@ -34762,7 +34541,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -34798,7 +34576,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14587 + d0;
+			return 15130 + d0;
 		} // method
 	} // class
 
@@ -34854,7 +34632,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13089 + d0;
+			return 13624 + d0;
 		} // method
 	} // class
 
@@ -34893,7 +34671,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6853;
+		public override int GetRuntimeId() => 7283;
 	} // class
 
 	public partial class LitRedstoneOre // minecraft:lit_redstone_ore
@@ -34931,7 +34709,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7827;
+		public override int GetRuntimeId() => 8257;
 	} // class
 
 	public partial class LitSmoker // minecraft:lit_smoker
@@ -34986,7 +34764,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15321 + d0;
+			return 15877 + d0;
 		} // method
 	} // class
 
@@ -35025,7 +34803,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16840;
+		public override int GetRuntimeId() => 17423;
 	} // class
 
 	public partial class Loom // minecraft:loom
@@ -35073,7 +34851,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d0 = Direction;
 
-			return 5987 + d0;
+			return 6417 + d0;
 		} // method
 	} // class
 
@@ -35128,7 +34906,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 2040 + d0 + d1 * 4;
+			return 2070 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -35176,7 +34954,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 12410 + d0;
+			return 12920 + d0;
 		} // method
 	} // class
 
@@ -35215,7 +34993,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1314;
+		public override int GetRuntimeId() => 1342;
 	} // class
 
 	public partial class MagentaConcrete // minecraft:magenta_concrete
@@ -35253,7 +35031,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6862;
+		public override int GetRuntimeId() => 7292;
 	} // class
 
 	public partial class MagentaConcretePowder // minecraft:magenta_concrete_powder
@@ -35291,7 +35069,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6994;
+		public override int GetRuntimeId() => 7424;
 	} // class
 
 	public partial class MagentaGlazedTerracotta // minecraft:magenta_glazed_terracotta
@@ -35310,7 +35088,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35339,7 +35116,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 3600 + d0;
+			return 3646 + d0;
 		} // method
 	} // class
 
@@ -35378,7 +35155,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1544;
+		public override int GetRuntimeId() => 1572;
 	} // class
 
 	public partial class MagentaStainedGlass // minecraft:magenta_stained_glass
@@ -35416,7 +35193,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14572;
+		public override int GetRuntimeId() => 15115;
 	} // class
 
 	public partial class MagentaStainedGlassPane // minecraft:magenta_stained_glass_pane
@@ -35454,7 +35231,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8040;
+		public override int GetRuntimeId() => 8470;
 	} // class
 
 	public partial class MagentaTerracotta // minecraft:magenta_terracotta
@@ -35492,7 +35269,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7333;
+		public override int GetRuntimeId() => 7763;
 	} // class
 
 	public partial class MagentaWool // minecraft:magenta_wool
@@ -35530,7 +35307,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3598;
+		public override int GetRuntimeId() => 3644;
 	} // class
 
 	public partial class Magma // minecraft:magma
@@ -35568,7 +35345,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15885;
+		public override int GetRuntimeId() => 16452;
 	} // class
 
 	public partial class MangroveButton // minecraft:mangrove_button
@@ -35622,7 +35399,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 13865 + d0 * 6 + d1;
+			return 14408 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -35642,10 +35419,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35696,7 +35469,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 12793 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 13310 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -35750,7 +35523,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2048 + d0;
+			return 2078 + d0;
 		} // method
 	} // class
 
@@ -35789,7 +35562,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13057;
+		public override int GetRuntimeId() => 13574;
 	} // class
 
 	public partial class MangroveFenceGate // minecraft:mangrove_fence_gate
@@ -35808,9 +35581,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35856,7 +35626,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 7382 + d0 * 8 + d1 + d2 * 4;
+			return 7812 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -35924,7 +35694,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 11118 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 11580 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -35944,8 +35714,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -35978,7 +35746,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 13080 + d0 * 2 + d1;
+			return 13597 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -35998,7 +35766,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -36033,7 +35800,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1938 + d0;
+			return 1966 + d0;
 		} // method
 	} // class
 
@@ -36072,7 +35839,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3428;
+		public override int GetRuntimeId() => 3474;
 	} // class
 
 	public partial class MangrovePressurePlate // minecraft:mangrove_pressure_plate
@@ -36120,7 +35887,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 6029 + d0;
+			return 6459 + d0;
 		} // method
 	} // class
 
@@ -36175,7 +35942,7 @@ namespace MiNET.Blocks
 			if (PropaguleStage < 0 || PropaguleStage > 4) return -1;
 			int d1 = PropaguleStage;
 
-			return 13596 + d0 * 5 + d1;
+			return 14139 + d0 * 5 + d1;
 		} // method
 	} // class
 
@@ -36214,7 +35981,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12565;
+		public override int GetRuntimeId() => 13081;
 	} // class
 
 	public partial class MangroveShelf // minecraft:mangrove_shelf
@@ -36282,7 +36049,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 5280 + d0 * 8 + d1 * 4 + d2;
+			return 5710 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -36302,7 +36069,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -36336,7 +36102,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 3770 + d0;
+			return 3816 + d0;
 		} // method
 	} // class
 
@@ -36356,8 +36122,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -36391,7 +36155,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 7342 + d0 * 4 + d1;
+			return 7772 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -36440,7 +36204,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 6438 + d0;
+			return 6868 + d0;
 		} // method
 	} // class
 
@@ -36460,9 +36224,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -36501,7 +36262,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 7036 + d0 + d1 * 8 + d2 * 4;
+			return 7466 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -36550,7 +36311,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 9120 + d0;
+			return 9550 + d0;
 		} // method
 	} // class
 
@@ -36605,7 +36366,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6354 + d0;
+			return 6784 + d0;
 		} // method
 	} // class
 
@@ -36654,7 +36415,7 @@ namespace MiNET.Blocks
 			if (Direction < 0 || Direction > 3) return -1;
 			int d0 = Direction;
 
-			return 16121 + d0;
+			return 16704 + d0;
 		} // method
 	} // class
 
@@ -36712,7 +36473,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6874 + d0;
+			return 7304 + d0;
 		} // method
 	} // class
 
@@ -36751,7 +36512,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2001;
+		public override int GetRuntimeId() => 2029;
 	} // class
 
 	public partial class MelonStem // minecraft:melon_stem
@@ -36806,7 +36567,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d1 = Growth;
 
-			return 8432 + d0 * 8 + d1;
+			return 8862 + d0 * 8 + d1;
 		} // method
 	} // class
 
@@ -36845,7 +36606,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2014;
+		public override int GetRuntimeId() => 2042;
 	} // class
 
 	public partial class MossBlock // minecraft:moss_block
@@ -36883,7 +36644,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12977;
+		public override int GetRuntimeId() => 13494;
 	} // class
 
 	public partial class MossCarpet // minecraft:moss_carpet
@@ -36921,7 +36682,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1549;
+		public override int GetRuntimeId() => 1577;
 	} // class
 
 	public partial class MossyCobblestone // minecraft:mossy_cobblestone
@@ -36959,7 +36720,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1310;
+		public override int GetRuntimeId() => 1322;
 	} // class
 
 	public partial class MossyCobblestoneDoubleSlab // minecraft:mossy_cobblestone_double_slab
@@ -37012,7 +36773,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15686 + d0;
+			return 16250 + d0;
 		} // method
 	} // class
 
@@ -37032,7 +36793,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37066,7 +36826,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6390 + d0;
+			return 6820 + d0;
 		} // method
 	} // class
 
@@ -37086,8 +36846,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37121,7 +36879,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6308 + d0 * 4 + d1;
+			return 6738 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -37221,7 +36979,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 3794 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 3840 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -37275,7 +37033,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6508 + d0;
+			return 6938 + d0;
 		} // method
 	} // class
 
@@ -37295,7 +37053,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37329,7 +37086,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1958 + d0;
+			return 1986 + d0;
 		} // method
 	} // class
 
@@ -37349,8 +37106,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37384,7 +37139,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 11526 + d0 * 4 + d1;
+			return 11988 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -37484,7 +37239,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 16479 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 17062 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -37523,7 +37278,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5487;
+		public override int GetRuntimeId() => 5917;
 	} // class
 
 	public partial class MovingBlock // minecraft:moving_block
@@ -37561,7 +37316,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10208;
+		public override int GetRuntimeId() => 10670;
 	} // class
 
 	public partial class Mud // minecraft:mud
@@ -37599,7 +37354,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13088;
+		public override int GetRuntimeId() => 13623;
 	} // class
 
 	public partial class MudBrickDoubleSlab // minecraft:mud_brick_double_slab
@@ -37652,7 +37407,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1071 + d0;
+			return 1083 + d0;
 		} // method
 	} // class
 
@@ -37672,7 +37427,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37706,7 +37460,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6106 + d0;
+			return 6536 + d0;
 		} // method
 	} // class
 
@@ -37726,8 +37480,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -37761,7 +37513,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 9824 + d0 * 4 + d1;
+			return 10286 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -37861,7 +37613,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 3176 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 3206 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -37900,7 +37652,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13335;
+		public override int GetRuntimeId() => 13878;
 	} // class
 
 	public partial class MuddyMangroveRoots // minecraft:muddy_mangrove_roots
@@ -37954,7 +37706,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1914 + d0;
+			return 1942 + d0;
 		} // method
 	} // class
 
@@ -38003,7 +37755,7 @@ namespace MiNET.Blocks
 			if (HugeMushroomBits < 0 || HugeMushroomBits > 15) return -1;
 			int d0 = HugeMushroomBits;
 
-			return 12428 + d0;
+			return 12938 + d0;
 		} // method
 	} // class
 
@@ -38042,7 +37794,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5417;
+		public override int GetRuntimeId() => 5847;
 	} // class
 
 	public partial class NetherBrick // minecraft:nether_brick
@@ -38080,7 +37832,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14635;
+		public override int GetRuntimeId() => 15178;
 	} // class
 
 	public partial class NetherBrickDoubleSlab // minecraft:nether_brick_double_slab
@@ -38133,7 +37885,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12554 + d0;
+			return 13067 + d0;
 		} // method
 	} // class
 
@@ -38172,7 +37924,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6720;
+		public override int GetRuntimeId() => 7150;
 	} // class
 
 	public partial class NetherBrickSlab // minecraft:nether_brick_slab
@@ -38191,7 +37943,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38225,7 +37976,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12197 + d0;
+			return 12707 + d0;
 		} // method
 	} // class
 
@@ -38245,8 +37996,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38380,7 +38129,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 13636 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 14179 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -38457,7 +38206,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12885;
+		public override int GetRuntimeId() => 13402;
 	} // class
 
 	public partial class NetherWart // minecraft:nether_wart
@@ -38505,7 +38254,7 @@ namespace MiNET.Blocks
 			if (Age < 0 || Age > 3) return -1;
 			int d0 = Age;
 
-			return 15380 + d0;
+			return 15936 + d0;
 		} // method
 	} // class
 
@@ -38544,7 +38293,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6733;
+		public override int GetRuntimeId() => 7163;
 	} // class
 
 	public partial class NetheriteBlock // minecraft:netherite_block
@@ -38582,7 +38331,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5546;
+		public override int GetRuntimeId() => 5976;
 	} // class
 
 	public partial class Netherrack // minecraft:netherrack
@@ -38620,7 +38369,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13840;
+		public override int GetRuntimeId() => 14383;
 	} // class
 
 	public partial class Netherreactor // minecraft:netherreactor
@@ -38658,7 +38407,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14971;
+		public override int GetRuntimeId() => 15514;
 	} // class
 
 	public partial class NormalStoneDoubleSlab // minecraft:normal_stone_double_slab
@@ -38711,7 +38460,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6848 + d0;
+			return 7278 + d0;
 		} // method
 	} // class
 
@@ -38731,7 +38480,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38765,7 +38513,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6406 + d0;
+			return 6836 + d0;
 		} // method
 	} // class
 
@@ -38785,8 +38533,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -38820,7 +38566,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 2248 + d0 * 4 + d1;
+			return 2278 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -38859,7 +38605,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1936;
+		public override int GetRuntimeId() => 1964;
 	} // class
 
 	public partial class OakDoubleSlab // minecraft:oak_double_slab
@@ -38912,7 +38658,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5345 + d0;
+			return 5775 + d0;
 		} // method
 	} // class
 
@@ -38951,7 +38697,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10388;
+		public override int GetRuntimeId() => 10850;
 	} // class
 
 	public partial class OakHangingSign // minecraft:oak_hanging_sign
@@ -39018,7 +38764,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 8047 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 8477 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -39038,8 +38784,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39072,7 +38816,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 2926 + d0 * 2 + d1;
+			return 2956 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -39092,7 +38836,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39127,7 +38870,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1529 + d0;
+			return 1557 + d0;
 		} // method
 	} // class
 
@@ -39166,7 +38909,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15120;
+		public override int GetRuntimeId() => 15670;
 	} // class
 
 	public partial class OakSapling // minecraft:oak_sapling
@@ -39213,7 +38956,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 2694 + d0;
+			return 2724 + d0;
 		} // method
 	} // class
 
@@ -39282,7 +39025,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 6897 + d0 * 8 + d1 * 4 + d2;
+			return 7327 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -39302,7 +39045,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39336,7 +39078,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6722 + d0;
+			return 7152 + d0;
 		} // method
 	} // class
 
@@ -39356,8 +39098,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39391,7 +39131,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 1520 + d0 * 4 + d1;
+			return 1548 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -39446,7 +39186,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 8490 + d0;
+			return 8920 + d0;
 		} // method
 	} // class
 
@@ -39510,7 +39250,7 @@ namespace MiNET.Blocks
 			if (d0 < 0) return -1;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 4716 + d0 + d1 * 6;
+			return 5146 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -39549,7 +39289,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2053;
+		public override int GetRuntimeId() => 2083;
 	} // class
 
 	public partial class OchreFroglight // minecraft:ochre_froglight
@@ -39603,7 +39343,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 4551 + d0;
+			return 4981 + d0;
 		} // method
 	} // class
 
@@ -39642,7 +39382,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2013;
+		public override int GetRuntimeId() => 2041;
 	} // class
 
 	public partial class OrangeCandle // minecraft:orange_candle
@@ -39696,7 +39436,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 1965 + d0 + d1 * 4;
+			return 1993 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -39744,7 +39484,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 16476 + d0;
+			return 17059 + d0;
 		} // method
 	} // class
 
@@ -39783,7 +39523,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13877;
+		public override int GetRuntimeId() => 14420;
 	} // class
 
 	public partial class OrangeConcrete // minecraft:orange_concrete
@@ -39821,7 +39561,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13151;
+		public override int GetRuntimeId() => 13686;
 	} // class
 
 	public partial class OrangeConcretePowder // minecraft:orange_concrete_powder
@@ -39859,7 +39599,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16475;
+		public override int GetRuntimeId() => 17058;
 	} // class
 
 	public partial class OrangeGlazedTerracotta // minecraft:orange_glazed_terracotta
@@ -39878,7 +39618,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -39907,7 +39646,49 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 3772 + d0;
+			return 3818 + d0;
+		} // method
+	} // class
+
+	public partial class OrangePoplarLeaves // minecraft:orange_poplar_leaves
+	{
+		public override string Name => "minecraft:orange_poplar_leaves";
+
+		[StateBit] public bool PersistentBit { get; set; } = false;
+		[StateBit] public bool UpdateBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "persistent_bit":
+						PersistentBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateByte s when s.Name == "update_bit":
+						UpdateBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:orange_poplar_leaves";
+			record.Id = 1399;
+			record.States.Add(new BlockStateByte {Name = "persistent_bit", Value = Convert.ToByte(PersistentBit)});
+			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 15570 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -39946,7 +39727,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12595;
+		public override int GetRuntimeId() => 13111;
 	} // class
 
 	public partial class OrangeStainedGlass // minecraft:orange_stained_glass
@@ -39984,7 +39765,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7091;
+		public override int GetRuntimeId() => 7521;
 	} // class
 
 	public partial class OrangeStainedGlassPane // minecraft:orange_stained_glass_pane
@@ -40022,7 +39803,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1272;
+		public override int GetRuntimeId() => 1284;
 	} // class
 
 	public partial class OrangeTerracotta // minecraft:orange_terracotta
@@ -40060,7 +39841,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15116;
+		public override int GetRuntimeId() => 15666;
 	} // class
 
 	public partial class OrangeTulip // minecraft:orange_tulip
@@ -40098,7 +39879,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13332;
+		public override int GetRuntimeId() => 13867;
 	} // class
 
 	public partial class OrangeWool // minecraft:orange_wool
@@ -40136,7 +39917,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2881;
+		public override int GetRuntimeId() => 2911;
 	} // class
 
 	public partial class OxeyeDaisy // minecraft:oxeye_daisy
@@ -40174,7 +39955,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14647;
+		public override int GetRuntimeId() => 15190;
 	} // class
 
 	public partial class OxidizedChiseledCopper // minecraft:oxidized_chiseled_copper
@@ -40212,7 +39993,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9119;
+		public override int GetRuntimeId() => 9549;
 	} // class
 
 	public partial class OxidizedCopper // minecraft:oxidized_copper
@@ -40250,7 +40031,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5196;
+		public override int GetRuntimeId() => 5626;
 	} // class
 
 	public partial class OxidizedCopperBars // minecraft:oxidized_copper_bars
@@ -40288,7 +40069,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3599;
+		public override int GetRuntimeId() => 3645;
 	} // class
 
 	public partial class OxidizedCopperBulb // minecraft:oxidized_copper_bulb
@@ -40341,7 +40122,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 3594 + d0 + d1 * 2;
+			return 3640 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -40396,7 +40177,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13123 + d0;
+			return 13658 + d0;
 		} // method
 	} // class
 
@@ -40416,7 +40197,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40452,7 +40232,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13119 + d0;
+			return 13654 + d0;
 		} // method
 	} // class
 
@@ -40472,10 +40252,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40526,7 +40302,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 16876 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 17462 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -40582,7 +40358,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2648 + d0;
+			return 2678 + d0;
 		} // method
 	} // class
 
@@ -40621,7 +40397,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13058;
+		public override int GetRuntimeId() => 13575;
 	} // class
 
 	public partial class OxidizedCopperLantern // minecraft:oxidized_copper_lantern
@@ -40668,7 +40444,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 12191 + d0;
+			return 12701 + d0;
 		} // method
 	} // class
 
@@ -40688,9 +40464,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40729,7 +40502,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 7308 + d0 + d1 * 8 + d2 * 4;
+			return 7738 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -40768,7 +40541,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9395;
+		public override int GetRuntimeId() => 9825;
 	} // class
 
 	public partial class OxidizedCutCopperSlab // minecraft:oxidized_cut_copper_slab
@@ -40787,7 +40560,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40821,7 +40593,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9128 + d0;
+			return 9558 + d0;
 		} // method
 	} // class
 
@@ -40841,8 +40613,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -40876,7 +40646,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 1941 + d0 * 4 + d1;
+			return 1969 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -40930,7 +40700,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2220 + d0;
+			return 2250 + d0;
 		} // method
 	} // class
 
@@ -40985,7 +40755,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 1551 + d0 + d1 * 6;
+			return 1579 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -41024,7 +40794,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1545;
+		public override int GetRuntimeId() => 1573;
 	} // class
 
 	public partial class PackedMud // minecraft:packed_mud
@@ -41062,7 +40832,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1546;
+		public override int GetRuntimeId() => 1574;
 	} // class
 
 	public partial class PaleHangingMoss // minecraft:pale_hanging_moss
@@ -41109,7 +40879,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Tip ? 1 : 0;
 
-			return 12221 + d0;
+			return 12731 + d0;
 		} // method
 	} // class
 
@@ -41148,7 +40918,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10389;
+		public override int GetRuntimeId() => 10851;
 	} // class
 
 	public partial class PaleMossCarpet // minecraft:pale_moss_carpet
@@ -41247,7 +41017,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = UpperBlockBit ? 1 : 0;
 
-			return 12223 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 12733 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -41302,7 +41072,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 15008 + d0 * 6 + d1;
+			return 15552 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -41322,10 +41092,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41376,7 +41142,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 2662 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 2692 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -41430,7 +41196,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 16809 + d0;
+			return 17392 + d0;
 		} // method
 	} // class
 
@@ -41469,7 +41235,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1949;
+		public override int GetRuntimeId() => 1977;
 	} // class
 
 	public partial class PaleOakFenceGate // minecraft:pale_oak_fence_gate
@@ -41488,9 +41254,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41536,7 +41299,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 416 + d0 * 8 + d1 + d2 * 4;
+			return 428 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -41604,7 +41367,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 9397 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 9859 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -41624,8 +41387,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41658,7 +41419,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 1950 + d0 * 2 + d1;
+			return 1978 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -41678,7 +41439,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41713,7 +41473,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12168 + d0;
+			return 12646 + d0;
 		} // method
 	} // class
 
@@ -41752,7 +41512,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5445;
+		public override int GetRuntimeId() => 5875;
 	} // class
 
 	public partial class PaleOakPressurePlate // minecraft:pale_oak_pressure_plate
@@ -41800,7 +41560,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 1917 + d0;
+			return 1945 + d0;
 		} // method
 	} // class
 
@@ -41848,7 +41608,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 2015 + d0;
+			return 2043 + d0;
 		} // method
 	} // class
 
@@ -41917,7 +41677,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 11080 + d0 * 8 + d1 * 4 + d2;
+			return 11542 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -41937,7 +41697,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -41971,7 +41730,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6730 + d0;
+			return 7160 + d0;
 		} // method
 	} // class
 
@@ -41991,8 +41750,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -42026,7 +41783,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 14725 + d0 * 4 + d1;
+			return 15268 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -42075,7 +41832,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 13126 + d0;
+			return 13661 + d0;
 		} // method
 	} // class
 
@@ -42095,9 +41852,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -42136,7 +41890,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 14669 + d0 + d1 * 8 + d2 * 4;
+			return 15212 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -42185,7 +41939,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 2018 + d0;
+			return 2046 + d0;
 		} // method
 	} // class
 
@@ -42240,7 +41994,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9071 + d0;
+			return 9501 + d0;
 		} // method
 	} // class
 
@@ -42295,7 +42049,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12860 + d0;
+			return 13377 + d0;
 		} // method
 	} // class
 
@@ -42343,7 +42097,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpperBlockBit ? 1 : 0;
 
-			return 15611 + d0;
+			return 16175 + d0;
 		} // method
 	} // class
 
@@ -42397,7 +42151,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9203 + d0;
+			return 9633 + d0;
 		} // method
 	} // class
 
@@ -42451,7 +42205,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14751 + d0;
+			return 15294 + d0;
 		} // method
 	} // class
 
@@ -42500,7 +42254,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 13832 + d0;
+			return 14375 + d0;
 		} // method
 	} // class
 
@@ -42555,7 +42309,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 14754 + d0 + d1 * 4;
+			return 15297 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -42603,7 +42357,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 6347 + d0;
+			return 6777 + d0;
 		} // method
 	} // class
 
@@ -42642,7 +42396,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15327;
+		public override int GetRuntimeId() => 15883;
 	} // class
 
 	public partial class PinkConcrete // minecraft:pink_concrete
@@ -42680,7 +42434,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 4748;
+		public override int GetRuntimeId() => 5178;
 	} // class
 
 	public partial class PinkConcretePowder // minecraft:pink_concrete_powder
@@ -42718,7 +42472,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6729;
+		public override int GetRuntimeId() => 7159;
 	} // class
 
 	public partial class PinkGlazedTerracotta // minecraft:pink_glazed_terracotta
@@ -42737,7 +42491,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -42766,7 +42519,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 12979 + d0;
+			return 13496 + d0;
 		} // method
 	} // class
 
@@ -42829,7 +42582,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 7400 + d0 + d1 * 8;
+			return 7830 + d0 + d1 * 8;
 		} // method
 	} // class
 
@@ -42868,7 +42621,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6880;
+		public override int GetRuntimeId() => 7310;
 	} // class
 
 	public partial class PinkStainedGlass // minecraft:pink_stained_glass
@@ -42906,7 +42659,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6811;
+		public override int GetRuntimeId() => 7241;
 	} // class
 
 	public partial class PinkStainedGlassPane // minecraft:pink_stained_glass_pane
@@ -42944,7 +42697,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13965;
+		public override int GetRuntimeId() => 14508;
 	} // class
 
 	public partial class PinkTerracotta // minecraft:pink_terracotta
@@ -42982,7 +42735,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6343;
+		public override int GetRuntimeId() => 6773;
 	} // class
 
 	public partial class PinkTulip // minecraft:pink_tulip
@@ -43020,7 +42773,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6721;
+		public override int GetRuntimeId() => 7151;
 	} // class
 
 	public partial class PinkWool // minecraft:pink_wool
@@ -43058,7 +42811,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5547;
+		public override int GetRuntimeId() => 5977;
 	} // class
 
 	public partial class Piston // minecraft:piston
@@ -43106,7 +42859,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 3403 + d0;
+			return 3449 + d0;
 		} // method
 	} // class
 
@@ -43210,7 +42963,7 @@ namespace MiNET.Blocks
 			int d0 = Growth;
 			int d1 = UpperBlockBit ? 1 : 0;
 
-			return 1315 + d0 * 2 + d1;
+			return 1343 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -43258,7 +43011,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpperBlockBit ? 1 : 0;
 
-			return 5524 + d0;
+			return 5954 + d0;
 		} // method
 	} // class
 
@@ -43307,7 +43060,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 5468 + d0;
+			return 5898 + d0;
 		} // method
 	} // class
 
@@ -43346,7 +43099,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7825;
+		public override int GetRuntimeId() => 8255;
 	} // class
 
 	public partial class PointedDripstone // minecraft:pointed_dripstone
@@ -43408,7 +43161,7 @@ namespace MiNET.Blocks
 			if (d0 < 0) return -1;
 			int d1 = Hanging ? 1 : 0;
 
-			return 14960 + d0 + d1 * 5;
+			return 15503 + d0 + d1 * 5;
 		} // method
 	} // class
 
@@ -43447,7 +43200,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15126;
+		public override int GetRuntimeId() => 15676;
 	} // class
 
 	public partial class PolishedAndesiteDoubleSlab // minecraft:polished_andesite_double_slab
@@ -43500,7 +43253,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14529 + d0;
+			return 15072 + d0;
 		} // method
 	} // class
 
@@ -43520,7 +43273,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43554,7 +43306,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14958 + d0;
+			return 15501 + d0;
 		} // method
 	} // class
 
@@ -43574,8 +43326,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43609,7 +43359,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 13820 + d0 * 4 + d1;
+			return 14363 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -43703,7 +43453,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5416;
+		public override int GetRuntimeId() => 5846;
 	} // class
 
 	public partial class PolishedBlackstoneBrickDoubleSlab // minecraft:polished_blackstone_brick_double_slab
@@ -43756,7 +43506,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2882 + d0;
+			return 2912 + d0;
 		} // method
 	} // class
 
@@ -43776,7 +43526,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43810,7 +43559,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6404 + d0;
+			return 6834 + d0;
 		} // method
 	} // class
 
@@ -43830,8 +43579,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -43865,7 +43612,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 7028 + d0 * 4 + d1;
+			return 7458 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -43965,7 +43712,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 3608 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 3654 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -44004,7 +43751,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7855;
+		public override int GetRuntimeId() => 8285;
 	} // class
 
 	public partial class PolishedBlackstoneButton // minecraft:polished_blackstone_button
@@ -44058,7 +43805,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 15625 + d0 * 6 + d1;
+			return 16189 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -44112,7 +43859,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2696 + d0;
+			return 2726 + d0;
 		} // method
 	} // class
 
@@ -44161,7 +43908,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 12604 + d0;
+			return 13120 + d0;
 		} // method
 	} // class
 
@@ -44181,7 +43928,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44215,7 +43961,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12132 + d0;
+			return 12610 + d0;
 		} // method
 	} // class
 
@@ -44235,8 +43981,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44270,7 +44014,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6779 + d0 * 4 + d1;
+			return 7209 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -44370,7 +44114,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 13164 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 13699 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -44409,7 +44153,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14531;
+		public override int GetRuntimeId() => 15074;
 	} // class
 
 	public partial class PolishedCinnabarDoubleSlab // minecraft:polished_cinnabar_double_slab
@@ -44462,7 +44206,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7095 + d0;
+			return 7525 + d0;
 		} // method
 	} // class
 
@@ -44482,7 +44226,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44516,7 +44259,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 8549 + d0;
+			return 8979 + d0;
 		} // method
 	} // class
 
@@ -44536,8 +44279,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44571,7 +44312,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 15166 + d0 * 4 + d1;
+			return 15722 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -44671,7 +44412,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 6558 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 6988 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -44710,7 +44451,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15389;
+		public override int GetRuntimeId() => 15953;
 	} // class
 
 	public partial class PolishedDeepslateDoubleSlab // minecraft:polished_deepslate_double_slab
@@ -44763,7 +44504,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2223 + d0;
+			return 2253 + d0;
 		} // method
 	} // class
 
@@ -44783,7 +44524,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44817,7 +44557,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1563 + d0;
+			return 1591 + d0;
 		} // method
 	} // class
 
@@ -44837,8 +44577,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -44872,7 +44610,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 1861 + d0 * 4 + d1;
+			return 1889 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -44972,7 +44710,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 15702 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 16266 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -45011,7 +44749,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10980;
+		public override int GetRuntimeId() => 11442;
 	} // class
 
 	public partial class PolishedDioriteDoubleSlab // minecraft:polished_diorite_double_slab
@@ -45064,7 +44802,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13626 + d0;
+			return 14169 + d0;
 		} // method
 	} // class
 
@@ -45084,7 +44822,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45118,7 +44855,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7350 + d0;
+			return 7780 + d0;
 		} // method
 	} // class
 
@@ -45138,8 +44875,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45173,7 +44908,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 13142 + d0 * 4 + d1;
+			return 13677 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -45212,7 +44947,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2017;
+		public override int GetRuntimeId() => 2045;
 	} // class
 
 	public partial class PolishedGraniteDoubleSlab // minecraft:polished_granite_double_slab
@@ -45265,7 +45000,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15176 + d0;
+			return 15732 + d0;
 		} // method
 	} // class
 
@@ -45285,7 +45020,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45319,7 +45053,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12636 + d0;
+			return 13152 + d0;
 		} // method
 	} // class
 
@@ -45339,8 +45073,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45374,7 +45106,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6331 + d0 * 4 + d1;
+			return 6761 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -45413,7 +45145,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1010;
+		public override int GetRuntimeId() => 1022;
 	} // class
 
 	public partial class PolishedSulfurDoubleSlab // minecraft:polished_sulfur_double_slab
@@ -45466,7 +45198,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9068 + d0;
+			return 9498 + d0;
 		} // method
 	} // class
 
@@ -45486,7 +45218,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45520,7 +45251,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14622 + d0;
+			return 15165 + d0;
 		} // method
 	} // class
 
@@ -45540,8 +45271,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45575,7 +45304,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6803 + d0 * 4 + d1;
+			return 7233 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -45675,7 +45404,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 16647 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 17230 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -45714,7 +45443,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14571;
+		public override int GetRuntimeId() => 15114;
 	} // class
 
 	public partial class PolishedTuffDoubleSlab // minecraft:polished_tuff_double_slab
@@ -45767,7 +45496,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5995 + d0;
+			return 6425 + d0;
 		} // method
 	} // class
 
@@ -45787,7 +45516,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45821,7 +45549,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 434 + d0;
+			return 446 + d0;
 		} // method
 	} // class
 
@@ -45841,8 +45569,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -45876,7 +45602,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 14625 + d0 * 4 + d1;
+			return 15168 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -45976,7 +45702,742 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 2998 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 3028 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
+	} // class
+
+	public partial class PoplarButton // minecraft:poplar_button
+	{
+		public override string Name => "minecraft:poplar_button";
+
+		[StateBit] public bool ButtonPressedBit { get; set; } = false;
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "button_pressed_bit":
+						ButtonPressedBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateInt s when s.Name == "facing_direction":
+						FacingDirection = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_button";
+			record.Id = 1381;
+			record.States.Add(new BlockStateByte {Name = "button_pressed_bit", Value = Convert.ToByte(ButtonPressedBit)});
+			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = ButtonPressedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+
+			return 362 + d0 * 6 + d1;
+		} // method
+	} // class
+
+	public partial class PoplarDoor // minecraft:poplar_door
+	{
+		public override string Name => "minecraft:poplar_door";
+
+		[StateBit] public bool DoorHingeBit { get; set; } = false;
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool OpenBit { get; set; } = false;
+		[StateBit] public bool UpperBlockBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "door_hinge_bit":
+						DoorHingeBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateString s when s.Name == "minecraft:cardinal_direction":
+						CardinalDirection = s.Value;
+						break;
+					case BlockStateByte s when s.Name == "open_bit":
+						OpenBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateByte s when s.Name == "upper_block_bit":
+						UpperBlockBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_door";
+			record.Id = 1382;
+			record.States.Add(new BlockStateByte {Name = "door_hinge_bit", Value = Convert.ToByte(DoorHingeBit)});
+			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
+			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
+			record.States.Add(new BlockStateByte {Name = "upper_block_bit", Value = Convert.ToByte(UpperBlockBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = DoorHingeBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+			int d3 = UpperBlockBit ? 1 : 0;
+
+			return 12669 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+		} // method
+	} // class
+
+	public partial class PoplarDoubleSlab // minecraft:poplar_double_slab
+	{
+		public override string Name => "minecraft:poplar_double_slab";
+
+		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateString s when s.Name == "minecraft:vertical_half":
+						VerticalHalf = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_double_slab";
+			record.Id = 1391;
+			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13618 + d0;
+		} // method
+	} // class
+
+	public partial class PoplarFence // minecraft:poplar_fence
+	{
+		public override string Name => "minecraft:poplar_fence";
+
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_fence";
+			record.Id = 1383;
+			return record;
+		} // method
+
+		public override int GetRuntimeId() => 15525;
+	} // class
+
+	public partial class PoplarFenceGate // minecraft:poplar_fence_gate
+	{
+		public override string Name => "minecraft:poplar_fence_gate";
+
+		[StateBit] public bool InWallBit { get; set; } = false;
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool OpenBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "in_wall_bit":
+						InWallBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateString s when s.Name == "minecraft:cardinal_direction":
+						CardinalDirection = s.Value;
+						break;
+					case BlockStateByte s when s.Name == "open_bit":
+						OpenBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_fence_gate";
+			record.Id = 1384;
+			record.States.Add(new BlockStateByte {Name = "in_wall_bit", Value = Convert.ToByte(InWallBit)});
+			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
+			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = InWallBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OpenBit ? 1 : 0;
+
+			return 16499 + d0 * 8 + d1 + d2 * 4;
+		} // method
+	} // class
+
+	public partial class PoplarHangingSign // minecraft:poplar_hanging_sign
+	{
+		public override string Name => "minecraft:poplar_hanging_sign";
+
+		[StateBit] public bool AttachedBit { get; set; } = false;
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
+		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
+		[StateBit] public bool Hanging { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "attached_bit":
+						AttachedBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateInt s when s.Name == "facing_direction":
+						FacingDirection = s.Value;
+						break;
+					case BlockStateInt s when s.Name == "ground_sign_direction":
+						GroundSignDirection = s.Value;
+						break;
+					case BlockStateByte s when s.Name == "hanging":
+						Hanging = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_hanging_sign";
+			record.Id = 1385;
+			record.States.Add(new BlockStateByte {Name = "attached_bit", Value = Convert.ToByte(AttachedBit)});
+			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
+			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
+			record.States.Add(new BlockStateByte {Name = "hanging", Value = Convert.ToByte(Hanging)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AttachedBit ? 1 : 0;
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d1 = FacingDirection;
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d2 = GroundSignDirection;
+			int d3 = Hanging ? 1 : 0;
+
+			return 4018 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+		} // method
+	} // class
+
+	public partial class PoplarLog // minecraft:poplar_log
+	{
+		public override string Name => "minecraft:poplar_log";
+
+		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateString s when s.Name == "pillar_axis":
+						PillarAxis = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_log";
+			record.Id = 1387;
+			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 16431 + d0;
+		} // method
+	} // class
+
+	public partial class PoplarPlanks // minecraft:poplar_planks
+	{
+		public override string Name => "minecraft:poplar_planks";
+
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_planks";
+			record.Id = 1388;
+			return record;
+		} // method
+
+		public override int GetRuntimeId() => 13190;
+	} // class
+
+	public partial class PoplarPressurePlate // minecraft:poplar_pressure_plate
+	{
+		public override string Name => "minecraft:poplar_pressure_plate";
+
+		[StateRange(0, 15)] public int RedstoneSignal { get; set; } = 0;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateInt s when s.Name == "redstone_signal":
+						RedstoneSignal = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_pressure_plate";
+			record.Id = 1389;
+			record.States.Add(new BlockStateInt {Name = "redstone_signal", Value = RedstoneSignal});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
+			int d0 = RedstoneSignal;
+
+			return 12014 + d0;
+		} // method
+	} // class
+
+	public partial class PoplarSapling // minecraft:poplar_sapling
+	{
+		public override string Name => "minecraft:poplar_sapling";
+
+		[StateBit] public bool AgeBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "age_bit":
+						AgeBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_sapling";
+			record.Id = 1398;
+			record.States.Add(new BlockStateByte {Name = "age_bit", Value = Convert.ToByte(AgeBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = AgeBit ? 1 : 0;
+
+			return 15592 + d0;
+		} // method
+	} // class
+
+	public partial class PoplarShelf // minecraft:poplar_shelf
+	{
+		public override string Name => "minecraft:poplar_shelf";
+
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool PoweredBit { get; set; } = false;
+		[StateRange(0, 3)] public int PoweredShelfType { get; set; } = 0;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateString s when s.Name == "minecraft:cardinal_direction":
+						CardinalDirection = s.Value;
+						break;
+					case BlockStateByte s when s.Name == "powered_bit":
+						PoweredBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateInt s when s.Name == "powered_shelf_type":
+						PoweredShelfType = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_shelf";
+			record.Id = 1402;
+			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
+			record.States.Add(new BlockStateByte {Name = "powered_bit", Value = Convert.ToByte(PoweredBit)});
+			record.States.Add(new BlockStateInt {Name = "powered_shelf_type", Value = PoweredShelfType});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+			int d1 = PoweredBit ? 1 : 0;
+			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
+			int d2 = PoweredShelfType;
+
+			return 9826 + d0 * 8 + d1 * 4 + d2;
+		} // method
+	} // class
+
+	public partial class PoplarSlab // minecraft:poplar_slab
+	{
+		public override string Name => "minecraft:poplar_slab";
+
+		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateString s when s.Name == "minecraft:vertical_half":
+						VerticalHalf = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_slab";
+			record.Id = 1390;
+			record.States.Add(new BlockStateString {Name = "minecraft:vertical_half", Value = VerticalHalf});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = VerticalHalf switch
+			{
+				"bottom" => 0,
+				"top" => 1,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 2052 + d0;
+		} // method
+	} // class
+
+	public partial class PoplarStairs // minecraft:poplar_stairs
+	{
+		public override string Name => "minecraft:poplar_stairs";
+
+		[StateBit] public bool UpsideDownBit { get; set; } = false;
+		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "upside_down_bit":
+						UpsideDownBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateInt s when s.Name == "weirdo_direction":
+						WeirdoDirection = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_stairs";
+			record.Id = 1392;
+			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
+			record.States.Add(new BlockStateInt {Name = "weirdo_direction", Value = WeirdoDirection});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = UpsideDownBit ? 1 : 0;
+			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
+			int d1 = WeirdoDirection;
+
+			return 13869 + d0 * 4 + d1;
+		} // method
+	} // class
+
+	public partial class PoplarStandingSign // minecraft:poplar_standing_sign
+	{
+		public override string Name => "minecraft:poplar_standing_sign";
+
+		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateInt s when s.Name == "ground_sign_direction":
+						GroundSignDirection = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_standing_sign";
+			record.Id = 1393;
+			record.States.Add(new BlockStateInt {Name = "ground_sign_direction", Value = GroundSignDirection});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
+			int d0 = GroundSignDirection;
+
+			return 3416 + d0;
+		} // method
+	} // class
+
+	public partial class PoplarTrapdoor // minecraft:poplar_trapdoor
+	{
+		public override string Name => "minecraft:poplar_trapdoor";
+
+		[StateRange(0, 3)] public int Direction { get; set; } = 0;
+		[StateBit] public bool OpenBit { get; set; } = false;
+		[StateBit] public bool UpsideDownBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateInt s when s.Name == "direction":
+						Direction = s.Value;
+						break;
+					case BlockStateByte s when s.Name == "open_bit":
+						OpenBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateByte s when s.Name == "upside_down_bit":
+						UpsideDownBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_trapdoor";
+			record.Id = 1394;
+			record.States.Add(new BlockStateInt {Name = "direction", Value = Direction});
+			record.States.Add(new BlockStateByte {Name = "open_bit", Value = Convert.ToByte(OpenBit)});
+			record.States.Add(new BlockStateByte {Name = "upside_down_bit", Value = Convert.ToByte(UpsideDownBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (Direction < 0 || Direction > 3) return -1;
+			int d0 = Direction;
+			int d1 = OpenBit ? 1 : 0;
+			int d2 = UpsideDownBit ? 1 : 0;
+
+			return 1326 + d0 + d1 * 8 + d2 * 4;
+		} // method
+	} // class
+
+	public partial class PoplarWallSign // minecraft:poplar_wall_sign
+	{
+		public override string Name => "minecraft:poplar_wall_sign";
+
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateInt s when s.Name == "facing_direction":
+						FacingDirection = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_wall_sign";
+			record.Id = 1395;
+			record.States.Add(new BlockStateInt {Name = "facing_direction", Value = FacingDirection});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			if (FacingDirection < 0 || FacingDirection > 5) return -1;
+			int d0 = FacingDirection;
+
+			return 15704 + d0;
+		} // method
+	} // class
+
+	public partial class PoplarWood // minecraft:poplar_wood
+	{
+		public override string Name => "minecraft:poplar_wood";
+
+		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateString s when s.Name == "pillar_axis":
+						PillarAxis = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:poplar_wood";
+			record.Id = 1397;
+			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 17427 + d0;
 		} // method
 	} // class
 
@@ -46015,7 +46476,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5475;
+		public override int GetRuntimeId() => 5905;
 	} // class
 
 	public partial class Portal // minecraft:portal
@@ -46069,7 +46530,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15434 + d0;
+			return 15998 + d0;
 		} // method
 	} // class
 
@@ -46089,7 +46550,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -46118,7 +46578,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d0 = Growth;
 
-			return 1906 + d0;
+			return 1934 + d0;
 		} // method
 	} // class
 
@@ -46175,7 +46635,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11112 + d0;
+			return 11574 + d0;
 		} // method
 	} // class
 
@@ -46281,7 +46741,7 @@ namespace MiNET.Blocks
 			int d1 = OutputLitBit ? 1 : 0;
 			int d2 = OutputSubtractBit ? 1 : 0;
 
-			return 1973 + d0 + d1 * 8 + d2 * 4;
+			return 2001 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -46344,7 +46804,7 @@ namespace MiNET.Blocks
 			if (RepeaterDelay < 0 || RepeaterDelay > 3) return -1;
 			int d1 = RepeaterDelay;
 
-			return 7271 + d0 + d1 * 4;
+			return 7701 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -46383,7 +46843,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12409;
+		public override int GetRuntimeId() => 12919;
 	} // class
 
 	public partial class PrismarineBrickDoubleSlab // minecraft:prismarine_brick_double_slab
@@ -46436,7 +46896,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15864 + d0;
+			return 16428 + d0;
 		} // method
 	} // class
 
@@ -46456,7 +46916,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -46490,7 +46949,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5490 + d0;
+			return 5920 + d0;
 		} // method
 	} // class
 
@@ -46529,7 +46988,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15931;
+		public override int GetRuntimeId() => 16498;
 	} // class
 
 	public partial class PrismarineBricksStairs // minecraft:prismarine_bricks_stairs
@@ -46548,8 +47007,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -46583,7 +47040,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 1236 + d0 * 4 + d1;
+			return 1248 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -46637,7 +47094,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6736 + d0;
+			return 7166 + d0;
 		} // method
 	} // class
 
@@ -46657,7 +47114,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -46691,7 +47147,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6734 + d0;
+			return 7164 + d0;
 		} // method
 	} // class
 
@@ -46711,8 +47167,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -46746,7 +47200,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 14613 + d0 * 4 + d1;
+			return 15156 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -46846,7 +47300,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 8551 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 8981 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -46902,7 +47356,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7296 + d0;
+			return 7726 + d0;
 		} // method
 	} // class
 
@@ -46958,7 +47412,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d1 = Growth;
 
-			return 12674 + d0 * 8 + d1;
+			return 13191 + d0 * 8 + d1;
 		} // method
 	} // class
 
@@ -47013,7 +47467,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 13841 + d0 + d1 * 4;
+			return 14384 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -47061,7 +47515,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 13114 + d0;
+			return 13649 + d0;
 		} // method
 	} // class
 
@@ -47100,7 +47554,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15384;
+		public override int GetRuntimeId() => 15944;
 	} // class
 
 	public partial class PurpleConcrete // minecraft:purple_concrete
@@ -47138,7 +47592,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6399;
+		public override int GetRuntimeId() => 6829;
 	} // class
 
 	public partial class PurpleConcretePowder // minecraft:purple_concrete_powder
@@ -47176,7 +47630,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12978;
+		public override int GetRuntimeId() => 13495;
 	} // class
 
 	public partial class PurpleGlazedTerracotta // minecraft:purple_glazed_terracotta
@@ -47195,7 +47649,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47224,7 +47677,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 13798 + d0;
+			return 14341 + d0;
 		} // method
 	} // class
 
@@ -47263,7 +47716,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14924;
+		public override int GetRuntimeId() => 15467;
 	} // class
 
 	public partial class PurpleStainedGlass // minecraft:purple_stained_glass
@@ -47301,7 +47754,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3972;
+		public override int GetRuntimeId() => 4402;
 	} // class
 
 	public partial class PurpleStainedGlassPane // minecraft:purple_stained_glass_pane
@@ -47339,7 +47792,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8493;
+		public override int GetRuntimeId() => 8923;
 	} // class
 
 	public partial class PurpleTerracotta // minecraft:purple_terracotta
@@ -47377,7 +47830,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12779;
+		public override int GetRuntimeId() => 13296;
 	} // class
 
 	public partial class PurpleWool // minecraft:purple_wool
@@ -47415,7 +47868,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16845;
+		public override int GetRuntimeId() => 17431;
 	} // class
 
 	public partial class PurpurBlock // minecraft:purpur_block
@@ -47469,7 +47922,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15344 + d0;
+			return 15900 + d0;
 		} // method
 	} // class
 
@@ -47523,7 +47976,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12216 + d0;
+			return 12726 + d0;
 		} // method
 	} // class
 
@@ -47578,7 +48031,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 10318 + d0;
+			return 10780 + d0;
 		} // method
 	} // class
 
@@ -47598,7 +48051,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47632,7 +48084,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2875 + d0;
+			return 2905 + d0;
 		} // method
 	} // class
 
@@ -47652,8 +48104,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47687,7 +48137,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 15393 + d0 * 4 + d1;
+			return 15957 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -47742,7 +48192,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5442 + d0;
+			return 5872 + d0;
 		} // method
 	} // class
 
@@ -47781,7 +48231,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12738;
+		public override int GetRuntimeId() => 13255;
 	} // class
 
 	public partial class QuartzDoubleSlab // minecraft:quartz_double_slab
@@ -47834,7 +48284,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 3606 + d0;
+			return 3652 + d0;
 		} // method
 	} // class
 
@@ -47873,7 +48323,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7052;
+		public override int GetRuntimeId() => 7482;
 	} // class
 
 	public partial class QuartzPillar // minecraft:quartz_pillar
@@ -47927,7 +48377,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5581 + d0;
+			return 6011 + d0;
 		} // method
 	} // class
 
@@ -47947,7 +48397,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -47981,7 +48430,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13085 + d0;
+			return 13620 + d0;
 		} // method
 	} // class
 
@@ -48001,8 +48450,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48036,7 +48483,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 8006 + d0 * 4 + d1;
+			return 8436 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -48085,7 +48532,7 @@ namespace MiNET.Blocks
 			if (RailDirection < 0 || RailDirection > 9) return -1;
 			int d0 = RailDirection;
 
-			return 6135 + d0;
+			return 6565 + d0;
 		} // method
 	} // class
 
@@ -48124,7 +48571,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9126;
+		public override int GetRuntimeId() => 9556;
 	} // class
 
 	public partial class RawGoldBlock // minecraft:raw_gold_block
@@ -48162,7 +48609,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1960;
+		public override int GetRuntimeId() => 1988;
 	} // class
 
 	public partial class RawIronBlock // minecraft:raw_iron_block
@@ -48200,7 +48647,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16843;
+		public override int GetRuntimeId() => 17426;
 	} // class
 
 	public partial class RedCandle // minecraft:red_candle
@@ -48254,7 +48701,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 7856 + d0 + d1 * 4;
+			return 8286 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -48302,7 +48749,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 15336 + d0;
+			return 15892 + d0;
 		} // method
 	} // class
 
@@ -48341,7 +48788,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14970;
+		public override int GetRuntimeId() => 15513;
 	} // class
 
 	public partial class RedConcrete // minecraft:red_concrete
@@ -48379,7 +48826,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15326;
+		public override int GetRuntimeId() => 15882;
 	} // class
 
 	public partial class RedConcretePowder // minecraft:red_concrete_powder
@@ -48417,7 +48864,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14604;
+		public override int GetRuntimeId() => 15147;
 	} // class
 
 	public partial class RedGlazedTerracotta // minecraft:red_glazed_terracotta
@@ -48436,7 +48883,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48465,7 +48911,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 6361 + d0;
+			return 6791 + d0;
 		} // method
 	} // class
 
@@ -48504,7 +48950,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7330;
+		public override int GetRuntimeId() => 7760;
 	} // class
 
 	public partial class RedMushroomBlock // minecraft:red_mushroom_block
@@ -48552,7 +48998,7 @@ namespace MiNET.Blocks
 			if (HugeMushroomBits < 0 || HugeMushroomBits > 15) return -1;
 			int d0 = HugeMushroomBits;
 
-			return 5246 + d0;
+			return 5676 + d0;
 		} // method
 	} // class
 
@@ -48591,7 +49037,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 847;
+		public override int GetRuntimeId() => 859;
 	} // class
 
 	public partial class RedNetherBrickDoubleSlab // minecraft:red_nether_brick_double_slab
@@ -48644,7 +49090,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2238 + d0;
+			return 2268 + d0;
 		} // method
 	} // class
 
@@ -48664,7 +49110,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48698,7 +49143,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13019 + d0;
+			return 13536 + d0;
 		} // method
 	} // class
 
@@ -48718,8 +49163,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -48753,7 +49196,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 13040 + d0 * 4 + d1;
+			return 13557 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -48853,7 +49296,49 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 14762 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 15305 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+		} // method
+	} // class
+
+	public partial class RedPoplarLeaves // minecraft:red_poplar_leaves
+	{
+		public override string Name => "minecraft:red_poplar_leaves";
+
+		[StateBit] public bool PersistentBit { get; set; } = false;
+		[StateBit] public bool UpdateBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "persistent_bit":
+						PersistentBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateByte s when s.Name == "update_bit":
+						UpdateBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:red_poplar_leaves";
+			record.Id = 1400;
+			record.States.Add(new BlockStateByte {Name = "persistent_bit", Value = Convert.ToByte(PersistentBit)});
+			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 15945 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -48892,7 +49377,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2906;
+		public override int GetRuntimeId() => 2936;
 	} // class
 
 	public partial class RedSandstone // minecraft:red_sandstone
@@ -48930,7 +49415,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13018;
+		public override int GetRuntimeId() => 13535;
 	} // class
 
 	public partial class RedSandstoneDoubleSlab // minecraft:red_sandstone_double_slab
@@ -48983,7 +49468,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2901 + d0;
+			return 2931 + d0;
 		} // method
 	} // class
 
@@ -49003,7 +49488,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49037,7 +49521,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 3358 + d0;
+			return 3388 + d0;
 		} // method
 	} // class
 
@@ -49057,8 +49541,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49092,7 +49574,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 9220 + d0 * 4 + d1;
+			return 9650 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -49192,7 +49674,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 1074 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 1086 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -49231,7 +49713,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6976;
+		public override int GetRuntimeId() => 7406;
 	} // class
 
 	public partial class RedStainedGlass // minecraft:red_stained_glass
@@ -49269,7 +49751,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9070;
+		public override int GetRuntimeId() => 9500;
 	} // class
 
 	public partial class RedStainedGlassPane // minecraft:red_stained_glass_pane
@@ -49307,7 +49789,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13946;
+		public override int GetRuntimeId() => 14489;
 	} // class
 
 	public partial class RedTerracotta // minecraft:red_terracotta
@@ -49345,7 +49827,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3430;
+		public override int GetRuntimeId() => 3476;
 	} // class
 
 	public partial class RedTulip // minecraft:red_tulip
@@ -49383,7 +49865,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15026;
+		public override int GetRuntimeId() => 15574;
 	} // class
 
 	public partial class RedWool // minecraft:red_wool
@@ -49459,7 +49941,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5548;
+		public override int GetRuntimeId() => 5978;
 	} // class
 
 	public partial class RedstoneLamp // minecraft:redstone_lamp
@@ -49497,7 +49979,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1309;
+		public override int GetRuntimeId() => 1321;
 	} // class
 
 	public partial class RedstoneOre // minecraft:redstone_ore
@@ -49535,7 +50017,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6545;
+		public override int GetRuntimeId() => 6975;
 	} // class
 
 	public partial class RedstoneTorch // minecraft:redstone_torch
@@ -49554,7 +50036,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("unknown","west","east","north","south","top")] public string TorchFacingDirection { get; set; } = "unknown";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49592,7 +50073,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 4728 + d0;
+			return 5158 + d0;
 		} // method
 	} // class
 
@@ -49641,7 +50122,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 5565 + d0;
+			return 5995 + d0;
 		} // method
 	} // class
 
@@ -49690,7 +50171,7 @@ namespace MiNET.Blocks
 			if (Age < 0 || Age > 15) return -1;
 			int d0 = Age;
 
-			return 12134 + d0;
+			return 12612 + d0;
 		} // method
 	} // class
 
@@ -49729,7 +50210,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10981;
+		public override int GetRuntimeId() => 11443;
 	} // class
 
 	public partial class RepeatingCommandBlock // minecraft:repeating_command_block
@@ -49783,7 +50264,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 15362 + d0 * 6 + d1;
+			return 15918 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -49822,7 +50303,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7352;
+		public override int GetRuntimeId() => 7782;
 	} // class
 
 	public partial class ResinBlock // minecraft:resin_block
@@ -49860,7 +50341,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12892;
+		public override int GetRuntimeId() => 13409;
 	} // class
 
 	public partial class ResinBrickDoubleSlab // minecraft:resin_brick_double_slab
@@ -49913,7 +50394,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5194 + d0;
+			return 5624 + d0;
 		} // method
 	} // class
 
@@ -49933,7 +50414,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -49967,7 +50447,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14662 + d0;
+			return 15205 + d0;
 		} // method
 	} // class
 
@@ -49987,8 +50467,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -50022,7 +50500,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12445 + d0 * 4 + d1;
+			return 12955 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -50122,7 +50600,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 16139 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 16722 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -50161,7 +50639,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11553;
+		public override int GetRuntimeId() => 12031;
 	} // class
 
 	public partial class ResinClump // minecraft:resin_clump
@@ -50209,7 +50687,7 @@ namespace MiNET.Blocks
 			if (MultiFaceDirectionBits < 0 || MultiFaceDirectionBits > 63) return -1;
 			int d0 = MultiFaceDirectionBits;
 
-			return 2930 + d0;
+			return 2960 + d0;
 		} // method
 	} // class
 
@@ -50258,7 +50736,7 @@ namespace MiNET.Blocks
 			if (RespawnAnchorCharge < 0 || RespawnAnchorCharge > 4) return -1;
 			int d0 = RespawnAnchorCharge;
 
-			return 2886 + d0;
+			return 2916 + d0;
 		} // method
 	} // class
 
@@ -50306,7 +50784,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpperBlockBit ? 1 : 0;
 
-			return 9392 + d0;
+			return 9822 + d0;
 		} // method
 	} // class
 
@@ -50345,7 +50823,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6421;
+		public override int GetRuntimeId() => 6851;
 	} // class
 
 	public partial class Sandstone // minecraft:sandstone
@@ -50383,7 +50861,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5390;
+		public override int GetRuntimeId() => 5820;
 	} // class
 
 	public partial class SandstoneDoubleSlab // minecraft:sandstone_double_slab
@@ -50436,7 +50914,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2003 + d0;
+			return 2031 + d0;
 		} // method
 	} // class
 
@@ -50456,7 +50934,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -50490,7 +50967,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1956 + d0;
+			return 1984 + d0;
 		} // method
 	} // class
 
@@ -50510,8 +50987,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -50545,7 +51020,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 5233 + d0 * 4 + d1;
+			return 5663 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -50645,7 +51120,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 15948 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 16531 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -50700,7 +51175,7 @@ namespace MiNET.Blocks
 			int d0 = Stability;
 			int d1 = StabilityCheck ? 1 : 0;
 
-			return 5217 + d0 + d1 * 8;
+			return 5647 + d0 + d1 * 8;
 		} // method
 	} // class
 
@@ -50739,7 +51214,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13838;
+		public override int GetRuntimeId() => 14381;
 	} // class
 
 	public partial class SculkCatalyst // minecraft:sculk_catalyst
@@ -50786,7 +51261,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Bloom ? 1 : 0;
 
-			return 5263 + d0;
+			return 5693 + d0;
 		} // method
 	} // class
 
@@ -50835,7 +51310,7 @@ namespace MiNET.Blocks
 			if (SculkSensorPhase < 0 || SculkSensorPhase > 2) return -1;
 			int d0 = SculkSensorPhase;
 
-			return 6889 + d0;
+			return 7319 + d0;
 		} // method
 	} // class
 
@@ -50889,7 +51364,7 @@ namespace MiNET.Blocks
 			int d0 = Active ? 1 : 0;
 			int d1 = CanSummon ? 1 : 0;
 
-			return 1267 + d0 + d1 * 2;
+			return 1279 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -50938,7 +51413,7 @@ namespace MiNET.Blocks
 			if (MultiFaceDirectionBits < 0 || MultiFaceDirectionBits > 63) return -1;
 			int d0 = MultiFaceDirectionBits;
 
-			return 14446 + d0;
+			return 14989 + d0;
 		} // method
 	} // class
 
@@ -50977,7 +51452,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15127;
+		public override int GetRuntimeId() => 15677;
 	} // class
 
 	public partial class SeaPickle // minecraft:sea_pickle
@@ -51031,7 +51506,7 @@ namespace MiNET.Blocks
 			int d0 = ClusterCount;
 			int d1 = DeadBit ? 1 : 0;
 
-			return 11056 + d0 + d1 * 4;
+			return 11518 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -51086,7 +51561,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1302 + d0;
+			return 1314 + d0;
 		} // method
 	} // class
 
@@ -51125,7 +51600,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12219;
+		public override int GetRuntimeId() => 12729;
 	} // class
 
 	public partial class ShortGrass // minecraft:short_grass
@@ -51163,7 +51638,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12985;
+		public override int GetRuntimeId() => 13502;
 	} // class
 
 	public partial class Shroomlight // minecraft:shroomlight
@@ -51201,7 +51676,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8875;
+		public override int GetRuntimeId() => 9305;
 	} // class
 
 	public partial class SilverGlazedTerracotta // minecraft:silver_glazed_terracotta
@@ -51220,7 +51695,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -51249,7 +51723,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 4734 + d0;
+			return 5164 + d0;
 		} // method
 	} // class
 
@@ -51298,7 +51772,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 9295 + d0;
+			return 9725 + d0;
 		} // method
 	} // class
 
@@ -51337,7 +51811,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6458;
+		public override int GetRuntimeId() => 6888;
 	} // class
 
 	public partial class SmallAmethystBud // minecraft:small_amethyst_bud
@@ -51394,7 +51868,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1871 + d0;
+			return 1899 + d0;
 		} // method
 	} // class
 
@@ -51456,7 +51930,7 @@ namespace MiNET.Blocks
 			if (d0 < 0) return -1;
 			int d1 = UpperBlockBit ? 1 : 0;
 
-			return 6795 + d0 * 2 + d1;
+			return 7225 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -51495,7 +51969,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5467;
+		public override int GetRuntimeId() => 5897;
 	} // class
 
 	public partial class Smoker // minecraft:smoker
@@ -51550,7 +52024,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2699 + d0;
+			return 2729 + d0;
 		} // method
 	} // class
 
@@ -51589,7 +52063,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3779;
+		public override int GetRuntimeId() => 3825;
 	} // class
 
 	public partial class SmoothQuartz // minecraft:smooth_quartz
@@ -51643,7 +52117,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7081 + d0;
+			return 7511 + d0;
 		} // method
 	} // class
 
@@ -51697,7 +52171,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2050 + d0;
+			return 2080 + d0;
 		} // method
 	} // class
 
@@ -51717,7 +52191,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -51751,7 +52224,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15154 + d0;
+			return 15710 + d0;
 		} // method
 	} // class
 
@@ -51771,8 +52244,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -51806,7 +52277,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 15328 + d0 * 4 + d1;
+			return 15884 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -51845,7 +52316,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15392;
+		public override int GetRuntimeId() => 15956;
 	} // class
 
 	public partial class SmoothRedSandstoneDoubleSlab // minecraft:smooth_red_sandstone_double_slab
@@ -51898,7 +52369,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12639 + d0;
+			return 13155 + d0;
 		} // method
 	} // class
 
@@ -51918,7 +52389,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -51952,7 +52422,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12975 + d0;
+			return 13492 + d0;
 		} // method
 	} // class
 
@@ -51972,8 +52442,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52007,7 +52475,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 10010 + d0 * 4 + d1;
+			return 10472 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -52046,7 +52514,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1019;
+		public override int GetRuntimeId() => 1031;
 	} // class
 
 	public partial class SmoothSandstoneDoubleSlab // minecraft:smooth_sandstone_double_slab
@@ -52099,7 +52567,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6974 + d0;
+			return 7404 + d0;
 		} // method
 	} // class
 
@@ -52119,7 +52587,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52153,7 +52620,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2707 + d0;
+			return 2737 + d0;
 		} // method
 	} // class
 
@@ -52173,8 +52640,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52208,7 +52673,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 5347 + d0 * 4 + d1;
+			return 5777 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -52247,7 +52712,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7305;
+		public override int GetRuntimeId() => 7735;
 	} // class
 
 	public partial class SmoothStoneDoubleSlab // minecraft:smooth_stone_double_slab
@@ -52300,7 +52765,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 10429 + d0;
+			return 10891 + d0;
 		} // method
 	} // class
 
@@ -52320,7 +52785,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52354,7 +52818,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15124 + d0;
+			return 15674 + d0;
 		} // method
 	} // class
 
@@ -52409,7 +52873,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13623 + d0;
+			return 14166 + d0;
 		} // method
 	} // class
 
@@ -52448,7 +52912,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6420;
+		public override int GetRuntimeId() => 6850;
 	} // class
 
 	public partial class SnowLayer // minecraft:snow_layer
@@ -52502,7 +52966,7 @@ namespace MiNET.Blocks
 			if (Height < 0 || Height > 7) return -1;
 			int d1 = Height;
 
-			return 1020 + d0 * 8 + d1;
+			return 1032 + d0 * 8 + d1;
 		} // method
 	} // class
 
@@ -52564,7 +53028,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 15923 + d0 * 4 + d1;
+			return 16490 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -52613,7 +53077,7 @@ namespace MiNET.Blocks
 			if (Age < 0 || Age > 15) return -1;
 			int d0 = Age;
 
-			return 2024 + d0;
+			return 2054 + d0;
 		} // method
 	} // class
 
@@ -52661,7 +53125,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 10390 + d0;
+			return 10852 + d0;
 		} // method
 	} // class
 
@@ -52700,7 +53164,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10433;
+		public override int GetRuntimeId() => 10895;
 	} // class
 
 	public partial class SoulSoil // minecraft:soul_soil
@@ -52738,7 +53202,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 10432;
+		public override int GetRuntimeId() => 10894;
 	} // class
 
 	public partial class SoulTorch // minecraft:soul_torch
@@ -52795,7 +53259,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7819 + d0;
+			return 8249 + d0;
 		} // method
 	} // class
 
@@ -52834,7 +53298,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2244;
+		public override int GetRuntimeId() => 2274;
 	} // class
 
 	public partial class SporeBlossom // minecraft:spore_blossom
@@ -52872,7 +53336,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14688;
+		public override int GetRuntimeId() => 15231;
 	} // class
 
 	public partial class SpruceButton // minecraft:spruce_button
@@ -52891,8 +53355,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -52926,7 +53388,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 6813 + d0 * 6 + d1;
+			return 7243 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -52946,10 +53408,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53000,7 +53458,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 7870 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 8300 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -53054,7 +53512,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 4160 + d0;
+			return 4590 + d0;
 		} // method
 	} // class
 
@@ -53093,7 +53551,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1998;
+		public override int GetRuntimeId() => 2026;
 	} // class
 
 	public partial class SpruceFenceGate // minecraft:spruce_fence_gate
@@ -53112,9 +53570,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53160,7 +53615,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 13022 + d0 * 8 + d1 + d2 * 4;
+			return 13539 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -53228,7 +53683,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 10596 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 11058 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -53248,8 +53703,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool PersistentBit { get; set; } = false;
-		[StateBit] public bool UpdateBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53282,7 +53735,7 @@ namespace MiNET.Blocks
 			int d0 = PersistentBit ? 1 : 0;
 			int d1 = UpdateBit ? 1 : 0;
 
-			return 6937 + d0 * 2 + d1;
+			return 7367 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -53302,7 +53755,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53337,7 +53789,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6501 + d0;
+			return 6931 + d0;
 		} // method
 	} // class
 
@@ -53376,7 +53828,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15685;
+		public override int GetRuntimeId() => 16249;
 	} // class
 
 	public partial class SprucePressurePlate // minecraft:spruce_pressure_plate
@@ -53424,7 +53876,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 5530 + d0;
+			return 5960 + d0;
 		} // method
 	} // class
 
@@ -53472,7 +53924,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = AgeBit ? 1 : 0;
 
-			return 6417 + d0;
+			return 6847 + d0;
 		} // method
 	} // class
 
@@ -53541,7 +53993,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 5162 + d0 * 8 + d1 * 4 + d2;
+			return 5592 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -53561,7 +54013,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53595,7 +54046,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13807 + d0;
+			return 14350 + d0;
 		} // method
 	} // class
 
@@ -53615,8 +54066,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53650,7 +54099,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 374 + d0 * 4 + d1;
+			return 386 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -53670,7 +54119,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53699,7 +54147,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 13849 + d0;
+			return 14392 + d0;
 		} // method
 	} // class
 
@@ -53719,9 +54167,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53760,7 +54205,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 12990 + d0 + d1 * 8 + d2 * 4;
+			return 13507 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -53780,7 +54225,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53809,7 +54253,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 14941 + d0;
+			return 15484 + d0;
 		} // method
 	} // class
 
@@ -53864,7 +54308,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15178 + d0;
+			return 15734 + d0;
 		} // method
 	} // class
 
@@ -53913,7 +54357,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 13571 + d0;
+			return 14114 + d0;
 		} // method
 	} // class
 
@@ -53933,7 +54377,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -53962,7 +54405,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 10237 + d0;
+			return 10699 + d0;
 		} // method
 	} // class
 
@@ -54011,7 +54454,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 6864 + d0;
+			return 7294 + d0;
 		} // method
 	} // class
 
@@ -54060,7 +54503,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 12727 + d0;
+			return 13244 + d0;
 		} // method
 	} // class
 
@@ -54099,7 +54542,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2706;
+		public override int GetRuntimeId() => 2736;
 	} // class
 
 	public partial class StoneBrickDoubleSlab // minecraft:stone_brick_double_slab
@@ -54152,7 +54595,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6850 + d0;
+			return 7280 + d0;
 		} // method
 	} // class
 
@@ -54172,7 +54615,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54206,7 +54648,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12656 + d0;
+			return 13172 + d0;
 		} // method
 	} // class
 
@@ -54226,8 +54668,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54261,7 +54701,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 3410 + d0 * 4 + d1;
+			return 3456 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -54361,7 +54801,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 9848 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 10310 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -54400,7 +54840,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6307;
+		public override int GetRuntimeId() => 6737;
 	} // class
 
 	public partial class StoneButton // minecraft:stone_button
@@ -54419,8 +54859,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54454,7 +54892,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 2226 + d0 * 6 + d1;
+			return 2256 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -54503,7 +54941,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 6081 + d0;
+			return 6511 + d0;
 		} // method
 	} // class
 
@@ -54523,8 +54961,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54558,7 +54994,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 5446 + d0 * 4 + d1;
+			return 5876 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -54597,7 +55033,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3385;
+		public override int GetRuntimeId() => 3415;
 	} // class
 
 	public partial class StonecutterBlock // minecraft:stonecutter_block
@@ -54652,7 +55088,63 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15150 + d0;
+			return 15700 + d0;
+		} // method
+	} // class
+
+	public partial class StrawBed // minecraft:straw_bed
+	{
+		public override string Name => "minecraft:straw_bed";
+
+		[StateBit] public bool HeadPieceBit { get; set; } = false;
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool OccupiedBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "head_piece_bit":
+						HeadPieceBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateString s when s.Name == "minecraft:cardinal_direction":
+						CardinalDirection = s.Value;
+						break;
+					case BlockStateByte s when s.Name == "occupied_bit":
+						OccupiedBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:straw_bed";
+			record.Id = 1453;
+			record.States.Add(new BlockStateByte {Name = "head_piece_bit", Value = Convert.ToByte(HeadPieceBit)});
+			record.States.Add(new BlockStateString {Name = "minecraft:cardinal_direction", Value = CardinalDirection});
+			record.States.Add(new BlockStateByte {Name = "occupied_bit", Value = Convert.ToByte(OccupiedBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = HeadPieceBit ? 1 : 0;
+			int d1 = CardinalDirection switch
+			{
+				"south" => 0,
+				"west" => 1,
+				"north" => 2,
+				"east" => 3,
+				_ => -1
+			};
+			if (d1 < 0) return -1;
+			int d2 = OccupiedBit ? 1 : 0;
+
+			return 13601 + d0 * 2 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -54672,7 +55164,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54707,7 +55198,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11048 + d0;
+			return 11510 + d0;
 		} // method
 	} // class
 
@@ -54762,7 +55253,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1513 + d0;
+			return 1541 + d0;
 		} // method
 	} // class
 
@@ -54817,7 +55308,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5243 + d0;
+			return 5673 + d0;
 		} // method
 	} // class
 
@@ -54837,7 +55328,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54872,7 +55362,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11700 + d0;
+			return 12178 + d0;
 		} // method
 	} // class
 
@@ -54927,7 +55417,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7267 + d0;
+			return 7697 + d0;
 		} // method
 	} // class
 
@@ -54947,7 +55437,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -54982,7 +55471,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6977 + d0;
+			return 7407 + d0;
 		} // method
 	} // class
 
@@ -55037,7 +55526,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 8517 + d0;
+			return 8947 + d0;
 		} // method
 	} // class
 
@@ -55092,7 +55581,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12903 + d0;
+			return 13420 + d0;
 		} // method
 	} // class
 
@@ -55112,7 +55601,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55147,7 +55635,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13568 + d0;
+			return 14111 + d0;
 		} // method
 	} // class
 
@@ -55167,7 +55655,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55202,7 +55689,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1255 + d0;
+			return 1267 + d0;
 		} // method
 	} // class
 
@@ -55257,7 +55744,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 8481 + d0;
+			return 8911 + d0;
 		} // method
 	} // class
 
@@ -55277,7 +55764,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55312,7 +55798,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2645 + d0;
+			return 2675 + d0;
 		} // method
 	} // class
 
@@ -55367,7 +55853,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1933 + d0;
+			return 1961 + d0;
 		} // method
 	} // class
 
@@ -55387,7 +55873,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55422,7 +55907,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 16869 + d0;
+			return 17455 + d0;
 		} // method
 	} // class
 
@@ -55477,7 +55962,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6454 + d0;
+			return 6884 + d0;
 		} // method
 	} // class
 
@@ -55497,7 +55982,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55532,7 +56016,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15121 + d0;
+			return 15671 + d0;
 		} // method
 	} // class
 
@@ -55587,7 +56071,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 8043 + d0;
+			return 8473 + d0;
 		} // method
 	} // class
 
@@ -55607,7 +56091,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55642,7 +56125,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6724 + d0;
+			return 7154 + d0;
 		} // method
 	} // class
 
@@ -55697,7 +56180,93 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 3781 + d0;
+			return 3827 + d0;
+		} // method
+	} // class
+
+	public partial class StrippedPoplarLog // minecraft:stripped_poplar_log
+	{
+		public override string Name => "minecraft:stripped_poplar_log";
+
+		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateString s when s.Name == "pillar_axis":
+						PillarAxis = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:stripped_poplar_log";
+			record.Id = 1386;
+			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13029 + d0;
+		} // method
+	} // class
+
+	public partial class StrippedPoplarWood // minecraft:stripped_poplar_wood
+	{
+		public override string Name => "minecraft:stripped_poplar_wood";
+
+		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateString s when s.Name == "pillar_axis":
+						PillarAxis = s.Value;
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:stripped_poplar_wood";
+			record.Id = 1396;
+			record.States.Add(new BlockStateString {Name = "pillar_axis", Value = PillarAxis});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PillarAxis switch
+			{
+				"y" => 0,
+				"x" => 1,
+				"z" => 2,
+				_ => -1
+			};
+			if (d0 < 0) return -1;
+
+			return 13069 + d0;
 		} // method
 	} // class
 
@@ -55717,7 +56286,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55752,7 +56320,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12667 + d0;
+			return 13183 + d0;
 		} // method
 	} // class
 
@@ -55807,7 +56375,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2878 + d0;
+			return 2908 + d0;
 		} // method
 	} // class
 
@@ -55862,7 +56430,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 10205 + d0;
+			return 10667 + d0;
 		} // method
 	} // class
 
@@ -55882,7 +56450,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -55917,7 +56484,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14947 + d0;
+			return 15490 + d0;
 		} // method
 	} // class
 
@@ -55975,7 +56542,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12765 + d0;
+			return 13282 + d0;
 		} // method
 	} // class
 
@@ -56014,7 +56581,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6397;
+		public override int GetRuntimeId() => 6827;
 	} // class
 
 	public partial class Sulfur // minecraft:sulfur
@@ -56052,7 +56619,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14658;
+		public override int GetRuntimeId() => 15201;
 	} // class
 
 	public partial class SulfurBrickDoubleSlab // minecraft:sulfur_brick_double_slab
@@ -56105,7 +56672,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5199 + d0;
+			return 5629 + d0;
 		} // method
 	} // class
 
@@ -56125,7 +56692,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56159,7 +56725,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15156 + d0;
+			return 15712 + d0;
 		} // method
 	} // class
 
@@ -56179,8 +56745,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56214,7 +56778,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 7259 + d0 * 4 + d1;
+			return 7689 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -56314,7 +56878,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 13351 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 13894 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -56353,7 +56917,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3175;
+		public override int GetRuntimeId() => 3205;
 	} // class
 
 	public partial class SulfurDoubleSlab // minecraft:sulfur_double_slab
@@ -56406,7 +56970,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9345 + d0;
+			return 9775 + d0;
 		} // method
 	} // class
 
@@ -56426,7 +56990,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56460,7 +57023,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5476 + d0;
+			return 5906 + d0;
 		} // method
 	} // class
 
@@ -56523,7 +57086,7 @@ namespace MiNET.Blocks
 			if (d0 < 0) return -1;
 			int d1 = Hanging ? 1 : 0;
 
-			return 1533 + d0 + d1 * 5;
+			return 1561 + d0 + d1 * 5;
 		} // method
 	} // class
 
@@ -56543,8 +57106,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -56578,7 +57139,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6408 + d0 * 4 + d1;
+			return 6838 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -56678,7 +57239,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 7097 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 7527 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -56726,7 +57287,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpperBlockBit ? 1 : 0;
 
-			return 7398 + d0;
+			return 7828 + d0;
 		} // method
 	} // class
 
@@ -56781,7 +57342,7 @@ namespace MiNET.Blocks
 			int d0 = BrushedProgress;
 			int d1 = Hanging ? 1 : 0;
 
-			return 7948 + d0 * 2 + d1;
+			return 8378 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -56836,7 +57397,7 @@ namespace MiNET.Blocks
 			int d0 = BrushedProgress;
 			int d1 = Hanging ? 1 : 0;
 
-			return 3786 + d0 * 2 + d1;
+			return 3832 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -56885,7 +57446,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d0 = Growth;
 
-			return 12124 + d0;
+			return 12602 + d0;
 		} // method
 	} // class
 
@@ -56924,7 +57485,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9127;
+		public override int GetRuntimeId() => 9557;
 	} // class
 
 	public partial class TallGrass // minecraft:tall_grass
@@ -56971,7 +57532,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = UpperBlockBit ? 1 : 0;
 
-			return 12875 + d0;
+			return 13392 + d0;
 		} // method
 	} // class
 
@@ -57010,7 +57571,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12780;
+		public override int GetRuntimeId() => 13297;
 	} // class
 
 	public partial class TintedGlass // minecraft:tinted_glass
@@ -57048,7 +57609,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11703;
+		public override int GetRuntimeId() => 12181;
 	} // class
 
 	public partial class Tnt // minecraft:tnt
@@ -57095,7 +57656,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = ExplodeBit ? 1 : 0;
 
-			return 13112 + d0;
+			return 13647 + d0;
 		} // method
 	} // class
 
@@ -57153,7 +57714,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 3169 + d0;
+			return 3199 + d0;
 		} // method
 	} // class
 
@@ -57192,7 +57753,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12218;
+		public override int GetRuntimeId() => 12728;
 	} // class
 
 	public partial class TorchflowerCrop // minecraft:torchflower_crop
@@ -57240,7 +57801,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d0 = Growth;
 
-			return 12159 + d0;
+			return 12637 + d0;
 		} // method
 	} // class
 
@@ -57260,9 +57821,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57301,7 +57859,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 1282 + d0 + d1 * 8 + d2 * 4;
+			return 1294 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -57321,7 +57879,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57357,7 +57914,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 10209 + d0;
+			return 10671 + d0;
 		} // method
 	} // class
 
@@ -57412,7 +57969,7 @@ namespace MiNET.Blocks
 			if (TrialSpawnerState < 0 || TrialSpawnerState > 5) return -1;
 			int d1 = TrialSpawnerState;
 
-			return 16125 + d0 * 6 + d1;
+			return 16708 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -57478,7 +58035,7 @@ namespace MiNET.Blocks
 			int d2 = PoweredBit ? 1 : 0;
 			int d3 = SuspendedBit ? 1 : 0;
 
-			return 15028 + d0 * 4 + d1 * 8 + d2 + d3 * 2;
+			return 15576 + d0 * 4 + d1 * 8 + d2 + d3 * 2;
 		} // method
 	} // class
 
@@ -57539,7 +58096,7 @@ namespace MiNET.Blocks
 			int d1 = Direction;
 			int d2 = PoweredBit ? 1 : 0;
 
-			return 11609 + d0 * 4 + d1 + d2 * 8;
+			return 12087 + d0 * 4 + d1 + d2 * 8;
 		} // method
 	} // class
 
@@ -57578,7 +58135,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15401;
+		public override int GetRuntimeId() => 15965;
 	} // class
 
 	public partial class TubeCoralBlock // minecraft:tube_coral_block
@@ -57616,7 +58173,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15091;
+		public override int GetRuntimeId() => 15641;
 	} // class
 
 	public partial class TubeCoralFan // minecraft:tube_coral_fan
@@ -57664,7 +58221,7 @@ namespace MiNET.Blocks
 			if (CoralFanDirection < 0 || CoralFanDirection > 1) return -1;
 			int d0 = CoralFanDirection;
 
-			return 1305 + d0;
+			return 1317 + d0;
 		} // method
 	} // class
 
@@ -57713,7 +58270,7 @@ namespace MiNET.Blocks
 			if (CoralDirection < 0 || CoralDirection > 3) return -1;
 			int d0 = CoralDirection;
 
-			return 16908 + d0;
+			return 17494 + d0;
 		} // method
 	} // class
 
@@ -57752,7 +58309,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1937;
+		public override int GetRuntimeId() => 1965;
 	} // class
 
 	public partial class TuffBrickDoubleSlab // minecraft:tuff_brick_double_slab
@@ -57805,7 +58362,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11544 + d0;
+			return 12006 + d0;
 		} // method
 	} // class
 
@@ -57825,7 +58382,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57859,7 +58415,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 5478 + d0;
+			return 5908 + d0;
 		} // method
 	} // class
 
@@ -57879,8 +58435,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -57914,7 +58468,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12641 + d0 * 4 + d1;
+			return 13157 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -58014,7 +58568,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 2713 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 2743 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -58053,7 +58607,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13079;
+		public override int GetRuntimeId() => 13596;
 	} // class
 
 	public partial class TuffDoubleSlab // minecraft:tuff_double_slab
@@ -58106,7 +58660,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15390 + d0;
+			return 15954 + d0;
 		} // method
 	} // class
 
@@ -58126,7 +58680,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -58160,7 +58713,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1333 + d0;
+			return 1361 + d0;
 		} // method
 	} // class
 
@@ -58180,8 +58733,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -58215,7 +58766,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 11562 + d0 * 4 + d1;
+			return 12040 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -58315,7 +58866,7 @@ namespace MiNET.Blocks
 			if (d3 < 0) return -1;
 			int d4 = WallPostBit ? 1 : 0;
 
-			return 4554 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
+			return 4984 + d0 * 6 + d1 * 2 + d2 * 18 + d3 * 54 + d4;
 		} // method
 	} // class
 
@@ -58384,7 +58935,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 15873 + d0 * 4 + d1;
+			return 16440 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -58433,7 +58984,7 @@ namespace MiNET.Blocks
 			if (TwistingVinesAge < 0 || TwistingVinesAge > 25) return -1;
 			int d0 = TwistingVinesAge;
 
-			return 10327 + d0;
+			return 10789 + d0;
 		} // method
 	} // class
 
@@ -58481,7 +59032,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = ExplodeBit ? 1 : 0;
 
-			return 3339 + d0;
+			return 3369 + d0;
 		} // method
 	} // class
 
@@ -58539,7 +59090,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 4152 + d0;
+			return 4582 + d0;
 		} // method
 	} // class
 
@@ -58578,7 +59129,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5415;
+		public override int GetRuntimeId() => 5845;
 	} // class
 
 	public partial class Unknown // minecraft:unknown
@@ -58616,7 +59167,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7361;
+		public override int GetRuntimeId() => 7791;
 	} // class
 
 	public partial class UnlitRedstoneTorch // minecraft:unlit_redstone_torch
@@ -58635,7 +59186,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("unknown","west","east","north","south","top")] public string TorchFacingDirection { get; set; } = "unknown";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -58673,7 +59223,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 16641 + d0;
+			return 17224 + d0;
 		} // method
 	} // class
 
@@ -58741,7 +59291,7 @@ namespace MiNET.Blocks
 			int d1 = OutputLitBit ? 1 : 0;
 			int d2 = OutputSubtractBit ? 1 : 0;
 
-			return 12741 + d0 + d1 * 8 + d2 * 4;
+			return 13258 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -58804,7 +59354,7 @@ namespace MiNET.Blocks
 			if (RepeaterDelay < 0 || RepeaterDelay > 3) return -1;
 			int d1 = RepeaterDelay;
 
-			return 9832 + d0 + d1 * 4;
+			return 10294 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -58880,7 +59430,7 @@ namespace MiNET.Blocks
 			};
 			if (d2 < 0) return -1;
 
-			return 12463 + d0 + d1 * 16 + d2 * 4;
+			return 12973 + d0 + d1 * 16 + d2 * 4;
 		} // method
 	} // class
 
@@ -58935,7 +59485,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12888 + d0;
+			return 13405 + d0;
 		} // method
 	} // class
 
@@ -58984,7 +59534,7 @@ namespace MiNET.Blocks
 			if (VineDirectionBits < 0 || VineDirectionBits > 15) return -1;
 			int d0 = VineDirectionBits;
 
-			return 3342 + d0;
+			return 3372 + d0;
 		} // method
 	} // class
 
@@ -59033,7 +59583,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 10321 + d0;
+			return 10783 + d0;
 		} // method
 	} // class
 
@@ -59053,7 +59603,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59082,7 +59631,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 8510 + d0;
+			return 8940 + d0;
 		} // method
 	} // class
 
@@ -59137,7 +59686,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 14592 + d0 * 6 + d1;
+			return 15135 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -59157,10 +59706,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59265,7 +59810,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6881 + d0;
+			return 7311 + d0;
 		} // method
 	} // class
 
@@ -59304,7 +59849,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11054;
+		public override int GetRuntimeId() => 11516;
 	} // class
 
 	public partial class WarpedFenceGate // minecraft:warped_fence_gate
@@ -59323,9 +59868,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool InWallBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59371,7 +59913,7 @@ namespace MiNET.Blocks
 			if (d1 < 0) return -1;
 			int d2 = OpenBit ? 1 : 0;
 
-			return 9277 + d0 * 8 + d1 + d2 * 4;
+			return 9707 + d0 * 8 + d1 + d2 * 4;
 		} // method
 	} // class
 
@@ -59410,7 +59952,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1550;
+		public override int GetRuntimeId() => 1578;
 	} // class
 
 	public partial class WarpedHangingSign // minecraft:warped_hanging_sign
@@ -59477,7 +60019,7 @@ namespace MiNET.Blocks
 			int d2 = GroundSignDirection;
 			int d3 = Hanging ? 1 : 0;
 
-			return 11737 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
+			return 12215 + d0 * 192 + d1 + d2 * 6 + d3 * 96;
 		} // method
 	} // class
 
@@ -59532,7 +60074,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 11548 + d0;
+			return 12010 + d0;
 		} // method
 	} // class
 
@@ -59571,7 +60113,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12734;
+		public override int GetRuntimeId() => 13251;
 	} // class
 
 	public partial class WarpedPlanks // minecraft:warped_planks
@@ -59609,7 +60151,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3402;
+		public override int GetRuntimeId() => 3448;
 	} // class
 
 	public partial class WarpedPressurePlate // minecraft:warped_pressure_plate
@@ -59657,7 +60199,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 1497 + d0;
+			return 1525 + d0;
 		} // method
 	} // class
 
@@ -59696,7 +60238,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6861;
+		public override int GetRuntimeId() => 7291;
 	} // class
 
 	public partial class WarpedShelf // minecraft:warped_shelf
@@ -59764,7 +60306,7 @@ namespace MiNET.Blocks
 			if (PoweredShelfType < 0 || PoweredShelfType > 3) return -1;
 			int d2 = PoweredShelfType;
 
-			return 5313 + d0 * 8 + d1 * 4 + d2;
+			return 5743 + d0 * 8 + d1 * 4 + d2;
 		} // method
 	} // class
 
@@ -59784,7 +60326,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59818,7 +60359,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12893 + d0;
+			return 13410 + d0;
 		} // method
 	} // class
 
@@ -59838,8 +60379,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59873,7 +60412,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 5459 + d0 * 4 + d1;
+			return 5889 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -59893,7 +60432,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59922,7 +60460,7 @@ namespace MiNET.Blocks
 			if (GroundSignDirection < 0 || GroundSignDirection > 15) return -1;
 			int d0 = GroundSignDirection;
 
-			return 14513 + d0;
+			return 15056 + d0;
 		} // method
 	} // class
 
@@ -59942,7 +60480,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -59977,7 +60514,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12895 + d0;
+			return 13412 + d0;
 		} // method
 	} // class
 
@@ -59997,9 +60534,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60038,7 +60572,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 7956 + d0 + d1 * 8 + d2 * 4;
+			return 8386 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -60058,7 +60592,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60087,7 +60620,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 1992 + d0;
+			return 2020 + d0;
 		} // method
 	} // class
 
@@ -60126,7 +60659,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11551;
+		public override int GetRuntimeId() => 12013;
 	} // class
 
 	public partial class Water // minecraft:water
@@ -60145,7 +60678,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60174,7 +60706,7 @@ namespace MiNET.Blocks
 			if (LiquidDepth < 0 || LiquidDepth > 15) return -1;
 			int d0 = LiquidDepth;
 
-			return 9808 + d0;
+			return 10270 + d0;
 		} // method
 	} // class
 
@@ -60213,7 +60745,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 3780;
+		public override int GetRuntimeId() => 3826;
 	} // class
 
 	public partial class WaxedChiseledCopper // minecraft:waxed_chiseled_copper
@@ -60251,7 +60783,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15699;
+		public override int GetRuntimeId() => 16263;
 	} // class
 
 	public partial class WaxedCopper // minecraft:waxed_copper
@@ -60289,7 +60821,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15361;
+		public override int GetRuntimeId() => 15917;
 	} // class
 
 	public partial class WaxedCopperBars // minecraft:waxed_copper_bars
@@ -60327,7 +60859,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2225;
+		public override int GetRuntimeId() => 2255;
 	} // class
 
 	public partial class WaxedCopperBulb // minecraft:waxed_copper_bulb
@@ -60380,7 +60912,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 2240 + d0 + d1 * 2;
+			return 2270 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -60435,7 +60967,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6553 + d0;
+			return 6983 + d0;
 		} // method
 	} // class
 
@@ -60455,7 +60987,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60491,7 +61022,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6548 + d0;
+			return 6978 + d0;
 		} // method
 	} // class
 
@@ -60511,10 +61042,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60565,7 +61092,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 15402 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 15966 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -60621,7 +61148,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15918 + d0;
+			return 16485 + d0;
 		} // method
 	} // class
 
@@ -60660,7 +61187,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9256;
+		public override int GetRuntimeId() => 9686;
 	} // class
 
 	public partial class WaxedCopperLantern // minecraft:waxed_copper_lantern
@@ -60707,7 +61234,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 15338 + d0;
+			return 15894 + d0;
 		} // method
 	} // class
 
@@ -60727,9 +61254,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60768,7 +61292,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 5146 + d0 + d1 * 8 + d2 * 4;
+			return 5576 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -60807,7 +61331,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14657;
+		public override int GetRuntimeId() => 15200;
 	} // class
 
 	public partial class WaxedCutCopperSlab // minecraft:waxed_cut_copper_slab
@@ -60826,7 +61350,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60860,7 +61383,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15700 + d0;
+			return 16264 + d0;
 		} // method
 	} // class
 
@@ -60880,8 +61403,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -60915,7 +61436,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 2005 + d0 * 4 + d1;
+			return 2033 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -60969,7 +61490,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 9317 + d0;
+			return 9747 + d0;
 		} // method
 	} // class
 
@@ -61008,7 +61529,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1332;
+		public override int GetRuntimeId() => 1360;
 	} // class
 
 	public partial class WaxedExposedCopper // minecraft:waxed_exposed_copper
@@ -61046,7 +61567,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2900;
+		public override int GetRuntimeId() => 2930;
 	} // class
 
 	public partial class WaxedExposedCopperBars // minecraft:waxed_exposed_copper_bars
@@ -61084,7 +61605,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6398;
+		public override int GetRuntimeId() => 6828;
 	} // class
 
 	public partial class WaxedExposedCopperBulb // minecraft:waxed_exposed_copper_bulb
@@ -61137,7 +61658,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 6400 + d0 + d1 * 2;
+			return 6830 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -61192,7 +61713,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1245 + d0;
+			return 1257 + d0;
 		} // method
 	} // class
 
@@ -61212,7 +61733,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61248,7 +61768,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1248 + d0;
+			return 1260 + d0;
 		} // method
 	} // class
 
@@ -61268,10 +61788,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61322,7 +61838,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 9347 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 9777 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -61378,7 +61894,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6357 + d0;
+			return 6787 + d0;
 		} // method
 	} // class
 
@@ -61417,7 +61933,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2219;
+		public override int GetRuntimeId() => 2249;
 	} // class
 
 	public partial class WaxedExposedCopperLantern // minecraft:waxed_exposed_copper_lantern
@@ -61464,7 +61980,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 14689 + d0;
+			return 15232 + d0;
 		} // method
 	} // class
 
@@ -61484,9 +62000,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61525,7 +62038,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 11502 + d0 + d1 * 8 + d2 * 4;
+			return 11964 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -61564,7 +62077,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5584;
+		public override int GetRuntimeId() => 6014;
 	} // class
 
 	public partial class WaxedExposedCutCopperSlab // minecraft:waxed_exposed_cut_copper_slab
@@ -61583,7 +62096,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61617,7 +62129,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 1307 + d0;
+			return 1319 + d0;
 		} // method
 	} // class
 
@@ -61637,8 +62149,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -61672,7 +62182,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6097 + d0 * 4 + d1;
+			return 6527 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -61726,7 +62236,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 13326 + d0;
+			return 13861 + d0;
 		} // method
 	} // class
 
@@ -61781,7 +62291,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 6108 + d0 + d1 * 6;
+			return 6538 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -61836,7 +62346,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 5266 + d0 + d1 * 6;
+			return 5696 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -61913,7 +62423,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15119;
+		public override int GetRuntimeId() => 15669;
 	} // class
 
 	public partial class WaxedOxidizedCopperBars // minecraft:waxed_oxidized_copper_bars
@@ -61951,7 +62461,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12666;
+		public override int GetRuntimeId() => 13182;
 	} // class
 
 	public partial class WaxedOxidizedCopperBulb // minecraft:waxed_oxidized_copper_bulb
@@ -62004,7 +62514,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 12670 + d0 + d1 * 2;
+			return 13186 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -62059,7 +62569,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6371 + d0;
+			return 6801 + d0;
 		} // method
 	} // class
 
@@ -62079,7 +62589,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62115,7 +62624,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 6367 + d0;
+			return 6797 + d0;
 		} // method
 	} // class
 
@@ -62135,10 +62644,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62189,7 +62694,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 11573 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 12051 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -62245,7 +62750,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 8544 + d0;
+			return 8974 + d0;
 		} // method
 	} // class
 
@@ -62284,7 +62789,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16113;
+		public override int GetRuntimeId() => 16696;
 	} // class
 
 	public partial class WaxedOxidizedCopperLantern // minecraft:waxed_oxidized_copper_lantern
@@ -62331,7 +62836,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 7366 + d0;
+			return 7796 + d0;
 		} // method
 	} // class
 
@@ -62351,9 +62856,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62392,7 +62894,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 8494 + d0 + d1 * 8 + d2 * 4;
+			return 8924 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -62431,7 +62933,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1244;
+		public override int GetRuntimeId() => 1256;
 	} // class
 
 	public partial class WaxedOxidizedCutCopperSlab // minecraft:waxed_oxidized_cut_copper_slab
@@ -62450,7 +62952,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62484,7 +62985,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 2924 + d0;
+			return 2954 + d0;
 		} // method
 	} // class
 
@@ -62504,8 +63005,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62539,7 +63038,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 10999 + d0 * 4 + d1;
+			return 11461 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -62593,7 +63092,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 15385 + d0;
+			return 15949 + d0;
 		} // method
 	} // class
 
@@ -62648,7 +63147,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 13951 + d0 + d1 * 6;
+			return 14494 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -62687,7 +63186,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5454;
+		public override int GetRuntimeId() => 5884;
 	} // class
 
 	public partial class WaxedWeatheredCopper // minecraft:waxed_weathered_copper
@@ -62725,7 +63224,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 2922;
+		public override int GetRuntimeId() => 2952;
 	} // class
 
 	public partial class WaxedWeatheredCopperBars // minecraft:waxed_weathered_copper_bars
@@ -62763,7 +63262,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11017;
+		public override int GetRuntimeId() => 11479;
 	} // class
 
 	public partial class WaxedWeatheredCopperBulb // minecraft:waxed_weathered_copper_bulb
@@ -62816,7 +63315,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 11007 + d0 + d1 * 2;
+			return 11469 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -62891,7 +63390,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -62947,10 +63445,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63001,7 +63495,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 13914 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 14457 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -63057,7 +63551,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7865 + d0;
+			return 8295 + d0;
 		} // method
 	} // class
 
@@ -63096,7 +63590,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6812;
+		public override int GetRuntimeId() => 7242;
 	} // class
 
 	public partial class WaxedWeatheredCopperLantern // minecraft:waxed_weathered_copper_lantern
@@ -63143,7 +63637,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 5991 + d0;
+			return 6421 + d0;
 		} // method
 	} // class
 
@@ -63163,9 +63657,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63204,7 +63695,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 7990 + d0 + d1 * 8 + d2 * 4;
+			return 8420 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -63243,7 +63734,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8484;
+		public override int GetRuntimeId() => 8914;
 	} // class
 
 	public partial class WaxedWeatheredCutCopperSlab // minecraft:waxed_weathered_cut_copper_slab
@@ -63262,7 +63753,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63296,7 +63786,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12986 + d0;
+			return 13503 + d0;
 		} // method
 	} // class
 
@@ -63316,8 +63806,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63351,7 +63839,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 12557 + d0 * 4 + d1;
+			return 13073 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -63405,7 +63893,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 7853 + d0;
+			return 8283 + d0;
 		} // method
 	} // class
 
@@ -63460,7 +63948,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 16463 + d0 + d1 * 6;
+			return 17046 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -63499,7 +63987,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1870;
+		public override int GetRuntimeId() => 1898;
 	} // class
 
 	public partial class WeatheredCopper // minecraft:weathered_copper
@@ -63537,7 +64025,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16478;
+		public override int GetRuntimeId() => 17061;
 	} // class
 
 	public partial class WeatheredCopperBars // minecraft:weathered_copper_bars
@@ -63575,7 +64063,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15142;
+		public override int GetRuntimeId() => 15692;
 	} // class
 
 	public partial class WeatheredCopperBulb // minecraft:weathered_copper_bulb
@@ -63628,7 +64116,7 @@ namespace MiNET.Blocks
 			int d0 = Lit ? 1 : 0;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 15138 + d0 + d1 * 2;
+			return 15688 + d0 + d1 * 2;
 		} // method
 	} // class
 
@@ -63683,7 +64171,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 10234 + d0;
+			return 10696 + d0;
 		} // method
 	} // class
 
@@ -63703,7 +64191,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63739,7 +64226,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 10229 + d0;
+			return 10691 + d0;
 		} // method
 	} // class
 
@@ -63759,10 +64246,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -63813,7 +64296,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 12828 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 13345 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -63869,7 +64352,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12151 + d0;
+			return 12629 + d0;
 		} // method
 	} // class
 
@@ -63908,7 +64391,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5474;
+		public override int GetRuntimeId() => 5904;
 	} // class
 
 	public partial class WeatheredCopperLantern // minecraft:weathered_copper_lantern
@@ -63955,7 +64438,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Hanging ? 1 : 0;
 
-			return 12877 + d0;
+			return 13394 + d0;
 		} // method
 	} // class
 
@@ -63975,9 +64458,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateRange(0, 3)] public int Direction { get; set; } = 0;
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64016,7 +64496,7 @@ namespace MiNET.Blocks
 			int d1 = OpenBit ? 1 : 0;
 			int d2 = UpsideDownBit ? 1 : 0;
 
-			return 12959 + d0 + d1 * 8 + d2 * 4;
+			return 13476 + d0 + d1 * 8 + d2 * 4;
 		} // method
 	} // class
 
@@ -64055,7 +64535,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14512;
+		public override int GetRuntimeId() => 15055;
 	} // class
 
 	public partial class WeatheredCutCopperSlab // minecraft:weathered_cut_copper_slab
@@ -64074,7 +64554,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64108,7 +64587,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 12189 + d0;
+			return 12667 + d0;
 		} // method
 	} // class
 
@@ -64128,8 +64607,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool UpsideDownBit { get; set; } = false;
-		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64163,7 +64640,7 @@ namespace MiNET.Blocks
 			if (WeirdoDirection < 0 || WeirdoDirection > 3) return -1;
 			int d1 = WeirdoDirection;
 
-			return 6787 + d0 * 4 + d1;
+			return 7217 + d0 * 4 + d1;
 		} // method
 	} // class
 
@@ -64217,7 +64694,7 @@ namespace MiNET.Blocks
 			};
 			if (d0 < 0) return -1;
 
-			return 14723 + d0;
+			return 15266 + d0;
 		} // method
 	} // class
 
@@ -64272,7 +64749,7 @@ namespace MiNET.Blocks
 			int d0 = FacingDirection;
 			int d1 = PoweredBit ? 1 : 0;
 
-			return 9091 + d0 + d1 * 6;
+			return 9521 + d0 + d1 * 6;
 		} // method
 	} // class
 
@@ -64311,7 +64788,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 13116;
+		public override int GetRuntimeId() => 13651;
 	} // class
 
 	public partial class WeepingVines // minecraft:weeping_vines
@@ -64359,7 +64836,7 @@ namespace MiNET.Blocks
 			if (WeepingVinesAge < 0 || WeepingVinesAge > 25) return -1;
 			int d0 = WeepingVinesAge;
 
-			return 9781 + d0;
+			return 10243 + d0;
 		} // method
 	} // class
 
@@ -64417,7 +64894,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 7)] public int Growth { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64446,7 +64922,7 @@ namespace MiNET.Blocks
 			if (Growth < 0 || Growth > 7) return -1;
 			int d0 = Growth;
 
-			return 14649 + d0;
+			return 15192 + d0;
 		} // method
 	} // class
 
@@ -64501,7 +64977,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 9173 + d0 + d1 * 4;
+			return 9603 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -64549,7 +65025,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 15159 + d0;
+			return 15715 + d0;
 		} // method
 	} // class
 
@@ -64588,7 +65064,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 14621;
+		public override int GetRuntimeId() => 15164;
 	} // class
 
 	public partial class WhiteConcrete // minecraft:white_concrete
@@ -64626,7 +65102,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 16120;
+		public override int GetRuntimeId() => 16703;
 	} // class
 
 	public partial class WhiteConcretePowder // minecraft:white_concrete_powder
@@ -64664,7 +65140,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8431;
+		public override int GetRuntimeId() => 8861;
 	} // class
 
 	public partial class WhiteGlazedTerracotta // minecraft:white_glazed_terracotta
@@ -64683,7 +65159,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -64712,7 +65187,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 10199 + d0;
+			return 10661 + d0;
 		} // method
 	} // class
 
@@ -64751,7 +65226,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 1962;
+		public override int GetRuntimeId() => 1990;
 	} // class
 
 	public partial class WhiteStainedGlass // minecraft:white_stained_glass
@@ -64789,7 +65264,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8485;
+		public override int GetRuntimeId() => 8915;
 	} // class
 
 	public partial class WhiteStainedGlassPane // minecraft:white_stained_glass_pane
@@ -64827,7 +65302,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7092;
+		public override int GetRuntimeId() => 7522;
 	} // class
 
 	public partial class WhiteTerracotta // minecraft:white_terracotta
@@ -64865,7 +65340,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 8042;
+		public override int GetRuntimeId() => 8472;
 	} // class
 
 	public partial class WhiteTulip // minecraft:white_tulip
@@ -64903,7 +65378,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 7326;
+		public override int GetRuntimeId() => 7756;
 	} // class
 
 	public partial class WhiteWool // minecraft:white_wool
@@ -64941,7 +65416,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 9276;
+		public override int GetRuntimeId() => 9706;
 	} // class
 
 	public partial class Wildflowers // minecraft:wildflowers
@@ -65003,7 +65478,7 @@ namespace MiNET.Blocks
 			};
 			if (d1 < 0) return -1;
 
-			return 15199 + d0 + d1 * 8;
+			return 15755 + d0 + d1 * 8;
 		} // method
 	} // class
 
@@ -65042,7 +65517,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 12553;
+		public override int GetRuntimeId() => 13066;
 	} // class
 
 	public partial class WitherSkeletonSkull // minecraft:wither_skeleton_skull
@@ -65090,7 +65565,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 14565 + d0;
+			return 15108 + d0;
 		} // method
 	} // class
 
@@ -65110,8 +65585,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool ButtonPressedBit { get; set; } = false;
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -65145,7 +65618,7 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d1 = FacingDirection;
 
-			return 12781 + d0 * 6 + d1;
+			return 13298 + d0 * 6 + d1;
 		} // method
 	} // class
 
@@ -65165,10 +65638,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = false;
 		public override bool CanContainLiquidSource { get; protected set; } = true;
 
-		[StateBit] public bool DoorHingeBit { get; set; } = false;
-		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
-		[StateBit] public bool OpenBit { get; set; } = false;
-		[StateBit] public bool UpperBlockBit { get; set; } = false;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -65219,7 +65688,7 @@ namespace MiNET.Blocks
 			int d2 = OpenBit ? 1 : 0;
 			int d3 = UpperBlockBit ? 1 : 0;
 
-			return 5492 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
+			return 5922 + d0 * 16 + d1 + d2 * 4 + d3 * 8;
 		} // method
 	} // class
 
@@ -65268,7 +65737,7 @@ namespace MiNET.Blocks
 			if (RedstoneSignal < 0 || RedstoneSignal > 15) return -1;
 			int d0 = RedstoneSignal;
 
-			return 15932 + d0;
+			return 16515 + d0;
 		} // method
 	} // class
 
@@ -65323,7 +65792,7 @@ namespace MiNET.Blocks
 			int d0 = Candles;
 			int d1 = Lit ? 1 : 0;
 
-			return 12566 + d0 + d1 * 4;
+			return 13082 + d0 + d1 * 4;
 		} // method
 	} // class
 
@@ -65371,7 +65840,7 @@ namespace MiNET.Blocks
 		{
 			int d0 = Lit ? 1 : 0;
 
-			return 7380 + d0;
+			return 7810 + d0;
 		} // method
 	} // class
 
@@ -65410,7 +65879,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 11570;
+		public override int GetRuntimeId() => 12048;
 	} // class
 
 	public partial class YellowConcrete // minecraft:yellow_concrete
@@ -65448,7 +65917,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 5279;
+		public override int GetRuntimeId() => 5709;
 	} // class
 
 	public partial class YellowConcretePowder // minecraft:yellow_concrete_powder
@@ -65486,7 +65955,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15158;
+		public override int GetRuntimeId() => 15714;
 	} // class
 
 	public partial class YellowGlazedTerracotta // minecraft:yellow_glazed_terracotta
@@ -65505,7 +65974,6 @@ namespace MiNET.Blocks
 		public override bool RequiresCorrectToolForDrops { get; protected set; } = true;
 		public override bool CanContainLiquidSource { get; protected set; } = false;
 
-		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 
 		public override void SetState(List<IBlockState> states)
 		{
@@ -65534,7 +66002,49 @@ namespace MiNET.Blocks
 			if (FacingDirection < 0 || FacingDirection > 5) return -1;
 			int d0 = FacingDirection;
 
-			return 3379 + d0;
+			return 3409 + d0;
+		} // method
+	} // class
+
+	public partial class YellowPoplarLeaves // minecraft:yellow_poplar_leaves
+	{
+		public override string Name => "minecraft:yellow_poplar_leaves";
+
+		[StateBit] public bool PersistentBit { get; set; } = false;
+		[StateBit] public bool UpdateBit { get; set; } = false;
+
+		public override void SetState(List<IBlockState> states)
+		{
+			foreach (var state in states)
+			{
+				switch (state)
+				{
+					case BlockStateByte s when s.Name == "persistent_bit":
+						PersistentBit = Convert.ToBoolean(s.Value);
+						break;
+					case BlockStateByte s when s.Name == "update_bit":
+						UpdateBit = Convert.ToBoolean(s.Value);
+						break;
+				} // switch
+			} // foreach
+		} // method
+
+		public override BlockStateContainer GetState()
+		{
+			var record = new BlockStateContainer();
+			record.Name = "minecraft:yellow_poplar_leaves";
+			record.Id = 1401;
+			record.States.Add(new BlockStateByte {Name = "persistent_bit", Value = Convert.ToByte(PersistentBit)});
+			record.States.Add(new BlockStateByte {Name = "update_bit", Value = Convert.ToByte(UpdateBit)});
+			return record;
+		} // method
+
+		public override int GetRuntimeId()
+		{
+			int d0 = PersistentBit ? 1 : 0;
+			int d1 = UpdateBit ? 1 : 0;
+
+			return 15940 + d0 * 2 + d1;
 		} // method
 	} // class
 
@@ -65611,7 +66121,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 15165;
+		public override int GetRuntimeId() => 15721;
 	} // class
 
 	public partial class YellowStainedGlassPane // minecraft:yellow_stained_glass_pane
@@ -65649,7 +66159,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 843;
+		public override int GetRuntimeId() => 855;
 	} // class
 
 	public partial class YellowTerracotta // minecraft:yellow_terracotta
@@ -65687,7 +66197,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 6419;
+		public override int GetRuntimeId() => 6849;
 	} // class
 
 	public partial class YellowWool // minecraft:yellow_wool
@@ -65725,7 +66235,7 @@ namespace MiNET.Blocks
 			return record;
 		} // method
 
-		public override int GetRuntimeId() => 836;
+		public override int GetRuntimeId() => 848;
 	} // class
 
 	public partial class ZombieHead // minecraft:zombie_head
@@ -65775,5 +66285,105 @@ namespace MiNET.Blocks
 
 			return 33 + d0;
 		} // method
+	} // class
+
+	public abstract partial class BlastFurnaceBase
+	{
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+	} // class
+
+	public abstract partial class Button
+	{
+		[StateBit] public bool ButtonPressedBit { get; set; } = false;
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
+	} // class
+
+	public abstract partial class ChestBase
+	{
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+	} // class
+
+	public abstract partial class Crops
+	{
+		[StateRange(0, 7)] public int Growth { get; set; } = 0;
+	} // class
+
+	public abstract partial class DoorBase
+	{
+		[StateBit] public bool DoorHingeBit { get; set; } = false;
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool OpenBit { get; set; } = false;
+		[StateBit] public bool UpperBlockBit { get; set; } = false;
+	} // class
+
+	public abstract partial class FenceGateBase
+	{
+		[StateBit] public bool InWallBit { get; set; } = false;
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+		[StateBit] public bool OpenBit { get; set; } = false;
+	} // class
+
+	public abstract partial class Flowing
+	{
+		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
+	} // class
+
+	public abstract partial class FurnaceBase
+	{
+		[StateEnum("south","west","north","east")] public string CardinalDirection { get; set; } = "south";
+	} // class
+
+	public abstract partial class GlazedTerracottaBase
+	{
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
+	} // class
+
+	public abstract partial class LeavesBase
+	{
+		[StateBit] public bool PersistentBit { get; set; } = false;
+		[StateBit] public bool UpdateBit { get; set; } = false;
+	} // class
+
+	public abstract partial class LogBase
+	{
+		[StateEnum("y","x","z")] public string PillarAxis { get; set; } = "y";
+	} // class
+
+	public abstract partial class RedstoneTorchBase
+	{
+		[StateEnum("unknown","west","east","north","south","top")] public string TorchFacingDirection { get; set; } = "unknown";
+	} // class
+
+	public abstract partial class SlabBase
+	{
+		[StateEnum("bottom","top")] public string VerticalHalf { get; set; } = "bottom";
+	} // class
+
+	public abstract partial class StairsBase
+	{
+		[StateBit] public bool UpsideDownBit { get; set; } = false;
+		[StateRange(0, 3)] public int WeirdoDirection { get; set; } = 0;
+	} // class
+
+	public abstract partial class StandingSignBase
+	{
+		[StateRange(0, 15)] public int GroundSignDirection { get; set; } = 0;
+	} // class
+
+	public abstract partial class Stationary
+	{
+		[StateRange(0, 15)] public int LiquidDepth { get; set; } = 0;
+	} // class
+
+	public abstract partial class TrapdoorBase
+	{
+		[StateRange(0, 3)] public int Direction { get; set; } = 0;
+		[StateBit] public bool OpenBit { get; set; } = false;
+		[StateBit] public bool UpsideDownBit { get; set; } = false;
+	} // class
+
+	public abstract partial class WallSignBase
+	{
+		[StateRange(0, 5)] public int FacingDirection { get; set; } = 0;
 	} // class
 }

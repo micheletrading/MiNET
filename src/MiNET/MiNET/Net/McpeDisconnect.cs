@@ -27,6 +27,19 @@ namespace MiNET.Net
 {
 	public partial class McpeDisconnect : Packet<McpeDisconnect>
 	{
+		/// <summary>
+		///     Ordinals from the client's DisconnectFailReason. Only the ones a server sends are
+		///     listed. The client picks its screen from this, and for <see cref="Unknown" /> it shows
+		///     a canned connection error and ignores the message entirely, so a kick that leaves this
+		///     at its default reads as "Server not found" no matter what text it carries.
+		/// </summary>
+		public enum FailReason
+		{
+			Unknown = 0,
+			LegacyDisconnect = 13,
+			Kicked = 55,
+		}
+
 		// Only present when hideDisconnectReason is false.
 		public string message;
 		public string filteredMessage;

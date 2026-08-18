@@ -25,7 +25,6 @@
 
 using System;
 using log4net;
-using MiNET.Net.RakNet;
 
 namespace MiNET.Net
 {
@@ -35,7 +34,7 @@ namespace MiNET.Net
 
 		public Action ConnectionAction { get; set; }
 
-		public BedrockClientMessageHandler(RakSession session, IMcpeClientMessageHandler handler) : base(session)
+		public BedrockClientMessageHandler(INetworkHandler session, IMcpeClientMessageHandler handler) : base(session)
 		{
 			_messageDispatcher = new McpeClientMessageDispatcher(handler);
 		}

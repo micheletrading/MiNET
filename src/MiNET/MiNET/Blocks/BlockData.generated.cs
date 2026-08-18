@@ -4,9 +4,17 @@
 namespace MiNET.Blocks
 {
 
+	public partial class AcaciaDoor : DoorBase // minecraft:acacia_door
+	{
+		public AcaciaDoor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
 	public partial class AcaciaDoubleSlab : Block // minecraft:acacia_double_slab
 	{
-		public AcaciaDoubleSlab() : base(1067)
+		public AcaciaDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -14,7 +22,15 @@ namespace MiNET.Blocks
 
 	public partial class AcaciaFence : Block // minecraft:acacia_fence
 	{
-		public AcaciaFence() : base(830)
+		public AcaciaFence()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class AcaciaFenceGate : FenceGateBase // minecraft:acacia_fence_gate
+	{
+		public AcaciaFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -22,23 +38,23 @@ namespace MiNET.Blocks
 
 	public partial class AcaciaHangingSign : Block // minecraft:acacia_hanging_sign
 	{
-		public AcaciaHangingSign() : base(759)
+		public AcaciaHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AcaciaLeaves : Block // minecraft:acacia_leaves
+	public partial class AcaciaLeaves : LeavesBase // minecraft:acacia_leaves
 	{
-		public AcaciaLeaves() : base(161)
+		public AcaciaLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AcaciaLog : Block // minecraft:acacia_log
+	public partial class AcaciaLog : LogBase // minecraft:acacia_log
 	{
-		public AcaciaLog() : base(162)
+		public AcaciaLog()
 		{
 			IsGenerated = true;
 		}
@@ -46,7 +62,7 @@ namespace MiNET.Blocks
 
 	public partial class AcaciaPlanks : Block // minecraft:acacia_planks
 	{
-		public AcaciaPlanks() : base(997)
+		public AcaciaPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -54,15 +70,15 @@ namespace MiNET.Blocks
 
 	public partial class AcaciaPressurePlate : Block // minecraft:acacia_pressure_plate
 	{
-		public AcaciaPressurePlate() : base(405)
+		public AcaciaPressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AcaciaSapling : Block // minecraft:acacia_sapling
+	public partial class AcaciaSapling : SaplingBase // minecraft:acacia_sapling
 	{
-		public AcaciaSapling() : base(1083)
+		public AcaciaSapling()
 		{
 			IsGenerated = true;
 		}
@@ -70,15 +86,31 @@ namespace MiNET.Blocks
 
 	public partial class AcaciaShelf : Block // minecraft:acacia_shelf
 	{
-		public AcaciaShelf() : base(1306)
+		public AcaciaShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AcaciaSlab : Block // minecraft:acacia_slab
+	public partial class AcaciaSlab : SlabBase // minecraft:acacia_slab
 	{
-		public AcaciaSlab() : base(1062)
+		public AcaciaSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class AcaciaStairs : StairsBase // minecraft:acacia_stairs
+	{
+		public AcaciaStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class AcaciaTrapdoor : TrapdoorBase // minecraft:acacia_trapdoor
+	{
+		public AcaciaTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -86,15 +118,23 @@ namespace MiNET.Blocks
 
 	public partial class AcaciaWood : Block // minecraft:acacia_wood
 	{
-		public AcaciaWood() : base(1072)
+		public AcaciaWood()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Allium : Block // minecraft:allium
+	public partial class ActivatorRail : Block // minecraft:activator_rail
 	{
-		public Allium() : base(1086)
+		public ActivatorRail()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Allium : FlowerBase // minecraft:allium
+	{
+		public Allium()
 		{
 			IsGenerated = true;
 		}
@@ -102,7 +142,7 @@ namespace MiNET.Blocks
 
 	public partial class Allow : Block // minecraft:allow
 	{
-		public Allow() : base(210)
+		public Allow()
 		{
 			IsGenerated = true;
 		}
@@ -110,7 +150,7 @@ namespace MiNET.Blocks
 
 	public partial class AmethystBlock : Block // minecraft:amethyst_block
 	{
-		public AmethystBlock() : base(582)
+		public AmethystBlock()
 		{
 			IsGenerated = true;
 		}
@@ -118,7 +158,7 @@ namespace MiNET.Blocks
 
 	public partial class AmethystCluster : Block // minecraft:amethyst_cluster
 	{
-		public AmethystCluster() : base(584)
+		public AmethystCluster()
 		{
 			IsGenerated = true;
 		}
@@ -126,7 +166,7 @@ namespace MiNET.Blocks
 
 	public partial class AncientDebris : Block // minecraft:ancient_debris
 	{
-		public AncientDebris() : base(526)
+		public AncientDebris()
 		{
 			IsGenerated = true;
 		}
@@ -134,7 +174,7 @@ namespace MiNET.Blocks
 
 	public partial class Andesite : Block // minecraft:andesite
 	{
-		public Andesite() : base(849)
+		public Andesite()
 		{
 			IsGenerated = true;
 		}
@@ -142,15 +182,23 @@ namespace MiNET.Blocks
 
 	public partial class AndesiteDoubleSlab : Block // minecraft:andesite_double_slab
 	{
-		public AndesiteDoubleSlab() : base(1175)
+		public AndesiteDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AndesiteSlab : Block // minecraft:andesite_slab
+	public partial class AndesiteSlab : SlabBase // minecraft:andesite_slab
 	{
-		public AndesiteSlab() : base(1148)
+		public AndesiteSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class AndesiteStairs : StairsBase // minecraft:andesite_stairs
+	{
+		public AndesiteStairs()
 		{
 			IsGenerated = true;
 		}
@@ -158,7 +206,7 @@ namespace MiNET.Blocks
 
 	public partial class AndesiteWall : Block // minecraft:andesite_wall
 	{
-		public AndesiteWall() : base(1229)
+		public AndesiteWall()
 		{
 			IsGenerated = true;
 		}
@@ -166,31 +214,31 @@ namespace MiNET.Blocks
 
 	public partial class Azalea : Block // minecraft:azalea
 	{
-		public Azalea() : base(592)
+		public Azalea()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AzaleaLeaves : Block // minecraft:azalea_leaves
+	public partial class AzaleaLeaves : LeavesBase // minecraft:azalea_leaves
 	{
-		public AzaleaLeaves() : base(579)
+		public AzaleaLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AzaleaLeavesFlowered : Block // minecraft:azalea_leaves_flowered
+	public partial class AzaleaLeavesFlowered : LeavesBase // minecraft:azalea_leaves_flowered
 	{
-		public AzaleaLeavesFlowered() : base(580)
+		public AzaleaLeavesFlowered()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class AzureBluet : Block // minecraft:azure_bluet
+	public partial class AzureBluet : FlowerBase // minecraft:azure_bluet
 	{
-		public AzureBluet() : base(1087)
+		public AzureBluet()
 		{
 			IsGenerated = true;
 		}
@@ -198,7 +246,7 @@ namespace MiNET.Blocks
 
 	public partial class Bamboo : Block // minecraft:bamboo
 	{
-		public Bamboo() : base(418)
+		public Bamboo()
 		{
 			IsGenerated = true;
 		}
@@ -206,7 +254,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooBlock : Block // minecraft:bamboo_block
 	{
-		public BambooBlock() : base(782)
+		public BambooBlock()
 		{
 			IsGenerated = true;
 		}
@@ -214,15 +262,15 @@ namespace MiNET.Blocks
 
 	public partial class BambooButton : Block // minecraft:bamboo_button
 	{
-		public BambooButton() : base(766)
+		public BambooButton()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BambooDoor : Block // minecraft:bamboo_door
+	public partial class BambooDoor : DoorBase // minecraft:bamboo_door
 	{
-		public BambooDoor() : base(772)
+		public BambooDoor()
 		{
 			IsGenerated = true;
 		}
@@ -230,7 +278,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooDoubleSlab : Block // minecraft:bamboo_double_slab
 	{
-		public BambooDoubleSlab() : base(776)
+		public BambooDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -238,15 +286,15 @@ namespace MiNET.Blocks
 
 	public partial class BambooFence : Block // minecraft:bamboo_fence
 	{
-		public BambooFence() : base(770)
+		public BambooFence()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BambooFenceGate : Block // minecraft:bamboo_fence_gate
+	public partial class BambooFenceGate : FenceGateBase // minecraft:bamboo_fence_gate
 	{
-		public BambooFenceGate() : base(771)
+		public BambooFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -254,7 +302,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooHangingSign : Block // minecraft:bamboo_hanging_sign
 	{
-		public BambooHangingSign() : base(777)
+		public BambooHangingSign()
 		{
 			IsGenerated = true;
 		}
@@ -262,7 +310,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooMosaic : Block // minecraft:bamboo_mosaic
 	{
-		public BambooMosaic() : base(764)
+		public BambooMosaic()
 		{
 			IsGenerated = true;
 		}
@@ -270,23 +318,23 @@ namespace MiNET.Blocks
 
 	public partial class BambooMosaicDoubleSlab : Block // minecraft:bamboo_mosaic_double_slab
 	{
-		public BambooMosaicDoubleSlab() : base(780)
+		public BambooMosaicDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BambooMosaicSlab : Block // minecraft:bamboo_mosaic_slab
+	public partial class BambooMosaicSlab : SlabBase // minecraft:bamboo_mosaic_slab
 	{
-		public BambooMosaicSlab() : base(779)
+		public BambooMosaicSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BambooMosaicStairs : Block // minecraft:bamboo_mosaic_stairs
+	public partial class BambooMosaicStairs : StairsBase // minecraft:bamboo_mosaic_stairs
 	{
-		public BambooMosaicStairs() : base(778)
+		public BambooMosaicStairs()
 		{
 			IsGenerated = true;
 		}
@@ -294,7 +342,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooPlanks : Block // minecraft:bamboo_planks
 	{
-		public BambooPlanks() : base(765)
+		public BambooPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -302,7 +350,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooPressurePlate : Block // minecraft:bamboo_pressure_plate
 	{
-		public BambooPressurePlate() : base(769)
+		public BambooPressurePlate()
 		{
 			IsGenerated = true;
 		}
@@ -310,7 +358,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooSapling : Block // minecraft:bamboo_sapling
 	{
-		public BambooSapling() : base(419)
+		public BambooSapling()
 		{
 			IsGenerated = true;
 		}
@@ -318,23 +366,23 @@ namespace MiNET.Blocks
 
 	public partial class BambooShelf : Block // minecraft:bamboo_shelf
 	{
-		public BambooShelf() : base(1311)
+		public BambooShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BambooSlab : Block // minecraft:bamboo_slab
+	public partial class BambooSlab : SlabBase // minecraft:bamboo_slab
 	{
-		public BambooSlab() : base(768)
+		public BambooSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BambooStairs : Block // minecraft:bamboo_stairs
+	public partial class BambooStairs : StairsBase // minecraft:bamboo_stairs
 	{
-		public BambooStairs() : base(767)
+		public BambooStairs()
 		{
 			IsGenerated = true;
 		}
@@ -342,15 +390,15 @@ namespace MiNET.Blocks
 
 	public partial class BambooStandingSign : Block // minecraft:bamboo_standing_sign
 	{
-		public BambooStandingSign() : base(773)
+		public BambooStandingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BambooTrapdoor : Block // minecraft:bamboo_trapdoor
+	public partial class BambooTrapdoor : TrapdoorBase // minecraft:bamboo_trapdoor
 	{
-		public BambooTrapdoor() : base(775)
+		public BambooTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -358,7 +406,7 @@ namespace MiNET.Blocks
 
 	public partial class BambooWallSign : Block // minecraft:bamboo_wall_sign
 	{
-		public BambooWallSign() : base(774)
+		public BambooWallSign()
 		{
 			IsGenerated = true;
 		}
@@ -366,7 +414,7 @@ namespace MiNET.Blocks
 
 	public partial class Barrel : Block // minecraft:barrel
 	{
-		public Barrel() : base(458)
+		public Barrel()
 		{
 			IsGenerated = true;
 		}
@@ -374,7 +422,7 @@ namespace MiNET.Blocks
 
 	public partial class Barrier : Block // minecraft:barrier
 	{
-		public Barrier() : base(416)
+		public Barrier()
 		{
 			IsGenerated = true;
 		}
@@ -382,7 +430,7 @@ namespace MiNET.Blocks
 
 	public partial class Basalt : Block // minecraft:basalt
 	{
-		public Basalt() : base(489)
+		public Basalt()
 		{
 			IsGenerated = true;
 		}
@@ -390,7 +438,7 @@ namespace MiNET.Blocks
 
 	public partial class BeeNest : Block // minecraft:bee_nest
 	{
-		public BeeNest() : base(473)
+		public BeeNest()
 		{
 			IsGenerated = true;
 		}
@@ -398,7 +446,7 @@ namespace MiNET.Blocks
 
 	public partial class Beehive : Block // minecraft:beehive
 	{
-		public Beehive() : base(474)
+		public Beehive()
 		{
 			IsGenerated = true;
 		}
@@ -406,7 +454,7 @@ namespace MiNET.Blocks
 
 	public partial class Bell : Block // minecraft:bell
 	{
-		public Bell() : base(461)
+		public Bell()
 		{
 			IsGenerated = true;
 		}
@@ -414,7 +462,15 @@ namespace MiNET.Blocks
 
 	public partial class BigDripleaf : Block // minecraft:big_dripleaf
 	{
-		public BigDripleaf() : base(578)
+		public BigDripleaf()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BirchDoor : DoorBase // minecraft:birch_door
+	{
+		public BirchDoor()
 		{
 			IsGenerated = true;
 		}
@@ -422,7 +478,7 @@ namespace MiNET.Blocks
 
 	public partial class BirchDoubleSlab : Block // minecraft:birch_double_slab
 	{
-		public BirchDoubleSlab() : base(1065)
+		public BirchDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -430,7 +486,15 @@ namespace MiNET.Blocks
 
 	public partial class BirchFence : Block // minecraft:birch_fence
 	{
-		public BirchFence() : base(831)
+		public BirchFence()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BirchFenceGate : FenceGateBase // minecraft:birch_fence_gate
+	{
+		public BirchFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -438,23 +502,23 @@ namespace MiNET.Blocks
 
 	public partial class BirchHangingSign : Block // minecraft:birch_hanging_sign
 	{
-		public BirchHangingSign() : base(757)
+		public BirchHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BirchLeaves : Block // minecraft:birch_leaves
+	public partial class BirchLeaves : LeavesBase // minecraft:birch_leaves
 	{
-		public BirchLeaves() : base(1056)
+		public BirchLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BirchLog : Block // minecraft:birch_log
+	public partial class BirchLog : LogBase // minecraft:birch_log
 	{
-		public BirchLog() : base(825)
+		public BirchLog()
 		{
 			IsGenerated = true;
 		}
@@ -462,7 +526,7 @@ namespace MiNET.Blocks
 
 	public partial class BirchPlanks : Block // minecraft:birch_planks
 	{
-		public BirchPlanks() : base(995)
+		public BirchPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -470,15 +534,15 @@ namespace MiNET.Blocks
 
 	public partial class BirchPressurePlate : Block // minecraft:birch_pressure_plate
 	{
-		public BirchPressurePlate() : base(406)
+		public BirchPressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BirchSapling : Block // minecraft:birch_sapling
+	public partial class BirchSapling : SaplingBase // minecraft:birch_sapling
 	{
-		public BirchSapling() : base(1081)
+		public BirchSapling()
 		{
 			IsGenerated = true;
 		}
@@ -486,15 +550,31 @@ namespace MiNET.Blocks
 
 	public partial class BirchShelf : Block // minecraft:birch_shelf
 	{
-		public BirchShelf() : base(1304)
+		public BirchShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BirchSlab : Block // minecraft:birch_slab
+	public partial class BirchSlab : SlabBase // minecraft:birch_slab
 	{
-		public BirchSlab() : base(1060)
+		public BirchSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BirchStairs : StairsBase // minecraft:birch_stairs
+	{
+		public BirchStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BirchTrapdoor : TrapdoorBase // minecraft:birch_trapdoor
+	{
+		public BirchTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -502,7 +582,7 @@ namespace MiNET.Blocks
 
 	public partial class BirchWood : Block // minecraft:birch_wood
 	{
-		public BirchWood() : base(1070)
+		public BirchWood()
 		{
 			IsGenerated = true;
 		}
@@ -510,7 +590,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackCandle : Block // minecraft:black_candle
 	{
-		public BlackCandle() : base(683)
+		public BlackCandle()
 		{
 			IsGenerated = true;
 		}
@@ -518,7 +598,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackCandleCake : Block // minecraft:black_candle_cake
 	{
-		public BlackCandleCake() : base(700)
+		public BlackCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -526,7 +606,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackCarpet : Block // minecraft:black_carpet
 	{
-		public BlackCarpet() : base(866)
+		public BlackCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -534,7 +614,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackConcrete : Block // minecraft:black_concrete
 	{
-		public BlackConcrete() : base(897)
+		public BlackConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -542,7 +622,15 @@ namespace MiNET.Blocks
 
 	public partial class BlackConcretePowder : Block // minecraft:black_concrete_powder
 	{
-		public BlackConcretePowder() : base(978)
+		public BlackConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BlackGlazedTerracotta : GlazedTerracottaBase // minecraft:black_glazed_terracotta
+	{
+		public BlackGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -550,7 +638,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackShulkerBox : Block // minecraft:black_shulker_box
 	{
-		public BlackShulkerBox() : base(882)
+		public BlackShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -558,15 +646,15 @@ namespace MiNET.Blocks
 
 	public partial class BlackStainedGlass : Block // minecraft:black_stained_glass
 	{
-		public BlackStainedGlass() : base(942)
+		public BlackStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BlackStainedGlassPane : Block // minecraft:black_stained_glass_pane
+	public partial class BlackStainedGlassPane : GlassPaneBase // minecraft:black_stained_glass_pane
 	{
-		public BlackStainedGlassPane() : base(912)
+		public BlackStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -574,7 +662,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackTerracotta : Block // minecraft:black_terracotta
 	{
-		public BlackTerracotta() : base(993)
+		public BlackTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -582,7 +670,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackWool : Block // minecraft:black_wool
 	{
-		public BlackWool() : base(809)
+		public BlackWool()
 		{
 			IsGenerated = true;
 		}
@@ -590,7 +678,31 @@ namespace MiNET.Blocks
 
 	public partial class Blackstone : Block // minecraft:blackstone
 	{
-		public Blackstone() : base(528)
+		public Blackstone()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BlackstoneDoubleSlab : Block // minecraft:blackstone_double_slab
+	{
+		public BlackstoneDoubleSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BlackstoneSlab : SlabBase // minecraft:blackstone_slab
+	{
+		public BlackstoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BlackstoneStairs : StairsBase // minecraft:blackstone_stairs
+	{
+		public BlackstoneStairs()
 		{
 			IsGenerated = true;
 		}
@@ -598,7 +710,7 @@ namespace MiNET.Blocks
 
 	public partial class BlackstoneWall : Block // minecraft:blackstone_wall
 	{
-		public BlackstoneWall() : base(532)
+		public BlackstoneWall()
 		{
 			IsGenerated = true;
 		}
@@ -606,7 +718,7 @@ namespace MiNET.Blocks
 
 	public partial class BlueCandle : Block // minecraft:blue_candle
 	{
-		public BlueCandle() : base(679)
+		public BlueCandle()
 		{
 			IsGenerated = true;
 		}
@@ -614,7 +726,7 @@ namespace MiNET.Blocks
 
 	public partial class BlueCandleCake : Block // minecraft:blue_candle_cake
 	{
-		public BlueCandleCake() : base(696)
+		public BlueCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -622,7 +734,7 @@ namespace MiNET.Blocks
 
 	public partial class BlueCarpet : Block // minecraft:blue_carpet
 	{
-		public BlueCarpet() : base(862)
+		public BlueCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -630,7 +742,7 @@ namespace MiNET.Blocks
 
 	public partial class BlueConcrete : Block // minecraft:blue_concrete
 	{
-		public BlueConcrete() : base(893)
+		public BlueConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -638,7 +750,15 @@ namespace MiNET.Blocks
 
 	public partial class BlueConcretePowder : Block // minecraft:blue_concrete_powder
 	{
-		public BlueConcretePowder() : base(974)
+		public BlueConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BlueGlazedTerracotta : GlazedTerracottaBase // minecraft:blue_glazed_terracotta
+	{
+		public BlueGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -646,15 +766,15 @@ namespace MiNET.Blocks
 
 	public partial class BlueIce : Block // minecraft:blue_ice
 	{
-		public BlueIce() : base(266)
+		public BlueIce()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BlueOrchid : Block // minecraft:blue_orchid
+	public partial class BlueOrchid : FlowerBase // minecraft:blue_orchid
 	{
-		public BlueOrchid() : base(1085)
+		public BlueOrchid()
 		{
 			IsGenerated = true;
 		}
@@ -662,7 +782,7 @@ namespace MiNET.Blocks
 
 	public partial class BlueShulkerBox : Block // minecraft:blue_shulker_box
 	{
-		public BlueShulkerBox() : base(878)
+		public BlueShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -670,15 +790,15 @@ namespace MiNET.Blocks
 
 	public partial class BlueStainedGlass : Block // minecraft:blue_stained_glass
 	{
-		public BlueStainedGlass() : base(938)
+		public BlueStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BlueStainedGlassPane : Block // minecraft:blue_stained_glass_pane
+	public partial class BlueStainedGlassPane : GlassPaneBase // minecraft:blue_stained_glass_pane
 	{
-		public BlueStainedGlassPane() : base(908)
+		public BlueStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -686,7 +806,7 @@ namespace MiNET.Blocks
 
 	public partial class BlueTerracotta : Block // minecraft:blue_terracotta
 	{
-		public BlueTerracotta() : base(989)
+		public BlueTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -694,7 +814,7 @@ namespace MiNET.Blocks
 
 	public partial class BlueWool : Block // minecraft:blue_wool
 	{
-		public BlueWool() : base(818)
+		public BlueWool()
 		{
 			IsGenerated = true;
 		}
@@ -702,7 +822,7 @@ namespace MiNET.Blocks
 
 	public partial class BoneBlock : Block // minecraft:bone_block
 	{
-		public BoneBlock() : base(216)
+		public BoneBlock()
 		{
 			IsGenerated = true;
 		}
@@ -710,7 +830,7 @@ namespace MiNET.Blocks
 
 	public partial class BorderBlock : Block // minecraft:border_block
 	{
-		public BorderBlock() : base(212)
+		public BorderBlock()
 		{
 			IsGenerated = true;
 		}
@@ -718,7 +838,7 @@ namespace MiNET.Blocks
 
 	public partial class BrainCoral : Block // minecraft:brain_coral
 	{
-		public BrainCoral() : base(836)
+		public BrainCoral()
 		{
 			IsGenerated = true;
 		}
@@ -726,7 +846,7 @@ namespace MiNET.Blocks
 
 	public partial class BrainCoralBlock : Block // minecraft:brain_coral_block
 	{
-		public BrainCoralBlock() : base(1104)
+		public BrainCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -734,7 +854,7 @@ namespace MiNET.Blocks
 
 	public partial class BrainCoralFan : Block // minecraft:brain_coral_fan
 	{
-		public BrainCoralFan() : base(1095)
+		public BrainCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -742,7 +862,7 @@ namespace MiNET.Blocks
 
 	public partial class BrainCoralWallFan : Block // minecraft:brain_coral_wall_fan
 	{
-		public BrainCoralWallFan() : base(1159)
+		public BrainCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -750,15 +870,23 @@ namespace MiNET.Blocks
 
 	public partial class BrickDoubleSlab : Block // minecraft:brick_double_slab
 	{
-		public BrickDoubleSlab() : base(1135)
+		public BrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BrickSlab : Block // minecraft:brick_slab
+	public partial class BrickSlab : SlabBase // minecraft:brick_slab
 	{
-		public BrickSlab() : base(1129)
+		public BrickSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BrickStairs : StairsBase // minecraft:brick_stairs
+	{
+		public BrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -766,7 +894,7 @@ namespace MiNET.Blocks
 
 	public partial class BrickWall : Block // minecraft:brick_wall
 	{
-		public BrickWall() : base(1231)
+		public BrickWall()
 		{
 			IsGenerated = true;
 		}
@@ -774,7 +902,7 @@ namespace MiNET.Blocks
 
 	public partial class BrownCandle : Block // minecraft:brown_candle
 	{
-		public BrownCandle() : base(680)
+		public BrownCandle()
 		{
 			IsGenerated = true;
 		}
@@ -782,7 +910,7 @@ namespace MiNET.Blocks
 
 	public partial class BrownCandleCake : Block // minecraft:brown_candle_cake
 	{
-		public BrownCandleCake() : base(697)
+		public BrownCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -790,7 +918,7 @@ namespace MiNET.Blocks
 
 	public partial class BrownCarpet : Block // minecraft:brown_carpet
 	{
-		public BrownCarpet() : base(863)
+		public BrownCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -798,7 +926,7 @@ namespace MiNET.Blocks
 
 	public partial class BrownConcrete : Block // minecraft:brown_concrete
 	{
-		public BrownConcrete() : base(894)
+		public BrownConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -806,7 +934,23 @@ namespace MiNET.Blocks
 
 	public partial class BrownConcretePowder : Block // minecraft:brown_concrete_powder
 	{
-		public BrownConcretePowder() : base(975)
+		public BrownConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BrownGlazedTerracotta : GlazedTerracottaBase // minecraft:brown_glazed_terracotta
+	{
+		public BrownGlazedTerracotta()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class BrownMushroom : Block // minecraft:brown_mushroom
+	{
+		public BrownMushroom()
 		{
 			IsGenerated = true;
 		}
@@ -814,7 +958,7 @@ namespace MiNET.Blocks
 
 	public partial class BrownShulkerBox : Block // minecraft:brown_shulker_box
 	{
-		public BrownShulkerBox() : base(879)
+		public BrownShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -822,15 +966,15 @@ namespace MiNET.Blocks
 
 	public partial class BrownStainedGlass : Block // minecraft:brown_stained_glass
 	{
-		public BrownStainedGlass() : base(939)
+		public BrownStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class BrownStainedGlassPane : Block // minecraft:brown_stained_glass_pane
+	public partial class BrownStainedGlassPane : GlassPaneBase // minecraft:brown_stained_glass_pane
 	{
-		public BrownStainedGlassPane() : base(909)
+		public BrownStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -838,7 +982,7 @@ namespace MiNET.Blocks
 
 	public partial class BrownTerracotta : Block // minecraft:brown_terracotta
 	{
-		public BrownTerracotta() : base(990)
+		public BrownTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -846,7 +990,7 @@ namespace MiNET.Blocks
 
 	public partial class BrownWool : Block // minecraft:brown_wool
 	{
-		public BrownWool() : base(810)
+		public BrownWool()
 		{
 			IsGenerated = true;
 		}
@@ -854,7 +998,7 @@ namespace MiNET.Blocks
 
 	public partial class BubbleColumn : Block // minecraft:bubble_column
 	{
-		public BubbleColumn() : base(415)
+		public BubbleColumn()
 		{
 			IsGenerated = true;
 		}
@@ -862,7 +1006,7 @@ namespace MiNET.Blocks
 
 	public partial class BubbleCoral : Block // minecraft:bubble_coral
 	{
-		public BubbleCoral() : base(837)
+		public BubbleCoral()
 		{
 			IsGenerated = true;
 		}
@@ -870,7 +1014,7 @@ namespace MiNET.Blocks
 
 	public partial class BubbleCoralBlock : Block // minecraft:bubble_coral_block
 	{
-		public BubbleCoralBlock() : base(1105)
+		public BubbleCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -878,7 +1022,7 @@ namespace MiNET.Blocks
 
 	public partial class BubbleCoralFan : Block // minecraft:bubble_coral_fan
 	{
-		public BubbleCoralFan() : base(1096)
+		public BubbleCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -886,7 +1030,7 @@ namespace MiNET.Blocks
 
 	public partial class BubbleCoralWallFan : Block // minecraft:bubble_coral_wall_fan
 	{
-		public BubbleCoralWallFan() : base(391)
+		public BubbleCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -894,7 +1038,7 @@ namespace MiNET.Blocks
 
 	public partial class BuddingAmethyst : Block // minecraft:budding_amethyst
 	{
-		public BuddingAmethyst() : base(583)
+		public BuddingAmethyst()
 		{
 			IsGenerated = true;
 		}
@@ -902,15 +1046,23 @@ namespace MiNET.Blocks
 
 	public partial class Bush : Block // minecraft:bush
 	{
-		public Bush() : base(1278)
+		public Bush()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CactusFlower : Block // minecraft:cactus_flower
+	public partial class Cactus : Block // minecraft:cactus
 	{
-		public CactusFlower() : base(1285)
+		public Cactus()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class CactusFlower : FlowerBase // minecraft:cactus_flower
+	{
+		public CactusFlower()
 		{
 			IsGenerated = true;
 		}
@@ -918,7 +1070,7 @@ namespace MiNET.Blocks
 
 	public partial class Calcite : Block // minecraft:calcite
 	{
-		public Calcite() : base(581)
+		public Calcite()
 		{
 			IsGenerated = true;
 		}
@@ -926,7 +1078,7 @@ namespace MiNET.Blocks
 
 	public partial class CalibratedSculkSensor : Block // minecraft:calibrated_sculk_sensor
 	{
-		public CalibratedSculkSensor() : base(835)
+		public CalibratedSculkSensor()
 		{
 			IsGenerated = true;
 		}
@@ -934,7 +1086,7 @@ namespace MiNET.Blocks
 
 	public partial class Camera : Block // minecraft:camera
 	{
-		public Camera() : base(242)
+		public Camera()
 		{
 			IsGenerated = true;
 		}
@@ -942,7 +1094,7 @@ namespace MiNET.Blocks
 
 	public partial class Campfire : Block // minecraft:campfire
 	{
-		public Campfire() : base(464)
+		public Campfire()
 		{
 			IsGenerated = true;
 		}
@@ -950,7 +1102,7 @@ namespace MiNET.Blocks
 
 	public partial class Candle : Block // minecraft:candle
 	{
-		public Candle() : base(667)
+		public Candle()
 		{
 			IsGenerated = true;
 		}
@@ -958,7 +1110,7 @@ namespace MiNET.Blocks
 
 	public partial class CandleCake : Block // minecraft:candle_cake
 	{
-		public CandleCake() : base(684)
+		public CandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -966,7 +1118,7 @@ namespace MiNET.Blocks
 
 	public partial class CartographyTable : Block // minecraft:cartography_table
 	{
-		public CartographyTable() : base(455)
+		public CartographyTable()
 		{
 			IsGenerated = true;
 		}
@@ -974,7 +1126,7 @@ namespace MiNET.Blocks
 
 	public partial class CarvedPumpkin : Block // minecraft:carved_pumpkin
 	{
-		public CarvedPumpkin() : base(410)
+		public CarvedPumpkin()
 		{
 			IsGenerated = true;
 		}
@@ -982,7 +1134,7 @@ namespace MiNET.Blocks
 
 	public partial class CaveVines : Block // minecraft:cave_vines
 	{
-		public CaveVines() : base(577)
+		public CaveVines()
 		{
 			IsGenerated = true;
 		}
@@ -990,7 +1142,7 @@ namespace MiNET.Blocks
 
 	public partial class CaveVinesBodyWithBerries : Block // minecraft:cave_vines_body_with_berries
 	{
-		public CaveVinesBodyWithBerries() : base(630)
+		public CaveVinesBodyWithBerries()
 		{
 			IsGenerated = true;
 		}
@@ -998,7 +1150,7 @@ namespace MiNET.Blocks
 
 	public partial class CaveVinesHeadWithBerries : Block // minecraft:cave_vines_head_with_berries
 	{
-		public CaveVinesHeadWithBerries() : base(631)
+		public CaveVinesHeadWithBerries()
 		{
 			IsGenerated = true;
 		}
@@ -1006,7 +1158,7 @@ namespace MiNET.Blocks
 
 	public partial class ChainCommandBlock : Block // minecraft:chain_command_block
 	{
-		public ChainCommandBlock() : base(189)
+		public ChainCommandBlock()
 		{
 			IsGenerated = true;
 		}
@@ -1014,7 +1166,7 @@ namespace MiNET.Blocks
 
 	public partial class ChemicalHeat : Block // minecraft:chemical_heat
 	{
-		public ChemicalHeat() : base(192)
+		public ChemicalHeat()
 		{
 			IsGenerated = true;
 		}
@@ -1022,15 +1174,15 @@ namespace MiNET.Blocks
 
 	public partial class CherryButton : Block // minecraft:cherry_button
 	{
-		public CherryButton() : base(785)
+		public CherryButton()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherryDoor : Block // minecraft:cherry_door
+	public partial class CherryDoor : DoorBase // minecraft:cherry_door
 	{
-		public CherryDoor() : base(786)
+		public CherryDoor()
 		{
 			IsGenerated = true;
 		}
@@ -1038,7 +1190,7 @@ namespace MiNET.Blocks
 
 	public partial class CherryDoubleSlab : Block // minecraft:cherry_double_slab
 	{
-		public CherryDoubleSlab() : base(795)
+		public CherryDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -1046,15 +1198,15 @@ namespace MiNET.Blocks
 
 	public partial class CherryFence : Block // minecraft:cherry_fence
 	{
-		public CherryFence() : base(787)
+		public CherryFence()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherryFenceGate : Block // minecraft:cherry_fence_gate
+	public partial class CherryFenceGate : FenceGateBase // minecraft:cherry_fence_gate
 	{
-		public CherryFenceGate() : base(788)
+		public CherryFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -1062,23 +1214,23 @@ namespace MiNET.Blocks
 
 	public partial class CherryHangingSign : Block // minecraft:cherry_hanging_sign
 	{
-		public CherryHangingSign() : base(789)
+		public CherryHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherryLeaves : Block // minecraft:cherry_leaves
+	public partial class CherryLeaves : LeavesBase // minecraft:cherry_leaves
 	{
-		public CherryLeaves() : base(803)
+		public CherryLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherryLog : Block // minecraft:cherry_log
+	public partial class CherryLog : LogBase // minecraft:cherry_log
 	{
-		public CherryLog() : base(791)
+		public CherryLog()
 		{
 			IsGenerated = true;
 		}
@@ -1086,7 +1238,7 @@ namespace MiNET.Blocks
 
 	public partial class CherryPlanks : Block // minecraft:cherry_planks
 	{
-		public CherryPlanks() : base(792)
+		public CherryPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -1094,15 +1246,15 @@ namespace MiNET.Blocks
 
 	public partial class CherryPressurePlate : Block // minecraft:cherry_pressure_plate
 	{
-		public CherryPressurePlate() : base(793)
+		public CherryPressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherrySapling : Block // minecraft:cherry_sapling
+	public partial class CherrySapling : SaplingBase // minecraft:cherry_sapling
 	{
-		public CherrySapling() : base(802)
+		public CherrySapling()
 		{
 			IsGenerated = true;
 		}
@@ -1110,23 +1262,23 @@ namespace MiNET.Blocks
 
 	public partial class CherryShelf : Block // minecraft:cherry_shelf
 	{
-		public CherryShelf() : base(1309)
+		public CherryShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherrySlab : Block // minecraft:cherry_slab
+	public partial class CherrySlab : SlabBase // minecraft:cherry_slab
 	{
-		public CherrySlab() : base(794)
+		public CherrySlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherryStairs : Block // minecraft:cherry_stairs
+	public partial class CherryStairs : StairsBase // minecraft:cherry_stairs
 	{
-		public CherryStairs() : base(796)
+		public CherryStairs()
 		{
 			IsGenerated = true;
 		}
@@ -1134,15 +1286,15 @@ namespace MiNET.Blocks
 
 	public partial class CherryStandingSign : Block // minecraft:cherry_standing_sign
 	{
-		public CherryStandingSign() : base(797)
+		public CherryStandingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CherryTrapdoor : Block // minecraft:cherry_trapdoor
+	public partial class CherryTrapdoor : TrapdoorBase // minecraft:cherry_trapdoor
 	{
-		public CherryTrapdoor() : base(798)
+		public CherryTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -1150,7 +1302,7 @@ namespace MiNET.Blocks
 
 	public partial class CherryWallSign : Block // minecraft:cherry_wall_sign
 	{
-		public CherryWallSign() : base(799)
+		public CherryWallSign()
 		{
 			IsGenerated = true;
 		}
@@ -1158,7 +1310,15 @@ namespace MiNET.Blocks
 
 	public partial class CherryWood : Block // minecraft:cherry_wood
 	{
-		public CherryWood() : base(801)
+		public CherryWood()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Chest : ChestBase // minecraft:chest
+	{
+		public Chest()
 		{
 			IsGenerated = true;
 		}
@@ -1166,7 +1326,7 @@ namespace MiNET.Blocks
 
 	public partial class ChippedAnvil : Block // minecraft:chipped_anvil
 	{
-		public ChippedAnvil() : base(1214)
+		public ChippedAnvil()
 		{
 			IsGenerated = true;
 		}
@@ -1174,15 +1334,15 @@ namespace MiNET.Blocks
 
 	public partial class ChiseledBookshelf : Block // minecraft:chiseled_bookshelf
 	{
-		public ChiseledBookshelf() : base(781)
+		public ChiseledBookshelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ChiseledCinnabar : Block // minecraft:chiseled_cinnabar
+	public partial class ChiseledCinnabar : StoneBrickBase // minecraft:chiseled_cinnabar
 	{
-		public ChiseledCinnabar() : base(1379)
+		public ChiseledCinnabar()
 		{
 			IsGenerated = true;
 		}
@@ -1190,15 +1350,15 @@ namespace MiNET.Blocks
 
 	public partial class ChiseledCopper : Block // minecraft:chiseled_copper
 	{
-		public ChiseledCopper() : base(1015)
+		public ChiseledCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ChiseledDeepslate : Block // minecraft:chiseled_deepslate
+	public partial class ChiseledDeepslate : StoneBrickBase // minecraft:chiseled_deepslate
 	{
-		public ChiseledDeepslate() : base(650)
+		public ChiseledDeepslate()
 		{
 			IsGenerated = true;
 		}
@@ -1206,15 +1366,15 @@ namespace MiNET.Blocks
 
 	public partial class ChiseledNetherBricks : Block // minecraft:chiseled_nether_bricks
 	{
-		public ChiseledNetherBricks() : base(557)
+		public ChiseledNetherBricks()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ChiseledPolishedBlackstone : Block // minecraft:chiseled_polished_blackstone
+	public partial class ChiseledPolishedBlackstone : StoneBrickBase // minecraft:chiseled_polished_blackstone
 	{
-		public ChiseledPolishedBlackstone() : base(534)
+		public ChiseledPolishedBlackstone()
 		{
 			IsGenerated = true;
 		}
@@ -1222,7 +1382,7 @@ namespace MiNET.Blocks
 
 	public partial class ChiseledQuartzBlock : Block // minecraft:chiseled_quartz_block
 	{
-		public ChiseledQuartzBlock() : base(1208)
+		public ChiseledQuartzBlock()
 		{
 			IsGenerated = true;
 		}
@@ -1230,7 +1390,7 @@ namespace MiNET.Blocks
 
 	public partial class ChiseledRedSandstone : Block // minecraft:chiseled_red_sandstone
 	{
-		public ChiseledRedSandstone() : base(1211)
+		public ChiseledRedSandstone()
 		{
 			IsGenerated = true;
 		}
@@ -1238,7 +1398,7 @@ namespace MiNET.Blocks
 
 	public partial class ChiseledResinBricks : Block // minecraft:chiseled_resin_bricks
 	{
-		public ChiseledResinBricks() : base(1275)
+		public ChiseledResinBricks()
 		{
 			IsGenerated = true;
 		}
@@ -1246,39 +1406,47 @@ namespace MiNET.Blocks
 
 	public partial class ChiseledSandstone : Block // minecraft:chiseled_sandstone
 	{
-		public ChiseledSandstone() : base(1199)
+		public ChiseledSandstone()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ChiseledStoneBricks : Block // minecraft:chiseled_stone_bricks
+	public partial class ChiseledStoneBricks : StoneBrickBase // minecraft:chiseled_stone_bricks
 	{
-		public ChiseledStoneBricks() : base(1125)
+		public ChiseledStoneBricks()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ChiseledSulfur : Block // minecraft:chiseled_sulfur
+	public partial class ChiseledSulfur : StoneBrickBase // minecraft:chiseled_sulfur
 	{
-		public ChiseledSulfur() : base(1362)
+		public ChiseledSulfur()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ChiseledTuff : Block // minecraft:chiseled_tuff
+	public partial class ChiseledTuff : StoneBrickBase // minecraft:chiseled_tuff
 	{
-		public ChiseledTuff() : base(1008)
+		public ChiseledTuff()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ChiseledTuffBricks : Block // minecraft:chiseled_tuff_bricks
+	public partial class ChiseledTuffBricks : StoneBrickBase // minecraft:chiseled_tuff_bricks
 	{
-		public ChiseledTuffBricks() : base(1014)
+		public ChiseledTuffBricks()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class ChorusFlower : Block // minecraft:chorus_flower
+	{
+		public ChorusFlower()
 		{
 			IsGenerated = true;
 		}
@@ -1286,7 +1454,7 @@ namespace MiNET.Blocks
 
 	public partial class Cinnabar : Block // minecraft:cinnabar
 	{
-		public Cinnabar() : base(1364)
+		public Cinnabar()
 		{
 			IsGenerated = true;
 		}
@@ -1294,23 +1462,23 @@ namespace MiNET.Blocks
 
 	public partial class CinnabarBrickDoubleSlab : Block // minecraft:cinnabar_brick_double_slab
 	{
-		public CinnabarBrickDoubleSlab() : base(1376)
+		public CinnabarBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CinnabarBrickSlab : Block // minecraft:cinnabar_brick_slab
+	public partial class CinnabarBrickSlab : SlabBase // minecraft:cinnabar_brick_slab
 	{
-		public CinnabarBrickSlab() : base(1375)
+		public CinnabarBrickSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CinnabarBrickStairs : Block // minecraft:cinnabar_brick_stairs
+	public partial class CinnabarBrickStairs : StairsBase // minecraft:cinnabar_brick_stairs
 	{
-		public CinnabarBrickStairs() : base(1377)
+		public CinnabarBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -1318,15 +1486,15 @@ namespace MiNET.Blocks
 
 	public partial class CinnabarBrickWall : Block // minecraft:cinnabar_brick_wall
 	{
-		public CinnabarBrickWall() : base(1378)
+		public CinnabarBrickWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CinnabarBricks : Block // minecraft:cinnabar_bricks
+	public partial class CinnabarBricks : StoneBrickBase // minecraft:cinnabar_bricks
 	{
-		public CinnabarBricks() : base(1374)
+		public CinnabarBricks()
 		{
 			IsGenerated = true;
 		}
@@ -1334,23 +1502,23 @@ namespace MiNET.Blocks
 
 	public partial class CinnabarDoubleSlab : Block // minecraft:cinnabar_double_slab
 	{
-		public CinnabarDoubleSlab() : base(1366)
+		public CinnabarDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CinnabarSlab : Block // minecraft:cinnabar_slab
+	public partial class CinnabarSlab : SlabBase // minecraft:cinnabar_slab
 	{
-		public CinnabarSlab() : base(1365)
+		public CinnabarSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CinnabarStairs : Block // minecraft:cinnabar_stairs
+	public partial class CinnabarStairs : StairsBase // minecraft:cinnabar_stairs
 	{
-		public CinnabarStairs() : base(1367)
+		public CinnabarStairs()
 		{
 			IsGenerated = true;
 		}
@@ -1358,7 +1526,7 @@ namespace MiNET.Blocks
 
 	public partial class CinnabarWall : Block // minecraft:cinnabar_wall
 	{
-		public CinnabarWall() : base(1368)
+		public CinnabarWall()
 		{
 			IsGenerated = true;
 		}
@@ -1366,15 +1534,15 @@ namespace MiNET.Blocks
 
 	public partial class ClientRequestPlaceholderBlock : Block // minecraft:client_request_placeholder_block
 	{
-		public ClientRequestPlaceholderBlock() : base(720)
+		public ClientRequestPlaceholderBlock()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ClosedEyeblossom : Block // minecraft:closed_eyeblossom
+	public partial class ClosedEyeblossom : FlowerBase // minecraft:closed_eyeblossom
 	{
-		public ClosedEyeblossom() : base(1274)
+		public ClosedEyeblossom()
 		{
 			IsGenerated = true;
 		}
@@ -1382,7 +1550,7 @@ namespace MiNET.Blocks
 
 	public partial class CoarseDirt : Block // minecraft:coarse_dirt
 	{
-		public CoarseDirt() : base(1217)
+		public CoarseDirt()
 		{
 			IsGenerated = true;
 		}
@@ -1390,7 +1558,7 @@ namespace MiNET.Blocks
 
 	public partial class CobbledDeepslate : Block // minecraft:cobbled_deepslate
 	{
-		public CobbledDeepslate() : base(634)
+		public CobbledDeepslate()
 		{
 			IsGenerated = true;
 		}
@@ -1398,23 +1566,23 @@ namespace MiNET.Blocks
 
 	public partial class CobbledDeepslateDoubleSlab : Block // minecraft:cobbled_deepslate_double_slab
 	{
-		public CobbledDeepslateDoubleSlab() : base(651)
+		public CobbledDeepslateDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CobbledDeepslateSlab : Block // minecraft:cobbled_deepslate_slab
+	public partial class CobbledDeepslateSlab : SlabBase // minecraft:cobbled_deepslate_slab
 	{
-		public CobbledDeepslateSlab() : base(635)
+		public CobbledDeepslateSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CobbledDeepslateStairs : Block // minecraft:cobbled_deepslate_stairs
+	public partial class CobbledDeepslateStairs : StairsBase // minecraft:cobbled_deepslate_stairs
 	{
-		public CobbledDeepslateStairs() : base(636)
+		public CobbledDeepslateStairs()
 		{
 			IsGenerated = true;
 		}
@@ -1422,7 +1590,7 @@ namespace MiNET.Blocks
 
 	public partial class CobbledDeepslateWall : Block // minecraft:cobbled_deepslate_wall
 	{
-		public CobbledDeepslateWall() : base(637)
+		public CobbledDeepslateWall()
 		{
 			IsGenerated = true;
 		}
@@ -1430,15 +1598,31 @@ namespace MiNET.Blocks
 
 	public partial class CobblestoneDoubleSlab : Block // minecraft:cobblestone_double_slab
 	{
-		public CobblestoneDoubleSlab() : base(1134)
+		public CobblestoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CobblestoneSlab : Block // minecraft:cobblestone_slab
+	public partial class CobblestoneSlab : SlabBase // minecraft:cobblestone_slab
 	{
-		public CobblestoneSlab() : base(1128)
+		public CobblestoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class CobblestoneWall : Block // minecraft:cobblestone_wall
+	{
+		public CobblestoneWall()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Cocoa : Block // minecraft:cocoa
+	{
+		public Cocoa()
 		{
 			IsGenerated = true;
 		}
@@ -1446,7 +1630,7 @@ namespace MiNET.Blocks
 
 	public partial class ColoredTorchBlue : Block // minecraft:colored_torch_blue
 	{
-		public ColoredTorchBlue() : base(204)
+		public ColoredTorchBlue()
 		{
 			IsGenerated = true;
 		}
@@ -1454,7 +1638,7 @@ namespace MiNET.Blocks
 
 	public partial class ColoredTorchGreen : Block // minecraft:colored_torch_green
 	{
-		public ColoredTorchGreen() : base(1218)
+		public ColoredTorchGreen()
 		{
 			IsGenerated = true;
 		}
@@ -1462,7 +1646,7 @@ namespace MiNET.Blocks
 
 	public partial class ColoredTorchPurple : Block // minecraft:colored_torch_purple
 	{
-		public ColoredTorchPurple() : base(1219)
+		public ColoredTorchPurple()
 		{
 			IsGenerated = true;
 		}
@@ -1470,7 +1654,7 @@ namespace MiNET.Blocks
 
 	public partial class ColoredTorchRed : Block // minecraft:colored_torch_red
 	{
-		public ColoredTorchRed() : base(202)
+		public ColoredTorchRed()
 		{
 			IsGenerated = true;
 		}
@@ -1478,7 +1662,7 @@ namespace MiNET.Blocks
 
 	public partial class CommandBlock : Block // minecraft:command_block
 	{
-		public CommandBlock() : base(137)
+		public CommandBlock()
 		{
 			IsGenerated = true;
 		}
@@ -1486,7 +1670,7 @@ namespace MiNET.Blocks
 
 	public partial class Composter : Block // minecraft:composter
 	{
-		public Composter() : base(468)
+		public Composter()
 		{
 			IsGenerated = true;
 		}
@@ -1494,7 +1678,7 @@ namespace MiNET.Blocks
 
 	public partial class CompoundCreator : Block // minecraft:compound_creator
 	{
-		public CompoundCreator() : base(238)
+		public CompoundCreator()
 		{
 			IsGenerated = true;
 		}
@@ -1502,7 +1686,7 @@ namespace MiNET.Blocks
 
 	public partial class Conduit : Block // minecraft:conduit
 	{
-		public Conduit() : base(412)
+		public Conduit()
 		{
 			IsGenerated = true;
 		}
@@ -1510,7 +1694,7 @@ namespace MiNET.Blocks
 
 	public partial class CopperBars : Block // minecraft:copper_bars
 	{
-		public CopperBars() : base(1321)
+		public CopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -1518,7 +1702,7 @@ namespace MiNET.Blocks
 
 	public partial class CopperBlock : Block // minecraft:copper_block
 	{
-		public CopperBlock() : base(595)
+		public CopperBlock()
 		{
 			IsGenerated = true;
 		}
@@ -1526,7 +1710,7 @@ namespace MiNET.Blocks
 
 	public partial class CopperBulb : Block // minecraft:copper_bulb
 	{
-		public CopperBulb() : base(1031)
+		public CopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -1534,23 +1718,23 @@ namespace MiNET.Blocks
 
 	public partial class CopperChain : Block // minecraft:copper_chain
 	{
-		public CopperChain() : base(1329)
+		public CopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CopperChest : Block // minecraft:copper_chest
+	public partial class CopperChest : ChestBase // minecraft:copper_chest
 	{
-		public CopperChest() : base(1286)
+		public CopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CopperDoor : Block // minecraft:copper_door
+	public partial class CopperDoor : DoorBase // minecraft:copper_door
 	{
-		public CopperDoor() : base(1039)
+		public CopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -1558,7 +1742,7 @@ namespace MiNET.Blocks
 
 	public partial class CopperGolemStatue : Block // minecraft:copper_golem_statue
 	{
-		public CopperGolemStatue() : base(1294)
+		public CopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -1566,7 +1750,7 @@ namespace MiNET.Blocks
 
 	public partial class CopperGrate : Block // minecraft:copper_grate
 	{
-		public CopperGrate() : base(1023)
+		public CopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -1574,7 +1758,7 @@ namespace MiNET.Blocks
 
 	public partial class CopperLantern : Block // minecraft:copper_lantern
 	{
-		public CopperLantern() : base(1338)
+		public CopperLantern()
 		{
 			IsGenerated = true;
 		}
@@ -1582,7 +1766,7 @@ namespace MiNET.Blocks
 
 	public partial class CopperOre : Block // minecraft:copper_ore
 	{
-		public CopperOre() : base(566)
+		public CopperOre()
 		{
 			IsGenerated = true;
 		}
@@ -1590,39 +1774,39 @@ namespace MiNET.Blocks
 
 	public partial class CopperTorch : Block // minecraft:copper_torch
 	{
-		public CopperTorch() : base(1337)
+		public CopperTorch()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CopperTrapdoor : Block // minecraft:copper_trapdoor
+	public partial class CopperTrapdoor : TrapdoorBase // minecraft:copper_trapdoor
 	{
-		public CopperTrapdoor() : base(1047)
+		public CopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Cornflower : Block // minecraft:cornflower
+	public partial class Cornflower : FlowerBase // minecraft:cornflower
 	{
-		public Cornflower() : base(1093)
+		public Cornflower()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrackedDeepslateBricks : Block // minecraft:cracked_deepslate_bricks
+	public partial class CrackedDeepslateBricks : StoneBrickBase // minecraft:cracked_deepslate_bricks
 	{
-		public CrackedDeepslateBricks() : base(665)
+		public CrackedDeepslateBricks()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrackedDeepslateTiles : Block // minecraft:cracked_deepslate_tiles
+	public partial class CrackedDeepslateTiles : StoneBrickBase // minecraft:cracked_deepslate_tiles
 	{
-		public CrackedDeepslateTiles() : base(664)
+		public CrackedDeepslateTiles()
 		{
 			IsGenerated = true;
 		}
@@ -1630,23 +1814,23 @@ namespace MiNET.Blocks
 
 	public partial class CrackedNetherBricks : Block // minecraft:cracked_nether_bricks
 	{
-		public CrackedNetherBricks() : base(558)
+		public CrackedNetherBricks()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrackedPolishedBlackstoneBricks : Block // minecraft:cracked_polished_blackstone_bricks
+	public partial class CrackedPolishedBlackstoneBricks : StoneBrickBase // minecraft:cracked_polished_blackstone_bricks
 	{
-		public CrackedPolishedBlackstoneBricks() : base(535)
+		public CrackedPolishedBlackstoneBricks()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrackedStoneBricks : Block // minecraft:cracked_stone_bricks
+	public partial class CrackedStoneBricks : StoneBrickBase // minecraft:cracked_stone_bricks
 	{
-		public CrackedStoneBricks() : base(1124)
+		public CrackedStoneBricks()
 		{
 			IsGenerated = true;
 		}
@@ -1654,7 +1838,7 @@ namespace MiNET.Blocks
 
 	public partial class Crafter : Block // minecraft:crafter
 	{
-		public Crafter() : base(568)
+		public Crafter()
 		{
 			IsGenerated = true;
 		}
@@ -1662,7 +1846,7 @@ namespace MiNET.Blocks
 
 	public partial class CreakingHeart : Block // minecraft:creaking_heart
 	{
-		public CreakingHeart() : base(1267)
+		public CreakingHeart()
 		{
 			IsGenerated = true;
 		}
@@ -1670,7 +1854,7 @@ namespace MiNET.Blocks
 
 	public partial class CreeperHead : Block // minecraft:creeper_head
 	{
-		public CreeperHead() : base(1223)
+		public CreeperHead()
 		{
 			IsGenerated = true;
 		}
@@ -1678,15 +1862,23 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonButton : Block // minecraft:crimson_button
 	{
-		public CrimsonButton() : base(515)
+		public CrimsonButton()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrimsonDoor : Block // minecraft:crimson_door
+	public partial class CrimsonDoor : DoorBase // minecraft:crimson_door
 	{
-		public CrimsonDoor() : base(499)
+		public CrimsonDoor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class CrimsonDoubleSlab : Block // minecraft:crimson_double_slab
+	{
+		public CrimsonDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -1694,15 +1886,15 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonFence : Block // minecraft:crimson_fence
 	{
-		public CrimsonFence() : base(511)
+		public CrimsonFence()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrimsonFenceGate : Block // minecraft:crimson_fence_gate
+	public partial class CrimsonFenceGate : FenceGateBase // minecraft:crimson_fence_gate
 	{
-		public CrimsonFenceGate() : base(513)
+		public CrimsonFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -1710,7 +1902,7 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonFungus : Block // minecraft:crimson_fungus
 	{
-		public CrimsonFungus() : base(483)
+		public CrimsonFungus()
 		{
 			IsGenerated = true;
 		}
@@ -1718,7 +1910,7 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonHangingSign : Block // minecraft:crimson_hanging_sign
 	{
-		public CrimsonHangingSign() : base(761)
+		public CrimsonHangingSign()
 		{
 			IsGenerated = true;
 		}
@@ -1726,7 +1918,7 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonHyphae : Block // minecraft:crimson_hyphae
 	{
-		public CrimsonHyphae() : base(554)
+		public CrimsonHyphae()
 		{
 			IsGenerated = true;
 		}
@@ -1734,7 +1926,7 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonNylium : Block // minecraft:crimson_nylium
 	{
-		public CrimsonNylium() : base(487)
+		public CrimsonNylium()
 		{
 			IsGenerated = true;
 		}
@@ -1742,7 +1934,7 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonPlanks : Block // minecraft:crimson_planks
 	{
-		public CrimsonPlanks() : base(497)
+		public CrimsonPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -1750,15 +1942,15 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonPressurePlate : Block // minecraft:crimson_pressure_plate
 	{
-		public CrimsonPressurePlate() : base(517)
+		public CrimsonPressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrimsonRoots : Block // minecraft:crimson_roots
+	public partial class CrimsonRoots : FlowerBase // minecraft:crimson_roots
 	{
-		public CrimsonRoots() : base(478)
+		public CrimsonRoots()
 		{
 			IsGenerated = true;
 		}
@@ -1766,15 +1958,39 @@ namespace MiNET.Blocks
 
 	public partial class CrimsonShelf : Block // minecraft:crimson_shelf
 	{
-		public CrimsonShelf() : base(1312)
+		public CrimsonShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CrimsonStem : Block // minecraft:crimson_stem
+	public partial class CrimsonSlab : SlabBase // minecraft:crimson_slab
 	{
-		public CrimsonStem() : base(480)
+		public CrimsonSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class CrimsonStairs : StairsBase // minecraft:crimson_stairs
+	{
+		public CrimsonStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class CrimsonStem : LogBase // minecraft:crimson_stem
+	{
+		public CrimsonStem()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class CrimsonTrapdoor : TrapdoorBase // minecraft:crimson_trapdoor
+	{
+		public CrimsonTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -1782,7 +1998,7 @@ namespace MiNET.Blocks
 
 	public partial class CryingObsidian : Block // minecraft:crying_obsidian
 	{
-		public CryingObsidian() : base(544)
+		public CryingObsidian()
 		{
 			IsGenerated = true;
 		}
@@ -1790,23 +2006,23 @@ namespace MiNET.Blocks
 
 	public partial class CutCopper : Block // minecraft:cut_copper
 	{
-		public CutCopper() : base(602)
+		public CutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CutCopperSlab : Block // minecraft:cut_copper_slab
+	public partial class CutCopperSlab : SlabBase // minecraft:cut_copper_slab
 	{
-		public CutCopperSlab() : base(616)
+		public CutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CutCopperStairs : Block // minecraft:cut_copper_stairs
+	public partial class CutCopperStairs : StairsBase // minecraft:cut_copper_stairs
 	{
-		public CutCopperStairs() : base(609)
+		public CutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -1814,7 +2030,7 @@ namespace MiNET.Blocks
 
 	public partial class CutRedSandstone : Block // minecraft:cut_red_sandstone
 	{
-		public CutRedSandstone() : base(1212)
+		public CutRedSandstone()
 		{
 			IsGenerated = true;
 		}
@@ -1822,15 +2038,15 @@ namespace MiNET.Blocks
 
 	public partial class CutRedSandstoneDoubleSlab : Block // minecraft:cut_red_sandstone_double_slab
 	{
-		public CutRedSandstoneDoubleSlab() : base(1183)
+		public CutRedSandstoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CutRedSandstoneSlab : Block // minecraft:cut_red_sandstone_slab
+	public partial class CutRedSandstoneSlab : SlabBase // minecraft:cut_red_sandstone_slab
 	{
-		public CutRedSandstoneSlab() : base(1156)
+		public CutRedSandstoneSlab()
 		{
 			IsGenerated = true;
 		}
@@ -1838,7 +2054,7 @@ namespace MiNET.Blocks
 
 	public partial class CutSandstone : Block // minecraft:cut_sandstone
 	{
-		public CutSandstone() : base(1200)
+		public CutSandstone()
 		{
 			IsGenerated = true;
 		}
@@ -1846,15 +2062,15 @@ namespace MiNET.Blocks
 
 	public partial class CutSandstoneDoubleSlab : Block // minecraft:cut_sandstone_double_slab
 	{
-		public CutSandstoneDoubleSlab() : base(1182)
+		public CutSandstoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CutSandstoneSlab : Block // minecraft:cut_sandstone_slab
+	public partial class CutSandstoneSlab : SlabBase // minecraft:cut_sandstone_slab
 	{
-		public CutSandstoneSlab() : base(1155)
+		public CutSandstoneSlab()
 		{
 			IsGenerated = true;
 		}
@@ -1862,7 +2078,7 @@ namespace MiNET.Blocks
 
 	public partial class CyanCandle : Block // minecraft:cyan_candle
 	{
-		public CyanCandle() : base(677)
+		public CyanCandle()
 		{
 			IsGenerated = true;
 		}
@@ -1870,7 +2086,7 @@ namespace MiNET.Blocks
 
 	public partial class CyanCandleCake : Block // minecraft:cyan_candle_cake
 	{
-		public CyanCandleCake() : base(694)
+		public CyanCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -1878,7 +2094,7 @@ namespace MiNET.Blocks
 
 	public partial class CyanCarpet : Block // minecraft:cyan_carpet
 	{
-		public CyanCarpet() : base(860)
+		public CyanCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -1886,7 +2102,7 @@ namespace MiNET.Blocks
 
 	public partial class CyanConcrete : Block // minecraft:cyan_concrete
 	{
-		public CyanConcrete() : base(891)
+		public CyanConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -1894,7 +2110,15 @@ namespace MiNET.Blocks
 
 	public partial class CyanConcretePowder : Block // minecraft:cyan_concrete_powder
 	{
-		public CyanConcretePowder() : base(972)
+		public CyanConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class CyanGlazedTerracotta : GlazedTerracottaBase // minecraft:cyan_glazed_terracotta
+	{
+		public CyanGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -1902,7 +2126,7 @@ namespace MiNET.Blocks
 
 	public partial class CyanShulkerBox : Block // minecraft:cyan_shulker_box
 	{
-		public CyanShulkerBox() : base(876)
+		public CyanShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -1910,15 +2134,15 @@ namespace MiNET.Blocks
 
 	public partial class CyanStainedGlass : Block // minecraft:cyan_stained_glass
 	{
-		public CyanStainedGlass() : base(936)
+		public CyanStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class CyanStainedGlassPane : Block // minecraft:cyan_stained_glass_pane
+	public partial class CyanStainedGlassPane : GlassPaneBase // minecraft:cyan_stained_glass_pane
 	{
-		public CyanStainedGlassPane() : base(906)
+		public CyanStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -1926,7 +2150,7 @@ namespace MiNET.Blocks
 
 	public partial class CyanTerracotta : Block // minecraft:cyan_terracotta
 	{
-		public CyanTerracotta() : base(987)
+		public CyanTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -1934,7 +2158,7 @@ namespace MiNET.Blocks
 
 	public partial class CyanWool : Block // minecraft:cyan_wool
 	{
-		public CyanWool() : base(816)
+		public CyanWool()
 		{
 			IsGenerated = true;
 		}
@@ -1942,15 +2166,23 @@ namespace MiNET.Blocks
 
 	public partial class DamagedAnvil : Block // minecraft:damaged_anvil
 	{
-		public DamagedAnvil() : base(1215)
+		public DamagedAnvil()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Dandelion : Block // minecraft:dandelion
+	public partial class Dandelion : FlowerBase // minecraft:dandelion
 	{
-		public Dandelion() : base(37)
+		public Dandelion()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DarkOakDoor : DoorBase // minecraft:dark_oak_door
+	{
+		public DarkOakDoor()
 		{
 			IsGenerated = true;
 		}
@@ -1958,7 +2190,7 @@ namespace MiNET.Blocks
 
 	public partial class DarkOakDoubleSlab : Block // minecraft:dark_oak_double_slab
 	{
-		public DarkOakDoubleSlab() : base(1068)
+		public DarkOakDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -1966,7 +2198,15 @@ namespace MiNET.Blocks
 
 	public partial class DarkOakFence : Block // minecraft:dark_oak_fence
 	{
-		public DarkOakFence() : base(832)
+		public DarkOakFence()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DarkOakFenceGate : FenceGateBase // minecraft:dark_oak_fence_gate
+	{
+		public DarkOakFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -1974,23 +2214,23 @@ namespace MiNET.Blocks
 
 	public partial class DarkOakHangingSign : Block // minecraft:dark_oak_hanging_sign
 	{
-		public DarkOakHangingSign() : base(760)
+		public DarkOakHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DarkOakLeaves : Block // minecraft:dark_oak_leaves
+	public partial class DarkOakLeaves : LeavesBase // minecraft:dark_oak_leaves
 	{
-		public DarkOakLeaves() : base(1058)
+		public DarkOakLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DarkOakLog : Block // minecraft:dark_oak_log
+	public partial class DarkOakLog : LogBase // minecraft:dark_oak_log
 	{
-		public DarkOakLog() : base(827)
+		public DarkOakLog()
 		{
 			IsGenerated = true;
 		}
@@ -1998,7 +2238,7 @@ namespace MiNET.Blocks
 
 	public partial class DarkOakPlanks : Block // minecraft:dark_oak_planks
 	{
-		public DarkOakPlanks() : base(998)
+		public DarkOakPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -2006,15 +2246,15 @@ namespace MiNET.Blocks
 
 	public partial class DarkOakPressurePlate : Block // minecraft:dark_oak_pressure_plate
 	{
-		public DarkOakPressurePlate() : base(407)
+		public DarkOakPressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DarkOakSapling : Block // minecraft:dark_oak_sapling
+	public partial class DarkOakSapling : SaplingBase // minecraft:dark_oak_sapling
 	{
-		public DarkOakSapling() : base(1084)
+		public DarkOakSapling()
 		{
 			IsGenerated = true;
 		}
@@ -2022,15 +2262,31 @@ namespace MiNET.Blocks
 
 	public partial class DarkOakShelf : Block // minecraft:dark_oak_shelf
 	{
-		public DarkOakShelf() : base(1307)
+		public DarkOakShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DarkOakSlab : Block // minecraft:dark_oak_slab
+	public partial class DarkOakSlab : SlabBase // minecraft:dark_oak_slab
 	{
-		public DarkOakSlab() : base(1063)
+		public DarkOakSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DarkOakStairs : StairsBase // minecraft:dark_oak_stairs
+	{
+		public DarkOakStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DarkOakTrapdoor : TrapdoorBase // minecraft:dark_oak_trapdoor
+	{
+		public DarkOakTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -2038,7 +2294,7 @@ namespace MiNET.Blocks
 
 	public partial class DarkOakWood : Block // minecraft:dark_oak_wood
 	{
-		public DarkOakWood() : base(1073)
+		public DarkOakWood()
 		{
 			IsGenerated = true;
 		}
@@ -2046,7 +2302,7 @@ namespace MiNET.Blocks
 
 	public partial class DarkPrismarine : Block // minecraft:dark_prismarine
 	{
-		public DarkPrismarine() : base(1202)
+		public DarkPrismarine()
 		{
 			IsGenerated = true;
 		}
@@ -2054,15 +2310,39 @@ namespace MiNET.Blocks
 
 	public partial class DarkPrismarineDoubleSlab : Block // minecraft:dark_prismarine_double_slab
 	{
-		public DarkPrismarineDoubleSlab() : base(1168)
+		public DarkPrismarineDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DarkPrismarineSlab : Block // minecraft:dark_prismarine_slab
+	public partial class DarkPrismarineSlab : SlabBase // minecraft:dark_prismarine_slab
 	{
-		public DarkPrismarineSlab() : base(1141)
+		public DarkPrismarineSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DarkPrismarineStairs : StairsBase // minecraft:dark_prismarine_stairs
+	{
+		public DarkPrismarineStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DaylightDetector : Block // minecraft:daylight_detector
+	{
+		public DaylightDetector()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DaylightDetectorInverted : Block // minecraft:daylight_detector_inverted
+	{
+		public DaylightDetectorInverted()
 		{
 			IsGenerated = true;
 		}
@@ -2070,7 +2350,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBrainCoral : Block // minecraft:dead_brain_coral
 	{
-		public DeadBrainCoral() : base(841)
+		public DeadBrainCoral()
 		{
 			IsGenerated = true;
 		}
@@ -2078,7 +2358,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBrainCoralBlock : Block // minecraft:dead_brain_coral_block
 	{
-		public DeadBrainCoralBlock() : base(1109)
+		public DeadBrainCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -2086,7 +2366,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBrainCoralFan : Block // minecraft:dead_brain_coral_fan
 	{
-		public DeadBrainCoralFan() : base(1099)
+		public DeadBrainCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -2094,7 +2374,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBrainCoralWallFan : Block // minecraft:dead_brain_coral_wall_fan
 	{
-		public DeadBrainCoralWallFan() : base(1161)
+		public DeadBrainCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -2102,7 +2382,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBubbleCoral : Block // minecraft:dead_bubble_coral
 	{
-		public DeadBubbleCoral() : base(842)
+		public DeadBubbleCoral()
 		{
 			IsGenerated = true;
 		}
@@ -2110,7 +2390,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBubbleCoralBlock : Block // minecraft:dead_bubble_coral_block
 	{
-		public DeadBubbleCoralBlock() : base(1110)
+		public DeadBubbleCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -2118,7 +2398,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBubbleCoralFan : Block // minecraft:dead_bubble_coral_fan
 	{
-		public DeadBubbleCoralFan() : base(1100)
+		public DeadBubbleCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -2126,7 +2406,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadBubbleCoralWallFan : Block // minecraft:dead_bubble_coral_wall_fan
 	{
-		public DeadBubbleCoralWallFan() : base(1163)
+		public DeadBubbleCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -2134,7 +2414,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadFireCoral : Block // minecraft:dead_fire_coral
 	{
-		public DeadFireCoral() : base(843)
+		public DeadFireCoral()
 		{
 			IsGenerated = true;
 		}
@@ -2142,7 +2422,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadFireCoralBlock : Block // minecraft:dead_fire_coral_block
 	{
-		public DeadFireCoralBlock() : base(1111)
+		public DeadFireCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -2150,7 +2430,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadFireCoralFan : Block // minecraft:dead_fire_coral_fan
 	{
-		public DeadFireCoralFan() : base(1101)
+		public DeadFireCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -2158,7 +2438,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadFireCoralWallFan : Block // minecraft:dead_fire_coral_wall_fan
 	{
-		public DeadFireCoralWallFan() : base(1164)
+		public DeadFireCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -2166,7 +2446,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadHornCoral : Block // minecraft:dead_horn_coral
 	{
-		public DeadHornCoral() : base(844)
+		public DeadHornCoral()
 		{
 			IsGenerated = true;
 		}
@@ -2174,7 +2454,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadHornCoralBlock : Block // minecraft:dead_horn_coral_block
 	{
-		public DeadHornCoralBlock() : base(1112)
+		public DeadHornCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -2182,7 +2462,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadHornCoralFan : Block // minecraft:dead_horn_coral_fan
 	{
-		public DeadHornCoralFan() : base(1102)
+		public DeadHornCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -2190,7 +2470,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadHornCoralWallFan : Block // minecraft:dead_horn_coral_wall_fan
 	{
-		public DeadHornCoralWallFan() : base(1165)
+		public DeadHornCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -2198,7 +2478,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadTubeCoral : Block // minecraft:dead_tube_coral
 	{
-		public DeadTubeCoral() : base(840)
+		public DeadTubeCoral()
 		{
 			IsGenerated = true;
 		}
@@ -2206,7 +2486,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadTubeCoralBlock : Block // minecraft:dead_tube_coral_block
 	{
-		public DeadTubeCoralBlock() : base(1108)
+		public DeadTubeCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -2214,7 +2494,7 @@ namespace MiNET.Blocks
 
 	public partial class DeadTubeCoralFan : Block // minecraft:dead_tube_coral_fan
 	{
-		public DeadTubeCoralFan() : base(389)
+		public DeadTubeCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -2222,7 +2502,15 @@ namespace MiNET.Blocks
 
 	public partial class DeadTubeCoralWallFan : Block // minecraft:dead_tube_coral_wall_fan
 	{
-		public DeadTubeCoralWallFan() : base(1160)
+		public DeadTubeCoralWallFan()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Deadbush : Block // minecraft:deadbush
+	{
+		public Deadbush()
 		{
 			IsGenerated = true;
 		}
@@ -2230,7 +2518,7 @@ namespace MiNET.Blocks
 
 	public partial class DecoratedPot : Block // minecraft:decorated_pot
 	{
-		public DecoratedPot() : base(806)
+		public DecoratedPot()
 		{
 			IsGenerated = true;
 		}
@@ -2238,7 +2526,7 @@ namespace MiNET.Blocks
 
 	public partial class Deepslate : Block // minecraft:deepslate
 	{
-		public Deepslate() : base(633)
+		public Deepslate()
 		{
 			IsGenerated = true;
 		}
@@ -2246,23 +2534,23 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateBrickDoubleSlab : Block // minecraft:deepslate_brick_double_slab
 	{
-		public DeepslateBrickDoubleSlab() : base(654)
+		public DeepslateBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DeepslateBrickSlab : Block // minecraft:deepslate_brick_slab
+	public partial class DeepslateBrickSlab : SlabBase // minecraft:deepslate_brick_slab
 	{
-		public DeepslateBrickSlab() : base(647)
+		public DeepslateBrickSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DeepslateBrickStairs : Block // minecraft:deepslate_brick_stairs
+	public partial class DeepslateBrickStairs : StairsBase // minecraft:deepslate_brick_stairs
 	{
-		public DeepslateBrickStairs() : base(648)
+		public DeepslateBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -2270,15 +2558,15 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateBrickWall : Block // minecraft:deepslate_brick_wall
 	{
-		public DeepslateBrickWall() : base(649)
+		public DeepslateBrickWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DeepslateBricks : Block // minecraft:deepslate_bricks
+	public partial class DeepslateBricks : StoneBrickBase // minecraft:deepslate_bricks
 	{
-		public DeepslateBricks() : base(646)
+		public DeepslateBricks()
 		{
 			IsGenerated = true;
 		}
@@ -2286,7 +2574,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateCoalOre : Block // minecraft:deepslate_coal_ore
 	{
-		public DeepslateCoalOre() : base(661)
+		public DeepslateCoalOre()
 		{
 			IsGenerated = true;
 		}
@@ -2294,7 +2582,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateCopperOre : Block // minecraft:deepslate_copper_ore
 	{
-		public DeepslateCopperOre() : base(663)
+		public DeepslateCopperOre()
 		{
 			IsGenerated = true;
 		}
@@ -2302,7 +2590,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateDiamondOre : Block // minecraft:deepslate_diamond_ore
 	{
-		public DeepslateDiamondOre() : base(660)
+		public DeepslateDiamondOre()
 		{
 			IsGenerated = true;
 		}
@@ -2310,7 +2598,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateEmeraldOre : Block // minecraft:deepslate_emerald_ore
 	{
-		public DeepslateEmeraldOre() : base(662)
+		public DeepslateEmeraldOre()
 		{
 			IsGenerated = true;
 		}
@@ -2318,7 +2606,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateGoldOre : Block // minecraft:deepslate_gold_ore
 	{
-		public DeepslateGoldOre() : base(657)
+		public DeepslateGoldOre()
 		{
 			IsGenerated = true;
 		}
@@ -2326,7 +2614,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateIronOre : Block // minecraft:deepslate_iron_ore
 	{
-		public DeepslateIronOre() : base(656)
+		public DeepslateIronOre()
 		{
 			IsGenerated = true;
 		}
@@ -2334,7 +2622,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateLapisOre : Block // minecraft:deepslate_lapis_ore
 	{
-		public DeepslateLapisOre() : base(655)
+		public DeepslateLapisOre()
 		{
 			IsGenerated = true;
 		}
@@ -2342,7 +2630,7 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateRedstoneOre : Block // minecraft:deepslate_redstone_ore
 	{
-		public DeepslateRedstoneOre() : base(658)
+		public DeepslateRedstoneOre()
 		{
 			IsGenerated = true;
 		}
@@ -2350,23 +2638,23 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateTileDoubleSlab : Block // minecraft:deepslate_tile_double_slab
 	{
-		public DeepslateTileDoubleSlab() : base(653)
+		public DeepslateTileDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DeepslateTileSlab : Block // minecraft:deepslate_tile_slab
+	public partial class DeepslateTileSlab : SlabBase // minecraft:deepslate_tile_slab
 	{
-		public DeepslateTileSlab() : base(643)
+		public DeepslateTileSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DeepslateTileStairs : Block // minecraft:deepslate_tile_stairs
+	public partial class DeepslateTileStairs : StairsBase // minecraft:deepslate_tile_stairs
 	{
-		public DeepslateTileStairs() : base(644)
+		public DeepslateTileStairs()
 		{
 			IsGenerated = true;
 		}
@@ -2374,15 +2662,15 @@ namespace MiNET.Blocks
 
 	public partial class DeepslateTileWall : Block // minecraft:deepslate_tile_wall
 	{
-		public DeepslateTileWall() : base(645)
+		public DeepslateTileWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DeepslateTiles : Block // minecraft:deepslate_tiles
+	public partial class DeepslateTiles : StoneBrickBase // minecraft:deepslate_tiles
 	{
-		public DeepslateTiles() : base(642)
+		public DeepslateTiles()
 		{
 			IsGenerated = true;
 		}
@@ -2390,7 +2678,7 @@ namespace MiNET.Blocks
 
 	public partial class Deny : Block // minecraft:deny
 	{
-		public Deny() : base(211)
+		public Deny()
 		{
 			IsGenerated = true;
 		}
@@ -2398,7 +2686,7 @@ namespace MiNET.Blocks
 
 	public partial class DeprecatedAnvil : Block // minecraft:deprecated_anvil
 	{
-		public DeprecatedAnvil() : base(1216)
+		public DeprecatedAnvil()
 		{
 			IsGenerated = true;
 		}
@@ -2406,7 +2694,7 @@ namespace MiNET.Blocks
 
 	public partial class DeprecatedPurpurBlock1 : Block // minecraft:deprecated_purpur_block_1
 	{
-		public DeprecatedPurpurBlock1() : base(1205)
+		public DeprecatedPurpurBlock1()
 		{
 			IsGenerated = true;
 		}
@@ -2414,7 +2702,15 @@ namespace MiNET.Blocks
 
 	public partial class DeprecatedPurpurBlock2 : Block // minecraft:deprecated_purpur_block_2
 	{
-		public DeprecatedPurpurBlock2() : base(1207)
+		public DeprecatedPurpurBlock2()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DetectorRail : Block // minecraft:detector_rail
+	{
+		public DetectorRail()
 		{
 			IsGenerated = true;
 		}
@@ -2422,7 +2718,7 @@ namespace MiNET.Blocks
 
 	public partial class Diorite : Block // minecraft:diorite
 	{
-		public Diorite() : base(847)
+		public Diorite()
 		{
 			IsGenerated = true;
 		}
@@ -2430,15 +2726,23 @@ namespace MiNET.Blocks
 
 	public partial class DioriteDoubleSlab : Block // minecraft:diorite_double_slab
 	{
-		public DioriteDoubleSlab() : base(1176)
+		public DioriteDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class DioriteSlab : Block // minecraft:diorite_slab
+	public partial class DioriteSlab : SlabBase // minecraft:diorite_slab
 	{
-		public DioriteSlab() : base(1149)
+		public DioriteSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DioriteStairs : StairsBase // minecraft:diorite_stairs
+	{
+		public DioriteStairs()
 		{
 			IsGenerated = true;
 		}
@@ -2446,7 +2750,15 @@ namespace MiNET.Blocks
 
 	public partial class DioriteWall : Block // minecraft:diorite_wall
 	{
-		public DioriteWall() : base(1228)
+		public DioriteWall()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Dirt : Block // minecraft:dirt
+	{
+		public Dirt()
 		{
 			IsGenerated = true;
 		}
@@ -2454,7 +2766,7 @@ namespace MiNET.Blocks
 
 	public partial class DirtWithRoots : Block // minecraft:dirt_with_roots
 	{
-		public DirtWithRoots() : base(573)
+		public DirtWithRoots()
 		{
 			IsGenerated = true;
 		}
@@ -2462,7 +2774,15 @@ namespace MiNET.Blocks
 
 	public partial class DoubleCutCopperSlab : Block // minecraft:double_cut_copper_slab
 	{
-		public DoubleCutCopperSlab() : base(623)
+		public DoubleCutCopperSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class DragonEgg : Block // minecraft:dragon_egg
+	{
+		public DragonEgg()
 		{
 			IsGenerated = true;
 		}
@@ -2470,7 +2790,7 @@ namespace MiNET.Blocks
 
 	public partial class DragonHead : Block // minecraft:dragon_head
 	{
-		public DragonHead() : base(1224)
+		public DragonHead()
 		{
 			IsGenerated = true;
 		}
@@ -2478,7 +2798,7 @@ namespace MiNET.Blocks
 
 	public partial class DriedGhast : Block // minecraft:dried_ghast
 	{
-		public DriedGhast() : base(1282)
+		public DriedGhast()
 		{
 			IsGenerated = true;
 		}
@@ -2486,7 +2806,7 @@ namespace MiNET.Blocks
 
 	public partial class DriedKelpBlock : Block // minecraft:dried_kelp_block
 	{
-		public DriedKelpBlock() : base(394)
+		public DriedKelpBlock()
 		{
 			IsGenerated = true;
 		}
@@ -2494,7 +2814,15 @@ namespace MiNET.Blocks
 
 	public partial class DripstoneBlock : Block // minecraft:dripstone_block
 	{
-		public DripstoneBlock() : base(572)
+		public DripstoneBlock()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Dropper : Block // minecraft:dropper
+	{
+		public Dropper()
 		{
 			IsGenerated = true;
 		}
@@ -2502,7 +2830,7 @@ namespace MiNET.Blocks
 
 	public partial class Element0 : Block // minecraft:element_0
 	{
-		public Element0() : base(36)
+		public Element0()
 		{
 			IsGenerated = true;
 		}
@@ -2510,7 +2838,7 @@ namespace MiNET.Blocks
 
 	public partial class Element1 : Block // minecraft:element_1
 	{
-		public Element1() : base(267)
+		public Element1()
 		{
 			IsGenerated = true;
 		}
@@ -2518,7 +2846,7 @@ namespace MiNET.Blocks
 
 	public partial class Element10 : Block // minecraft:element_10
 	{
-		public Element10() : base(276)
+		public Element10()
 		{
 			IsGenerated = true;
 		}
@@ -2526,7 +2854,7 @@ namespace MiNET.Blocks
 
 	public partial class Element100 : Block // minecraft:element_100
 	{
-		public Element100() : base(366)
+		public Element100()
 		{
 			IsGenerated = true;
 		}
@@ -2534,7 +2862,7 @@ namespace MiNET.Blocks
 
 	public partial class Element101 : Block // minecraft:element_101
 	{
-		public Element101() : base(367)
+		public Element101()
 		{
 			IsGenerated = true;
 		}
@@ -2542,7 +2870,7 @@ namespace MiNET.Blocks
 
 	public partial class Element102 : Block // minecraft:element_102
 	{
-		public Element102() : base(368)
+		public Element102()
 		{
 			IsGenerated = true;
 		}
@@ -2550,7 +2878,7 @@ namespace MiNET.Blocks
 
 	public partial class Element103 : Block // minecraft:element_103
 	{
-		public Element103() : base(369)
+		public Element103()
 		{
 			IsGenerated = true;
 		}
@@ -2558,7 +2886,7 @@ namespace MiNET.Blocks
 
 	public partial class Element104 : Block // minecraft:element_104
 	{
-		public Element104() : base(370)
+		public Element104()
 		{
 			IsGenerated = true;
 		}
@@ -2566,7 +2894,7 @@ namespace MiNET.Blocks
 
 	public partial class Element105 : Block // minecraft:element_105
 	{
-		public Element105() : base(371)
+		public Element105()
 		{
 			IsGenerated = true;
 		}
@@ -2574,7 +2902,7 @@ namespace MiNET.Blocks
 
 	public partial class Element106 : Block // minecraft:element_106
 	{
-		public Element106() : base(372)
+		public Element106()
 		{
 			IsGenerated = true;
 		}
@@ -2582,7 +2910,7 @@ namespace MiNET.Blocks
 
 	public partial class Element107 : Block // minecraft:element_107
 	{
-		public Element107() : base(373)
+		public Element107()
 		{
 			IsGenerated = true;
 		}
@@ -2590,7 +2918,7 @@ namespace MiNET.Blocks
 
 	public partial class Element108 : Block // minecraft:element_108
 	{
-		public Element108() : base(374)
+		public Element108()
 		{
 			IsGenerated = true;
 		}
@@ -2598,7 +2926,7 @@ namespace MiNET.Blocks
 
 	public partial class Element109 : Block // minecraft:element_109
 	{
-		public Element109() : base(375)
+		public Element109()
 		{
 			IsGenerated = true;
 		}
@@ -2606,7 +2934,7 @@ namespace MiNET.Blocks
 
 	public partial class Element11 : Block // minecraft:element_11
 	{
-		public Element11() : base(277)
+		public Element11()
 		{
 			IsGenerated = true;
 		}
@@ -2614,7 +2942,7 @@ namespace MiNET.Blocks
 
 	public partial class Element110 : Block // minecraft:element_110
 	{
-		public Element110() : base(376)
+		public Element110()
 		{
 			IsGenerated = true;
 		}
@@ -2622,7 +2950,7 @@ namespace MiNET.Blocks
 
 	public partial class Element111 : Block // minecraft:element_111
 	{
-		public Element111() : base(377)
+		public Element111()
 		{
 			IsGenerated = true;
 		}
@@ -2630,7 +2958,7 @@ namespace MiNET.Blocks
 
 	public partial class Element112 : Block // minecraft:element_112
 	{
-		public Element112() : base(378)
+		public Element112()
 		{
 			IsGenerated = true;
 		}
@@ -2638,7 +2966,7 @@ namespace MiNET.Blocks
 
 	public partial class Element113 : Block // minecraft:element_113
 	{
-		public Element113() : base(379)
+		public Element113()
 		{
 			IsGenerated = true;
 		}
@@ -2646,7 +2974,7 @@ namespace MiNET.Blocks
 
 	public partial class Element114 : Block // minecraft:element_114
 	{
-		public Element114() : base(380)
+		public Element114()
 		{
 			IsGenerated = true;
 		}
@@ -2654,7 +2982,7 @@ namespace MiNET.Blocks
 
 	public partial class Element115 : Block // minecraft:element_115
 	{
-		public Element115() : base(381)
+		public Element115()
 		{
 			IsGenerated = true;
 		}
@@ -2662,7 +2990,7 @@ namespace MiNET.Blocks
 
 	public partial class Element116 : Block // minecraft:element_116
 	{
-		public Element116() : base(382)
+		public Element116()
 		{
 			IsGenerated = true;
 		}
@@ -2670,7 +2998,7 @@ namespace MiNET.Blocks
 
 	public partial class Element117 : Block // minecraft:element_117
 	{
-		public Element117() : base(383)
+		public Element117()
 		{
 			IsGenerated = true;
 		}
@@ -2678,7 +3006,7 @@ namespace MiNET.Blocks
 
 	public partial class Element118 : Block // minecraft:element_118
 	{
-		public Element118() : base(384)
+		public Element118()
 		{
 			IsGenerated = true;
 		}
@@ -2686,7 +3014,7 @@ namespace MiNET.Blocks
 
 	public partial class Element12 : Block // minecraft:element_12
 	{
-		public Element12() : base(278)
+		public Element12()
 		{
 			IsGenerated = true;
 		}
@@ -2694,7 +3022,7 @@ namespace MiNET.Blocks
 
 	public partial class Element13 : Block // minecraft:element_13
 	{
-		public Element13() : base(279)
+		public Element13()
 		{
 			IsGenerated = true;
 		}
@@ -2702,7 +3030,7 @@ namespace MiNET.Blocks
 
 	public partial class Element14 : Block // minecraft:element_14
 	{
-		public Element14() : base(280)
+		public Element14()
 		{
 			IsGenerated = true;
 		}
@@ -2710,7 +3038,7 @@ namespace MiNET.Blocks
 
 	public partial class Element15 : Block // minecraft:element_15
 	{
-		public Element15() : base(281)
+		public Element15()
 		{
 			IsGenerated = true;
 		}
@@ -2718,7 +3046,7 @@ namespace MiNET.Blocks
 
 	public partial class Element16 : Block // minecraft:element_16
 	{
-		public Element16() : base(282)
+		public Element16()
 		{
 			IsGenerated = true;
 		}
@@ -2726,7 +3054,7 @@ namespace MiNET.Blocks
 
 	public partial class Element17 : Block // minecraft:element_17
 	{
-		public Element17() : base(283)
+		public Element17()
 		{
 			IsGenerated = true;
 		}
@@ -2734,7 +3062,7 @@ namespace MiNET.Blocks
 
 	public partial class Element18 : Block // minecraft:element_18
 	{
-		public Element18() : base(284)
+		public Element18()
 		{
 			IsGenerated = true;
 		}
@@ -2742,7 +3070,7 @@ namespace MiNET.Blocks
 
 	public partial class Element19 : Block // minecraft:element_19
 	{
-		public Element19() : base(285)
+		public Element19()
 		{
 			IsGenerated = true;
 		}
@@ -2750,7 +3078,7 @@ namespace MiNET.Blocks
 
 	public partial class Element2 : Block // minecraft:element_2
 	{
-		public Element2() : base(268)
+		public Element2()
 		{
 			IsGenerated = true;
 		}
@@ -2758,7 +3086,7 @@ namespace MiNET.Blocks
 
 	public partial class Element20 : Block // minecraft:element_20
 	{
-		public Element20() : base(286)
+		public Element20()
 		{
 			IsGenerated = true;
 		}
@@ -2766,7 +3094,7 @@ namespace MiNET.Blocks
 
 	public partial class Element21 : Block // minecraft:element_21
 	{
-		public Element21() : base(287)
+		public Element21()
 		{
 			IsGenerated = true;
 		}
@@ -2774,7 +3102,7 @@ namespace MiNET.Blocks
 
 	public partial class Element22 : Block // minecraft:element_22
 	{
-		public Element22() : base(288)
+		public Element22()
 		{
 			IsGenerated = true;
 		}
@@ -2782,7 +3110,7 @@ namespace MiNET.Blocks
 
 	public partial class Element23 : Block // minecraft:element_23
 	{
-		public Element23() : base(289)
+		public Element23()
 		{
 			IsGenerated = true;
 		}
@@ -2790,7 +3118,7 @@ namespace MiNET.Blocks
 
 	public partial class Element24 : Block // minecraft:element_24
 	{
-		public Element24() : base(290)
+		public Element24()
 		{
 			IsGenerated = true;
 		}
@@ -2798,7 +3126,7 @@ namespace MiNET.Blocks
 
 	public partial class Element25 : Block // minecraft:element_25
 	{
-		public Element25() : base(291)
+		public Element25()
 		{
 			IsGenerated = true;
 		}
@@ -2806,7 +3134,7 @@ namespace MiNET.Blocks
 
 	public partial class Element26 : Block // minecraft:element_26
 	{
-		public Element26() : base(292)
+		public Element26()
 		{
 			IsGenerated = true;
 		}
@@ -2814,7 +3142,7 @@ namespace MiNET.Blocks
 
 	public partial class Element27 : Block // minecraft:element_27
 	{
-		public Element27() : base(293)
+		public Element27()
 		{
 			IsGenerated = true;
 		}
@@ -2822,7 +3150,7 @@ namespace MiNET.Blocks
 
 	public partial class Element28 : Block // minecraft:element_28
 	{
-		public Element28() : base(294)
+		public Element28()
 		{
 			IsGenerated = true;
 		}
@@ -2830,7 +3158,7 @@ namespace MiNET.Blocks
 
 	public partial class Element29 : Block // minecraft:element_29
 	{
-		public Element29() : base(295)
+		public Element29()
 		{
 			IsGenerated = true;
 		}
@@ -2838,7 +3166,7 @@ namespace MiNET.Blocks
 
 	public partial class Element3 : Block // minecraft:element_3
 	{
-		public Element3() : base(269)
+		public Element3()
 		{
 			IsGenerated = true;
 		}
@@ -2846,7 +3174,7 @@ namespace MiNET.Blocks
 
 	public partial class Element30 : Block // minecraft:element_30
 	{
-		public Element30() : base(296)
+		public Element30()
 		{
 			IsGenerated = true;
 		}
@@ -2854,7 +3182,7 @@ namespace MiNET.Blocks
 
 	public partial class Element31 : Block // minecraft:element_31
 	{
-		public Element31() : base(297)
+		public Element31()
 		{
 			IsGenerated = true;
 		}
@@ -2862,7 +3190,7 @@ namespace MiNET.Blocks
 
 	public partial class Element32 : Block // minecraft:element_32
 	{
-		public Element32() : base(298)
+		public Element32()
 		{
 			IsGenerated = true;
 		}
@@ -2870,7 +3198,7 @@ namespace MiNET.Blocks
 
 	public partial class Element33 : Block // minecraft:element_33
 	{
-		public Element33() : base(299)
+		public Element33()
 		{
 			IsGenerated = true;
 		}
@@ -2878,7 +3206,7 @@ namespace MiNET.Blocks
 
 	public partial class Element34 : Block // minecraft:element_34
 	{
-		public Element34() : base(300)
+		public Element34()
 		{
 			IsGenerated = true;
 		}
@@ -2886,7 +3214,7 @@ namespace MiNET.Blocks
 
 	public partial class Element35 : Block // minecraft:element_35
 	{
-		public Element35() : base(301)
+		public Element35()
 		{
 			IsGenerated = true;
 		}
@@ -2894,7 +3222,7 @@ namespace MiNET.Blocks
 
 	public partial class Element36 : Block // minecraft:element_36
 	{
-		public Element36() : base(302)
+		public Element36()
 		{
 			IsGenerated = true;
 		}
@@ -2902,7 +3230,7 @@ namespace MiNET.Blocks
 
 	public partial class Element37 : Block // minecraft:element_37
 	{
-		public Element37() : base(303)
+		public Element37()
 		{
 			IsGenerated = true;
 		}
@@ -2910,7 +3238,7 @@ namespace MiNET.Blocks
 
 	public partial class Element38 : Block // minecraft:element_38
 	{
-		public Element38() : base(304)
+		public Element38()
 		{
 			IsGenerated = true;
 		}
@@ -2918,7 +3246,7 @@ namespace MiNET.Blocks
 
 	public partial class Element39 : Block // minecraft:element_39
 	{
-		public Element39() : base(305)
+		public Element39()
 		{
 			IsGenerated = true;
 		}
@@ -2926,7 +3254,7 @@ namespace MiNET.Blocks
 
 	public partial class Element4 : Block // minecraft:element_4
 	{
-		public Element4() : base(270)
+		public Element4()
 		{
 			IsGenerated = true;
 		}
@@ -2934,7 +3262,7 @@ namespace MiNET.Blocks
 
 	public partial class Element40 : Block // minecraft:element_40
 	{
-		public Element40() : base(306)
+		public Element40()
 		{
 			IsGenerated = true;
 		}
@@ -2942,7 +3270,7 @@ namespace MiNET.Blocks
 
 	public partial class Element41 : Block // minecraft:element_41
 	{
-		public Element41() : base(307)
+		public Element41()
 		{
 			IsGenerated = true;
 		}
@@ -2950,7 +3278,7 @@ namespace MiNET.Blocks
 
 	public partial class Element42 : Block // minecraft:element_42
 	{
-		public Element42() : base(308)
+		public Element42()
 		{
 			IsGenerated = true;
 		}
@@ -2958,7 +3286,7 @@ namespace MiNET.Blocks
 
 	public partial class Element43 : Block // minecraft:element_43
 	{
-		public Element43() : base(309)
+		public Element43()
 		{
 			IsGenerated = true;
 		}
@@ -2966,7 +3294,7 @@ namespace MiNET.Blocks
 
 	public partial class Element44 : Block // minecraft:element_44
 	{
-		public Element44() : base(310)
+		public Element44()
 		{
 			IsGenerated = true;
 		}
@@ -2974,7 +3302,7 @@ namespace MiNET.Blocks
 
 	public partial class Element45 : Block // minecraft:element_45
 	{
-		public Element45() : base(311)
+		public Element45()
 		{
 			IsGenerated = true;
 		}
@@ -2982,7 +3310,7 @@ namespace MiNET.Blocks
 
 	public partial class Element46 : Block // minecraft:element_46
 	{
-		public Element46() : base(312)
+		public Element46()
 		{
 			IsGenerated = true;
 		}
@@ -2990,7 +3318,7 @@ namespace MiNET.Blocks
 
 	public partial class Element47 : Block // minecraft:element_47
 	{
-		public Element47() : base(313)
+		public Element47()
 		{
 			IsGenerated = true;
 		}
@@ -2998,7 +3326,7 @@ namespace MiNET.Blocks
 
 	public partial class Element48 : Block // minecraft:element_48
 	{
-		public Element48() : base(314)
+		public Element48()
 		{
 			IsGenerated = true;
 		}
@@ -3006,7 +3334,7 @@ namespace MiNET.Blocks
 
 	public partial class Element49 : Block // minecraft:element_49
 	{
-		public Element49() : base(315)
+		public Element49()
 		{
 			IsGenerated = true;
 		}
@@ -3014,7 +3342,7 @@ namespace MiNET.Blocks
 
 	public partial class Element5 : Block // minecraft:element_5
 	{
-		public Element5() : base(271)
+		public Element5()
 		{
 			IsGenerated = true;
 		}
@@ -3022,7 +3350,7 @@ namespace MiNET.Blocks
 
 	public partial class Element50 : Block // minecraft:element_50
 	{
-		public Element50() : base(316)
+		public Element50()
 		{
 			IsGenerated = true;
 		}
@@ -3030,7 +3358,7 @@ namespace MiNET.Blocks
 
 	public partial class Element51 : Block // minecraft:element_51
 	{
-		public Element51() : base(317)
+		public Element51()
 		{
 			IsGenerated = true;
 		}
@@ -3038,7 +3366,7 @@ namespace MiNET.Blocks
 
 	public partial class Element52 : Block // minecraft:element_52
 	{
-		public Element52() : base(318)
+		public Element52()
 		{
 			IsGenerated = true;
 		}
@@ -3046,7 +3374,7 @@ namespace MiNET.Blocks
 
 	public partial class Element53 : Block // minecraft:element_53
 	{
-		public Element53() : base(319)
+		public Element53()
 		{
 			IsGenerated = true;
 		}
@@ -3054,7 +3382,7 @@ namespace MiNET.Blocks
 
 	public partial class Element54 : Block // minecraft:element_54
 	{
-		public Element54() : base(320)
+		public Element54()
 		{
 			IsGenerated = true;
 		}
@@ -3062,7 +3390,7 @@ namespace MiNET.Blocks
 
 	public partial class Element55 : Block // minecraft:element_55
 	{
-		public Element55() : base(321)
+		public Element55()
 		{
 			IsGenerated = true;
 		}
@@ -3070,7 +3398,7 @@ namespace MiNET.Blocks
 
 	public partial class Element56 : Block // minecraft:element_56
 	{
-		public Element56() : base(322)
+		public Element56()
 		{
 			IsGenerated = true;
 		}
@@ -3078,7 +3406,7 @@ namespace MiNET.Blocks
 
 	public partial class Element57 : Block // minecraft:element_57
 	{
-		public Element57() : base(323)
+		public Element57()
 		{
 			IsGenerated = true;
 		}
@@ -3086,7 +3414,7 @@ namespace MiNET.Blocks
 
 	public partial class Element58 : Block // minecraft:element_58
 	{
-		public Element58() : base(324)
+		public Element58()
 		{
 			IsGenerated = true;
 		}
@@ -3094,7 +3422,7 @@ namespace MiNET.Blocks
 
 	public partial class Element59 : Block // minecraft:element_59
 	{
-		public Element59() : base(325)
+		public Element59()
 		{
 			IsGenerated = true;
 		}
@@ -3102,7 +3430,7 @@ namespace MiNET.Blocks
 
 	public partial class Element6 : Block // minecraft:element_6
 	{
-		public Element6() : base(272)
+		public Element6()
 		{
 			IsGenerated = true;
 		}
@@ -3110,7 +3438,7 @@ namespace MiNET.Blocks
 
 	public partial class Element60 : Block // minecraft:element_60
 	{
-		public Element60() : base(326)
+		public Element60()
 		{
 			IsGenerated = true;
 		}
@@ -3118,7 +3446,7 @@ namespace MiNET.Blocks
 
 	public partial class Element61 : Block // minecraft:element_61
 	{
-		public Element61() : base(327)
+		public Element61()
 		{
 			IsGenerated = true;
 		}
@@ -3126,7 +3454,7 @@ namespace MiNET.Blocks
 
 	public partial class Element62 : Block // minecraft:element_62
 	{
-		public Element62() : base(328)
+		public Element62()
 		{
 			IsGenerated = true;
 		}
@@ -3134,7 +3462,7 @@ namespace MiNET.Blocks
 
 	public partial class Element63 : Block // minecraft:element_63
 	{
-		public Element63() : base(329)
+		public Element63()
 		{
 			IsGenerated = true;
 		}
@@ -3142,7 +3470,7 @@ namespace MiNET.Blocks
 
 	public partial class Element64 : Block // minecraft:element_64
 	{
-		public Element64() : base(330)
+		public Element64()
 		{
 			IsGenerated = true;
 		}
@@ -3150,7 +3478,7 @@ namespace MiNET.Blocks
 
 	public partial class Element65 : Block // minecraft:element_65
 	{
-		public Element65() : base(331)
+		public Element65()
 		{
 			IsGenerated = true;
 		}
@@ -3158,7 +3486,7 @@ namespace MiNET.Blocks
 
 	public partial class Element66 : Block // minecraft:element_66
 	{
-		public Element66() : base(332)
+		public Element66()
 		{
 			IsGenerated = true;
 		}
@@ -3166,7 +3494,7 @@ namespace MiNET.Blocks
 
 	public partial class Element67 : Block // minecraft:element_67
 	{
-		public Element67() : base(333)
+		public Element67()
 		{
 			IsGenerated = true;
 		}
@@ -3174,7 +3502,7 @@ namespace MiNET.Blocks
 
 	public partial class Element68 : Block // minecraft:element_68
 	{
-		public Element68() : base(334)
+		public Element68()
 		{
 			IsGenerated = true;
 		}
@@ -3182,7 +3510,7 @@ namespace MiNET.Blocks
 
 	public partial class Element69 : Block // minecraft:element_69
 	{
-		public Element69() : base(335)
+		public Element69()
 		{
 			IsGenerated = true;
 		}
@@ -3190,7 +3518,7 @@ namespace MiNET.Blocks
 
 	public partial class Element7 : Block // minecraft:element_7
 	{
-		public Element7() : base(273)
+		public Element7()
 		{
 			IsGenerated = true;
 		}
@@ -3198,7 +3526,7 @@ namespace MiNET.Blocks
 
 	public partial class Element70 : Block // minecraft:element_70
 	{
-		public Element70() : base(336)
+		public Element70()
 		{
 			IsGenerated = true;
 		}
@@ -3206,7 +3534,7 @@ namespace MiNET.Blocks
 
 	public partial class Element71 : Block // minecraft:element_71
 	{
-		public Element71() : base(337)
+		public Element71()
 		{
 			IsGenerated = true;
 		}
@@ -3214,7 +3542,7 @@ namespace MiNET.Blocks
 
 	public partial class Element72 : Block // minecraft:element_72
 	{
-		public Element72() : base(338)
+		public Element72()
 		{
 			IsGenerated = true;
 		}
@@ -3222,7 +3550,7 @@ namespace MiNET.Blocks
 
 	public partial class Element73 : Block // minecraft:element_73
 	{
-		public Element73() : base(339)
+		public Element73()
 		{
 			IsGenerated = true;
 		}
@@ -3230,7 +3558,7 @@ namespace MiNET.Blocks
 
 	public partial class Element74 : Block // minecraft:element_74
 	{
-		public Element74() : base(340)
+		public Element74()
 		{
 			IsGenerated = true;
 		}
@@ -3238,7 +3566,7 @@ namespace MiNET.Blocks
 
 	public partial class Element75 : Block // minecraft:element_75
 	{
-		public Element75() : base(341)
+		public Element75()
 		{
 			IsGenerated = true;
 		}
@@ -3246,7 +3574,7 @@ namespace MiNET.Blocks
 
 	public partial class Element76 : Block // minecraft:element_76
 	{
-		public Element76() : base(342)
+		public Element76()
 		{
 			IsGenerated = true;
 		}
@@ -3254,7 +3582,7 @@ namespace MiNET.Blocks
 
 	public partial class Element77 : Block // minecraft:element_77
 	{
-		public Element77() : base(343)
+		public Element77()
 		{
 			IsGenerated = true;
 		}
@@ -3262,7 +3590,7 @@ namespace MiNET.Blocks
 
 	public partial class Element78 : Block // minecraft:element_78
 	{
-		public Element78() : base(344)
+		public Element78()
 		{
 			IsGenerated = true;
 		}
@@ -3270,7 +3598,7 @@ namespace MiNET.Blocks
 
 	public partial class Element79 : Block // minecraft:element_79
 	{
-		public Element79() : base(345)
+		public Element79()
 		{
 			IsGenerated = true;
 		}
@@ -3278,7 +3606,7 @@ namespace MiNET.Blocks
 
 	public partial class Element8 : Block // minecraft:element_8
 	{
-		public Element8() : base(274)
+		public Element8()
 		{
 			IsGenerated = true;
 		}
@@ -3286,7 +3614,7 @@ namespace MiNET.Blocks
 
 	public partial class Element80 : Block // minecraft:element_80
 	{
-		public Element80() : base(346)
+		public Element80()
 		{
 			IsGenerated = true;
 		}
@@ -3294,7 +3622,7 @@ namespace MiNET.Blocks
 
 	public partial class Element81 : Block // minecraft:element_81
 	{
-		public Element81() : base(347)
+		public Element81()
 		{
 			IsGenerated = true;
 		}
@@ -3302,7 +3630,7 @@ namespace MiNET.Blocks
 
 	public partial class Element82 : Block // minecraft:element_82
 	{
-		public Element82() : base(348)
+		public Element82()
 		{
 			IsGenerated = true;
 		}
@@ -3310,7 +3638,7 @@ namespace MiNET.Blocks
 
 	public partial class Element83 : Block // minecraft:element_83
 	{
-		public Element83() : base(349)
+		public Element83()
 		{
 			IsGenerated = true;
 		}
@@ -3318,7 +3646,7 @@ namespace MiNET.Blocks
 
 	public partial class Element84 : Block // minecraft:element_84
 	{
-		public Element84() : base(350)
+		public Element84()
 		{
 			IsGenerated = true;
 		}
@@ -3326,7 +3654,7 @@ namespace MiNET.Blocks
 
 	public partial class Element85 : Block // minecraft:element_85
 	{
-		public Element85() : base(351)
+		public Element85()
 		{
 			IsGenerated = true;
 		}
@@ -3334,7 +3662,7 @@ namespace MiNET.Blocks
 
 	public partial class Element86 : Block // minecraft:element_86
 	{
-		public Element86() : base(352)
+		public Element86()
 		{
 			IsGenerated = true;
 		}
@@ -3342,7 +3670,7 @@ namespace MiNET.Blocks
 
 	public partial class Element87 : Block // minecraft:element_87
 	{
-		public Element87() : base(353)
+		public Element87()
 		{
 			IsGenerated = true;
 		}
@@ -3350,7 +3678,7 @@ namespace MiNET.Blocks
 
 	public partial class Element88 : Block // minecraft:element_88
 	{
-		public Element88() : base(354)
+		public Element88()
 		{
 			IsGenerated = true;
 		}
@@ -3358,7 +3686,7 @@ namespace MiNET.Blocks
 
 	public partial class Element89 : Block // minecraft:element_89
 	{
-		public Element89() : base(355)
+		public Element89()
 		{
 			IsGenerated = true;
 		}
@@ -3366,7 +3694,7 @@ namespace MiNET.Blocks
 
 	public partial class Element9 : Block // minecraft:element_9
 	{
-		public Element9() : base(275)
+		public Element9()
 		{
 			IsGenerated = true;
 		}
@@ -3374,7 +3702,7 @@ namespace MiNET.Blocks
 
 	public partial class Element90 : Block // minecraft:element_90
 	{
-		public Element90() : base(356)
+		public Element90()
 		{
 			IsGenerated = true;
 		}
@@ -3382,7 +3710,7 @@ namespace MiNET.Blocks
 
 	public partial class Element91 : Block // minecraft:element_91
 	{
-		public Element91() : base(357)
+		public Element91()
 		{
 			IsGenerated = true;
 		}
@@ -3390,7 +3718,7 @@ namespace MiNET.Blocks
 
 	public partial class Element92 : Block // minecraft:element_92
 	{
-		public Element92() : base(358)
+		public Element92()
 		{
 			IsGenerated = true;
 		}
@@ -3398,7 +3726,7 @@ namespace MiNET.Blocks
 
 	public partial class Element93 : Block // minecraft:element_93
 	{
-		public Element93() : base(359)
+		public Element93()
 		{
 			IsGenerated = true;
 		}
@@ -3406,7 +3734,7 @@ namespace MiNET.Blocks
 
 	public partial class Element94 : Block // minecraft:element_94
 	{
-		public Element94() : base(360)
+		public Element94()
 		{
 			IsGenerated = true;
 		}
@@ -3414,7 +3742,7 @@ namespace MiNET.Blocks
 
 	public partial class Element95 : Block // minecraft:element_95
 	{
-		public Element95() : base(361)
+		public Element95()
 		{
 			IsGenerated = true;
 		}
@@ -3422,7 +3750,7 @@ namespace MiNET.Blocks
 
 	public partial class Element96 : Block // minecraft:element_96
 	{
-		public Element96() : base(362)
+		public Element96()
 		{
 			IsGenerated = true;
 		}
@@ -3430,7 +3758,7 @@ namespace MiNET.Blocks
 
 	public partial class Element97 : Block // minecraft:element_97
 	{
-		public Element97() : base(363)
+		public Element97()
 		{
 			IsGenerated = true;
 		}
@@ -3438,7 +3766,7 @@ namespace MiNET.Blocks
 
 	public partial class Element98 : Block // minecraft:element_98
 	{
-		public Element98() : base(364)
+		public Element98()
 		{
 			IsGenerated = true;
 		}
@@ -3446,7 +3774,7 @@ namespace MiNET.Blocks
 
 	public partial class Element99 : Block // minecraft:element_99
 	{
-		public Element99() : base(365)
+		public Element99()
 		{
 			IsGenerated = true;
 		}
@@ -3454,7 +3782,63 @@ namespace MiNET.Blocks
 
 	public partial class ElementConstructor : Block // minecraft:element_constructor
 	{
-		public ElementConstructor() : base(1242)
+		public ElementConstructor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class EndBrickStairs : StairsBase // minecraft:end_brick_stairs
+	{
+		public EndBrickStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class EndBricks : StoneBrickBase // minecraft:end_bricks
+	{
+		public EndBricks()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class EndGateway : Block // minecraft:end_gateway
+	{
+		public EndGateway()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class EndPortal : Block // minecraft:end_portal
+	{
+		public EndPortal()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class EndPortalFrame : Block // minecraft:end_portal_frame
+	{
+		public EndPortalFrame()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class EndRod : Block // minecraft:end_rod
+	{
+		public EndRod()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class EndStone : Block // minecraft:end_stone
+	{
+		public EndStone()
 		{
 			IsGenerated = true;
 		}
@@ -3462,15 +3846,15 @@ namespace MiNET.Blocks
 
 	public partial class EndStoneBrickDoubleSlab : Block // minecraft:end_stone_brick_double_slab
 	{
-		public EndStoneBrickDoubleSlab() : base(422)
+		public EndStoneBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class EndStoneBrickSlab : Block // minecraft:end_stone_brick_slab
+	public partial class EndStoneBrickSlab : SlabBase // minecraft:end_stone_brick_slab
 	{
-		public EndStoneBrickSlab() : base(417)
+		public EndStoneBrickSlab()
 		{
 			IsGenerated = true;
 		}
@@ -3478,7 +3862,7 @@ namespace MiNET.Blocks
 
 	public partial class EndStoneBrickWall : Block // minecraft:end_stone_brick_wall
 	{
-		public EndStoneBrickWall() : base(1235)
+		public EndStoneBrickWall()
 		{
 			IsGenerated = true;
 		}
@@ -3486,7 +3870,7 @@ namespace MiNET.Blocks
 
 	public partial class ExposedChiseledCopper : Block // minecraft:exposed_chiseled_copper
 	{
-		public ExposedChiseledCopper() : base(1016)
+		public ExposedChiseledCopper()
 		{
 			IsGenerated = true;
 		}
@@ -3494,7 +3878,7 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCopper : Block // minecraft:exposed_copper
 	{
-		public ExposedCopper() : base(596)
+		public ExposedCopper()
 		{
 			IsGenerated = true;
 		}
@@ -3502,7 +3886,7 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCopperBars : Block // minecraft:exposed_copper_bars
 	{
-		public ExposedCopperBars() : base(1322)
+		public ExposedCopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -3510,7 +3894,7 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCopperBulb : Block // minecraft:exposed_copper_bulb
 	{
-		public ExposedCopperBulb() : base(1032)
+		public ExposedCopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -3518,23 +3902,23 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCopperChain : Block // minecraft:exposed_copper_chain
 	{
-		public ExposedCopperChain() : base(1330)
+		public ExposedCopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ExposedCopperChest : Block // minecraft:exposed_copper_chest
+	public partial class ExposedCopperChest : ChestBase // minecraft:exposed_copper_chest
 	{
-		public ExposedCopperChest() : base(1287)
+		public ExposedCopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ExposedCopperDoor : Block // minecraft:exposed_copper_door
+	public partial class ExposedCopperDoor : DoorBase // minecraft:exposed_copper_door
 	{
-		public ExposedCopperDoor() : base(1040)
+		public ExposedCopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -3542,7 +3926,7 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCopperGolemStatue : Block // minecraft:exposed_copper_golem_statue
 	{
-		public ExposedCopperGolemStatue() : base(1295)
+		public ExposedCopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -3550,7 +3934,7 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCopperGrate : Block // minecraft:exposed_copper_grate
 	{
-		public ExposedCopperGrate() : base(1024)
+		public ExposedCopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -3558,15 +3942,15 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCopperLantern : Block // minecraft:exposed_copper_lantern
 	{
-		public ExposedCopperLantern() : base(1339)
+		public ExposedCopperLantern()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ExposedCopperTrapdoor : Block // minecraft:exposed_copper_trapdoor
+	public partial class ExposedCopperTrapdoor : TrapdoorBase // minecraft:exposed_copper_trapdoor
 	{
-		public ExposedCopperTrapdoor() : base(1048)
+		public ExposedCopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -3574,23 +3958,23 @@ namespace MiNET.Blocks
 
 	public partial class ExposedCutCopper : Block // minecraft:exposed_cut_copper
 	{
-		public ExposedCutCopper() : base(603)
+		public ExposedCutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ExposedCutCopperSlab : Block // minecraft:exposed_cut_copper_slab
+	public partial class ExposedCutCopperSlab : SlabBase // minecraft:exposed_cut_copper_slab
 	{
-		public ExposedCutCopperSlab() : base(617)
+		public ExposedCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ExposedCutCopperStairs : Block // minecraft:exposed_cut_copper_stairs
+	public partial class ExposedCutCopperStairs : StairsBase // minecraft:exposed_cut_copper_stairs
 	{
-		public ExposedCutCopperStairs() : base(610)
+		public ExposedCutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -3598,7 +3982,7 @@ namespace MiNET.Blocks
 
 	public partial class ExposedDoubleCutCopperSlab : Block // minecraft:exposed_double_cut_copper_slab
 	{
-		public ExposedDoubleCutCopperSlab() : base(624)
+		public ExposedDoubleCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
@@ -3606,7 +3990,15 @@ namespace MiNET.Blocks
 
 	public partial class ExposedLightningRod : Block // minecraft:exposed_lightning_rod
 	{
-		public ExposedLightningRod() : base(1314)
+		public ExposedLightningRod()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class FenceGate : FenceGateBase // minecraft:fence_gate
+	{
+		public FenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -3614,7 +4006,7 @@ namespace MiNET.Blocks
 
 	public partial class Fern : Block // minecraft:fern
 	{
-		public Fern() : base(1103)
+		public Fern()
 		{
 			IsGenerated = true;
 		}
@@ -3622,7 +4014,7 @@ namespace MiNET.Blocks
 
 	public partial class FireCoral : Block // minecraft:fire_coral
 	{
-		public FireCoral() : base(838)
+		public FireCoral()
 		{
 			IsGenerated = true;
 		}
@@ -3630,7 +4022,7 @@ namespace MiNET.Blocks
 
 	public partial class FireCoralBlock : Block // minecraft:fire_coral_block
 	{
-		public FireCoralBlock() : base(1106)
+		public FireCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -3638,7 +4030,7 @@ namespace MiNET.Blocks
 
 	public partial class FireCoralFan : Block // minecraft:fire_coral_fan
 	{
-		public FireCoralFan() : base(1097)
+		public FireCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -3646,7 +4038,7 @@ namespace MiNET.Blocks
 
 	public partial class FireCoralWallFan : Block // minecraft:fire_coral_wall_fan
 	{
-		public FireCoralWallFan() : base(1162)
+		public FireCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -3654,7 +4046,7 @@ namespace MiNET.Blocks
 
 	public partial class FireflyBush : Block // minecraft:firefly_bush
 	{
-		public FireflyBush() : base(1280)
+		public FireflyBush()
 		{
 			IsGenerated = true;
 		}
@@ -3662,7 +4054,7 @@ namespace MiNET.Blocks
 
 	public partial class FletchingTable : Block // minecraft:fletching_table
 	{
-		public FletchingTable() : base(456)
+		public FletchingTable()
 		{
 			IsGenerated = true;
 		}
@@ -3670,7 +4062,7 @@ namespace MiNET.Blocks
 
 	public partial class FloweringAzalea : Block // minecraft:flowering_azalea
 	{
-		public FloweringAzalea() : base(593)
+		public FloweringAzalea()
 		{
 			IsGenerated = true;
 		}
@@ -3678,15 +4070,39 @@ namespace MiNET.Blocks
 
 	public partial class FrogSpawn : Block // minecraft:frog_spawn
 	{
-		public FrogSpawn() : base(723)
+		public FrogSpawn()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class GildedBlackstone : Block // minecraft:gilded_blackstone
+	public partial class FrostedIce : Block // minecraft:frosted_ice
 	{
-		public GildedBlackstone() : base(536)
+		public FrostedIce()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class GildedBlackstone : StoneBrickBase // minecraft:gilded_blackstone
+	{
+		public GildedBlackstone()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Glass : Block // minecraft:glass
+	{
+		public Glass()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class GlassPane : GlassPaneBase // minecraft:glass_pane
+	{
+		public GlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -3694,7 +4110,7 @@ namespace MiNET.Blocks
 
 	public partial class GlowFrame : Block // minecraft:glow_frame
 	{
-		public GlowFrame() : base(594)
+		public GlowFrame()
 		{
 			IsGenerated = true;
 		}
@@ -3702,15 +4118,31 @@ namespace MiNET.Blocks
 
 	public partial class GlowLichen : Block // minecraft:glow_lichen
 	{
-		public GlowLichen() : base(666)
+		public GlowLichen()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class GoldenDandelion : Block // minecraft:golden_dandelion
+	public partial class Glowingobsidian : Block // minecraft:glowingobsidian
 	{
-		public GoldenDandelion() : base(1346)
+		public Glowingobsidian()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class GoldenDandelion : FlowerBase // minecraft:golden_dandelion
+	{
+		public GoldenDandelion()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class GoldenRail : Block // minecraft:golden_rail
+	{
+		public GoldenRail()
 		{
 			IsGenerated = true;
 		}
@@ -3718,7 +4150,7 @@ namespace MiNET.Blocks
 
 	public partial class Granite : Block // minecraft:granite
 	{
-		public Granite() : base(845)
+		public Granite()
 		{
 			IsGenerated = true;
 		}
@@ -3726,15 +4158,23 @@ namespace MiNET.Blocks
 
 	public partial class GraniteDoubleSlab : Block // minecraft:granite_double_slab
 	{
-		public GraniteDoubleSlab() : base(1178)
+		public GraniteDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class GraniteSlab : Block // minecraft:granite_slab
+	public partial class GraniteSlab : SlabBase // minecraft:granite_slab
 	{
-		public GraniteSlab() : base(1151)
+		public GraniteSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class GraniteStairs : StairsBase // minecraft:granite_stairs
+	{
+		public GraniteStairs()
 		{
 			IsGenerated = true;
 		}
@@ -3742,15 +4182,7 @@ namespace MiNET.Blocks
 
 	public partial class GraniteWall : Block // minecraft:granite_wall
 	{
-		public GraniteWall() : base(1227)
-		{
-			IsGenerated = true;
-		}
-	} // class
-
-	public partial class GrassBlock : Block // minecraft:grass_block
-	{
-		public GrassBlock() : base(2)
+		public GraniteWall()
 		{
 			IsGenerated = true;
 		}
@@ -3758,7 +4190,7 @@ namespace MiNET.Blocks
 
 	public partial class GrayCandle : Block // minecraft:gray_candle
 	{
-		public GrayCandle() : base(675)
+		public GrayCandle()
 		{
 			IsGenerated = true;
 		}
@@ -3766,7 +4198,7 @@ namespace MiNET.Blocks
 
 	public partial class GrayCandleCake : Block // minecraft:gray_candle_cake
 	{
-		public GrayCandleCake() : base(692)
+		public GrayCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -3774,7 +4206,7 @@ namespace MiNET.Blocks
 
 	public partial class GrayCarpet : Block // minecraft:gray_carpet
 	{
-		public GrayCarpet() : base(858)
+		public GrayCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -3782,7 +4214,7 @@ namespace MiNET.Blocks
 
 	public partial class GrayConcrete : Block // minecraft:gray_concrete
 	{
-		public GrayConcrete() : base(889)
+		public GrayConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -3790,7 +4222,15 @@ namespace MiNET.Blocks
 
 	public partial class GrayConcretePowder : Block // minecraft:gray_concrete_powder
 	{
-		public GrayConcretePowder() : base(970)
+		public GrayConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class GrayGlazedTerracotta : GlazedTerracottaBase // minecraft:gray_glazed_terracotta
+	{
+		public GrayGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -3798,7 +4238,7 @@ namespace MiNET.Blocks
 
 	public partial class GrayShulkerBox : Block // minecraft:gray_shulker_box
 	{
-		public GrayShulkerBox() : base(874)
+		public GrayShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -3806,15 +4246,15 @@ namespace MiNET.Blocks
 
 	public partial class GrayStainedGlass : Block // minecraft:gray_stained_glass
 	{
-		public GrayStainedGlass() : base(934)
+		public GrayStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class GrayStainedGlassPane : Block // minecraft:gray_stained_glass_pane
+	public partial class GrayStainedGlassPane : GlassPaneBase // minecraft:gray_stained_glass_pane
 	{
-		public GrayStainedGlassPane() : base(904)
+		public GrayStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -3822,7 +4262,7 @@ namespace MiNET.Blocks
 
 	public partial class GrayTerracotta : Block // minecraft:gray_terracotta
 	{
-		public GrayTerracotta() : base(985)
+		public GrayTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -3830,7 +4270,7 @@ namespace MiNET.Blocks
 
 	public partial class GrayWool : Block // minecraft:gray_wool
 	{
-		public GrayWool() : base(808)
+		public GrayWool()
 		{
 			IsGenerated = true;
 		}
@@ -3838,7 +4278,7 @@ namespace MiNET.Blocks
 
 	public partial class GreenCandle : Block // minecraft:green_candle
 	{
-		public GreenCandle() : base(681)
+		public GreenCandle()
 		{
 			IsGenerated = true;
 		}
@@ -3846,7 +4286,7 @@ namespace MiNET.Blocks
 
 	public partial class GreenCandleCake : Block // minecraft:green_candle_cake
 	{
-		public GreenCandleCake() : base(698)
+		public GreenCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -3854,7 +4294,7 @@ namespace MiNET.Blocks
 
 	public partial class GreenCarpet : Block // minecraft:green_carpet
 	{
-		public GreenCarpet() : base(864)
+		public GreenCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -3862,7 +4302,7 @@ namespace MiNET.Blocks
 
 	public partial class GreenConcrete : Block // minecraft:green_concrete
 	{
-		public GreenConcrete() : base(895)
+		public GreenConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -3870,7 +4310,15 @@ namespace MiNET.Blocks
 
 	public partial class GreenConcretePowder : Block // minecraft:green_concrete_powder
 	{
-		public GreenConcretePowder() : base(976)
+		public GreenConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class GreenGlazedTerracotta : GlazedTerracottaBase // minecraft:green_glazed_terracotta
+	{
+		public GreenGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -3878,7 +4326,7 @@ namespace MiNET.Blocks
 
 	public partial class GreenShulkerBox : Block // minecraft:green_shulker_box
 	{
-		public GreenShulkerBox() : base(880)
+		public GreenShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -3886,15 +4334,15 @@ namespace MiNET.Blocks
 
 	public partial class GreenStainedGlass : Block // minecraft:green_stained_glass
 	{
-		public GreenStainedGlass() : base(940)
+		public GreenStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class GreenStainedGlassPane : Block // minecraft:green_stained_glass_pane
+	public partial class GreenStainedGlassPane : GlassPaneBase // minecraft:green_stained_glass_pane
 	{
-		public GreenStainedGlassPane() : base(910)
+		public GreenStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -3902,7 +4350,7 @@ namespace MiNET.Blocks
 
 	public partial class GreenTerracotta : Block // minecraft:green_terracotta
 	{
-		public GreenTerracotta() : base(991)
+		public GreenTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -3910,7 +4358,7 @@ namespace MiNET.Blocks
 
 	public partial class GreenWool : Block // minecraft:green_wool
 	{
-		public GreenWool() : base(815)
+		public GreenWool()
 		{
 			IsGenerated = true;
 		}
@@ -3918,7 +4366,7 @@ namespace MiNET.Blocks
 
 	public partial class Grindstone : Block // minecraft:grindstone
 	{
-		public Grindstone() : base(450)
+		public Grindstone()
 		{
 			IsGenerated = true;
 		}
@@ -3926,7 +4374,7 @@ namespace MiNET.Blocks
 
 	public partial class HangingRoots : Block // minecraft:hanging_roots
 	{
-		public HangingRoots() : base(574)
+		public HangingRoots()
 		{
 			IsGenerated = true;
 		}
@@ -3934,7 +4382,7 @@ namespace MiNET.Blocks
 
 	public partial class HardBlackStainedGlass : Block // minecraft:hard_black_stained_glass
 	{
-		public HardBlackStainedGlass() : base(957)
+		public HardBlackStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -3942,7 +4390,7 @@ namespace MiNET.Blocks
 
 	public partial class HardBlackStainedGlassPane : Block // minecraft:hard_black_stained_glass_pane
 	{
-		public HardBlackStainedGlassPane() : base(927)
+		public HardBlackStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -3950,7 +4398,7 @@ namespace MiNET.Blocks
 
 	public partial class HardBlueStainedGlass : Block // minecraft:hard_blue_stained_glass
 	{
-		public HardBlueStainedGlass() : base(953)
+		public HardBlueStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -3958,7 +4406,7 @@ namespace MiNET.Blocks
 
 	public partial class HardBlueStainedGlassPane : Block // minecraft:hard_blue_stained_glass_pane
 	{
-		public HardBlueStainedGlassPane() : base(923)
+		public HardBlueStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -3966,7 +4414,7 @@ namespace MiNET.Blocks
 
 	public partial class HardBrownStainedGlass : Block // minecraft:hard_brown_stained_glass
 	{
-		public HardBrownStainedGlass() : base(954)
+		public HardBrownStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -3974,7 +4422,7 @@ namespace MiNET.Blocks
 
 	public partial class HardBrownStainedGlassPane : Block // minecraft:hard_brown_stained_glass_pane
 	{
-		public HardBrownStainedGlassPane() : base(924)
+		public HardBrownStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -3982,7 +4430,7 @@ namespace MiNET.Blocks
 
 	public partial class HardCyanStainedGlass : Block // minecraft:hard_cyan_stained_glass
 	{
-		public HardCyanStainedGlass() : base(951)
+		public HardCyanStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -3990,7 +4438,7 @@ namespace MiNET.Blocks
 
 	public partial class HardCyanStainedGlassPane : Block // minecraft:hard_cyan_stained_glass_pane
 	{
-		public HardCyanStainedGlassPane() : base(921)
+		public HardCyanStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -3998,7 +4446,7 @@ namespace MiNET.Blocks
 
 	public partial class HardGlass : Block // minecraft:hard_glass
 	{
-		public HardGlass() : base(253)
+		public HardGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4006,7 +4454,7 @@ namespace MiNET.Blocks
 
 	public partial class HardGlassPane : Block // minecraft:hard_glass_pane
 	{
-		public HardGlassPane() : base(190)
+		public HardGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4014,7 +4462,7 @@ namespace MiNET.Blocks
 
 	public partial class HardGrayStainedGlass : Block // minecraft:hard_gray_stained_glass
 	{
-		public HardGrayStainedGlass() : base(949)
+		public HardGrayStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4022,7 +4470,7 @@ namespace MiNET.Blocks
 
 	public partial class HardGrayStainedGlassPane : Block // minecraft:hard_gray_stained_glass_pane
 	{
-		public HardGrayStainedGlassPane() : base(919)
+		public HardGrayStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4030,7 +4478,7 @@ namespace MiNET.Blocks
 
 	public partial class HardGreenStainedGlass : Block // minecraft:hard_green_stained_glass
 	{
-		public HardGreenStainedGlass() : base(955)
+		public HardGreenStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4038,7 +4486,7 @@ namespace MiNET.Blocks
 
 	public partial class HardGreenStainedGlassPane : Block // minecraft:hard_green_stained_glass_pane
 	{
-		public HardGreenStainedGlassPane() : base(925)
+		public HardGreenStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4046,7 +4494,7 @@ namespace MiNET.Blocks
 
 	public partial class HardLightBlueStainedGlass : Block // minecraft:hard_light_blue_stained_glass
 	{
-		public HardLightBlueStainedGlass() : base(945)
+		public HardLightBlueStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4054,7 +4502,7 @@ namespace MiNET.Blocks
 
 	public partial class HardLightBlueStainedGlassPane : Block // minecraft:hard_light_blue_stained_glass_pane
 	{
-		public HardLightBlueStainedGlassPane() : base(915)
+		public HardLightBlueStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4062,7 +4510,7 @@ namespace MiNET.Blocks
 
 	public partial class HardLightGrayStainedGlass : Block // minecraft:hard_light_gray_stained_glass
 	{
-		public HardLightGrayStainedGlass() : base(950)
+		public HardLightGrayStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4070,7 +4518,7 @@ namespace MiNET.Blocks
 
 	public partial class HardLightGrayStainedGlassPane : Block // minecraft:hard_light_gray_stained_glass_pane
 	{
-		public HardLightGrayStainedGlassPane() : base(920)
+		public HardLightGrayStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4078,7 +4526,7 @@ namespace MiNET.Blocks
 
 	public partial class HardLimeStainedGlass : Block // minecraft:hard_lime_stained_glass
 	{
-		public HardLimeStainedGlass() : base(947)
+		public HardLimeStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4086,7 +4534,7 @@ namespace MiNET.Blocks
 
 	public partial class HardLimeStainedGlassPane : Block // minecraft:hard_lime_stained_glass_pane
 	{
-		public HardLimeStainedGlassPane() : base(917)
+		public HardLimeStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4094,7 +4542,7 @@ namespace MiNET.Blocks
 
 	public partial class HardMagentaStainedGlass : Block // minecraft:hard_magenta_stained_glass
 	{
-		public HardMagentaStainedGlass() : base(944)
+		public HardMagentaStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4102,7 +4550,7 @@ namespace MiNET.Blocks
 
 	public partial class HardMagentaStainedGlassPane : Block // minecraft:hard_magenta_stained_glass_pane
 	{
-		public HardMagentaStainedGlassPane() : base(914)
+		public HardMagentaStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4110,7 +4558,7 @@ namespace MiNET.Blocks
 
 	public partial class HardOrangeStainedGlass : Block // minecraft:hard_orange_stained_glass
 	{
-		public HardOrangeStainedGlass() : base(943)
+		public HardOrangeStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4118,7 +4566,7 @@ namespace MiNET.Blocks
 
 	public partial class HardOrangeStainedGlassPane : Block // minecraft:hard_orange_stained_glass_pane
 	{
-		public HardOrangeStainedGlassPane() : base(913)
+		public HardOrangeStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4126,7 +4574,7 @@ namespace MiNET.Blocks
 
 	public partial class HardPinkStainedGlass : Block // minecraft:hard_pink_stained_glass
 	{
-		public HardPinkStainedGlass() : base(948)
+		public HardPinkStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4134,7 +4582,7 @@ namespace MiNET.Blocks
 
 	public partial class HardPinkStainedGlassPane : Block // minecraft:hard_pink_stained_glass_pane
 	{
-		public HardPinkStainedGlassPane() : base(918)
+		public HardPinkStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4142,7 +4590,7 @@ namespace MiNET.Blocks
 
 	public partial class HardPurpleStainedGlass : Block // minecraft:hard_purple_stained_glass
 	{
-		public HardPurpleStainedGlass() : base(952)
+		public HardPurpleStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4150,7 +4598,7 @@ namespace MiNET.Blocks
 
 	public partial class HardPurpleStainedGlassPane : Block // minecraft:hard_purple_stained_glass_pane
 	{
-		public HardPurpleStainedGlassPane() : base(922)
+		public HardPurpleStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4158,7 +4606,7 @@ namespace MiNET.Blocks
 
 	public partial class HardRedStainedGlass : Block // minecraft:hard_red_stained_glass
 	{
-		public HardRedStainedGlass() : base(956)
+		public HardRedStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4166,7 +4614,7 @@ namespace MiNET.Blocks
 
 	public partial class HardRedStainedGlassPane : Block // minecraft:hard_red_stained_glass_pane
 	{
-		public HardRedStainedGlassPane() : base(926)
+		public HardRedStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4174,7 +4622,7 @@ namespace MiNET.Blocks
 
 	public partial class HardWhiteStainedGlass : Block // minecraft:hard_white_stained_glass
 	{
-		public HardWhiteStainedGlass() : base(254)
+		public HardWhiteStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4182,7 +4630,7 @@ namespace MiNET.Blocks
 
 	public partial class HardWhiteStainedGlassPane : Block // minecraft:hard_white_stained_glass_pane
 	{
-		public HardWhiteStainedGlassPane() : base(191)
+		public HardWhiteStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4190,7 +4638,7 @@ namespace MiNET.Blocks
 
 	public partial class HardYellowStainedGlass : Block // minecraft:hard_yellow_stained_glass
 	{
-		public HardYellowStainedGlass() : base(946)
+		public HardYellowStainedGlass()
 		{
 			IsGenerated = true;
 		}
@@ -4198,7 +4646,15 @@ namespace MiNET.Blocks
 
 	public partial class HardYellowStainedGlassPane : Block // minecraft:hard_yellow_stained_glass_pane
 	{
-		public HardYellowStainedGlassPane() : base(916)
+		public HardYellowStainedGlassPane()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class HardenedClay : Block // minecraft:hardened_clay
+	{
+		public HardenedClay()
 		{
 			IsGenerated = true;
 		}
@@ -4206,7 +4662,15 @@ namespace MiNET.Blocks
 
 	public partial class HeavyCore : Block // minecraft:heavy_core
 	{
-		public HeavyCore() : base(571)
+		public HeavyCore()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class HeavyWeightedPressurePlate : Block // minecraft:heavy_weighted_pressure_plate
+	{
+		public HeavyWeightedPressurePlate()
 		{
 			IsGenerated = true;
 		}
@@ -4214,7 +4678,7 @@ namespace MiNET.Blocks
 
 	public partial class HoneyBlock : Block // minecraft:honey_block
 	{
-		public HoneyBlock() : base(475)
+		public HoneyBlock()
 		{
 			IsGenerated = true;
 		}
@@ -4222,7 +4686,15 @@ namespace MiNET.Blocks
 
 	public partial class HoneycombBlock : Block // minecraft:honeycomb_block
 	{
-		public HoneycombBlock() : base(476)
+		public HoneycombBlock()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Hopper : Block // minecraft:hopper
+	{
+		public Hopper()
 		{
 			IsGenerated = true;
 		}
@@ -4230,7 +4702,7 @@ namespace MiNET.Blocks
 
 	public partial class HornCoral : Block // minecraft:horn_coral
 	{
-		public HornCoral() : base(839)
+		public HornCoral()
 		{
 			IsGenerated = true;
 		}
@@ -4238,7 +4710,7 @@ namespace MiNET.Blocks
 
 	public partial class HornCoralBlock : Block // minecraft:horn_coral_block
 	{
-		public HornCoralBlock() : base(1107)
+		public HornCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -4246,7 +4718,7 @@ namespace MiNET.Blocks
 
 	public partial class HornCoralFan : Block // minecraft:horn_coral_fan
 	{
-		public HornCoralFan() : base(1098)
+		public HornCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -4254,7 +4726,15 @@ namespace MiNET.Blocks
 
 	public partial class HornCoralWallFan : Block // minecraft:horn_coral_wall_fan
 	{
-		public HornCoralWallFan() : base(392)
+		public HornCoralWallFan()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Ice : Block // minecraft:ice
+	{
+		public Ice()
 		{
 			IsGenerated = true;
 		}
@@ -4262,7 +4742,7 @@ namespace MiNET.Blocks
 
 	public partial class InfestedChiseledStoneBricks : Block // minecraft:infested_chiseled_stone_bricks
 	{
-		public InfestedChiseledStoneBricks() : base(1117)
+		public InfestedChiseledStoneBricks()
 		{
 			IsGenerated = true;
 		}
@@ -4270,7 +4750,7 @@ namespace MiNET.Blocks
 
 	public partial class InfestedCobblestone : Block // minecraft:infested_cobblestone
 	{
-		public InfestedCobblestone() : base(1113)
+		public InfestedCobblestone()
 		{
 			IsGenerated = true;
 		}
@@ -4278,7 +4758,7 @@ namespace MiNET.Blocks
 
 	public partial class InfestedCrackedStoneBricks : Block // minecraft:infested_cracked_stone_bricks
 	{
-		public InfestedCrackedStoneBricks() : base(1116)
+		public InfestedCrackedStoneBricks()
 		{
 			IsGenerated = true;
 		}
@@ -4286,7 +4766,7 @@ namespace MiNET.Blocks
 
 	public partial class InfestedDeepslate : Block // minecraft:infested_deepslate
 	{
-		public InfestedDeepslate() : base(709)
+		public InfestedDeepslate()
 		{
 			IsGenerated = true;
 		}
@@ -4294,7 +4774,7 @@ namespace MiNET.Blocks
 
 	public partial class InfestedMossyStoneBricks : Block // minecraft:infested_mossy_stone_bricks
 	{
-		public InfestedMossyStoneBricks() : base(1115)
+		public InfestedMossyStoneBricks()
 		{
 			IsGenerated = true;
 		}
@@ -4302,7 +4782,7 @@ namespace MiNET.Blocks
 
 	public partial class InfestedStone : Block // minecraft:infested_stone
 	{
-		public InfestedStone() : base(97)
+		public InfestedStone()
 		{
 			IsGenerated = true;
 		}
@@ -4310,7 +4790,7 @@ namespace MiNET.Blocks
 
 	public partial class InfestedStoneBricks : Block // minecraft:infested_stone_bricks
 	{
-		public InfestedStoneBricks() : base(1114)
+		public InfestedStoneBricks()
 		{
 			IsGenerated = true;
 		}
@@ -4318,7 +4798,7 @@ namespace MiNET.Blocks
 
 	public partial class InfoUpdate : Block // minecraft:info_update
 	{
-		public InfoUpdate() : base(248)
+		public InfoUpdate()
 		{
 			IsGenerated = true;
 		}
@@ -4326,7 +4806,23 @@ namespace MiNET.Blocks
 
 	public partial class InfoUpdate2 : Block // minecraft:info_update2
 	{
-		public InfoUpdate2() : base(249)
+		public InfoUpdate2()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class InvisibleBedrock : Block // minecraft:invisible_bedrock
+	{
+		public InvisibleBedrock()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class IronBars : Block // minecraft:iron_bars
+	{
+		public IronBars()
 		{
 			IsGenerated = true;
 		}
@@ -4334,7 +4830,15 @@ namespace MiNET.Blocks
 
 	public partial class IronChain : Block // minecraft:iron_chain
 	{
-		public IronChain() : base(541)
+		public IronChain()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class IronDoor : DoorBase // minecraft:iron_door
+	{
+		public IronDoor()
 		{
 			IsGenerated = true;
 		}
@@ -4342,7 +4846,23 @@ namespace MiNET.Blocks
 
 	public partial class Jigsaw : Block // minecraft:jigsaw
 	{
-		public Jigsaw() : base(466)
+		public Jigsaw()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Jukebox : Block // minecraft:jukebox
+	{
+		public Jukebox()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class JungleDoor : DoorBase // minecraft:jungle_door
+	{
+		public JungleDoor()
 		{
 			IsGenerated = true;
 		}
@@ -4350,7 +4870,7 @@ namespace MiNET.Blocks
 
 	public partial class JungleDoubleSlab : Block // minecraft:jungle_double_slab
 	{
-		public JungleDoubleSlab() : base(1066)
+		public JungleDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -4358,7 +4878,15 @@ namespace MiNET.Blocks
 
 	public partial class JungleFence : Block // minecraft:jungle_fence
 	{
-		public JungleFence() : base(833)
+		public JungleFence()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class JungleFenceGate : FenceGateBase // minecraft:jungle_fence_gate
+	{
+		public JungleFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -4366,23 +4894,23 @@ namespace MiNET.Blocks
 
 	public partial class JungleHangingSign : Block // minecraft:jungle_hanging_sign
 	{
-		public JungleHangingSign() : base(758)
+		public JungleHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class JungleLeaves : Block // minecraft:jungle_leaves
+	public partial class JungleLeaves : LeavesBase // minecraft:jungle_leaves
 	{
-		public JungleLeaves() : base(1057)
+		public JungleLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class JungleLog : Block // minecraft:jungle_log
+	public partial class JungleLog : LogBase // minecraft:jungle_log
 	{
-		public JungleLog() : base(826)
+		public JungleLog()
 		{
 			IsGenerated = true;
 		}
@@ -4390,7 +4918,7 @@ namespace MiNET.Blocks
 
 	public partial class JunglePlanks : Block // minecraft:jungle_planks
 	{
-		public JunglePlanks() : base(996)
+		public JunglePlanks()
 		{
 			IsGenerated = true;
 		}
@@ -4398,15 +4926,15 @@ namespace MiNET.Blocks
 
 	public partial class JunglePressurePlate : Block // minecraft:jungle_pressure_plate
 	{
-		public JunglePressurePlate() : base(408)
+		public JunglePressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class JungleSapling : Block // minecraft:jungle_sapling
+	public partial class JungleSapling : SaplingBase // minecraft:jungle_sapling
 	{
-		public JungleSapling() : base(1082)
+		public JungleSapling()
 		{
 			IsGenerated = true;
 		}
@@ -4414,15 +4942,31 @@ namespace MiNET.Blocks
 
 	public partial class JungleShelf : Block // minecraft:jungle_shelf
 	{
-		public JungleShelf() : base(1305)
+		public JungleShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class JungleSlab : Block // minecraft:jungle_slab
+	public partial class JungleSlab : SlabBase // minecraft:jungle_slab
 	{
-		public JungleSlab() : base(1061)
+		public JungleSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class JungleStairs : StairsBase // minecraft:jungle_stairs
+	{
+		public JungleStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class JungleTrapdoor : TrapdoorBase // minecraft:jungle_trapdoor
+	{
+		public JungleTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -4430,7 +4974,7 @@ namespace MiNET.Blocks
 
 	public partial class JungleWood : Block // minecraft:jungle_wood
 	{
-		public JungleWood() : base(1071)
+		public JungleWood()
 		{
 			IsGenerated = true;
 		}
@@ -4438,7 +4982,7 @@ namespace MiNET.Blocks
 
 	public partial class Kelp : Block // minecraft:kelp
 	{
-		public Kelp() : base(393)
+		public Kelp()
 		{
 			IsGenerated = true;
 		}
@@ -4446,7 +4990,7 @@ namespace MiNET.Blocks
 
 	public partial class LabTable : Block // minecraft:lab_table
 	{
-		public LabTable() : base(1243)
+		public LabTable()
 		{
 			IsGenerated = true;
 		}
@@ -4454,7 +4998,7 @@ namespace MiNET.Blocks
 
 	public partial class Lantern : Block // minecraft:lantern
 	{
-		public Lantern() : base(463)
+		public Lantern()
 		{
 			IsGenerated = true;
 		}
@@ -4462,7 +5006,7 @@ namespace MiNET.Blocks
 
 	public partial class LargeAmethystBud : Block // minecraft:large_amethyst_bud
 	{
-		public LargeAmethystBud() : base(585)
+		public LargeAmethystBud()
 		{
 			IsGenerated = true;
 		}
@@ -4470,7 +5014,7 @@ namespace MiNET.Blocks
 
 	public partial class LargeFern : Block // minecraft:large_fern
 	{
-		public LargeFern() : base(1120)
+		public LargeFern()
 		{
 			IsGenerated = true;
 		}
@@ -4478,7 +5022,7 @@ namespace MiNET.Blocks
 
 	public partial class LeafLitter : Block // minecraft:leaf_litter
 	{
-		public LeafLitter() : base(1281)
+		public LeafLitter()
 		{
 			IsGenerated = true;
 		}
@@ -4486,7 +5030,7 @@ namespace MiNET.Blocks
 
 	public partial class Lectern : Block // minecraft:lectern
 	{
-		public Lectern() : base(449)
+		public Lectern()
 		{
 			IsGenerated = true;
 		}
@@ -4494,7 +5038,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock0 : Block // minecraft:light_block_0
 	{
-		public LightBlock0() : base(470)
+		public LightBlock0()
 		{
 			IsGenerated = true;
 		}
@@ -4502,7 +5046,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock1 : Block // minecraft:light_block_1
 	{
-		public LightBlock1() : base(1184)
+		public LightBlock1()
 		{
 			IsGenerated = true;
 		}
@@ -4510,7 +5054,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock10 : Block // minecraft:light_block_10
 	{
-		public LightBlock10() : base(1193)
+		public LightBlock10()
 		{
 			IsGenerated = true;
 		}
@@ -4518,7 +5062,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock11 : Block // minecraft:light_block_11
 	{
-		public LightBlock11() : base(1194)
+		public LightBlock11()
 		{
 			IsGenerated = true;
 		}
@@ -4526,7 +5070,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock12 : Block // minecraft:light_block_12
 	{
-		public LightBlock12() : base(1195)
+		public LightBlock12()
 		{
 			IsGenerated = true;
 		}
@@ -4534,7 +5078,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock13 : Block // minecraft:light_block_13
 	{
-		public LightBlock13() : base(1196)
+		public LightBlock13()
 		{
 			IsGenerated = true;
 		}
@@ -4542,7 +5086,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock14 : Block // minecraft:light_block_14
 	{
-		public LightBlock14() : base(1197)
+		public LightBlock14()
 		{
 			IsGenerated = true;
 		}
@@ -4550,7 +5094,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock15 : Block // minecraft:light_block_15
 	{
-		public LightBlock15() : base(1198)
+		public LightBlock15()
 		{
 			IsGenerated = true;
 		}
@@ -4558,7 +5102,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock2 : Block // minecraft:light_block_2
 	{
-		public LightBlock2() : base(1185)
+		public LightBlock2()
 		{
 			IsGenerated = true;
 		}
@@ -4566,7 +5110,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock3 : Block // minecraft:light_block_3
 	{
-		public LightBlock3() : base(1186)
+		public LightBlock3()
 		{
 			IsGenerated = true;
 		}
@@ -4574,7 +5118,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock4 : Block // minecraft:light_block_4
 	{
-		public LightBlock4() : base(1187)
+		public LightBlock4()
 		{
 			IsGenerated = true;
 		}
@@ -4582,7 +5126,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock5 : Block // minecraft:light_block_5
 	{
-		public LightBlock5() : base(1188)
+		public LightBlock5()
 		{
 			IsGenerated = true;
 		}
@@ -4590,7 +5134,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock6 : Block // minecraft:light_block_6
 	{
-		public LightBlock6() : base(1189)
+		public LightBlock6()
 		{
 			IsGenerated = true;
 		}
@@ -4598,7 +5142,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock7 : Block // minecraft:light_block_7
 	{
-		public LightBlock7() : base(1190)
+		public LightBlock7()
 		{
 			IsGenerated = true;
 		}
@@ -4606,7 +5150,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock8 : Block // minecraft:light_block_8
 	{
-		public LightBlock8() : base(1191)
+		public LightBlock8()
 		{
 			IsGenerated = true;
 		}
@@ -4614,7 +5158,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlock9 : Block // minecraft:light_block_9
 	{
-		public LightBlock9() : base(1192)
+		public LightBlock9()
 		{
 			IsGenerated = true;
 		}
@@ -4622,7 +5166,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueCandle : Block // minecraft:light_blue_candle
 	{
-		public LightBlueCandle() : base(671)
+		public LightBlueCandle()
 		{
 			IsGenerated = true;
 		}
@@ -4630,7 +5174,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueCandleCake : Block // minecraft:light_blue_candle_cake
 	{
-		public LightBlueCandleCake() : base(688)
+		public LightBlueCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -4638,7 +5182,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueCarpet : Block // minecraft:light_blue_carpet
 	{
-		public LightBlueCarpet() : base(854)
+		public LightBlueCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -4646,7 +5190,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueConcrete : Block // minecraft:light_blue_concrete
 	{
-		public LightBlueConcrete() : base(885)
+		public LightBlueConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -4654,7 +5198,15 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueConcretePowder : Block // minecraft:light_blue_concrete_powder
 	{
-		public LightBlueConcretePowder() : base(966)
+		public LightBlueConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class LightBlueGlazedTerracotta : GlazedTerracottaBase // minecraft:light_blue_glazed_terracotta
+	{
+		public LightBlueGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -4662,7 +5214,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueShulkerBox : Block // minecraft:light_blue_shulker_box
 	{
-		public LightBlueShulkerBox() : base(870)
+		public LightBlueShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -4670,15 +5222,15 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueStainedGlass : Block // minecraft:light_blue_stained_glass
 	{
-		public LightBlueStainedGlass() : base(930)
+		public LightBlueStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class LightBlueStainedGlassPane : Block // minecraft:light_blue_stained_glass_pane
+	public partial class LightBlueStainedGlassPane : GlassPaneBase // minecraft:light_blue_stained_glass_pane
 	{
-		public LightBlueStainedGlassPane() : base(900)
+		public LightBlueStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4686,7 +5238,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueTerracotta : Block // minecraft:light_blue_terracotta
 	{
-		public LightBlueTerracotta() : base(981)
+		public LightBlueTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -4694,7 +5246,7 @@ namespace MiNET.Blocks
 
 	public partial class LightBlueWool : Block // minecraft:light_blue_wool
 	{
-		public LightBlueWool() : base(817)
+		public LightBlueWool()
 		{
 			IsGenerated = true;
 		}
@@ -4702,7 +5254,7 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayCandle : Block // minecraft:light_gray_candle
 	{
-		public LightGrayCandle() : base(676)
+		public LightGrayCandle()
 		{
 			IsGenerated = true;
 		}
@@ -4710,7 +5262,7 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayCandleCake : Block // minecraft:light_gray_candle_cake
 	{
-		public LightGrayCandleCake() : base(693)
+		public LightGrayCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -4718,7 +5270,7 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayCarpet : Block // minecraft:light_gray_carpet
 	{
-		public LightGrayCarpet() : base(859)
+		public LightGrayCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -4726,7 +5278,7 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayConcrete : Block // minecraft:light_gray_concrete
 	{
-		public LightGrayConcrete() : base(890)
+		public LightGrayConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -4734,7 +5286,7 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayConcretePowder : Block // minecraft:light_gray_concrete_powder
 	{
-		public LightGrayConcretePowder() : base(971)
+		public LightGrayConcretePowder()
 		{
 			IsGenerated = true;
 		}
@@ -4742,7 +5294,7 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayShulkerBox : Block // minecraft:light_gray_shulker_box
 	{
-		public LightGrayShulkerBox() : base(875)
+		public LightGrayShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -4750,15 +5302,15 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayStainedGlass : Block // minecraft:light_gray_stained_glass
 	{
-		public LightGrayStainedGlass() : base(935)
+		public LightGrayStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class LightGrayStainedGlassPane : Block // minecraft:light_gray_stained_glass_pane
+	public partial class LightGrayStainedGlassPane : GlassPaneBase // minecraft:light_gray_stained_glass_pane
 	{
-		public LightGrayStainedGlassPane() : base(905)
+		public LightGrayStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4766,7 +5318,7 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayTerracotta : Block // minecraft:light_gray_terracotta
 	{
-		public LightGrayTerracotta() : base(986)
+		public LightGrayTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -4774,7 +5326,15 @@ namespace MiNET.Blocks
 
 	public partial class LightGrayWool : Block // minecraft:light_gray_wool
 	{
-		public LightGrayWool() : base(807)
+		public LightGrayWool()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class LightWeightedPressurePlate : Block // minecraft:light_weighted_pressure_plate
+	{
+		public LightWeightedPressurePlate()
 		{
 			IsGenerated = true;
 		}
@@ -4782,23 +5342,23 @@ namespace MiNET.Blocks
 
 	public partial class LightningRod : Block // minecraft:lightning_rod
 	{
-		public LightningRod() : base(567)
+		public LightningRod()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Lilac : Block // minecraft:lilac
+	public partial class Lilac : FlowerBase // minecraft:lilac
 	{
-		public Lilac() : base(1118)
+		public Lilac()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class LilyOfTheValley : Block // minecraft:lily_of_the_valley
+	public partial class LilyOfTheValley : FlowerBase // minecraft:lily_of_the_valley
 	{
-		public LilyOfTheValley() : base(1094)
+		public LilyOfTheValley()
 		{
 			IsGenerated = true;
 		}
@@ -4806,7 +5366,7 @@ namespace MiNET.Blocks
 
 	public partial class LimeCandle : Block // minecraft:lime_candle
 	{
-		public LimeCandle() : base(673)
+		public LimeCandle()
 		{
 			IsGenerated = true;
 		}
@@ -4814,7 +5374,7 @@ namespace MiNET.Blocks
 
 	public partial class LimeCandleCake : Block // minecraft:lime_candle_cake
 	{
-		public LimeCandleCake() : base(690)
+		public LimeCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -4822,7 +5382,7 @@ namespace MiNET.Blocks
 
 	public partial class LimeCarpet : Block // minecraft:lime_carpet
 	{
-		public LimeCarpet() : base(856)
+		public LimeCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -4830,7 +5390,7 @@ namespace MiNET.Blocks
 
 	public partial class LimeConcrete : Block // minecraft:lime_concrete
 	{
-		public LimeConcrete() : base(887)
+		public LimeConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -4838,7 +5398,15 @@ namespace MiNET.Blocks
 
 	public partial class LimeConcretePowder : Block // minecraft:lime_concrete_powder
 	{
-		public LimeConcretePowder() : base(968)
+		public LimeConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class LimeGlazedTerracotta : GlazedTerracottaBase // minecraft:lime_glazed_terracotta
+	{
+		public LimeGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -4846,7 +5414,7 @@ namespace MiNET.Blocks
 
 	public partial class LimeShulkerBox : Block // minecraft:lime_shulker_box
 	{
-		public LimeShulkerBox() : base(872)
+		public LimeShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -4854,15 +5422,15 @@ namespace MiNET.Blocks
 
 	public partial class LimeStainedGlass : Block // minecraft:lime_stained_glass
 	{
-		public LimeStainedGlass() : base(932)
+		public LimeStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class LimeStainedGlassPane : Block // minecraft:lime_stained_glass_pane
+	public partial class LimeStainedGlassPane : GlassPaneBase // minecraft:lime_stained_glass_pane
 	{
-		public LimeStainedGlassPane() : base(902)
+		public LimeStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4870,7 +5438,7 @@ namespace MiNET.Blocks
 
 	public partial class LimeTerracotta : Block // minecraft:lime_terracotta
 	{
-		public LimeTerracotta() : base(983)
+		public LimeTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -4878,7 +5446,7 @@ namespace MiNET.Blocks
 
 	public partial class LimeWool : Block // minecraft:lime_wool
 	{
-		public LimeWool() : base(814)
+		public LimeWool()
 		{
 			IsGenerated = true;
 		}
@@ -4886,7 +5454,23 @@ namespace MiNET.Blocks
 
 	public partial class LitDeepslateRedstoneOre : Block // minecraft:lit_deepslate_redstone_ore
 	{
-		public LitDeepslateRedstoneOre() : base(659)
+		public LitDeepslateRedstoneOre()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class LitPumpkin : Block // minecraft:lit_pumpkin
+	{
+		public LitPumpkin()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class LitRedstoneLamp : Block // minecraft:lit_redstone_lamp
+	{
+		public LitRedstoneLamp()
 		{
 			IsGenerated = true;
 		}
@@ -4894,7 +5478,7 @@ namespace MiNET.Blocks
 
 	public partial class LitSmoker : Block // minecraft:lit_smoker
 	{
-		public LitSmoker() : base(454)
+		public LitSmoker()
 		{
 			IsGenerated = true;
 		}
@@ -4902,7 +5486,7 @@ namespace MiNET.Blocks
 
 	public partial class Lodestone : Block // minecraft:lodestone
 	{
-		public Lodestone() : base(477)
+		public Lodestone()
 		{
 			IsGenerated = true;
 		}
@@ -4910,7 +5494,7 @@ namespace MiNET.Blocks
 
 	public partial class MagentaCandle : Block // minecraft:magenta_candle
 	{
-		public MagentaCandle() : base(670)
+		public MagentaCandle()
 		{
 			IsGenerated = true;
 		}
@@ -4918,7 +5502,7 @@ namespace MiNET.Blocks
 
 	public partial class MagentaCandleCake : Block // minecraft:magenta_candle_cake
 	{
-		public MagentaCandleCake() : base(687)
+		public MagentaCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -4926,7 +5510,7 @@ namespace MiNET.Blocks
 
 	public partial class MagentaCarpet : Block // minecraft:magenta_carpet
 	{
-		public MagentaCarpet() : base(853)
+		public MagentaCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -4934,7 +5518,7 @@ namespace MiNET.Blocks
 
 	public partial class MagentaConcrete : Block // minecraft:magenta_concrete
 	{
-		public MagentaConcrete() : base(884)
+		public MagentaConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -4942,7 +5526,15 @@ namespace MiNET.Blocks
 
 	public partial class MagentaConcretePowder : Block // minecraft:magenta_concrete_powder
 	{
-		public MagentaConcretePowder() : base(965)
+		public MagentaConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class MagentaGlazedTerracotta : GlazedTerracottaBase // minecraft:magenta_glazed_terracotta
+	{
+		public MagentaGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -4950,7 +5542,7 @@ namespace MiNET.Blocks
 
 	public partial class MagentaShulkerBox : Block // minecraft:magenta_shulker_box
 	{
-		public MagentaShulkerBox() : base(869)
+		public MagentaShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -4958,15 +5550,15 @@ namespace MiNET.Blocks
 
 	public partial class MagentaStainedGlass : Block // minecraft:magenta_stained_glass
 	{
-		public MagentaStainedGlass() : base(929)
+		public MagentaStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MagentaStainedGlassPane : Block // minecraft:magenta_stained_glass_pane
+	public partial class MagentaStainedGlassPane : GlassPaneBase // minecraft:magenta_stained_glass_pane
 	{
-		public MagentaStainedGlassPane() : base(899)
+		public MagentaStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -4974,7 +5566,7 @@ namespace MiNET.Blocks
 
 	public partial class MagentaTerracotta : Block // minecraft:magenta_terracotta
 	{
-		public MagentaTerracotta() : base(980)
+		public MagentaTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -4982,7 +5574,7 @@ namespace MiNET.Blocks
 
 	public partial class MagentaWool : Block // minecraft:magenta_wool
 	{
-		public MagentaWool() : base(820)
+		public MagentaWool()
 		{
 			IsGenerated = true;
 		}
@@ -4990,7 +5582,7 @@ namespace MiNET.Blocks
 
 	public partial class Magma : Block // minecraft:magma
 	{
-		public Magma() : base(213)
+		public Magma()
 		{
 			IsGenerated = true;
 		}
@@ -4998,15 +5590,15 @@ namespace MiNET.Blocks
 
 	public partial class MangroveButton : Block // minecraft:mangrove_button
 	{
-		public MangroveButton() : base(742)
+		public MangroveButton()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangroveDoor : Block // minecraft:mangrove_door
+	public partial class MangroveDoor : DoorBase // minecraft:mangrove_door
 	{
-		public MangroveDoor() : base(748)
+		public MangroveDoor()
 		{
 			IsGenerated = true;
 		}
@@ -5014,7 +5606,7 @@ namespace MiNET.Blocks
 
 	public partial class MangroveDoubleSlab : Block // minecraft:mangrove_double_slab
 	{
-		public MangroveDoubleSlab() : base(754)
+		public MangroveDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -5022,15 +5614,15 @@ namespace MiNET.Blocks
 
 	public partial class MangroveFence : Block // minecraft:mangrove_fence
 	{
-		public MangroveFence() : base(746)
+		public MangroveFence()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangroveFenceGate : Block // minecraft:mangrove_fence_gate
+	public partial class MangroveFenceGate : FenceGateBase // minecraft:mangrove_fence_gate
 	{
-		public MangroveFenceGate() : base(747)
+		public MangroveFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -5038,23 +5630,23 @@ namespace MiNET.Blocks
 
 	public partial class MangroveHangingSign : Block // minecraft:mangrove_hanging_sign
 	{
-		public MangroveHangingSign() : base(763)
+		public MangroveHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangroveLeaves : Block // minecraft:mangrove_leaves
+	public partial class MangroveLeaves : LeavesBase // minecraft:mangrove_leaves
 	{
-		public MangroveLeaves() : base(727)
+		public MangroveLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangroveLog : Block // minecraft:mangrove_log
+	public partial class MangroveLog : LogBase // minecraft:mangrove_log
 	{
-		public MangroveLog() : base(739)
+		public MangroveLog()
 		{
 			IsGenerated = true;
 		}
@@ -5062,7 +5654,7 @@ namespace MiNET.Blocks
 
 	public partial class MangrovePlanks : Block // minecraft:mangrove_planks
 	{
-		public MangrovePlanks() : base(741)
+		public MangrovePlanks()
 		{
 			IsGenerated = true;
 		}
@@ -5070,15 +5662,15 @@ namespace MiNET.Blocks
 
 	public partial class MangrovePressurePlate : Block // minecraft:mangrove_pressure_plate
 	{
-		public MangrovePressurePlate() : base(745)
+		public MangrovePressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangrovePropagule : Block // minecraft:mangrove_propagule
+	public partial class MangrovePropagule : SaplingBase // minecraft:mangrove_propagule
 	{
-		public MangrovePropagule() : base(729)
+		public MangrovePropagule()
 		{
 			IsGenerated = true;
 		}
@@ -5086,7 +5678,7 @@ namespace MiNET.Blocks
 
 	public partial class MangroveRoots : Block // minecraft:mangrove_roots
 	{
-		public MangroveRoots() : base(737)
+		public MangroveRoots()
 		{
 			IsGenerated = true;
 		}
@@ -5094,23 +5686,23 @@ namespace MiNET.Blocks
 
 	public partial class MangroveShelf : Block // minecraft:mangrove_shelf
 	{
-		public MangroveShelf() : base(1308)
+		public MangroveShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangroveSlab : Block // minecraft:mangrove_slab
+	public partial class MangroveSlab : SlabBase // minecraft:mangrove_slab
 	{
-		public MangroveSlab() : base(744)
+		public MangroveSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangroveStairs : Block // minecraft:mangrove_stairs
+	public partial class MangroveStairs : StairsBase // minecraft:mangrove_stairs
 	{
-		public MangroveStairs() : base(743)
+		public MangroveStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5118,15 +5710,15 @@ namespace MiNET.Blocks
 
 	public partial class MangroveStandingSign : Block // minecraft:mangrove_standing_sign
 	{
-		public MangroveStandingSign() : base(749)
+		public MangroveStandingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MangroveTrapdoor : Block // minecraft:mangrove_trapdoor
+	public partial class MangroveTrapdoor : TrapdoorBase // minecraft:mangrove_trapdoor
 	{
-		public MangroveTrapdoor() : base(751)
+		public MangroveTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -5134,7 +5726,7 @@ namespace MiNET.Blocks
 
 	public partial class MangroveWallSign : Block // minecraft:mangrove_wall_sign
 	{
-		public MangroveWallSign() : base(750)
+		public MangroveWallSign()
 		{
 			IsGenerated = true;
 		}
@@ -5142,7 +5734,7 @@ namespace MiNET.Blocks
 
 	public partial class MangroveWood : Block // minecraft:mangrove_wood
 	{
-		public MangroveWood() : base(752)
+		public MangroveWood()
 		{
 			IsGenerated = true;
 		}
@@ -5150,7 +5742,7 @@ namespace MiNET.Blocks
 
 	public partial class MaterialReducer : Block // minecraft:material_reducer
 	{
-		public MaterialReducer() : base(1241)
+		public MaterialReducer()
 		{
 			IsGenerated = true;
 		}
@@ -5158,7 +5750,15 @@ namespace MiNET.Blocks
 
 	public partial class MediumAmethystBud : Block // minecraft:medium_amethyst_bud
 	{
-		public MediumAmethystBud() : base(586)
+		public MediumAmethystBud()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class MelonStem : Block // minecraft:melon_stem
+	{
+		public MelonStem()
 		{
 			IsGenerated = true;
 		}
@@ -5166,7 +5766,7 @@ namespace MiNET.Blocks
 
 	public partial class MossBlock : Block // minecraft:moss_block
 	{
-		public MossBlock() : base(575)
+		public MossBlock()
 		{
 			IsGenerated = true;
 		}
@@ -5174,7 +5774,15 @@ namespace MiNET.Blocks
 
 	public partial class MossCarpet : Block // minecraft:moss_carpet
 	{
-		public MossCarpet() : base(590)
+		public MossCarpet()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class MossyCobblestone : Block // minecraft:mossy_cobblestone
+	{
+		public MossyCobblestone()
 		{
 			IsGenerated = true;
 		}
@@ -5182,15 +5790,23 @@ namespace MiNET.Blocks
 
 	public partial class MossyCobblestoneDoubleSlab : Block // minecraft:mossy_cobblestone_double_slab
 	{
-		public MossyCobblestoneDoubleSlab() : base(1170)
+		public MossyCobblestoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MossyCobblestoneSlab : Block // minecraft:mossy_cobblestone_slab
+	public partial class MossyCobblestoneSlab : SlabBase // minecraft:mossy_cobblestone_slab
 	{
-		public MossyCobblestoneSlab() : base(1143)
+		public MossyCobblestoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class MossyCobblestoneStairs : StairsBase // minecraft:mossy_cobblestone_stairs
+	{
+		public MossyCobblestoneStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5198,7 +5814,7 @@ namespace MiNET.Blocks
 
 	public partial class MossyCobblestoneWall : Block // minecraft:mossy_cobblestone_wall
 	{
-		public MossyCobblestoneWall() : base(1226)
+		public MossyCobblestoneWall()
 		{
 			IsGenerated = true;
 		}
@@ -5206,15 +5822,23 @@ namespace MiNET.Blocks
 
 	public partial class MossyStoneBrickDoubleSlab : Block // minecraft:mossy_stone_brick_double_slab
 	{
-		public MossyStoneBrickDoubleSlab() : base(423)
+		public MossyStoneBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MossyStoneBrickSlab : Block // minecraft:mossy_stone_brick_slab
+	public partial class MossyStoneBrickSlab : SlabBase // minecraft:mossy_stone_brick_slab
 	{
-		public MossyStoneBrickSlab() : base(421)
+		public MossyStoneBrickSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class MossyStoneBrickStairs : StairsBase // minecraft:mossy_stone_brick_stairs
+	{
+		public MossyStoneBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5222,15 +5846,15 @@ namespace MiNET.Blocks
 
 	public partial class MossyStoneBrickWall : Block // minecraft:mossy_stone_brick_wall
 	{
-		public MossyStoneBrickWall() : base(1233)
+		public MossyStoneBrickWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MossyStoneBricks : Block // minecraft:mossy_stone_bricks
+	public partial class MossyStoneBricks : StoneBrickBase // minecraft:mossy_stone_bricks
 	{
-		public MossyStoneBricks() : base(1123)
+		public MossyStoneBricks()
 		{
 			IsGenerated = true;
 		}
@@ -5238,7 +5862,7 @@ namespace MiNET.Blocks
 
 	public partial class MovingBlock : Block // minecraft:moving_block
 	{
-		public MovingBlock() : base(250)
+		public MovingBlock()
 		{
 			IsGenerated = true;
 		}
@@ -5246,7 +5870,7 @@ namespace MiNET.Blocks
 
 	public partial class Mud : Block // minecraft:mud
 	{
-		public Mud() : base(728)
+		public Mud()
 		{
 			IsGenerated = true;
 		}
@@ -5254,23 +5878,23 @@ namespace MiNET.Blocks
 
 	public partial class MudBrickDoubleSlab : Block // minecraft:mud_brick_double_slab
 	{
-		public MudBrickDoubleSlab() : base(734)
+		public MudBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MudBrickSlab : Block // minecraft:mud_brick_slab
+	public partial class MudBrickSlab : SlabBase // minecraft:mud_brick_slab
 	{
-		public MudBrickSlab() : base(733)
+		public MudBrickSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class MudBrickStairs : Block // minecraft:mud_brick_stairs
+	public partial class MudBrickStairs : StairsBase // minecraft:mud_brick_stairs
 	{
-		public MudBrickStairs() : base(735)
+		public MudBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5278,7 +5902,7 @@ namespace MiNET.Blocks
 
 	public partial class MudBrickWall : Block // minecraft:mud_brick_wall
 	{
-		public MudBrickWall() : base(736)
+		public MudBrickWall()
 		{
 			IsGenerated = true;
 		}
@@ -5286,7 +5910,7 @@ namespace MiNET.Blocks
 
 	public partial class MudBricks : Block // minecraft:mud_bricks
 	{
-		public MudBricks() : base(730)
+		public MudBricks()
 		{
 			IsGenerated = true;
 		}
@@ -5294,7 +5918,7 @@ namespace MiNET.Blocks
 
 	public partial class MuddyMangroveRoots : Block // minecraft:muddy_mangrove_roots
 	{
-		public MuddyMangroveRoots() : base(738)
+		public MuddyMangroveRoots()
 		{
 			IsGenerated = true;
 		}
@@ -5302,7 +5926,15 @@ namespace MiNET.Blocks
 
 	public partial class MushroomStem : Block // minecraft:mushroom_stem
 	{
-		public MushroomStem() : base(1263)
+		public MushroomStem()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class NetherBrick : Block // minecraft:nether_brick
+	{
+		public NetherBrick()
 		{
 			IsGenerated = true;
 		}
@@ -5310,15 +5942,31 @@ namespace MiNET.Blocks
 
 	public partial class NetherBrickDoubleSlab : Block // minecraft:nether_brick_double_slab
 	{
-		public NetherBrickDoubleSlab() : base(1138)
+		public NetherBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class NetherBrickSlab : Block // minecraft:nether_brick_slab
+	public partial class NetherBrickFence : Block // minecraft:nether_brick_fence
 	{
-		public NetherBrickSlab() : base(1132)
+		public NetherBrickFence()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class NetherBrickSlab : SlabBase // minecraft:nether_brick_slab
+	{
+		public NetherBrickSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class NetherBrickStairs : StairsBase // minecraft:nether_brick_stairs
+	{
+		public NetherBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5326,7 +5974,7 @@ namespace MiNET.Blocks
 
 	public partial class NetherBrickWall : Block // minecraft:nether_brick_wall
 	{
-		public NetherBrickWall() : base(1234)
+		public NetherBrickWall()
 		{
 			IsGenerated = true;
 		}
@@ -5334,7 +5982,7 @@ namespace MiNET.Blocks
 
 	public partial class NetherGoldOre : Block // minecraft:nether_gold_ore
 	{
-		public NetherGoldOre() : base(543)
+		public NetherGoldOre()
 		{
 			IsGenerated = true;
 		}
@@ -5342,7 +5990,7 @@ namespace MiNET.Blocks
 
 	public partial class NetherSprouts : Block // minecraft:nether_sprouts
 	{
-		public NetherSprouts() : base(493)
+		public NetherSprouts()
 		{
 			IsGenerated = true;
 		}
@@ -5350,7 +5998,7 @@ namespace MiNET.Blocks
 
 	public partial class NetherWartBlock : Block // minecraft:nether_wart_block
 	{
-		public NetherWartBlock() : base(214)
+		public NetherWartBlock()
 		{
 			IsGenerated = true;
 		}
@@ -5358,7 +6006,23 @@ namespace MiNET.Blocks
 
 	public partial class NetheriteBlock : Block // minecraft:netherite_block
 	{
-		public NetheriteBlock() : base(525)
+		public NetheriteBlock()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Netherrack : Block // minecraft:netherrack
+	{
+		public Netherrack()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Netherreactor : Block // minecraft:netherreactor
+	{
+		public Netherreactor()
 		{
 			IsGenerated = true;
 		}
@@ -5366,15 +6030,23 @@ namespace MiNET.Blocks
 
 	public partial class NormalStoneDoubleSlab : Block // minecraft:normal_stone_double_slab
 	{
-		public NormalStoneDoubleSlab() : base(1181)
+		public NormalStoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class NormalStoneSlab : Block // minecraft:normal_stone_slab
+	public partial class NormalStoneSlab : SlabBase // minecraft:normal_stone_slab
 	{
-		public NormalStoneSlab() : base(1154)
+		public NormalStoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class NormalStoneStairs : StairsBase // minecraft:normal_stone_stairs
+	{
+		public NormalStoneStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5382,7 +6054,7 @@ namespace MiNET.Blocks
 
 	public partial class OakDoubleSlab : Block // minecraft:oak_double_slab
 	{
-		public OakDoubleSlab() : base(157)
+		public OakDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -5390,7 +6062,7 @@ namespace MiNET.Blocks
 
 	public partial class OakFence : Block // minecraft:oak_fence
 	{
-		public OakFence() : base(85)
+		public OakFence()
 		{
 			IsGenerated = true;
 		}
@@ -5398,23 +6070,23 @@ namespace MiNET.Blocks
 
 	public partial class OakHangingSign : Block // minecraft:oak_hanging_sign
 	{
-		public OakHangingSign() : base(755)
+		public OakHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OakLeaves : Block // minecraft:oak_leaves
+	public partial class OakLeaves : LeavesBase // minecraft:oak_leaves
 	{
-		public OakLeaves() : base(18)
+		public OakLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OakLog : Block // minecraft:oak_log
+	public partial class OakLog : LogBase // minecraft:oak_log
 	{
-		public OakLog() : base(17)
+		public OakLog()
 		{
 			IsGenerated = true;
 		}
@@ -5422,15 +6094,15 @@ namespace MiNET.Blocks
 
 	public partial class OakPlanks : Block // minecraft:oak_planks
 	{
-		public OakPlanks() : base(5)
+		public OakPlanks()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OakSapling : Block // minecraft:oak_sapling
+	public partial class OakSapling : SaplingBase // minecraft:oak_sapling
 	{
-		public OakSapling() : base(6)
+		public OakSapling()
 		{
 			IsGenerated = true;
 		}
@@ -5438,15 +6110,23 @@ namespace MiNET.Blocks
 
 	public partial class OakShelf : Block // minecraft:oak_shelf
 	{
-		public OakShelf() : base(1302)
+		public OakShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OakSlab : Block // minecraft:oak_slab
+	public partial class OakSlab : SlabBase // minecraft:oak_slab
 	{
-		public OakSlab() : base(158)
+		public OakSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class OakStairs : StairsBase // minecraft:oak_stairs
+	{
+		public OakStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5454,7 +6134,23 @@ namespace MiNET.Blocks
 
 	public partial class OakWood : Block // minecraft:oak_wood
 	{
-		public OakWood() : base(467)
+		public OakWood()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Observer : Block // minecraft:observer
+	{
+		public Observer()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Obsidian : Block // minecraft:obsidian
+	{
+		public Obsidian()
 		{
 			IsGenerated = true;
 		}
@@ -5462,15 +6158,15 @@ namespace MiNET.Blocks
 
 	public partial class OchreFroglight : Block // minecraft:ochre_froglight
 	{
-		public OchreFroglight() : base(726)
+		public OchreFroglight()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OpenEyeblossom : Block // minecraft:open_eyeblossom
+	public partial class OpenEyeblossom : FlowerBase // minecraft:open_eyeblossom
 	{
-		public OpenEyeblossom() : base(1273)
+		public OpenEyeblossom()
 		{
 			IsGenerated = true;
 		}
@@ -5478,7 +6174,7 @@ namespace MiNET.Blocks
 
 	public partial class OrangeCandle : Block // minecraft:orange_candle
 	{
-		public OrangeCandle() : base(669)
+		public OrangeCandle()
 		{
 			IsGenerated = true;
 		}
@@ -5486,7 +6182,7 @@ namespace MiNET.Blocks
 
 	public partial class OrangeCandleCake : Block // minecraft:orange_candle_cake
 	{
-		public OrangeCandleCake() : base(686)
+		public OrangeCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -5494,7 +6190,7 @@ namespace MiNET.Blocks
 
 	public partial class OrangeCarpet : Block // minecraft:orange_carpet
 	{
-		public OrangeCarpet() : base(852)
+		public OrangeCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -5502,7 +6198,7 @@ namespace MiNET.Blocks
 
 	public partial class OrangeConcrete : Block // minecraft:orange_concrete
 	{
-		public OrangeConcrete() : base(883)
+		public OrangeConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -5510,7 +6206,23 @@ namespace MiNET.Blocks
 
 	public partial class OrangeConcretePowder : Block // minecraft:orange_concrete_powder
 	{
-		public OrangeConcretePowder() : base(964)
+		public OrangeConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class OrangeGlazedTerracotta : GlazedTerracottaBase // minecraft:orange_glazed_terracotta
+	{
+		public OrangeGlazedTerracotta()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class OrangePoplarLeaves : Block // minecraft:orange_poplar_leaves
+	{
+		public OrangePoplarLeaves()
 		{
 			IsGenerated = true;
 		}
@@ -5518,7 +6230,7 @@ namespace MiNET.Blocks
 
 	public partial class OrangeShulkerBox : Block // minecraft:orange_shulker_box
 	{
-		public OrangeShulkerBox() : base(868)
+		public OrangeShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -5526,15 +6238,15 @@ namespace MiNET.Blocks
 
 	public partial class OrangeStainedGlass : Block // minecraft:orange_stained_glass
 	{
-		public OrangeStainedGlass() : base(928)
+		public OrangeStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OrangeStainedGlassPane : Block // minecraft:orange_stained_glass_pane
+	public partial class OrangeStainedGlassPane : GlassPaneBase // minecraft:orange_stained_glass_pane
 	{
-		public OrangeStainedGlassPane() : base(898)
+		public OrangeStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -5542,15 +6254,15 @@ namespace MiNET.Blocks
 
 	public partial class OrangeTerracotta : Block // minecraft:orange_terracotta
 	{
-		public OrangeTerracotta() : base(979)
+		public OrangeTerracotta()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OrangeTulip : Block // minecraft:orange_tulip
+	public partial class OrangeTulip : FlowerBase // minecraft:orange_tulip
 	{
-		public OrangeTulip() : base(1089)
+		public OrangeTulip()
 		{
 			IsGenerated = true;
 		}
@@ -5558,15 +6270,15 @@ namespace MiNET.Blocks
 
 	public partial class OrangeWool : Block // minecraft:orange_wool
 	{
-		public OrangeWool() : base(812)
+		public OrangeWool()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OxeyeDaisy : Block // minecraft:oxeye_daisy
+	public partial class OxeyeDaisy : FlowerBase // minecraft:oxeye_daisy
 	{
-		public OxeyeDaisy() : base(1092)
+		public OxeyeDaisy()
 		{
 			IsGenerated = true;
 		}
@@ -5574,7 +6286,7 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedChiseledCopper : Block // minecraft:oxidized_chiseled_copper
 	{
-		public OxidizedChiseledCopper() : base(1018)
+		public OxidizedChiseledCopper()
 		{
 			IsGenerated = true;
 		}
@@ -5582,7 +6294,7 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCopper : Block // minecraft:oxidized_copper
 	{
-		public OxidizedCopper() : base(598)
+		public OxidizedCopper()
 		{
 			IsGenerated = true;
 		}
@@ -5590,7 +6302,7 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCopperBars : Block // minecraft:oxidized_copper_bars
 	{
-		public OxidizedCopperBars() : base(1324)
+		public OxidizedCopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -5598,7 +6310,7 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCopperBulb : Block // minecraft:oxidized_copper_bulb
 	{
-		public OxidizedCopperBulb() : base(1034)
+		public OxidizedCopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -5606,23 +6318,23 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCopperChain : Block // minecraft:oxidized_copper_chain
 	{
-		public OxidizedCopperChain() : base(1332)
+		public OxidizedCopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OxidizedCopperChest : Block // minecraft:oxidized_copper_chest
+	public partial class OxidizedCopperChest : ChestBase // minecraft:oxidized_copper_chest
 	{
-		public OxidizedCopperChest() : base(1289)
+		public OxidizedCopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OxidizedCopperDoor : Block // minecraft:oxidized_copper_door
+	public partial class OxidizedCopperDoor : DoorBase // minecraft:oxidized_copper_door
 	{
-		public OxidizedCopperDoor() : base(1042)
+		public OxidizedCopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -5630,7 +6342,7 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCopperGolemStatue : Block // minecraft:oxidized_copper_golem_statue
 	{
-		public OxidizedCopperGolemStatue() : base(1297)
+		public OxidizedCopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -5638,7 +6350,7 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCopperGrate : Block // minecraft:oxidized_copper_grate
 	{
-		public OxidizedCopperGrate() : base(1026)
+		public OxidizedCopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -5646,15 +6358,15 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCopperLantern : Block // minecraft:oxidized_copper_lantern
 	{
-		public OxidizedCopperLantern() : base(1341)
+		public OxidizedCopperLantern()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OxidizedCopperTrapdoor : Block // minecraft:oxidized_copper_trapdoor
+	public partial class OxidizedCopperTrapdoor : TrapdoorBase // minecraft:oxidized_copper_trapdoor
 	{
-		public OxidizedCopperTrapdoor() : base(1050)
+		public OxidizedCopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -5662,23 +6374,23 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedCutCopper : Block // minecraft:oxidized_cut_copper
 	{
-		public OxidizedCutCopper() : base(605)
+		public OxidizedCutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OxidizedCutCopperSlab : Block // minecraft:oxidized_cut_copper_slab
+	public partial class OxidizedCutCopperSlab : SlabBase // minecraft:oxidized_cut_copper_slab
 	{
-		public OxidizedCutCopperSlab() : base(619)
+		public OxidizedCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class OxidizedCutCopperStairs : Block // minecraft:oxidized_cut_copper_stairs
+	public partial class OxidizedCutCopperStairs : StairsBase // minecraft:oxidized_cut_copper_stairs
 	{
-		public OxidizedCutCopperStairs() : base(612)
+		public OxidizedCutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5686,7 +6398,7 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedDoubleCutCopperSlab : Block // minecraft:oxidized_double_cut_copper_slab
 	{
-		public OxidizedDoubleCutCopperSlab() : base(626)
+		public OxidizedDoubleCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
@@ -5694,7 +6406,15 @@ namespace MiNET.Blocks
 
 	public partial class OxidizedLightningRod : Block // minecraft:oxidized_lightning_rod
 	{
-		public OxidizedLightningRod() : base(1316)
+		public OxidizedLightningRod()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PackedIce : Block // minecraft:packed_ice
+	{
+		public PackedIce()
 		{
 			IsGenerated = true;
 		}
@@ -5702,7 +6422,7 @@ namespace MiNET.Blocks
 
 	public partial class PackedMud : Block // minecraft:packed_mud
 	{
-		public PackedMud() : base(732)
+		public PackedMud()
 		{
 			IsGenerated = true;
 		}
@@ -5710,7 +6430,7 @@ namespace MiNET.Blocks
 
 	public partial class PaleHangingMoss : Block // minecraft:pale_hanging_moss
 	{
-		public PaleHangingMoss() : base(1266)
+		public PaleHangingMoss()
 		{
 			IsGenerated = true;
 		}
@@ -5718,7 +6438,7 @@ namespace MiNET.Blocks
 
 	public partial class PaleMossBlock : Block // minecraft:pale_moss_block
 	{
-		public PaleMossBlock() : base(1264)
+		public PaleMossBlock()
 		{
 			IsGenerated = true;
 		}
@@ -5726,7 +6446,7 @@ namespace MiNET.Blocks
 
 	public partial class PaleMossCarpet : Block // minecraft:pale_moss_carpet
 	{
-		public PaleMossCarpet() : base(1265)
+		public PaleMossCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -5734,15 +6454,15 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakButton : Block // minecraft:pale_oak_button
 	{
-		public PaleOakButton() : base(1244)
+		public PaleOakButton()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakDoor : Block // minecraft:pale_oak_door
+	public partial class PaleOakDoor : DoorBase // minecraft:pale_oak_door
 	{
-		public PaleOakDoor() : base(1245)
+		public PaleOakDoor()
 		{
 			IsGenerated = true;
 		}
@@ -5750,7 +6470,7 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakDoubleSlab : Block // minecraft:pale_oak_double_slab
 	{
-		public PaleOakDoubleSlab() : base(1254)
+		public PaleOakDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -5758,15 +6478,15 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakFence : Block // minecraft:pale_oak_fence
 	{
-		public PaleOakFence() : base(1246)
+		public PaleOakFence()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakFenceGate : Block // minecraft:pale_oak_fence_gate
+	public partial class PaleOakFenceGate : FenceGateBase // minecraft:pale_oak_fence_gate
 	{
-		public PaleOakFenceGate() : base(1247)
+		public PaleOakFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -5774,23 +6494,23 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakHangingSign : Block // minecraft:pale_oak_hanging_sign
 	{
-		public PaleOakHangingSign() : base(1248)
+		public PaleOakHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakLeaves : Block // minecraft:pale_oak_leaves
+	public partial class PaleOakLeaves : LeavesBase // minecraft:pale_oak_leaves
 	{
-		public PaleOakLeaves() : base(1262)
+		public PaleOakLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakLog : Block // minecraft:pale_oak_log
+	public partial class PaleOakLog : LogBase // minecraft:pale_oak_log
 	{
-		public PaleOakLog() : base(1250)
+		public PaleOakLog()
 		{
 			IsGenerated = true;
 		}
@@ -5798,7 +6518,7 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakPlanks : Block // minecraft:pale_oak_planks
 	{
-		public PaleOakPlanks() : base(1251)
+		public PaleOakPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -5806,15 +6526,15 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakPressurePlate : Block // minecraft:pale_oak_pressure_plate
 	{
-		public PaleOakPressurePlate() : base(1252)
+		public PaleOakPressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakSapling : Block // minecraft:pale_oak_sapling
+	public partial class PaleOakSapling : SaplingBase // minecraft:pale_oak_sapling
 	{
-		public PaleOakSapling() : base(1261)
+		public PaleOakSapling()
 		{
 			IsGenerated = true;
 		}
@@ -5822,23 +6542,23 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakShelf : Block // minecraft:pale_oak_shelf
 	{
-		public PaleOakShelf() : base(1310)
+		public PaleOakShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakSlab : Block // minecraft:pale_oak_slab
+	public partial class PaleOakSlab : SlabBase // minecraft:pale_oak_slab
 	{
-		public PaleOakSlab() : base(1253)
+		public PaleOakSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakStairs : Block // minecraft:pale_oak_stairs
+	public partial class PaleOakStairs : StairsBase // minecraft:pale_oak_stairs
 	{
-		public PaleOakStairs() : base(1255)
+		public PaleOakStairs()
 		{
 			IsGenerated = true;
 		}
@@ -5846,15 +6566,15 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakStandingSign : Block // minecraft:pale_oak_standing_sign
 	{
-		public PaleOakStandingSign() : base(1256)
+		public PaleOakStandingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PaleOakTrapdoor : Block // minecraft:pale_oak_trapdoor
+	public partial class PaleOakTrapdoor : TrapdoorBase // minecraft:pale_oak_trapdoor
 	{
-		public PaleOakTrapdoor() : base(1257)
+		public PaleOakTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -5862,7 +6582,7 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakWallSign : Block // minecraft:pale_oak_wall_sign
 	{
-		public PaleOakWallSign() : base(1258)
+		public PaleOakWallSign()
 		{
 			IsGenerated = true;
 		}
@@ -5870,7 +6590,7 @@ namespace MiNET.Blocks
 
 	public partial class PaleOakWood : Block // minecraft:pale_oak_wood
 	{
-		public PaleOakWood() : base(1260)
+		public PaleOakWood()
 		{
 			IsGenerated = true;
 		}
@@ -5878,15 +6598,15 @@ namespace MiNET.Blocks
 
 	public partial class PearlescentFroglight : Block // minecraft:pearlescent_froglight
 	{
-		public PearlescentFroglight() : base(724)
+		public PearlescentFroglight()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Peony : Block // minecraft:peony
+	public partial class Peony : FlowerBase // minecraft:peony
 	{
-		public Peony() : base(1122)
+		public Peony()
 		{
 			IsGenerated = true;
 		}
@@ -5894,7 +6614,7 @@ namespace MiNET.Blocks
 
 	public partial class PetrifiedOakDoubleSlab : Block // minecraft:petrified_oak_double_slab
 	{
-		public PetrifiedOakDoubleSlab() : base(1158)
+		public PetrifiedOakDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -5902,7 +6622,7 @@ namespace MiNET.Blocks
 
 	public partial class PetrifiedOakSlab : Block // minecraft:petrified_oak_slab
 	{
-		public PetrifiedOakSlab() : base(1157)
+		public PetrifiedOakSlab()
 		{
 			IsGenerated = true;
 		}
@@ -5910,7 +6630,7 @@ namespace MiNET.Blocks
 
 	public partial class PiglinHead : Block // minecraft:piglin_head
 	{
-		public PiglinHead() : base(1225)
+		public PiglinHead()
 		{
 			IsGenerated = true;
 		}
@@ -5918,7 +6638,7 @@ namespace MiNET.Blocks
 
 	public partial class PinkCandle : Block // minecraft:pink_candle
 	{
-		public PinkCandle() : base(674)
+		public PinkCandle()
 		{
 			IsGenerated = true;
 		}
@@ -5926,7 +6646,7 @@ namespace MiNET.Blocks
 
 	public partial class PinkCandleCake : Block // minecraft:pink_candle_cake
 	{
-		public PinkCandleCake() : base(691)
+		public PinkCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -5934,7 +6654,7 @@ namespace MiNET.Blocks
 
 	public partial class PinkCarpet : Block // minecraft:pink_carpet
 	{
-		public PinkCarpet() : base(857)
+		public PinkCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -5942,7 +6662,7 @@ namespace MiNET.Blocks
 
 	public partial class PinkConcrete : Block // minecraft:pink_concrete
 	{
-		public PinkConcrete() : base(888)
+		public PinkConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -5950,15 +6670,23 @@ namespace MiNET.Blocks
 
 	public partial class PinkConcretePowder : Block // minecraft:pink_concrete_powder
 	{
-		public PinkConcretePowder() : base(969)
+		public PinkConcretePowder()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PinkPetals : Block // minecraft:pink_petals
+	public partial class PinkGlazedTerracotta : GlazedTerracottaBase // minecraft:pink_glazed_terracotta
 	{
-		public PinkPetals() : base(804)
+		public PinkGlazedTerracotta()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PinkPetals : FlowerBase // minecraft:pink_petals
+	{
+		public PinkPetals()
 		{
 			IsGenerated = true;
 		}
@@ -5966,7 +6694,7 @@ namespace MiNET.Blocks
 
 	public partial class PinkShulkerBox : Block // minecraft:pink_shulker_box
 	{
-		public PinkShulkerBox() : base(873)
+		public PinkShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -5974,15 +6702,15 @@ namespace MiNET.Blocks
 
 	public partial class PinkStainedGlass : Block // minecraft:pink_stained_glass
 	{
-		public PinkStainedGlass() : base(933)
+		public PinkStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PinkStainedGlassPane : Block // minecraft:pink_stained_glass_pane
+	public partial class PinkStainedGlassPane : GlassPaneBase // minecraft:pink_stained_glass_pane
 	{
-		public PinkStainedGlassPane() : base(903)
+		public PinkStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -5990,15 +6718,15 @@ namespace MiNET.Blocks
 
 	public partial class PinkTerracotta : Block // minecraft:pink_terracotta
 	{
-		public PinkTerracotta() : base(984)
+		public PinkTerracotta()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PinkTulip : Block // minecraft:pink_tulip
+	public partial class PinkTulip : FlowerBase // minecraft:pink_tulip
 	{
-		public PinkTulip() : base(1091)
+		public PinkTulip()
 		{
 			IsGenerated = true;
 		}
@@ -6006,7 +6734,15 @@ namespace MiNET.Blocks
 
 	public partial class PinkWool : Block // minecraft:pink_wool
 	{
-		public PinkWool() : base(821)
+		public PinkWool()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Piston : Block // minecraft:piston
+	{
+		public Piston()
 		{
 			IsGenerated = true;
 		}
@@ -6014,15 +6750,15 @@ namespace MiNET.Blocks
 
 	public partial class PitcherCrop : Block // minecraft:pitcher_crop
 	{
-		public PitcherCrop() : base(829)
+		public PitcherCrop()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PitcherPlant : Block // minecraft:pitcher_plant
+	public partial class PitcherPlant : FlowerBase // minecraft:pitcher_plant
 	{
-		public PitcherPlant() : base(867)
+		public PitcherPlant()
 		{
 			IsGenerated = true;
 		}
@@ -6030,7 +6766,15 @@ namespace MiNET.Blocks
 
 	public partial class PlayerHead : Block // minecraft:player_head
 	{
-		public PlayerHead() : base(1222)
+		public PlayerHead()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Podzol : Block // minecraft:podzol
+	{
+		public Podzol()
 		{
 			IsGenerated = true;
 		}
@@ -6038,7 +6782,7 @@ namespace MiNET.Blocks
 
 	public partial class PointedDripstone : Block // minecraft:pointed_dripstone
 	{
-		public PointedDripstone() : base(563)
+		public PointedDripstone()
 		{
 			IsGenerated = true;
 		}
@@ -6046,7 +6790,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedAndesite : Block // minecraft:polished_andesite
 	{
-		public PolishedAndesite() : base(850)
+		public PolishedAndesite()
 		{
 			IsGenerated = true;
 		}
@@ -6054,15 +6798,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedAndesiteDoubleSlab : Block // minecraft:polished_andesite_double_slab
 	{
-		public PolishedAndesiteDoubleSlab() : base(1174)
+		public PolishedAndesiteDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedAndesiteSlab : Block // minecraft:polished_andesite_slab
+	public partial class PolishedAndesiteSlab : SlabBase // minecraft:polished_andesite_slab
 	{
-		public PolishedAndesiteSlab() : base(1147)
+		public PolishedAndesiteSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedAndesiteStairs : StairsBase // minecraft:polished_andesite_stairs
+	{
+		public PolishedAndesiteStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6070,7 +6822,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedBasalt : Block // minecraft:polished_basalt
 	{
-		public PolishedBasalt() : base(490)
+		public PolishedBasalt()
 		{
 			IsGenerated = true;
 		}
@@ -6078,7 +6830,31 @@ namespace MiNET.Blocks
 
 	public partial class PolishedBlackstone : Block // minecraft:polished_blackstone
 	{
-		public PolishedBlackstone() : base(546)
+		public PolishedBlackstone()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedBlackstoneBrickDoubleSlab : Block // minecraft:polished_blackstone_brick_double_slab
+	{
+		public PolishedBlackstoneBrickDoubleSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedBlackstoneBrickSlab : SlabBase // minecraft:polished_blackstone_brick_slab
+	{
+		public PolishedBlackstoneBrickSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedBlackstoneBrickStairs : StairsBase // minecraft:polished_blackstone_brick_stairs
+	{
+		public PolishedBlackstoneBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6086,15 +6862,15 @@ namespace MiNET.Blocks
 
 	public partial class PolishedBlackstoneBrickWall : Block // minecraft:polished_blackstone_brick_wall
 	{
-		public PolishedBlackstoneBrickWall() : base(533)
+		public PolishedBlackstoneBrickWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedBlackstoneBricks : Block // minecraft:polished_blackstone_bricks
+	public partial class PolishedBlackstoneBricks : StoneBrickBase // minecraft:polished_blackstone_bricks
 	{
-		public PolishedBlackstoneBricks() : base(529)
+		public PolishedBlackstoneBricks()
 		{
 			IsGenerated = true;
 		}
@@ -6102,7 +6878,15 @@ namespace MiNET.Blocks
 
 	public partial class PolishedBlackstoneButton : Block // minecraft:polished_blackstone_button
 	{
-		public PolishedBlackstoneButton() : base(551)
+		public PolishedBlackstoneButton()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedBlackstoneDoubleSlab : Block // minecraft:polished_blackstone_double_slab
+	{
+		public PolishedBlackstoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -6110,7 +6894,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedBlackstonePressurePlate : Block // minecraft:polished_blackstone_pressure_plate
 	{
-		public PolishedBlackstonePressurePlate() : base(550)
+		public PolishedBlackstonePressurePlate()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedBlackstoneSlab : SlabBase // minecraft:polished_blackstone_slab
+	{
+		public PolishedBlackstoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedBlackstoneStairs : StairsBase // minecraft:polished_blackstone_stairs
+	{
+		public PolishedBlackstoneStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6118,7 +6918,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedBlackstoneWall : Block // minecraft:polished_blackstone_wall
 	{
-		public PolishedBlackstoneWall() : base(552)
+		public PolishedBlackstoneWall()
 		{
 			IsGenerated = true;
 		}
@@ -6126,7 +6926,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedCinnabar : Block // minecraft:polished_cinnabar
 	{
-		public PolishedCinnabar() : base(1369)
+		public PolishedCinnabar()
 		{
 			IsGenerated = true;
 		}
@@ -6134,23 +6934,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedCinnabarDoubleSlab : Block // minecraft:polished_cinnabar_double_slab
 	{
-		public PolishedCinnabarDoubleSlab() : base(1371)
+		public PolishedCinnabarDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedCinnabarSlab : Block // minecraft:polished_cinnabar_slab
+	public partial class PolishedCinnabarSlab : SlabBase // minecraft:polished_cinnabar_slab
 	{
-		public PolishedCinnabarSlab() : base(1370)
+		public PolishedCinnabarSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedCinnabarStairs : Block // minecraft:polished_cinnabar_stairs
+	public partial class PolishedCinnabarStairs : StairsBase // minecraft:polished_cinnabar_stairs
 	{
-		public PolishedCinnabarStairs() : base(1372)
+		public PolishedCinnabarStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6158,7 +6958,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedCinnabarWall : Block // minecraft:polished_cinnabar_wall
 	{
-		public PolishedCinnabarWall() : base(1373)
+		public PolishedCinnabarWall()
 		{
 			IsGenerated = true;
 		}
@@ -6166,7 +6966,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedDeepslate : Block // minecraft:polished_deepslate
 	{
-		public PolishedDeepslate() : base(638)
+		public PolishedDeepslate()
 		{
 			IsGenerated = true;
 		}
@@ -6174,23 +6974,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedDeepslateDoubleSlab : Block // minecraft:polished_deepslate_double_slab
 	{
-		public PolishedDeepslateDoubleSlab() : base(652)
+		public PolishedDeepslateDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedDeepslateSlab : Block // minecraft:polished_deepslate_slab
+	public partial class PolishedDeepslateSlab : SlabBase // minecraft:polished_deepslate_slab
 	{
-		public PolishedDeepslateSlab() : base(639)
+		public PolishedDeepslateSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedDeepslateStairs : Block // minecraft:polished_deepslate_stairs
+	public partial class PolishedDeepslateStairs : StairsBase // minecraft:polished_deepslate_stairs
 	{
-		public PolishedDeepslateStairs() : base(640)
+		public PolishedDeepslateStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6198,7 +6998,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedDeepslateWall : Block // minecraft:polished_deepslate_wall
 	{
-		public PolishedDeepslateWall() : base(641)
+		public PolishedDeepslateWall()
 		{
 			IsGenerated = true;
 		}
@@ -6206,7 +7006,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedDiorite : Block // minecraft:polished_diorite
 	{
-		public PolishedDiorite() : base(848)
+		public PolishedDiorite()
 		{
 			IsGenerated = true;
 		}
@@ -6214,15 +7014,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedDioriteDoubleSlab : Block // minecraft:polished_diorite_double_slab
 	{
-		public PolishedDioriteDoubleSlab() : base(1177)
+		public PolishedDioriteDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedDioriteSlab : Block // minecraft:polished_diorite_slab
+	public partial class PolishedDioriteSlab : SlabBase // minecraft:polished_diorite_slab
 	{
-		public PolishedDioriteSlab() : base(1150)
+		public PolishedDioriteSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedDioriteStairs : StairsBase // minecraft:polished_diorite_stairs
+	{
+		public PolishedDioriteStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6230,7 +7038,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedGranite : Block // minecraft:polished_granite
 	{
-		public PolishedGranite() : base(846)
+		public PolishedGranite()
 		{
 			IsGenerated = true;
 		}
@@ -6238,15 +7046,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedGraniteDoubleSlab : Block // minecraft:polished_granite_double_slab
 	{
-		public PolishedGraniteDoubleSlab() : base(1179)
+		public PolishedGraniteDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedGraniteSlab : Block // minecraft:polished_granite_slab
+	public partial class PolishedGraniteSlab : SlabBase // minecraft:polished_granite_slab
 	{
-		public PolishedGraniteSlab() : base(1152)
+		public PolishedGraniteSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PolishedGraniteStairs : StairsBase // minecraft:polished_granite_stairs
+	{
+		public PolishedGraniteStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6254,7 +7070,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedSulfur : Block // minecraft:polished_sulfur
 	{
-		public PolishedSulfur() : base(1352)
+		public PolishedSulfur()
 		{
 			IsGenerated = true;
 		}
@@ -6262,23 +7078,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedSulfurDoubleSlab : Block // minecraft:polished_sulfur_double_slab
 	{
-		public PolishedSulfurDoubleSlab() : base(1354)
+		public PolishedSulfurDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedSulfurSlab : Block // minecraft:polished_sulfur_slab
+	public partial class PolishedSulfurSlab : SlabBase // minecraft:polished_sulfur_slab
 	{
-		public PolishedSulfurSlab() : base(1353)
+		public PolishedSulfurSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedSulfurStairs : Block // minecraft:polished_sulfur_stairs
+	public partial class PolishedSulfurStairs : StairsBase // minecraft:polished_sulfur_stairs
 	{
-		public PolishedSulfurStairs() : base(1355)
+		public PolishedSulfurStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6286,7 +7102,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedSulfurWall : Block // minecraft:polished_sulfur_wall
 	{
-		public PolishedSulfurWall() : base(1356)
+		public PolishedSulfurWall()
 		{
 			IsGenerated = true;
 		}
@@ -6294,7 +7110,7 @@ namespace MiNET.Blocks
 
 	public partial class PolishedTuff : Block // minecraft:polished_tuff
 	{
-		public PolishedTuff() : base(1003)
+		public PolishedTuff()
 		{
 			IsGenerated = true;
 		}
@@ -6302,23 +7118,23 @@ namespace MiNET.Blocks
 
 	public partial class PolishedTuffDoubleSlab : Block // minecraft:polished_tuff_double_slab
 	{
-		public PolishedTuffDoubleSlab() : base(1005)
+		public PolishedTuffDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedTuffSlab : Block // minecraft:polished_tuff_slab
+	public partial class PolishedTuffSlab : SlabBase // minecraft:polished_tuff_slab
 	{
-		public PolishedTuffSlab() : base(1004)
+		public PolishedTuffSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PolishedTuffStairs : Block // minecraft:polished_tuff_stairs
+	public partial class PolishedTuffStairs : StairsBase // minecraft:polished_tuff_stairs
 	{
-		public PolishedTuffStairs() : base(1006)
+		public PolishedTuffStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6326,15 +7142,151 @@ namespace MiNET.Blocks
 
 	public partial class PolishedTuffWall : Block // minecraft:polished_tuff_wall
 	{
-		public PolishedTuffWall() : base(1007)
+		public PolishedTuffWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Poppy : Block // minecraft:poppy
+	public partial class PoplarButton : Block // minecraft:poplar_button
 	{
-		public Poppy() : base(38)
+		public PoplarButton()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarDoor : Block // minecraft:poplar_door
+	{
+		public PoplarDoor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarDoubleSlab : Block // minecraft:poplar_double_slab
+	{
+		public PoplarDoubleSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarFence : Block // minecraft:poplar_fence
+	{
+		public PoplarFence()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarFenceGate : Block // minecraft:poplar_fence_gate
+	{
+		public PoplarFenceGate()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarHangingSign : Block // minecraft:poplar_hanging_sign
+	{
+		public PoplarHangingSign()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarLog : Block // minecraft:poplar_log
+	{
+		public PoplarLog()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarPlanks : Block // minecraft:poplar_planks
+	{
+		public PoplarPlanks()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarPressurePlate : Block // minecraft:poplar_pressure_plate
+	{
+		public PoplarPressurePlate()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarSapling : Block // minecraft:poplar_sapling
+	{
+		public PoplarSapling()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarShelf : Block // minecraft:poplar_shelf
+	{
+		public PoplarShelf()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarSlab : Block // minecraft:poplar_slab
+	{
+		public PoplarSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarStairs : Block // minecraft:poplar_stairs
+	{
+		public PoplarStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarStandingSign : Block // minecraft:poplar_standing_sign
+	{
+		public PoplarStandingSign()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarTrapdoor : Block // minecraft:poplar_trapdoor
+	{
+		public PoplarTrapdoor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarWallSign : Block // minecraft:poplar_wall_sign
+	{
+		public PoplarWallSign()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoplarWood : Block // minecraft:poplar_wood
+	{
+		public PoplarWood()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Poppy : FlowerBase // minecraft:poppy
+	{
+		public Poppy()
 		{
 			IsGenerated = true;
 		}
@@ -6342,7 +7294,7 @@ namespace MiNET.Blocks
 
 	public partial class PotentSulfur : Block // minecraft:potent_sulfur
 	{
-		public PotentSulfur() : base(1363)
+		public PotentSulfur()
 		{
 			IsGenerated = true;
 		}
@@ -6350,7 +7302,31 @@ namespace MiNET.Blocks
 
 	public partial class PowderSnow : Block // minecraft:powder_snow
 	{
-		public PowderSnow() : base(561)
+		public PowderSnow()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoweredComparator : Block // minecraft:powered_comparator
+	{
+		public PoweredComparator()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PoweredRepeater : Block // minecraft:powered_repeater
+	{
+		public PoweredRepeater()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Prismarine : Block // minecraft:prismarine
+	{
+		public Prismarine()
 		{
 			IsGenerated = true;
 		}
@@ -6358,15 +7334,15 @@ namespace MiNET.Blocks
 
 	public partial class PrismarineBrickDoubleSlab : Block // minecraft:prismarine_brick_double_slab
 	{
-		public PrismarineBrickDoubleSlab() : base(1169)
+		public PrismarineBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PrismarineBrickSlab : Block // minecraft:prismarine_brick_slab
+	public partial class PrismarineBrickSlab : SlabBase // minecraft:prismarine_brick_slab
 	{
-		public PrismarineBrickSlab() : base(1142)
+		public PrismarineBrickSlab()
 		{
 			IsGenerated = true;
 		}
@@ -6374,7 +7350,15 @@ namespace MiNET.Blocks
 
 	public partial class PrismarineBricks : Block // minecraft:prismarine_bricks
 	{
-		public PrismarineBricks() : base(1203)
+		public PrismarineBricks()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PrismarineBricksStairs : StairsBase // minecraft:prismarine_bricks_stairs
+	{
+		public PrismarineBricksStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6382,15 +7366,23 @@ namespace MiNET.Blocks
 
 	public partial class PrismarineDoubleSlab : Block // minecraft:prismarine_double_slab
 	{
-		public PrismarineDoubleSlab() : base(1167)
+		public PrismarineDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PrismarineSlab : Block // minecraft:prismarine_slab
+	public partial class PrismarineSlab : SlabBase // minecraft:prismarine_slab
 	{
-		public PrismarineSlab() : base(1140)
+		public PrismarineSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PrismarineStairs : StairsBase // minecraft:prismarine_stairs
+	{
+		public PrismarineStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6398,7 +7390,23 @@ namespace MiNET.Blocks
 
 	public partial class PrismarineWall : Block // minecraft:prismarine_wall
 	{
-		public PrismarineWall() : base(1236)
+		public PrismarineWall()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Pumpkin : Block // minecraft:pumpkin
+	{
+		public Pumpkin()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PumpkinStem : Block // minecraft:pumpkin_stem
+	{
+		public PumpkinStem()
 		{
 			IsGenerated = true;
 		}
@@ -6406,7 +7414,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpleCandle : Block // minecraft:purple_candle
 	{
-		public PurpleCandle() : base(678)
+		public PurpleCandle()
 		{
 			IsGenerated = true;
 		}
@@ -6414,7 +7422,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpleCandleCake : Block // minecraft:purple_candle_cake
 	{
-		public PurpleCandleCake() : base(695)
+		public PurpleCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -6422,7 +7430,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpleCarpet : Block // minecraft:purple_carpet
 	{
-		public PurpleCarpet() : base(861)
+		public PurpleCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -6430,7 +7438,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpleConcrete : Block // minecraft:purple_concrete
 	{
-		public PurpleConcrete() : base(892)
+		public PurpleConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -6438,7 +7446,15 @@ namespace MiNET.Blocks
 
 	public partial class PurpleConcretePowder : Block // minecraft:purple_concrete_powder
 	{
-		public PurpleConcretePowder() : base(973)
+		public PurpleConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PurpleGlazedTerracotta : GlazedTerracottaBase // minecraft:purple_glazed_terracotta
+	{
+		public PurpleGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -6446,7 +7462,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpleShulkerBox : Block // minecraft:purple_shulker_box
 	{
-		public PurpleShulkerBox() : base(877)
+		public PurpleShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -6454,15 +7470,15 @@ namespace MiNET.Blocks
 
 	public partial class PurpleStainedGlass : Block // minecraft:purple_stained_glass
 	{
-		public PurpleStainedGlass() : base(937)
+		public PurpleStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PurpleStainedGlassPane : Block // minecraft:purple_stained_glass_pane
+	public partial class PurpleStainedGlassPane : GlassPaneBase // minecraft:purple_stained_glass_pane
 	{
-		public PurpleStainedGlassPane() : base(907)
+		public PurpleStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -6470,7 +7486,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpleTerracotta : Block // minecraft:purple_terracotta
 	{
-		public PurpleTerracotta() : base(988)
+		public PurpleTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -6478,7 +7494,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpleWool : Block // minecraft:purple_wool
 	{
-		public PurpleWool() : base(819)
+		public PurpleWool()
 		{
 			IsGenerated = true;
 		}
@@ -6486,7 +7502,7 @@ namespace MiNET.Blocks
 
 	public partial class PurpurDoubleSlab : Block // minecraft:purpur_double_slab
 	{
-		public PurpurDoubleSlab() : base(1166)
+		public PurpurDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -6494,15 +7510,23 @@ namespace MiNET.Blocks
 
 	public partial class PurpurPillar : Block // minecraft:purpur_pillar
 	{
-		public PurpurPillar() : base(1206)
+		public PurpurPillar()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class PurpurSlab : Block // minecraft:purpur_slab
+	public partial class PurpurSlab : SlabBase // minecraft:purpur_slab
 	{
-		public PurpurSlab() : base(1139)
+		public PurpurSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class PurpurStairs : StairsBase // minecraft:purpur_stairs
+	{
+		public PurpurStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6510,7 +7534,7 @@ namespace MiNET.Blocks
 
 	public partial class QuartzBricks : Block // minecraft:quartz_bricks
 	{
-		public QuartzBricks() : base(559)
+		public QuartzBricks()
 		{
 			IsGenerated = true;
 		}
@@ -6518,7 +7542,7 @@ namespace MiNET.Blocks
 
 	public partial class QuartzDoubleSlab : Block // minecraft:quartz_double_slab
 	{
-		public QuartzDoubleSlab() : base(1137)
+		public QuartzDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -6526,15 +7550,23 @@ namespace MiNET.Blocks
 
 	public partial class QuartzPillar : Block // minecraft:quartz_pillar
 	{
-		public QuartzPillar() : base(1209)
+		public QuartzPillar()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class QuartzSlab : Block // minecraft:quartz_slab
+	public partial class QuartzSlab : SlabBase // minecraft:quartz_slab
 	{
-		public QuartzSlab() : base(1131)
+		public QuartzSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class QuartzStairs : StairsBase // minecraft:quartz_stairs
+	{
+		public QuartzStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6542,7 +7574,7 @@ namespace MiNET.Blocks
 
 	public partial class RawCopperBlock : Block // minecraft:raw_copper_block
 	{
-		public RawCopperBlock() : base(707)
+		public RawCopperBlock()
 		{
 			IsGenerated = true;
 		}
@@ -6550,7 +7582,7 @@ namespace MiNET.Blocks
 
 	public partial class RawGoldBlock : Block // minecraft:raw_gold_block
 	{
-		public RawGoldBlock() : base(708)
+		public RawGoldBlock()
 		{
 			IsGenerated = true;
 		}
@@ -6558,7 +7590,7 @@ namespace MiNET.Blocks
 
 	public partial class RawIronBlock : Block // minecraft:raw_iron_block
 	{
-		public RawIronBlock() : base(706)
+		public RawIronBlock()
 		{
 			IsGenerated = true;
 		}
@@ -6566,7 +7598,7 @@ namespace MiNET.Blocks
 
 	public partial class RedCandle : Block // minecraft:red_candle
 	{
-		public RedCandle() : base(682)
+		public RedCandle()
 		{
 			IsGenerated = true;
 		}
@@ -6574,7 +7606,7 @@ namespace MiNET.Blocks
 
 	public partial class RedCandleCake : Block // minecraft:red_candle_cake
 	{
-		public RedCandleCake() : base(699)
+		public RedCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -6582,7 +7614,7 @@ namespace MiNET.Blocks
 
 	public partial class RedCarpet : Block // minecraft:red_carpet
 	{
-		public RedCarpet() : base(865)
+		public RedCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -6590,7 +7622,7 @@ namespace MiNET.Blocks
 
 	public partial class RedConcrete : Block // minecraft:red_concrete
 	{
-		public RedConcrete() : base(896)
+		public RedConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -6598,7 +7630,23 @@ namespace MiNET.Blocks
 
 	public partial class RedConcretePowder : Block // minecraft:red_concrete_powder
 	{
-		public RedConcretePowder() : base(977)
+		public RedConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedGlazedTerracotta : GlazedTerracottaBase // minecraft:red_glazed_terracotta
+	{
+		public RedGlazedTerracotta()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedMushroom : Block // minecraft:red_mushroom
+	{
+		public RedMushroom()
 		{
 			IsGenerated = true;
 		}
@@ -6606,7 +7654,7 @@ namespace MiNET.Blocks
 
 	public partial class RedNetherBrick : Block // minecraft:red_nether_brick
 	{
-		public RedNetherBrick() : base(215)
+		public RedNetherBrick()
 		{
 			IsGenerated = true;
 		}
@@ -6614,15 +7662,23 @@ namespace MiNET.Blocks
 
 	public partial class RedNetherBrickDoubleSlab : Block // minecraft:red_nether_brick_double_slab
 	{
-		public RedNetherBrickDoubleSlab() : base(1172)
+		public RedNetherBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class RedNetherBrickSlab : Block // minecraft:red_nether_brick_slab
+	public partial class RedNetherBrickSlab : SlabBase // minecraft:red_nether_brick_slab
 	{
-		public RedNetherBrickSlab() : base(1145)
+		public RedNetherBrickSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedNetherBrickStairs : StairsBase // minecraft:red_nether_brick_stairs
+	{
+		public RedNetherBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6630,7 +7686,15 @@ namespace MiNET.Blocks
 
 	public partial class RedNetherBrickWall : Block // minecraft:red_nether_brick_wall
 	{
-		public RedNetherBrickWall() : base(1238)
+		public RedNetherBrickWall()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedPoplarLeaves : Block // minecraft:red_poplar_leaves
+	{
+		public RedPoplarLeaves()
 		{
 			IsGenerated = true;
 		}
@@ -6638,7 +7702,15 @@ namespace MiNET.Blocks
 
 	public partial class RedSand : Block // minecraft:red_sand
 	{
-		public RedSand() : base(1204)
+		public RedSand()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedSandstone : Block // minecraft:red_sandstone
+	{
+		public RedSandstone()
 		{
 			IsGenerated = true;
 		}
@@ -6646,15 +7718,23 @@ namespace MiNET.Blocks
 
 	public partial class RedSandstoneDoubleSlab : Block // minecraft:red_sandstone_double_slab
 	{
-		public RedSandstoneDoubleSlab() : base(181)
+		public RedSandstoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class RedSandstoneSlab : Block // minecraft:red_sandstone_slab
+	public partial class RedSandstoneSlab : SlabBase // minecraft:red_sandstone_slab
 	{
-		public RedSandstoneSlab() : base(182)
+		public RedSandstoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedSandstoneStairs : StairsBase // minecraft:red_sandstone_stairs
+	{
+		public RedSandstoneStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6662,7 +7742,7 @@ namespace MiNET.Blocks
 
 	public partial class RedSandstoneWall : Block // minecraft:red_sandstone_wall
 	{
-		public RedSandstoneWall() : base(1237)
+		public RedSandstoneWall()
 		{
 			IsGenerated = true;
 		}
@@ -6670,7 +7750,7 @@ namespace MiNET.Blocks
 
 	public partial class RedShulkerBox : Block // minecraft:red_shulker_box
 	{
-		public RedShulkerBox() : base(881)
+		public RedShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -6678,15 +7758,15 @@ namespace MiNET.Blocks
 
 	public partial class RedStainedGlass : Block // minecraft:red_stained_glass
 	{
-		public RedStainedGlass() : base(941)
+		public RedStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class RedStainedGlassPane : Block // minecraft:red_stained_glass_pane
+	public partial class RedStainedGlassPane : GlassPaneBase // minecraft:red_stained_glass_pane
 	{
-		public RedStainedGlassPane() : base(911)
+		public RedStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -6694,15 +7774,15 @@ namespace MiNET.Blocks
 
 	public partial class RedTerracotta : Block // minecraft:red_terracotta
 	{
-		public RedTerracotta() : base(992)
+		public RedTerracotta()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class RedTulip : Block // minecraft:red_tulip
+	public partial class RedTulip : FlowerBase // minecraft:red_tulip
 	{
-		public RedTulip() : base(1088)
+		public RedTulip()
 		{
 			IsGenerated = true;
 		}
@@ -6710,7 +7790,15 @@ namespace MiNET.Blocks
 
 	public partial class RedWool : Block // minecraft:red_wool
 	{
-		public RedWool() : base(811)
+		public RedWool()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class RedstoneLamp : Block // minecraft:redstone_lamp
+	{
+		public RedstoneLamp()
 		{
 			IsGenerated = true;
 		}
@@ -6718,7 +7806,7 @@ namespace MiNET.Blocks
 
 	public partial class ReinforcedDeepslate : Block // minecraft:reinforced_deepslate
 	{
-		public ReinforcedDeepslate() : base(721)
+		public ReinforcedDeepslate()
 		{
 			IsGenerated = true;
 		}
@@ -6726,7 +7814,7 @@ namespace MiNET.Blocks
 
 	public partial class RepeatingCommandBlock : Block // minecraft:repeating_command_block
 	{
-		public RepeatingCommandBlock() : base(188)
+		public RepeatingCommandBlock()
 		{
 			IsGenerated = true;
 		}
@@ -6734,7 +7822,7 @@ namespace MiNET.Blocks
 
 	public partial class Reserved6 : Block // minecraft:reserved6
 	{
-		public Reserved6() : base(255)
+		public Reserved6()
 		{
 			IsGenerated = true;
 		}
@@ -6742,7 +7830,7 @@ namespace MiNET.Blocks
 
 	public partial class ResinBlock : Block // minecraft:resin_block
 	{
-		public ResinBlock() : base(1276)
+		public ResinBlock()
 		{
 			IsGenerated = true;
 		}
@@ -6750,23 +7838,23 @@ namespace MiNET.Blocks
 
 	public partial class ResinBrickDoubleSlab : Block // minecraft:resin_brick_double_slab
 	{
-		public ResinBrickDoubleSlab() : base(1270)
+		public ResinBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ResinBrickSlab : Block // minecraft:resin_brick_slab
+	public partial class ResinBrickSlab : SlabBase // minecraft:resin_brick_slab
 	{
-		public ResinBrickSlab() : base(1269)
+		public ResinBrickSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class ResinBrickStairs : Block // minecraft:resin_brick_stairs
+	public partial class ResinBrickStairs : StairsBase // minecraft:resin_brick_stairs
 	{
-		public ResinBrickStairs() : base(1271)
+		public ResinBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6774,7 +7862,7 @@ namespace MiNET.Blocks
 
 	public partial class ResinBrickWall : Block // minecraft:resin_brick_wall
 	{
-		public ResinBrickWall() : base(1272)
+		public ResinBrickWall()
 		{
 			IsGenerated = true;
 		}
@@ -6782,7 +7870,7 @@ namespace MiNET.Blocks
 
 	public partial class ResinBricks : Block // minecraft:resin_bricks
 	{
-		public ResinBricks() : base(1268)
+		public ResinBricks()
 		{
 			IsGenerated = true;
 		}
@@ -6790,7 +7878,7 @@ namespace MiNET.Blocks
 
 	public partial class ResinClump : Block // minecraft:resin_clump
 	{
-		public ResinClump() : base(1277)
+		public ResinClump()
 		{
 			IsGenerated = true;
 		}
@@ -6798,15 +7886,23 @@ namespace MiNET.Blocks
 
 	public partial class RespawnAnchor : Block // minecraft:respawn_anchor
 	{
-		public RespawnAnchor() : base(527)
+		public RespawnAnchor()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class RoseBush : Block // minecraft:rose_bush
+	public partial class RoseBush : FlowerBase // minecraft:rose_bush
 	{
-		public RoseBush() : base(1121)
+		public RoseBush()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Sandstone : Block // minecraft:sandstone
+	{
+		public Sandstone()
 		{
 			IsGenerated = true;
 		}
@@ -6814,15 +7910,23 @@ namespace MiNET.Blocks
 
 	public partial class SandstoneDoubleSlab : Block // minecraft:sandstone_double_slab
 	{
-		public SandstoneDoubleSlab() : base(1133)
+		public SandstoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SandstoneSlab : Block // minecraft:sandstone_slab
+	public partial class SandstoneSlab : SlabBase // minecraft:sandstone_slab
 	{
-		public SandstoneSlab() : base(1127)
+		public SandstoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SandstoneStairs : StairsBase // minecraft:sandstone_stairs
+	{
+		public SandstoneStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6830,7 +7934,7 @@ namespace MiNET.Blocks
 
 	public partial class SandstoneWall : Block // minecraft:sandstone_wall
 	{
-		public SandstoneWall() : base(1230)
+		public SandstoneWall()
 		{
 			IsGenerated = true;
 		}
@@ -6838,7 +7942,7 @@ namespace MiNET.Blocks
 
 	public partial class Scaffolding : Block // minecraft:scaffolding
 	{
-		public Scaffolding() : base(420)
+		public Scaffolding()
 		{
 			IsGenerated = true;
 		}
@@ -6846,7 +7950,7 @@ namespace MiNET.Blocks
 
 	public partial class Sculk : Block // minecraft:sculk
 	{
-		public Sculk() : base(713)
+		public Sculk()
 		{
 			IsGenerated = true;
 		}
@@ -6854,7 +7958,7 @@ namespace MiNET.Blocks
 
 	public partial class SculkCatalyst : Block // minecraft:sculk_catalyst
 	{
-		public SculkCatalyst() : base(715)
+		public SculkCatalyst()
 		{
 			IsGenerated = true;
 		}
@@ -6862,7 +7966,7 @@ namespace MiNET.Blocks
 
 	public partial class SculkSensor : Block // minecraft:sculk_sensor
 	{
-		public SculkSensor() : base(562)
+		public SculkSensor()
 		{
 			IsGenerated = true;
 		}
@@ -6870,7 +7974,7 @@ namespace MiNET.Blocks
 
 	public partial class SculkShrieker : Block // minecraft:sculk_shrieker
 	{
-		public SculkShrieker() : base(716)
+		public SculkShrieker()
 		{
 			IsGenerated = true;
 		}
@@ -6878,7 +7982,7 @@ namespace MiNET.Blocks
 
 	public partial class SculkVein : Block // minecraft:sculk_vein
 	{
-		public SculkVein() : base(714)
+		public SculkVein()
 		{
 			IsGenerated = true;
 		}
@@ -6886,7 +7990,7 @@ namespace MiNET.Blocks
 
 	public partial class SeaPickle : Block // minecraft:sea_pickle
 	{
-		public SeaPickle() : base(411)
+		public SeaPickle()
 		{
 			IsGenerated = true;
 		}
@@ -6894,7 +7998,7 @@ namespace MiNET.Blocks
 
 	public partial class Seagrass : Block // minecraft:seagrass
 	{
-		public Seagrass() : base(385)
+		public Seagrass()
 		{
 			IsGenerated = true;
 		}
@@ -6902,7 +8006,7 @@ namespace MiNET.Blocks
 
 	public partial class ShortDryGrass : Block // minecraft:short_dry_grass
 	{
-		public ShortDryGrass() : base(1283)
+		public ShortDryGrass()
 		{
 			IsGenerated = true;
 		}
@@ -6910,7 +8014,7 @@ namespace MiNET.Blocks
 
 	public partial class ShortGrass : Block // minecraft:short_grass
 	{
-		public ShortGrass() : base(31)
+		public ShortGrass()
 		{
 			IsGenerated = true;
 		}
@@ -6918,7 +8022,15 @@ namespace MiNET.Blocks
 
 	public partial class Shroomlight : Block // minecraft:shroomlight
 	{
-		public Shroomlight() : base(485)
+		public Shroomlight()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SilverGlazedTerracotta : GlazedTerracottaBase // minecraft:silver_glazed_terracotta
+	{
+		public SilverGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -6926,7 +8038,15 @@ namespace MiNET.Blocks
 
 	public partial class SkeletonSkull : Block // minecraft:skeleton_skull
 	{
-		public SkeletonSkull() : base(144)
+		public SkeletonSkull()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Slime : Block // minecraft:slime
+	{
+		public Slime()
 		{
 			IsGenerated = true;
 		}
@@ -6934,7 +8054,7 @@ namespace MiNET.Blocks
 
 	public partial class SmallAmethystBud : Block // minecraft:small_amethyst_bud
 	{
-		public SmallAmethystBud() : base(587)
+		public SmallAmethystBud()
 		{
 			IsGenerated = true;
 		}
@@ -6942,7 +8062,7 @@ namespace MiNET.Blocks
 
 	public partial class SmallDripleafBlock : Block // minecraft:small_dripleaf_block
 	{
-		public SmallDripleafBlock() : base(591)
+		public SmallDripleafBlock()
 		{
 			IsGenerated = true;
 		}
@@ -6950,7 +8070,7 @@ namespace MiNET.Blocks
 
 	public partial class SmithingTable : Block // minecraft:smithing_table
 	{
-		public SmithingTable() : base(457)
+		public SmithingTable()
 		{
 			IsGenerated = true;
 		}
@@ -6958,7 +8078,7 @@ namespace MiNET.Blocks
 
 	public partial class Smoker : Block // minecraft:smoker
 	{
-		public Smoker() : base(453)
+		public Smoker()
 		{
 			IsGenerated = true;
 		}
@@ -6966,7 +8086,7 @@ namespace MiNET.Blocks
 
 	public partial class SmoothBasalt : Block // minecraft:smooth_basalt
 	{
-		public SmoothBasalt() : base(632)
+		public SmoothBasalt()
 		{
 			IsGenerated = true;
 		}
@@ -6974,7 +8094,7 @@ namespace MiNET.Blocks
 
 	public partial class SmoothQuartz : Block // minecraft:smooth_quartz
 	{
-		public SmoothQuartz() : base(1210)
+		public SmoothQuartz()
 		{
 			IsGenerated = true;
 		}
@@ -6982,15 +8102,23 @@ namespace MiNET.Blocks
 
 	public partial class SmoothQuartzDoubleSlab : Block // minecraft:smooth_quartz_double_slab
 	{
-		public SmoothQuartzDoubleSlab() : base(1180)
+		public SmoothQuartzDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SmoothQuartzSlab : Block // minecraft:smooth_quartz_slab
+	public partial class SmoothQuartzSlab : SlabBase // minecraft:smooth_quartz_slab
 	{
-		public SmoothQuartzSlab() : base(1153)
+		public SmoothQuartzSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SmoothQuartzStairs : StairsBase // minecraft:smooth_quartz_stairs
+	{
+		public SmoothQuartzStairs()
 		{
 			IsGenerated = true;
 		}
@@ -6998,7 +8126,7 @@ namespace MiNET.Blocks
 
 	public partial class SmoothRedSandstone : Block // minecraft:smooth_red_sandstone
 	{
-		public SmoothRedSandstone() : base(1213)
+		public SmoothRedSandstone()
 		{
 			IsGenerated = true;
 		}
@@ -7006,15 +8134,23 @@ namespace MiNET.Blocks
 
 	public partial class SmoothRedSandstoneDoubleSlab : Block // minecraft:smooth_red_sandstone_double_slab
 	{
-		public SmoothRedSandstoneDoubleSlab() : base(1173)
+		public SmoothRedSandstoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SmoothRedSandstoneSlab : Block // minecraft:smooth_red_sandstone_slab
+	public partial class SmoothRedSandstoneSlab : SlabBase // minecraft:smooth_red_sandstone_slab
 	{
-		public SmoothRedSandstoneSlab() : base(1146)
+		public SmoothRedSandstoneSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SmoothRedSandstoneStairs : StairsBase // minecraft:smooth_red_sandstone_stairs
+	{
+		public SmoothRedSandstoneStairs()
 		{
 			IsGenerated = true;
 		}
@@ -7022,7 +8158,7 @@ namespace MiNET.Blocks
 
 	public partial class SmoothSandstone : Block // minecraft:smooth_sandstone
 	{
-		public SmoothSandstone() : base(1201)
+		public SmoothSandstone()
 		{
 			IsGenerated = true;
 		}
@@ -7030,23 +8166,31 @@ namespace MiNET.Blocks
 
 	public partial class SmoothSandstoneDoubleSlab : Block // minecraft:smooth_sandstone_double_slab
 	{
-		public SmoothSandstoneDoubleSlab() : base(1171)
+		public SmoothSandstoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SmoothSandstoneSlab : Block // minecraft:smooth_sandstone_slab
+	public partial class SmoothSandstoneSlab : SlabBase // minecraft:smooth_sandstone_slab
 	{
-		public SmoothSandstoneSlab() : base(1144)
+		public SmoothSandstoneSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SmoothStone : Block // minecraft:smooth_stone
+	public partial class SmoothSandstoneStairs : StairsBase // minecraft:smooth_sandstone_stairs
 	{
-		public SmoothStone() : base(438)
+		public SmoothSandstoneStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SmoothStone : StoneBrickBase // minecraft:smooth_stone
+	{
+		public SmoothStone()
 		{
 			IsGenerated = true;
 		}
@@ -7054,15 +8198,15 @@ namespace MiNET.Blocks
 
 	public partial class SmoothStoneDoubleSlab : Block // minecraft:smooth_stone_double_slab
 	{
-		public SmoothStoneDoubleSlab() : base(43)
+		public SmoothStoneDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SmoothStoneSlab : Block // minecraft:smooth_stone_slab
+	public partial class SmoothStoneSlab : SlabBase // minecraft:smooth_stone_slab
 	{
-		public SmoothStoneSlab() : base(44)
+		public SmoothStoneSlab()
 		{
 			IsGenerated = true;
 		}
@@ -7070,7 +8214,7 @@ namespace MiNET.Blocks
 
 	public partial class SnifferEgg : Block // minecraft:sniffer_egg
 	{
-		public SnifferEgg() : base(851)
+		public SnifferEgg()
 		{
 			IsGenerated = true;
 		}
@@ -7078,7 +8222,7 @@ namespace MiNET.Blocks
 
 	public partial class SoulCampfire : Block // minecraft:soul_campfire
 	{
-		public SoulCampfire() : base(545)
+		public SoulCampfire()
 		{
 			IsGenerated = true;
 		}
@@ -7086,7 +8230,7 @@ namespace MiNET.Blocks
 
 	public partial class SoulFire : Block // minecraft:soul_fire
 	{
-		public SoulFire() : base(492)
+		public SoulFire()
 		{
 			IsGenerated = true;
 		}
@@ -7094,7 +8238,15 @@ namespace MiNET.Blocks
 
 	public partial class SoulLantern : Block // minecraft:soul_lantern
 	{
-		public SoulLantern() : base(524)
+		public SoulLantern()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SoulSand : Block // minecraft:soul_sand
+	{
+		public SoulSand()
 		{
 			IsGenerated = true;
 		}
@@ -7102,7 +8254,7 @@ namespace MiNET.Blocks
 
 	public partial class SoulSoil : Block // minecraft:soul_soil
 	{
-		public SoulSoil() : base(491)
+		public SoulSoil()
 		{
 			IsGenerated = true;
 		}
@@ -7110,7 +8262,15 @@ namespace MiNET.Blocks
 
 	public partial class SoulTorch : Block // minecraft:soul_torch
 	{
-		public SoulTorch() : base(523)
+		public SoulTorch()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Sponge : Block // minecraft:sponge
+	{
+		public Sponge()
 		{
 			IsGenerated = true;
 		}
@@ -7118,7 +8278,15 @@ namespace MiNET.Blocks
 
 	public partial class SporeBlossom : Block // minecraft:spore_blossom
 	{
-		public SporeBlossom() : base(576)
+		public SporeBlossom()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SpruceDoor : DoorBase // minecraft:spruce_door
+	{
+		public SpruceDoor()
 		{
 			IsGenerated = true;
 		}
@@ -7126,7 +8294,7 @@ namespace MiNET.Blocks
 
 	public partial class SpruceDoubleSlab : Block // minecraft:spruce_double_slab
 	{
-		public SpruceDoubleSlab() : base(1064)
+		public SpruceDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -7134,7 +8302,15 @@ namespace MiNET.Blocks
 
 	public partial class SpruceFence : Block // minecraft:spruce_fence
 	{
-		public SpruceFence() : base(834)
+		public SpruceFence()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SpruceFenceGate : FenceGateBase // minecraft:spruce_fence_gate
+	{
+		public SpruceFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -7142,23 +8318,23 @@ namespace MiNET.Blocks
 
 	public partial class SpruceHangingSign : Block // minecraft:spruce_hanging_sign
 	{
-		public SpruceHangingSign() : base(756)
+		public SpruceHangingSign()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SpruceLeaves : Block // minecraft:spruce_leaves
+	public partial class SpruceLeaves : LeavesBase // minecraft:spruce_leaves
 	{
-		public SpruceLeaves() : base(1055)
+		public SpruceLeaves()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SpruceLog : Block // minecraft:spruce_log
+	public partial class SpruceLog : LogBase // minecraft:spruce_log
 	{
-		public SpruceLog() : base(824)
+		public SpruceLog()
 		{
 			IsGenerated = true;
 		}
@@ -7166,7 +8342,7 @@ namespace MiNET.Blocks
 
 	public partial class SprucePlanks : Block // minecraft:spruce_planks
 	{
-		public SprucePlanks() : base(994)
+		public SprucePlanks()
 		{
 			IsGenerated = true;
 		}
@@ -7174,15 +8350,15 @@ namespace MiNET.Blocks
 
 	public partial class SprucePressurePlate : Block // minecraft:spruce_pressure_plate
 	{
-		public SprucePressurePlate() : base(409)
+		public SprucePressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SpruceSapling : Block // minecraft:spruce_sapling
+	public partial class SpruceSapling : SaplingBase // minecraft:spruce_sapling
 	{
-		public SpruceSapling() : base(1080)
+		public SpruceSapling()
 		{
 			IsGenerated = true;
 		}
@@ -7190,15 +8366,31 @@ namespace MiNET.Blocks
 
 	public partial class SpruceShelf : Block // minecraft:spruce_shelf
 	{
-		public SpruceShelf() : base(1303)
+		public SpruceShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SpruceSlab : Block // minecraft:spruce_slab
+	public partial class SpruceSlab : SlabBase // minecraft:spruce_slab
 	{
-		public SpruceSlab() : base(1059)
+		public SpruceSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SpruceStairs : StairsBase // minecraft:spruce_stairs
+	{
+		public SpruceStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class SpruceTrapdoor : TrapdoorBase // minecraft:spruce_trapdoor
+	{
+		public SpruceTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -7206,7 +8398,15 @@ namespace MiNET.Blocks
 
 	public partial class SpruceWood : Block // minecraft:spruce_wood
 	{
-		public SpruceWood() : base(1069)
+		public SpruceWood()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StickyPiston : Block // minecraft:sticky_piston
+	{
+		public StickyPiston()
 		{
 			IsGenerated = true;
 		}
@@ -7214,7 +8414,7 @@ namespace MiNET.Blocks
 
 	public partial class StickyPistonArmCollision : Block // minecraft:sticky_piston_arm_collision
 	{
-		public StickyPistonArmCollision() : base(472)
+		public StickyPistonArmCollision()
 		{
 			IsGenerated = true;
 		}
@@ -7222,15 +8422,23 @@ namespace MiNET.Blocks
 
 	public partial class StoneBrickDoubleSlab : Block // minecraft:stone_brick_double_slab
 	{
-		public StoneBrickDoubleSlab() : base(1136)
+		public StoneBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StoneBrickSlab : Block // minecraft:stone_brick_slab
+	public partial class StoneBrickSlab : SlabBase // minecraft:stone_brick_slab
 	{
-		public StoneBrickSlab() : base(1130)
+		public StoneBrickSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StoneBrickStairs : StairsBase // minecraft:stone_brick_stairs
+	{
+		public StoneBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -7238,15 +8446,39 @@ namespace MiNET.Blocks
 
 	public partial class StoneBrickWall : Block // minecraft:stone_brick_wall
 	{
-		public StoneBrickWall() : base(1232)
+		public StoneBrickWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StoneBricks : Block // minecraft:stone_bricks
+	public partial class StoneBricks : StoneBrickBase // minecraft:stone_bricks
 	{
-		public StoneBricks() : base(98)
+		public StoneBricks()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StonePressurePlate : Block // minecraft:stone_pressure_plate
+	{
+		public StonePressurePlate()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StoneStairs : StairsBase // minecraft:stone_stairs
+	{
+		public StoneStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Stonecutter : Block // minecraft:stonecutter
+	{
+		public Stonecutter()
 		{
 			IsGenerated = true;
 		}
@@ -7254,15 +8486,23 @@ namespace MiNET.Blocks
 
 	public partial class StonecutterBlock : Block // minecraft:stonecutter_block
 	{
-		public StonecutterBlock() : base(452)
+		public StonecutterBlock()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedAcaciaLog : Block // minecraft:stripped_acacia_log
+	public partial class StrawBed : Block // minecraft:straw_bed
 	{
-		public StrippedAcaciaLog() : base(263)
+		public StrawBed()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StrippedAcaciaLog : LogBase // minecraft:stripped_acacia_log
+	{
+		public StrippedAcaciaLog()
 		{
 			IsGenerated = true;
 		}
@@ -7270,7 +8510,7 @@ namespace MiNET.Blocks
 
 	public partial class StrippedAcaciaWood : Block // minecraft:stripped_acacia_wood
 	{
-		public StrippedAcaciaWood() : base(1078)
+		public StrippedAcaciaWood()
 		{
 			IsGenerated = true;
 		}
@@ -7278,15 +8518,15 @@ namespace MiNET.Blocks
 
 	public partial class StrippedBambooBlock : Block // minecraft:stripped_bamboo_block
 	{
-		public StrippedBambooBlock() : base(783)
+		public StrippedBambooBlock()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedBirchLog : Block // minecraft:stripped_birch_log
+	public partial class StrippedBirchLog : LogBase // minecraft:stripped_birch_log
 	{
-		public StrippedBirchLog() : base(261)
+		public StrippedBirchLog()
 		{
 			IsGenerated = true;
 		}
@@ -7294,15 +8534,15 @@ namespace MiNET.Blocks
 
 	public partial class StrippedBirchWood : Block // minecraft:stripped_birch_wood
 	{
-		public StrippedBirchWood() : base(1076)
+		public StrippedBirchWood()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedCherryLog : Block // minecraft:stripped_cherry_log
+	public partial class StrippedCherryLog : LogBase // minecraft:stripped_cherry_log
 	{
-		public StrippedCherryLog() : base(790)
+		public StrippedCherryLog()
 		{
 			IsGenerated = true;
 		}
@@ -7310,7 +8550,7 @@ namespace MiNET.Blocks
 
 	public partial class StrippedCherryWood : Block // minecraft:stripped_cherry_wood
 	{
-		public StrippedCherryWood() : base(800)
+		public StrippedCherryWood()
 		{
 			IsGenerated = true;
 		}
@@ -7318,23 +8558,23 @@ namespace MiNET.Blocks
 
 	public partial class StrippedCrimsonHyphae : Block // minecraft:stripped_crimson_hyphae
 	{
-		public StrippedCrimsonHyphae() : base(555)
+		public StrippedCrimsonHyphae()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedCrimsonStem : Block // minecraft:stripped_crimson_stem
+	public partial class StrippedCrimsonStem : LogBase // minecraft:stripped_crimson_stem
 	{
-		public StrippedCrimsonStem() : base(495)
+		public StrippedCrimsonStem()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedDarkOakLog : Block // minecraft:stripped_dark_oak_log
+	public partial class StrippedDarkOakLog : LogBase // minecraft:stripped_dark_oak_log
 	{
-		public StrippedDarkOakLog() : base(264)
+		public StrippedDarkOakLog()
 		{
 			IsGenerated = true;
 		}
@@ -7342,15 +8582,15 @@ namespace MiNET.Blocks
 
 	public partial class StrippedDarkOakWood : Block // minecraft:stripped_dark_oak_wood
 	{
-		public StrippedDarkOakWood() : base(1079)
+		public StrippedDarkOakWood()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedJungleLog : Block // minecraft:stripped_jungle_log
+	public partial class StrippedJungleLog : LogBase // minecraft:stripped_jungle_log
 	{
-		public StrippedJungleLog() : base(262)
+		public StrippedJungleLog()
 		{
 			IsGenerated = true;
 		}
@@ -7358,15 +8598,15 @@ namespace MiNET.Blocks
 
 	public partial class StrippedJungleWood : Block // minecraft:stripped_jungle_wood
 	{
-		public StrippedJungleWood() : base(1077)
+		public StrippedJungleWood()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedMangroveLog : Block // minecraft:stripped_mangrove_log
+	public partial class StrippedMangroveLog : LogBase // minecraft:stripped_mangrove_log
 	{
-		public StrippedMangroveLog() : base(740)
+		public StrippedMangroveLog()
 		{
 			IsGenerated = true;
 		}
@@ -7374,15 +8614,15 @@ namespace MiNET.Blocks
 
 	public partial class StrippedMangroveWood : Block // minecraft:stripped_mangrove_wood
 	{
-		public StrippedMangroveWood() : base(753)
+		public StrippedMangroveWood()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedOakLog : Block // minecraft:stripped_oak_log
+	public partial class StrippedOakLog : LogBase // minecraft:stripped_oak_log
 	{
-		public StrippedOakLog() : base(265)
+		public StrippedOakLog()
 		{
 			IsGenerated = true;
 		}
@@ -7390,15 +8630,15 @@ namespace MiNET.Blocks
 
 	public partial class StrippedOakWood : Block // minecraft:stripped_oak_wood
 	{
-		public StrippedOakWood() : base(1074)
+		public StrippedOakWood()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedPaleOakLog : Block // minecraft:stripped_pale_oak_log
+	public partial class StrippedPaleOakLog : LogBase // minecraft:stripped_pale_oak_log
 	{
-		public StrippedPaleOakLog() : base(1249)
+		public StrippedPaleOakLog()
 		{
 			IsGenerated = true;
 		}
@@ -7406,15 +8646,31 @@ namespace MiNET.Blocks
 
 	public partial class StrippedPaleOakWood : Block // minecraft:stripped_pale_oak_wood
 	{
-		public StrippedPaleOakWood() : base(1259)
+		public StrippedPaleOakWood()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedSpruceLog : Block // minecraft:stripped_spruce_log
+	public partial class StrippedPoplarLog : Block // minecraft:stripped_poplar_log
 	{
-		public StrippedSpruceLog() : base(260)
+		public StrippedPoplarLog()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StrippedPoplarWood : Block // minecraft:stripped_poplar_wood
+	{
+		public StrippedPoplarWood()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class StrippedSpruceLog : LogBase // minecraft:stripped_spruce_log
+	{
+		public StrippedSpruceLog()
 		{
 			IsGenerated = true;
 		}
@@ -7422,7 +8678,7 @@ namespace MiNET.Blocks
 
 	public partial class StrippedSpruceWood : Block // minecraft:stripped_spruce_wood
 	{
-		public StrippedSpruceWood() : base(1075)
+		public StrippedSpruceWood()
 		{
 			IsGenerated = true;
 		}
@@ -7430,15 +8686,15 @@ namespace MiNET.Blocks
 
 	public partial class StrippedWarpedHyphae : Block // minecraft:stripped_warped_hyphae
 	{
-		public StrippedWarpedHyphae() : base(556)
+		public StrippedWarpedHyphae()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class StrippedWarpedStem : Block // minecraft:stripped_warped_stem
+	public partial class StrippedWarpedStem : LogBase // minecraft:stripped_warped_stem
 	{
-		public StrippedWarpedStem() : base(496)
+		public StrippedWarpedStem()
 		{
 			IsGenerated = true;
 		}
@@ -7446,7 +8702,7 @@ namespace MiNET.Blocks
 
 	public partial class StructureVoid : Block // minecraft:structure_void
 	{
-		public StructureVoid() : base(217)
+		public StructureVoid()
 		{
 			IsGenerated = true;
 		}
@@ -7454,7 +8710,7 @@ namespace MiNET.Blocks
 
 	public partial class Sulfur : Block // minecraft:sulfur
 	{
-		public Sulfur() : base(1347)
+		public Sulfur()
 		{
 			IsGenerated = true;
 		}
@@ -7462,23 +8718,23 @@ namespace MiNET.Blocks
 
 	public partial class SulfurBrickDoubleSlab : Block // minecraft:sulfur_brick_double_slab
 	{
-		public SulfurBrickDoubleSlab() : base(1359)
+		public SulfurBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SulfurBrickSlab : Block // minecraft:sulfur_brick_slab
+	public partial class SulfurBrickSlab : SlabBase // minecraft:sulfur_brick_slab
 	{
-		public SulfurBrickSlab() : base(1358)
+		public SulfurBrickSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SulfurBrickStairs : Block // minecraft:sulfur_brick_stairs
+	public partial class SulfurBrickStairs : StairsBase // minecraft:sulfur_brick_stairs
 	{
-		public SulfurBrickStairs() : base(1360)
+		public SulfurBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -7486,15 +8742,15 @@ namespace MiNET.Blocks
 
 	public partial class SulfurBrickWall : Block // minecraft:sulfur_brick_wall
 	{
-		public SulfurBrickWall() : base(1361)
+		public SulfurBrickWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SulfurBricks : Block // minecraft:sulfur_bricks
+	public partial class SulfurBricks : StoneBrickBase // minecraft:sulfur_bricks
 	{
-		public SulfurBricks() : base(1357)
+		public SulfurBricks()
 		{
 			IsGenerated = true;
 		}
@@ -7502,15 +8758,15 @@ namespace MiNET.Blocks
 
 	public partial class SulfurDoubleSlab : Block // minecraft:sulfur_double_slab
 	{
-		public SulfurDoubleSlab() : base(1349)
+		public SulfurDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SulfurSlab : Block // minecraft:sulfur_slab
+	public partial class SulfurSlab : SlabBase // minecraft:sulfur_slab
 	{
-		public SulfurSlab() : base(1348)
+		public SulfurSlab()
 		{
 			IsGenerated = true;
 		}
@@ -7518,15 +8774,15 @@ namespace MiNET.Blocks
 
 	public partial class SulfurSpike : Block // minecraft:sulfur_spike
 	{
-		public SulfurSpike() : base(1380)
+		public SulfurSpike()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class SulfurStairs : Block // minecraft:sulfur_stairs
+	public partial class SulfurStairs : StairsBase // minecraft:sulfur_stairs
 	{
-		public SulfurStairs() : base(1350)
+		public SulfurStairs()
 		{
 			IsGenerated = true;
 		}
@@ -7534,15 +8790,15 @@ namespace MiNET.Blocks
 
 	public partial class SulfurWall : Block // minecraft:sulfur_wall
 	{
-		public SulfurWall() : base(1351)
+		public SulfurWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Sunflower : Block // minecraft:sunflower
+	public partial class Sunflower : FlowerBase // minecraft:sunflower
 	{
-		public Sunflower() : base(175)
+		public Sunflower()
 		{
 			IsGenerated = true;
 		}
@@ -7550,7 +8806,7 @@ namespace MiNET.Blocks
 
 	public partial class SuspiciousGravel : Block // minecraft:suspicious_gravel
 	{
-		public SuspiciousGravel() : base(828)
+		public SuspiciousGravel()
 		{
 			IsGenerated = true;
 		}
@@ -7558,7 +8814,7 @@ namespace MiNET.Blocks
 
 	public partial class SuspiciousSand : Block // minecraft:suspicious_sand
 	{
-		public SuspiciousSand() : base(784)
+		public SuspiciousSand()
 		{
 			IsGenerated = true;
 		}
@@ -7566,7 +8822,7 @@ namespace MiNET.Blocks
 
 	public partial class SweetBerryBush : Block // minecraft:sweet_berry_bush
 	{
-		public SweetBerryBush() : base(462)
+		public SweetBerryBush()
 		{
 			IsGenerated = true;
 		}
@@ -7574,7 +8830,7 @@ namespace MiNET.Blocks
 
 	public partial class TallDryGrass : Block // minecraft:tall_dry_grass
 	{
-		public TallDryGrass() : base(1284)
+		public TallDryGrass()
 		{
 			IsGenerated = true;
 		}
@@ -7582,7 +8838,7 @@ namespace MiNET.Blocks
 
 	public partial class Target : Block // minecraft:target
 	{
-		public Target() : base(494)
+		public Target()
 		{
 			IsGenerated = true;
 		}
@@ -7590,15 +8846,23 @@ namespace MiNET.Blocks
 
 	public partial class TintedGlass : Block // minecraft:tinted_glass
 	{
-		public TintedGlass() : base(589)
+		public TintedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Torchflower : Block // minecraft:torchflower
+	public partial class Tnt : Block // minecraft:tnt
 	{
-		public Torchflower() : base(823)
+		public Tnt()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Torchflower : FlowerBase // minecraft:torchflower
+	{
+		public Torchflower()
 		{
 			IsGenerated = true;
 		}
@@ -7606,7 +8870,23 @@ namespace MiNET.Blocks
 
 	public partial class TorchflowerCrop : Block // minecraft:torchflower_crop
 	{
-		public TorchflowerCrop() : base(822)
+		public TorchflowerCrop()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class Trapdoor : TrapdoorBase // minecraft:trapdoor
+	{
+		public Trapdoor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class TrappedChest : ChestBase // minecraft:trapped_chest
+	{
+		public TrappedChest()
 		{
 			IsGenerated = true;
 		}
@@ -7614,7 +8894,15 @@ namespace MiNET.Blocks
 
 	public partial class TrialSpawner : Block // minecraft:trial_spawner
 	{
-		public TrialSpawner() : base(570)
+		public TrialSpawner()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class TripwireHook : Block // minecraft:tripwire_hook
+	{
+		public TripwireHook()
 		{
 			IsGenerated = true;
 		}
@@ -7622,7 +8910,7 @@ namespace MiNET.Blocks
 
 	public partial class TubeCoral : Block // minecraft:tube_coral
 	{
-		public TubeCoral() : base(386)
+		public TubeCoral()
 		{
 			IsGenerated = true;
 		}
@@ -7630,7 +8918,7 @@ namespace MiNET.Blocks
 
 	public partial class TubeCoralBlock : Block // minecraft:tube_coral_block
 	{
-		public TubeCoralBlock() : base(387)
+		public TubeCoralBlock()
 		{
 			IsGenerated = true;
 		}
@@ -7638,7 +8926,7 @@ namespace MiNET.Blocks
 
 	public partial class TubeCoralFan : Block // minecraft:tube_coral_fan
 	{
-		public TubeCoralFan() : base(388)
+		public TubeCoralFan()
 		{
 			IsGenerated = true;
 		}
@@ -7646,7 +8934,7 @@ namespace MiNET.Blocks
 
 	public partial class TubeCoralWallFan : Block // minecraft:tube_coral_wall_fan
 	{
-		public TubeCoralWallFan() : base(390)
+		public TubeCoralWallFan()
 		{
 			IsGenerated = true;
 		}
@@ -7654,7 +8942,7 @@ namespace MiNET.Blocks
 
 	public partial class Tuff : Block // minecraft:tuff
 	{
-		public Tuff() : base(588)
+		public Tuff()
 		{
 			IsGenerated = true;
 		}
@@ -7662,23 +8950,23 @@ namespace MiNET.Blocks
 
 	public partial class TuffBrickDoubleSlab : Block // minecraft:tuff_brick_double_slab
 	{
-		public TuffBrickDoubleSlab() : base(1011)
+		public TuffBrickDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class TuffBrickSlab : Block // minecraft:tuff_brick_slab
+	public partial class TuffBrickSlab : SlabBase // minecraft:tuff_brick_slab
 	{
-		public TuffBrickSlab() : base(1010)
+		public TuffBrickSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class TuffBrickStairs : Block // minecraft:tuff_brick_stairs
+	public partial class TuffBrickStairs : StairsBase // minecraft:tuff_brick_stairs
 	{
-		public TuffBrickStairs() : base(1012)
+		public TuffBrickStairs()
 		{
 			IsGenerated = true;
 		}
@@ -7686,15 +8974,15 @@ namespace MiNET.Blocks
 
 	public partial class TuffBrickWall : Block // minecraft:tuff_brick_wall
 	{
-		public TuffBrickWall() : base(1013)
+		public TuffBrickWall()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class TuffBricks : Block // minecraft:tuff_bricks
+	public partial class TuffBricks : StoneBrickBase // minecraft:tuff_bricks
 	{
-		public TuffBricks() : base(1009)
+		public TuffBricks()
 		{
 			IsGenerated = true;
 		}
@@ -7702,23 +8990,23 @@ namespace MiNET.Blocks
 
 	public partial class TuffDoubleSlab : Block // minecraft:tuff_double_slab
 	{
-		public TuffDoubleSlab() : base(1000)
+		public TuffDoubleSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class TuffSlab : Block // minecraft:tuff_slab
+	public partial class TuffSlab : SlabBase // minecraft:tuff_slab
 	{
-		public TuffSlab() : base(999)
+		public TuffSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class TuffStairs : Block // minecraft:tuff_stairs
+	public partial class TuffStairs : StairsBase // minecraft:tuff_stairs
 	{
-		public TuffStairs() : base(1001)
+		public TuffStairs()
 		{
 			IsGenerated = true;
 		}
@@ -7726,7 +9014,7 @@ namespace MiNET.Blocks
 
 	public partial class TuffWall : Block // minecraft:tuff_wall
 	{
-		public TuffWall() : base(1002)
+		public TuffWall()
 		{
 			IsGenerated = true;
 		}
@@ -7734,7 +9022,7 @@ namespace MiNET.Blocks
 
 	public partial class TurtleEgg : Block // minecraft:turtle_egg
 	{
-		public TurtleEgg() : base(414)
+		public TurtleEgg()
 		{
 			IsGenerated = true;
 		}
@@ -7742,7 +9030,7 @@ namespace MiNET.Blocks
 
 	public partial class TwistingVines : Block // minecraft:twisting_vines
 	{
-		public TwistingVines() : base(542)
+		public TwistingVines()
 		{
 			IsGenerated = true;
 		}
@@ -7750,7 +9038,7 @@ namespace MiNET.Blocks
 
 	public partial class UnderwaterTnt : Block // minecraft:underwater_tnt
 	{
-		public UnderwaterTnt() : base(1240)
+		public UnderwaterTnt()
 		{
 			IsGenerated = true;
 		}
@@ -7758,7 +9046,7 @@ namespace MiNET.Blocks
 
 	public partial class UnderwaterTorch : Block // minecraft:underwater_torch
 	{
-		public UnderwaterTorch() : base(239)
+		public UnderwaterTorch()
 		{
 			IsGenerated = true;
 		}
@@ -7766,7 +9054,23 @@ namespace MiNET.Blocks
 
 	public partial class Unknown : Block // minecraft:unknown
 	{
-		public Unknown() : base(560)
+		public Unknown()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class UnpoweredComparator : Block // minecraft:unpowered_comparator
+	{
+		public UnpoweredComparator()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class UnpoweredRepeater : Block // minecraft:unpowered_repeater
+	{
+		public UnpoweredRepeater()
 		{
 			IsGenerated = true;
 		}
@@ -7774,7 +9078,7 @@ namespace MiNET.Blocks
 
 	public partial class Vault : Block // minecraft:vault
 	{
-		public Vault() : base(569)
+		public Vault()
 		{
 			IsGenerated = true;
 		}
@@ -7782,7 +9086,7 @@ namespace MiNET.Blocks
 
 	public partial class VerdantFroglight : Block // minecraft:verdant_froglight
 	{
-		public VerdantFroglight() : base(725)
+		public VerdantFroglight()
 		{
 			IsGenerated = true;
 		}
@@ -7790,15 +9094,23 @@ namespace MiNET.Blocks
 
 	public partial class WarpedButton : Block // minecraft:warped_button
 	{
-		public WarpedButton() : base(516)
+		public WarpedButton()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WarpedDoor : Block // minecraft:warped_door
+	public partial class WarpedDoor : DoorBase // minecraft:warped_door
 	{
-		public WarpedDoor() : base(500)
+		public WarpedDoor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class WarpedDoubleSlab : Block // minecraft:warped_double_slab
+	{
+		public WarpedDoubleSlab()
 		{
 			IsGenerated = true;
 		}
@@ -7806,15 +9118,15 @@ namespace MiNET.Blocks
 
 	public partial class WarpedFence : Block // minecraft:warped_fence
 	{
-		public WarpedFence() : base(512)
+		public WarpedFence()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WarpedFenceGate : Block // minecraft:warped_fence_gate
+	public partial class WarpedFenceGate : FenceGateBase // minecraft:warped_fence_gate
 	{
-		public WarpedFenceGate() : base(514)
+		public WarpedFenceGate()
 		{
 			IsGenerated = true;
 		}
@@ -7822,7 +9134,7 @@ namespace MiNET.Blocks
 
 	public partial class WarpedFungus : Block // minecraft:warped_fungus
 	{
-		public WarpedFungus() : base(484)
+		public WarpedFungus()
 		{
 			IsGenerated = true;
 		}
@@ -7830,7 +9142,7 @@ namespace MiNET.Blocks
 
 	public partial class WarpedHangingSign : Block // minecraft:warped_hanging_sign
 	{
-		public WarpedHangingSign() : base(762)
+		public WarpedHangingSign()
 		{
 			IsGenerated = true;
 		}
@@ -7838,7 +9150,7 @@ namespace MiNET.Blocks
 
 	public partial class WarpedHyphae : Block // minecraft:warped_hyphae
 	{
-		public WarpedHyphae() : base(553)
+		public WarpedHyphae()
 		{
 			IsGenerated = true;
 		}
@@ -7846,7 +9158,7 @@ namespace MiNET.Blocks
 
 	public partial class WarpedNylium : Block // minecraft:warped_nylium
 	{
-		public WarpedNylium() : base(488)
+		public WarpedNylium()
 		{
 			IsGenerated = true;
 		}
@@ -7854,7 +9166,7 @@ namespace MiNET.Blocks
 
 	public partial class WarpedPlanks : Block // minecraft:warped_planks
 	{
-		public WarpedPlanks() : base(498)
+		public WarpedPlanks()
 		{
 			IsGenerated = true;
 		}
@@ -7862,15 +9174,15 @@ namespace MiNET.Blocks
 
 	public partial class WarpedPressurePlate : Block // minecraft:warped_pressure_plate
 	{
-		public WarpedPressurePlate() : base(518)
+		public WarpedPressurePlate()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WarpedRoots : Block // minecraft:warped_roots
+	public partial class WarpedRoots : FlowerBase // minecraft:warped_roots
 	{
-		public WarpedRoots() : base(479)
+		public WarpedRoots()
 		{
 			IsGenerated = true;
 		}
@@ -7878,15 +9190,39 @@ namespace MiNET.Blocks
 
 	public partial class WarpedShelf : Block // minecraft:warped_shelf
 	{
-		public WarpedShelf() : base(1313)
+		public WarpedShelf()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WarpedStem : Block // minecraft:warped_stem
+	public partial class WarpedSlab : SlabBase // minecraft:warped_slab
 	{
-		public WarpedStem() : base(481)
+		public WarpedSlab()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class WarpedStairs : StairsBase // minecraft:warped_stairs
+	{
+		public WarpedStairs()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class WarpedStem : LogBase // minecraft:warped_stem
+	{
+		public WarpedStem()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class WarpedTrapdoor : TrapdoorBase // minecraft:warped_trapdoor
+	{
+		public WarpedTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -7894,7 +9230,7 @@ namespace MiNET.Blocks
 
 	public partial class WarpedWartBlock : Block // minecraft:warped_wart_block
 	{
-		public WarpedWartBlock() : base(482)
+		public WarpedWartBlock()
 		{
 			IsGenerated = true;
 		}
@@ -7902,7 +9238,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedChiseledCopper : Block // minecraft:waxed_chiseled_copper
 	{
-		public WaxedChiseledCopper() : base(1019)
+		public WaxedChiseledCopper()
 		{
 			IsGenerated = true;
 		}
@@ -7910,7 +9246,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCopper : Block // minecraft:waxed_copper
 	{
-		public WaxedCopper() : base(599)
+		public WaxedCopper()
 		{
 			IsGenerated = true;
 		}
@@ -7918,7 +9254,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCopperBars : Block // minecraft:waxed_copper_bars
 	{
-		public WaxedCopperBars() : base(1325)
+		public WaxedCopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -7926,7 +9262,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCopperBulb : Block // minecraft:waxed_copper_bulb
 	{
-		public WaxedCopperBulb() : base(1035)
+		public WaxedCopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -7934,23 +9270,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCopperChain : Block // minecraft:waxed_copper_chain
 	{
-		public WaxedCopperChain() : base(1333)
+		public WaxedCopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedCopperChest : Block // minecraft:waxed_copper_chest
+	public partial class WaxedCopperChest : ChestBase // minecraft:waxed_copper_chest
 	{
-		public WaxedCopperChest() : base(1290)
+		public WaxedCopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedCopperDoor : Block // minecraft:waxed_copper_door
+	public partial class WaxedCopperDoor : DoorBase // minecraft:waxed_copper_door
 	{
-		public WaxedCopperDoor() : base(1043)
+		public WaxedCopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -7958,7 +9294,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCopperGolemStatue : Block // minecraft:waxed_copper_golem_statue
 	{
-		public WaxedCopperGolemStatue() : base(1298)
+		public WaxedCopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -7966,7 +9302,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCopperGrate : Block // minecraft:waxed_copper_grate
 	{
-		public WaxedCopperGrate() : base(1027)
+		public WaxedCopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -7974,15 +9310,15 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCopperLantern : Block // minecraft:waxed_copper_lantern
 	{
-		public WaxedCopperLantern() : base(1342)
+		public WaxedCopperLantern()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedCopperTrapdoor : Block // minecraft:waxed_copper_trapdoor
+	public partial class WaxedCopperTrapdoor : TrapdoorBase // minecraft:waxed_copper_trapdoor
 	{
-		public WaxedCopperTrapdoor() : base(1051)
+		public WaxedCopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -7990,23 +9326,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedCutCopper : Block // minecraft:waxed_cut_copper
 	{
-		public WaxedCutCopper() : base(606)
+		public WaxedCutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedCutCopperSlab : Block // minecraft:waxed_cut_copper_slab
+	public partial class WaxedCutCopperSlab : SlabBase // minecraft:waxed_cut_copper_slab
 	{
-		public WaxedCutCopperSlab() : base(620)
+		public WaxedCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedCutCopperStairs : Block // minecraft:waxed_cut_copper_stairs
+	public partial class WaxedCutCopperStairs : StairsBase // minecraft:waxed_cut_copper_stairs
 	{
-		public WaxedCutCopperStairs() : base(613)
+		public WaxedCutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -8014,7 +9350,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedDoubleCutCopperSlab : Block // minecraft:waxed_double_cut_copper_slab
 	{
-		public WaxedDoubleCutCopperSlab() : base(627)
+		public WaxedDoubleCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
@@ -8022,7 +9358,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedChiseledCopper : Block // minecraft:waxed_exposed_chiseled_copper
 	{
-		public WaxedExposedChiseledCopper() : base(1020)
+		public WaxedExposedChiseledCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8030,7 +9366,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCopper : Block // minecraft:waxed_exposed_copper
 	{
-		public WaxedExposedCopper() : base(600)
+		public WaxedExposedCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8038,7 +9374,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCopperBars : Block // minecraft:waxed_exposed_copper_bars
 	{
-		public WaxedExposedCopperBars() : base(1326)
+		public WaxedExposedCopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -8046,7 +9382,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCopperBulb : Block // minecraft:waxed_exposed_copper_bulb
 	{
-		public WaxedExposedCopperBulb() : base(1036)
+		public WaxedExposedCopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -8054,23 +9390,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCopperChain : Block // minecraft:waxed_exposed_copper_chain
 	{
-		public WaxedExposedCopperChain() : base(1334)
+		public WaxedExposedCopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedExposedCopperChest : Block // minecraft:waxed_exposed_copper_chest
+	public partial class WaxedExposedCopperChest : ChestBase // minecraft:waxed_exposed_copper_chest
 	{
-		public WaxedExposedCopperChest() : base(1291)
+		public WaxedExposedCopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedExposedCopperDoor : Block // minecraft:waxed_exposed_copper_door
+	public partial class WaxedExposedCopperDoor : DoorBase // minecraft:waxed_exposed_copper_door
 	{
-		public WaxedExposedCopperDoor() : base(1044)
+		public WaxedExposedCopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -8078,7 +9414,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCopperGolemStatue : Block // minecraft:waxed_exposed_copper_golem_statue
 	{
-		public WaxedExposedCopperGolemStatue() : base(1299)
+		public WaxedExposedCopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -8086,7 +9422,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCopperGrate : Block // minecraft:waxed_exposed_copper_grate
 	{
-		public WaxedExposedCopperGrate() : base(1028)
+		public WaxedExposedCopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -8094,15 +9430,15 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCopperLantern : Block // minecraft:waxed_exposed_copper_lantern
 	{
-		public WaxedExposedCopperLantern() : base(1343)
+		public WaxedExposedCopperLantern()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedExposedCopperTrapdoor : Block // minecraft:waxed_exposed_copper_trapdoor
+	public partial class WaxedExposedCopperTrapdoor : TrapdoorBase // minecraft:waxed_exposed_copper_trapdoor
 	{
-		public WaxedExposedCopperTrapdoor() : base(1052)
+		public WaxedExposedCopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -8110,23 +9446,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedCutCopper : Block // minecraft:waxed_exposed_cut_copper
 	{
-		public WaxedExposedCutCopper() : base(607)
+		public WaxedExposedCutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedExposedCutCopperSlab : Block // minecraft:waxed_exposed_cut_copper_slab
+	public partial class WaxedExposedCutCopperSlab : SlabBase // minecraft:waxed_exposed_cut_copper_slab
 	{
-		public WaxedExposedCutCopperSlab() : base(621)
+		public WaxedExposedCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedExposedCutCopperStairs : Block // minecraft:waxed_exposed_cut_copper_stairs
+	public partial class WaxedExposedCutCopperStairs : StairsBase // minecraft:waxed_exposed_cut_copper_stairs
 	{
-		public WaxedExposedCutCopperStairs() : base(614)
+		public WaxedExposedCutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -8134,7 +9470,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedDoubleCutCopperSlab : Block // minecraft:waxed_exposed_double_cut_copper_slab
 	{
-		public WaxedExposedDoubleCutCopperSlab() : base(628)
+		public WaxedExposedDoubleCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
@@ -8142,7 +9478,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedExposedLightningRod : Block // minecraft:waxed_exposed_lightning_rod
 	{
-		public WaxedExposedLightningRod() : base(1318)
+		public WaxedExposedLightningRod()
 		{
 			IsGenerated = true;
 		}
@@ -8150,7 +9486,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedLightningRod : Block // minecraft:waxed_lightning_rod
 	{
-		public WaxedLightningRod() : base(1317)
+		public WaxedLightningRod()
 		{
 			IsGenerated = true;
 		}
@@ -8158,7 +9494,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedChiseledCopper : Block // minecraft:waxed_oxidized_chiseled_copper
 	{
-		public WaxedOxidizedChiseledCopper() : base(1021)
+		public WaxedOxidizedChiseledCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8166,7 +9502,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCopper : Block // minecraft:waxed_oxidized_copper
 	{
-		public WaxedOxidizedCopper() : base(701)
+		public WaxedOxidizedCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8174,7 +9510,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCopperBars : Block // minecraft:waxed_oxidized_copper_bars
 	{
-		public WaxedOxidizedCopperBars() : base(1328)
+		public WaxedOxidizedCopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -8182,7 +9518,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCopperBulb : Block // minecraft:waxed_oxidized_copper_bulb
 	{
-		public WaxedOxidizedCopperBulb() : base(1038)
+		public WaxedOxidizedCopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -8190,23 +9526,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCopperChain : Block // minecraft:waxed_oxidized_copper_chain
 	{
-		public WaxedOxidizedCopperChain() : base(1336)
+		public WaxedOxidizedCopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedOxidizedCopperChest : Block // minecraft:waxed_oxidized_copper_chest
+	public partial class WaxedOxidizedCopperChest : ChestBase // minecraft:waxed_oxidized_copper_chest
 	{
-		public WaxedOxidizedCopperChest() : base(1293)
+		public WaxedOxidizedCopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedOxidizedCopperDoor : Block // minecraft:waxed_oxidized_copper_door
+	public partial class WaxedOxidizedCopperDoor : DoorBase // minecraft:waxed_oxidized_copper_door
 	{
-		public WaxedOxidizedCopperDoor() : base(1046)
+		public WaxedOxidizedCopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -8214,7 +9550,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCopperGolemStatue : Block // minecraft:waxed_oxidized_copper_golem_statue
 	{
-		public WaxedOxidizedCopperGolemStatue() : base(1301)
+		public WaxedOxidizedCopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -8222,7 +9558,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCopperGrate : Block // minecraft:waxed_oxidized_copper_grate
 	{
-		public WaxedOxidizedCopperGrate() : base(1030)
+		public WaxedOxidizedCopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -8230,15 +9566,15 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCopperLantern : Block // minecraft:waxed_oxidized_copper_lantern
 	{
-		public WaxedOxidizedCopperLantern() : base(1345)
+		public WaxedOxidizedCopperLantern()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedOxidizedCopperTrapdoor : Block // minecraft:waxed_oxidized_copper_trapdoor
+	public partial class WaxedOxidizedCopperTrapdoor : TrapdoorBase // minecraft:waxed_oxidized_copper_trapdoor
 	{
-		public WaxedOxidizedCopperTrapdoor() : base(1054)
+		public WaxedOxidizedCopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -8246,23 +9582,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedCutCopper : Block // minecraft:waxed_oxidized_cut_copper
 	{
-		public WaxedOxidizedCutCopper() : base(702)
+		public WaxedOxidizedCutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedOxidizedCutCopperSlab : Block // minecraft:waxed_oxidized_cut_copper_slab
+	public partial class WaxedOxidizedCutCopperSlab : SlabBase // minecraft:waxed_oxidized_cut_copper_slab
 	{
-		public WaxedOxidizedCutCopperSlab() : base(704)
+		public WaxedOxidizedCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedOxidizedCutCopperStairs : Block // minecraft:waxed_oxidized_cut_copper_stairs
+	public partial class WaxedOxidizedCutCopperStairs : StairsBase // minecraft:waxed_oxidized_cut_copper_stairs
 	{
-		public WaxedOxidizedCutCopperStairs() : base(703)
+		public WaxedOxidizedCutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -8270,7 +9606,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedDoubleCutCopperSlab : Block // minecraft:waxed_oxidized_double_cut_copper_slab
 	{
-		public WaxedOxidizedDoubleCutCopperSlab() : base(705)
+		public WaxedOxidizedDoubleCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
@@ -8278,7 +9614,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedOxidizedLightningRod : Block // minecraft:waxed_oxidized_lightning_rod
 	{
-		public WaxedOxidizedLightningRod() : base(1320)
+		public WaxedOxidizedLightningRod()
 		{
 			IsGenerated = true;
 		}
@@ -8286,7 +9622,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredChiseledCopper : Block // minecraft:waxed_weathered_chiseled_copper
 	{
-		public WaxedWeatheredChiseledCopper() : base(1022)
+		public WaxedWeatheredChiseledCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8294,7 +9630,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCopper : Block // minecraft:waxed_weathered_copper
 	{
-		public WaxedWeatheredCopper() : base(601)
+		public WaxedWeatheredCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8302,7 +9638,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCopperBars : Block // minecraft:waxed_weathered_copper_bars
 	{
-		public WaxedWeatheredCopperBars() : base(1327)
+		public WaxedWeatheredCopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -8310,7 +9646,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCopperBulb : Block // minecraft:waxed_weathered_copper_bulb
 	{
-		public WaxedWeatheredCopperBulb() : base(1037)
+		public WaxedWeatheredCopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -8318,23 +9654,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCopperChain : Block // minecraft:waxed_weathered_copper_chain
 	{
-		public WaxedWeatheredCopperChain() : base(1335)
+		public WaxedWeatheredCopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedWeatheredCopperChest : Block // minecraft:waxed_weathered_copper_chest
+	public partial class WaxedWeatheredCopperChest : ChestBase // minecraft:waxed_weathered_copper_chest
 	{
-		public WaxedWeatheredCopperChest() : base(1292)
+		public WaxedWeatheredCopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedWeatheredCopperDoor : Block // minecraft:waxed_weathered_copper_door
+	public partial class WaxedWeatheredCopperDoor : DoorBase // minecraft:waxed_weathered_copper_door
 	{
-		public WaxedWeatheredCopperDoor() : base(1045)
+		public WaxedWeatheredCopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -8342,7 +9678,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCopperGolemStatue : Block // minecraft:waxed_weathered_copper_golem_statue
 	{
-		public WaxedWeatheredCopperGolemStatue() : base(1300)
+		public WaxedWeatheredCopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -8350,7 +9686,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCopperGrate : Block // minecraft:waxed_weathered_copper_grate
 	{
-		public WaxedWeatheredCopperGrate() : base(1029)
+		public WaxedWeatheredCopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -8358,15 +9694,15 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCopperLantern : Block // minecraft:waxed_weathered_copper_lantern
 	{
-		public WaxedWeatheredCopperLantern() : base(1344)
+		public WaxedWeatheredCopperLantern()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedWeatheredCopperTrapdoor : Block // minecraft:waxed_weathered_copper_trapdoor
+	public partial class WaxedWeatheredCopperTrapdoor : TrapdoorBase // minecraft:waxed_weathered_copper_trapdoor
 	{
-		public WaxedWeatheredCopperTrapdoor() : base(1053)
+		public WaxedWeatheredCopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -8374,23 +9710,23 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredCutCopper : Block // minecraft:waxed_weathered_cut_copper
 	{
-		public WaxedWeatheredCutCopper() : base(608)
+		public WaxedWeatheredCutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedWeatheredCutCopperSlab : Block // minecraft:waxed_weathered_cut_copper_slab
+	public partial class WaxedWeatheredCutCopperSlab : SlabBase // minecraft:waxed_weathered_cut_copper_slab
 	{
-		public WaxedWeatheredCutCopperSlab() : base(622)
+		public WaxedWeatheredCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WaxedWeatheredCutCopperStairs : Block // minecraft:waxed_weathered_cut_copper_stairs
+	public partial class WaxedWeatheredCutCopperStairs : StairsBase // minecraft:waxed_weathered_cut_copper_stairs
 	{
-		public WaxedWeatheredCutCopperStairs() : base(615)
+		public WaxedWeatheredCutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -8398,7 +9734,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredDoubleCutCopperSlab : Block // minecraft:waxed_weathered_double_cut_copper_slab
 	{
-		public WaxedWeatheredDoubleCutCopperSlab() : base(629)
+		public WaxedWeatheredDoubleCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
@@ -8406,7 +9742,7 @@ namespace MiNET.Blocks
 
 	public partial class WaxedWeatheredLightningRod : Block // minecraft:waxed_weathered_lightning_rod
 	{
-		public WaxedWeatheredLightningRod() : base(1319)
+		public WaxedWeatheredLightningRod()
 		{
 			IsGenerated = true;
 		}
@@ -8414,7 +9750,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredChiseledCopper : Block // minecraft:weathered_chiseled_copper
 	{
-		public WeatheredChiseledCopper() : base(1017)
+		public WeatheredChiseledCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8422,7 +9758,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCopper : Block // minecraft:weathered_copper
 	{
-		public WeatheredCopper() : base(597)
+		public WeatheredCopper()
 		{
 			IsGenerated = true;
 		}
@@ -8430,7 +9766,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCopperBars : Block // minecraft:weathered_copper_bars
 	{
-		public WeatheredCopperBars() : base(1323)
+		public WeatheredCopperBars()
 		{
 			IsGenerated = true;
 		}
@@ -8438,7 +9774,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCopperBulb : Block // minecraft:weathered_copper_bulb
 	{
-		public WeatheredCopperBulb() : base(1033)
+		public WeatheredCopperBulb()
 		{
 			IsGenerated = true;
 		}
@@ -8446,23 +9782,23 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCopperChain : Block // minecraft:weathered_copper_chain
 	{
-		public WeatheredCopperChain() : base(1331)
+		public WeatheredCopperChain()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WeatheredCopperChest : Block // minecraft:weathered_copper_chest
+	public partial class WeatheredCopperChest : ChestBase // minecraft:weathered_copper_chest
 	{
-		public WeatheredCopperChest() : base(1288)
+		public WeatheredCopperChest()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WeatheredCopperDoor : Block // minecraft:weathered_copper_door
+	public partial class WeatheredCopperDoor : DoorBase // minecraft:weathered_copper_door
 	{
-		public WeatheredCopperDoor() : base(1041)
+		public WeatheredCopperDoor()
 		{
 			IsGenerated = true;
 		}
@@ -8470,7 +9806,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCopperGolemStatue : Block // minecraft:weathered_copper_golem_statue
 	{
-		public WeatheredCopperGolemStatue() : base(1296)
+		public WeatheredCopperGolemStatue()
 		{
 			IsGenerated = true;
 		}
@@ -8478,7 +9814,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCopperGrate : Block // minecraft:weathered_copper_grate
 	{
-		public WeatheredCopperGrate() : base(1025)
+		public WeatheredCopperGrate()
 		{
 			IsGenerated = true;
 		}
@@ -8486,15 +9822,15 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCopperLantern : Block // minecraft:weathered_copper_lantern
 	{
-		public WeatheredCopperLantern() : base(1340)
+		public WeatheredCopperLantern()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WeatheredCopperTrapdoor : Block // minecraft:weathered_copper_trapdoor
+	public partial class WeatheredCopperTrapdoor : TrapdoorBase // minecraft:weathered_copper_trapdoor
 	{
-		public WeatheredCopperTrapdoor() : base(1049)
+		public WeatheredCopperTrapdoor()
 		{
 			IsGenerated = true;
 		}
@@ -8502,23 +9838,23 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredCutCopper : Block // minecraft:weathered_cut_copper
 	{
-		public WeatheredCutCopper() : base(604)
+		public WeatheredCutCopper()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WeatheredCutCopperSlab : Block // minecraft:weathered_cut_copper_slab
+	public partial class WeatheredCutCopperSlab : SlabBase // minecraft:weathered_cut_copper_slab
 	{
-		public WeatheredCutCopperSlab() : base(618)
+		public WeatheredCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WeatheredCutCopperStairs : Block // minecraft:weathered_cut_copper_stairs
+	public partial class WeatheredCutCopperStairs : StairsBase // minecraft:weathered_cut_copper_stairs
 	{
-		public WeatheredCutCopperStairs() : base(611)
+		public WeatheredCutCopperStairs()
 		{
 			IsGenerated = true;
 		}
@@ -8526,7 +9862,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredDoubleCutCopperSlab : Block // minecraft:weathered_double_cut_copper_slab
 	{
-		public WeatheredDoubleCutCopperSlab() : base(625)
+		public WeatheredDoubleCutCopperSlab()
 		{
 			IsGenerated = true;
 		}
@@ -8534,7 +9870,7 @@ namespace MiNET.Blocks
 
 	public partial class WeatheredLightningRod : Block // minecraft:weathered_lightning_rod
 	{
-		public WeatheredLightningRod() : base(1315)
+		public WeatheredLightningRod()
 		{
 			IsGenerated = true;
 		}
@@ -8542,7 +9878,7 @@ namespace MiNET.Blocks
 
 	public partial class WeepingVines : Block // minecraft:weeping_vines
 	{
-		public WeepingVines() : base(486)
+		public WeepingVines()
 		{
 			IsGenerated = true;
 		}
@@ -8550,7 +9886,7 @@ namespace MiNET.Blocks
 
 	public partial class WetSponge : Block // minecraft:wet_sponge
 	{
-		public WetSponge() : base(1239)
+		public WetSponge()
 		{
 			IsGenerated = true;
 		}
@@ -8558,7 +9894,7 @@ namespace MiNET.Blocks
 
 	public partial class WhiteCandle : Block // minecraft:white_candle
 	{
-		public WhiteCandle() : base(668)
+		public WhiteCandle()
 		{
 			IsGenerated = true;
 		}
@@ -8566,7 +9902,7 @@ namespace MiNET.Blocks
 
 	public partial class WhiteCandleCake : Block // minecraft:white_candle_cake
 	{
-		public WhiteCandleCake() : base(685)
+		public WhiteCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -8574,7 +9910,7 @@ namespace MiNET.Blocks
 
 	public partial class WhiteCarpet : Block // minecraft:white_carpet
 	{
-		public WhiteCarpet() : base(171)
+		public WhiteCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -8582,7 +9918,7 @@ namespace MiNET.Blocks
 
 	public partial class WhiteConcrete : Block // minecraft:white_concrete
 	{
-		public WhiteConcrete() : base(236)
+		public WhiteConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -8590,7 +9926,15 @@ namespace MiNET.Blocks
 
 	public partial class WhiteConcretePowder : Block // minecraft:white_concrete_powder
 	{
-		public WhiteConcretePowder() : base(237)
+		public WhiteConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class WhiteGlazedTerracotta : GlazedTerracottaBase // minecraft:white_glazed_terracotta
+	{
+		public WhiteGlazedTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -8598,7 +9942,7 @@ namespace MiNET.Blocks
 
 	public partial class WhiteShulkerBox : Block // minecraft:white_shulker_box
 	{
-		public WhiteShulkerBox() : base(218)
+		public WhiteShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -8606,15 +9950,15 @@ namespace MiNET.Blocks
 
 	public partial class WhiteStainedGlass : Block // minecraft:white_stained_glass
 	{
-		public WhiteStainedGlass() : base(241)
+		public WhiteStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WhiteStainedGlassPane : Block // minecraft:white_stained_glass_pane
+	public partial class WhiteStainedGlassPane : GlassPaneBase // minecraft:white_stained_glass_pane
 	{
-		public WhiteStainedGlassPane() : base(160)
+		public WhiteStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -8622,15 +9966,15 @@ namespace MiNET.Blocks
 
 	public partial class WhiteTerracotta : Block // minecraft:white_terracotta
 	{
-		public WhiteTerracotta() : base(159)
+		public WhiteTerracotta()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WhiteTulip : Block // minecraft:white_tulip
+	public partial class WhiteTulip : FlowerBase // minecraft:white_tulip
 	{
-		public WhiteTulip() : base(1090)
+		public WhiteTulip()
 		{
 			IsGenerated = true;
 		}
@@ -8638,23 +9982,23 @@ namespace MiNET.Blocks
 
 	public partial class WhiteWool : Block // minecraft:white_wool
 	{
-		public WhiteWool() : base(35)
+		public WhiteWool()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class Wildflowers : Block // minecraft:wildflowers
+	public partial class Wildflowers : FlowerBase // minecraft:wildflowers
 	{
-		public Wildflowers() : base(1279)
+		public Wildflowers()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class WitherRose : Block // minecraft:wither_rose
+	public partial class WitherRose : FlowerBase // minecraft:wither_rose
 	{
-		public WitherRose() : base(471)
+		public WitherRose()
 		{
 			IsGenerated = true;
 		}
@@ -8662,7 +10006,23 @@ namespace MiNET.Blocks
 
 	public partial class WitherSkeletonSkull : Block // minecraft:wither_skeleton_skull
 	{
-		public WitherSkeletonSkull() : base(1220)
+		public WitherSkeletonSkull()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class WoodenDoor : DoorBase // minecraft:wooden_door
+	{
+		public WoodenDoor()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class WoodenPressurePlate : Block // minecraft:wooden_pressure_plate
+	{
+		public WoodenPressurePlate()
 		{
 			IsGenerated = true;
 		}
@@ -8670,7 +10030,7 @@ namespace MiNET.Blocks
 
 	public partial class YellowCandle : Block // minecraft:yellow_candle
 	{
-		public YellowCandle() : base(672)
+		public YellowCandle()
 		{
 			IsGenerated = true;
 		}
@@ -8678,7 +10038,7 @@ namespace MiNET.Blocks
 
 	public partial class YellowCandleCake : Block // minecraft:yellow_candle_cake
 	{
-		public YellowCandleCake() : base(689)
+		public YellowCandleCake()
 		{
 			IsGenerated = true;
 		}
@@ -8686,7 +10046,7 @@ namespace MiNET.Blocks
 
 	public partial class YellowCarpet : Block // minecraft:yellow_carpet
 	{
-		public YellowCarpet() : base(855)
+		public YellowCarpet()
 		{
 			IsGenerated = true;
 		}
@@ -8694,7 +10054,7 @@ namespace MiNET.Blocks
 
 	public partial class YellowConcrete : Block // minecraft:yellow_concrete
 	{
-		public YellowConcrete() : base(886)
+		public YellowConcrete()
 		{
 			IsGenerated = true;
 		}
@@ -8702,7 +10062,23 @@ namespace MiNET.Blocks
 
 	public partial class YellowConcretePowder : Block // minecraft:yellow_concrete_powder
 	{
-		public YellowConcretePowder() : base(967)
+		public YellowConcretePowder()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class YellowGlazedTerracotta : GlazedTerracottaBase // minecraft:yellow_glazed_terracotta
+	{
+		public YellowGlazedTerracotta()
+		{
+			IsGenerated = true;
+		}
+	} // class
+
+	public partial class YellowPoplarLeaves : Block // minecraft:yellow_poplar_leaves
+	{
+		public YellowPoplarLeaves()
 		{
 			IsGenerated = true;
 		}
@@ -8710,7 +10086,7 @@ namespace MiNET.Blocks
 
 	public partial class YellowShulkerBox : Block // minecraft:yellow_shulker_box
 	{
-		public YellowShulkerBox() : base(871)
+		public YellowShulkerBox()
 		{
 			IsGenerated = true;
 		}
@@ -8718,15 +10094,15 @@ namespace MiNET.Blocks
 
 	public partial class YellowStainedGlass : Block // minecraft:yellow_stained_glass
 	{
-		public YellowStainedGlass() : base(931)
+		public YellowStainedGlass()
 		{
 			IsGenerated = true;
 		}
 	} // class
 
-	public partial class YellowStainedGlassPane : Block // minecraft:yellow_stained_glass_pane
+	public partial class YellowStainedGlassPane : GlassPaneBase // minecraft:yellow_stained_glass_pane
 	{
-		public YellowStainedGlassPane() : base(901)
+		public YellowStainedGlassPane()
 		{
 			IsGenerated = true;
 		}
@@ -8734,7 +10110,7 @@ namespace MiNET.Blocks
 
 	public partial class YellowTerracotta : Block // minecraft:yellow_terracotta
 	{
-		public YellowTerracotta() : base(982)
+		public YellowTerracotta()
 		{
 			IsGenerated = true;
 		}
@@ -8742,7 +10118,7 @@ namespace MiNET.Blocks
 
 	public partial class YellowWool : Block // minecraft:yellow_wool
 	{
-		public YellowWool() : base(813)
+		public YellowWool()
 		{
 			IsGenerated = true;
 		}
@@ -8750,7 +10126,7 @@ namespace MiNET.Blocks
 
 	public partial class ZombieHead : Block // minecraft:zombie_head
 	{
-		public ZombieHead() : base(1221)
+		public ZombieHead()
 		{
 			IsGenerated = true;
 		}

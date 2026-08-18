@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -144,17 +144,18 @@ namespace MiNET.Test
 				if (!raw.SequenceEqual(packet.Encode())) roundTripFailures++;
 				if (packet.cacheEnabled) cachedPackets++;
 
-				foreach (SubChunkEntryCommon entry in packet.entries)
+				foreach (SubChunkPacketData entry in packet.subchunkData)
 				{
 					entryCount++;
 
-					string result = entry.RequestResult.ToString();
+					var requestResult = (SubChunkPacketData.SubchunkRequestResult) entry.subchunkRequestResult;
+					string result = requestResult.ToString();
 					results.TryGetValue(result, out int seenResult);
 					results[result] = seenResult + 1;
 
-					if (entry is SubChunkEntryWithCache cached && cached.usedBlobHash != 0) withHash++;
+					if (entry.blobId is > 0) withHash++;
 
-					byte[] data = entry.Data;
+					byte[] data = entry.serializedSubChunk;
 					if (data == null || data.Length == 0)
 					{
 						emptyData++;
@@ -168,8 +169,8 @@ namespace MiNET.Test
 					byte third = data.Length > 2 ? data[2] : (byte) 0;
 
 					string shape = version >= 9
-						? $"v{version} storages={storages} sectionIndex={unchecked((sbyte) third)} result={entry.RequestResult}"
-						: $"v{version} storages={storages} paletteFlag=0x{third:x2} runtime={(third & 1) == 1} result={entry.RequestResult}";
+						? $"v{version} storages={storages} sectionIndex={unchecked((sbyte) third)} result={requestResult}"
+						: $"v{version} storages={storages} paletteFlag=0x{third:x2} runtime={(third & 1) == 1} result={requestResult}";
 
 					// For v9 the palette flag is one byte further along.
 					if (version >= 9 && data.Length > 3)

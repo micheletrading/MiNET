@@ -72,17 +72,17 @@ namespace MiNET.Client
 		private static StreamWriter _positionalDump;
 		private static int _positionalCells;
 
-		private void DumpPositionalIds(McpeSubChunkPacket message, SubChunkEntryCommon entry)
+		private void DumpPositionalIds(McpeSubChunkPacket message, SubChunkPacketData entry)
 		{
-			int chunkX = message.originX + entry.Offset.XOffset;
-			int chunkZ = message.originZ + entry.Offset.ZOffset;
+			int chunkX = message.centerPos.subchunkPositionX + entry.subchunkPosOffset.subchunkOffsetX;
+			int chunkZ = message.centerPos.subchunkPositionZ + entry.subchunkPosOffset.subchunkOffsetZ;
 			if (chunkX < 0 || chunkX > 3 || chunkZ < 0 || chunkZ > 3) return;
 
-			int[] grid = ClientUtils.DecodeSubChunkGrid(entry.Data);
+			int[] grid = ClientUtils.DecodeSubChunkGrid(entry.serializedSubChunk);
 			if (grid == null) return;
 
 			int baseX = chunkX * 16;
-			int baseY = (message.originY + entry.Offset.YOffset) * 16;
+			int baseY = (message.centerPos.subchunkPositionY + entry.subchunkPosOffset.subchunkOffsetY) * 16;
 			int baseZ = chunkZ * 16;
 			lock (_positionalDumpLock)
 			{
@@ -99,18 +99,37 @@ namespace MiNET.Client
 
 		public override void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
-			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
-			foreach (SubChunkEntryCommon entry in message.entries)
+			// The verdicts and the section payloads belong to the client's chunk cache, which holds
+			// what arrives instead of answering blind misses for bytes it then drops.
+			base.HandleMcpeSubChunkPacket(message);
+
+			// Everything below is trace/verification work, and at fleet scale it is what melts the
+			// emulator process (measured ~14 cores and 0.9 s/s GC pause on a 200-bot join burst).
+			if (Client.IsEmulator) return;
+
+			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0, cached = 0;
+			foreach (SubChunkPacketData entry in message.subchunkData)
 			{
-				switch (entry.RequestResult)
+				switch ((SubChunkPacketData.SubchunkRequestResult) entry.subchunkRequestResult)
 				{
-					case SubChunkRequestResult.Success:
+					case SubChunkPacketData.SubchunkRequestResult.Success:
 						success++;
-						if (ClientUtils.TryParseSubChunkPayload(entry.Data, Client.BlockNetworkIdsAreHashes)) parsedOk++;
+
+						// Cached, the section is a hash and its bytes arrive later in a
+						// ClientCacheMissResponse; serializedSubChunk carries the block entities
+						// instead, so there is nothing here to parse. MINET_BLOB_CACHE=0 puts the
+						// payload back in the packet, which is the mode this check is for.
+						if (message.cacheEnabled)
+						{
+							cached++;
+							break;
+						}
+
+						if (ClientUtils.TryParseSubChunkPayload(entry.serializedSubChunk, Client.BlockNetworkIdsAreHashes)) parsedOk++;
 						else parseFail++;
 						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
 						break;
-					case SubChunkRequestResult.SuccessAllAir:
+					case SubChunkPacketData.SubchunkRequestResult.Successallair:
 						allAir++;
 						break;
 					default:
@@ -119,31 +138,9 @@ namespace MiNET.Client
 				}
 			}
 
-			// Blob hashes on subchunk entries need answering just like the ones on a LevelChunk, or
-			// the server has no reason to send the blobs and we never see their contents. We hold
-			// no blob storage, so everything is a miss, which is also what a real client reports
-			// the first time it meets a world.
-			if (message.cacheEnabled)
-			{
-				var misses = message.entries
-					.OfType<SubChunkEntryWithCache>()
-					.Select(entry => entry.usedBlobHash)
-					.Where(hash => hash != 0)
-					.Distinct()
-					.ToArray();
-
-				if (misses.Length > 0)
-				{
-					var status = McpeClientCacheBlobStatus.CreateObject();
-					status.hashHits = Array.Empty<ulong>();
-					status.hashMisses = misses;
-					Client.SendPacket(status);
-				}
-			}
-
 			if (System.Threading.Interlocked.Increment(ref _subChunkPacketsLogged) <= 5 || parseFail > 0)
 			{
-				Log.Warn($"SubChunk response: origin=({message.originX},{message.originY},{message.originZ}) entries={message.entries.Length} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
+				Log.Warn($"SubChunk response: origin=({message.centerPos.subchunkPositionX},{message.centerPos.subchunkPositionY},{message.centerPos.subchunkPositionZ}) entries={message.subchunkData.Count} success={success} cached={cached} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
 			}
 		}
 
@@ -156,15 +153,13 @@ namespace MiNET.Client
 
 		public override void HandleMcpeResourcePacksInfo(McpeResourcePacksInfo message)
 		{
-			Log.Warn($"HEX: \n{Packet.HexDump(message.Bytes)}");
-
 			var sb = new StringBuilder();
 			sb.AppendLine();
 
-			sb.AppendLine("Texture packs:");
-			foreach (TexturePackInfo info in message.texturepacks)
+			sb.AppendLine("Resource packs:");
+			foreach (PackInfoData info in message.resourcePacks)
 			{
-				sb.AppendLine($"ID={info.UUID}, Version={info.Version}, Unknown={info.Size}");
+				sb.AppendLine($"ID={info.packIdVersion.packUuid}, Version={info.packIdVersion.packVersion}, Size={info.packSize}");
 			}
 
 			Log.Debug(sb.ToString());
@@ -232,11 +227,76 @@ namespace MiNET.Client
 			CallPacketHandlers(message);
 		}
 
+		public override void HandleMcpeItemStackResponse(McpeItemStackResponse message)
+		{
+			foreach (ItemStackResponseInfo response in message.responses)
+			{
+				Log.Warn($"SPLIT RESPONSE: request {response.clientRequestId} -> {response.result}");
+				if (response.containers == null) continue;
+
+				foreach (ItemStackResponseContainerInfo container in response.containers)
+				foreach (ItemStackResponseSlotInfo slot in container.slots)
+				{
+					Log.Warn($"SPLIT RESPONSE:   container {container.fullContainerName.containerName} slot {slot.requestedSlot} count {slot.amount} stackNetId {slot.itemStackNetId}");
+				}
+			}
+		}
+
+		private bool _splitSent;
+
+		/// <summary>A request slot, named by container and slot, citing the stack id we believe is there.</summary>
+		private static ItemStackRequestSlotInfo Slot(int container, byte slot, int stackNetId)
+		{
+			return new ItemStackRequestSlotInfo
+			{
+				fullContainerName = new FullContainerName {containerName = (FullContainerName.ContainerEnumName) container},
+				slot = slot,
+				netIdVariant = stackNetId
+			};
+		}
+
 		public override void HandleMcpeInventoryContent(McpeInventoryContent message)
 		{
 			CallPacketHandlers(message);
 
 			Log.Debug($"Set container content on Window ID: 0x{message.inventoryId:x2}, Count: {message.input.Count}");
+
+			// SPLIT TEST: on the first stack of more than one, ask the server to move half of it into
+			// an empty slot, then read the ids the response comes back with.
+			if (Environment.GetEnvironmentVariable("MINET_SPLIT_TEST") == "1" && !_splitSent && message.inventoryId == 0)
+			{
+				for (int slot = 0; slot < message.input.Count; slot++)
+				{
+					Item item = message.input[slot];
+					if (item == null || item.Count < 2) continue;
+
+					_splitSent = true;
+					Log.Warn($"SPLIT: source slot {slot} holds {item.Name} x{item.Count}, stack net id {item.UniqueId}");
+
+					int half = item.Count / 2;
+					int target = slot + 1;
+
+					var packet = McpeItemStackRequest.CreateObject();
+					packet.requests = new List<ItemStackRequest>();
+					var actions = new ItemStackRequest
+					{
+						clientRequestId = -1,
+						actions = new List<ItemStackRequestBase>
+						{
+							new ItemStackRequestTakeAction
+							{
+								amount = (byte) half,
+								source = Slot(28, (byte) slot, item.UniqueId),
+								destination = Slot(28, (byte) target, 0)
+							}
+						}
+					};
+					packet.requests.Add(actions);
+					Log.Warn($"SPLIT: taking {half} from slot {slot} into slot {target}");
+					Client.SendPacket(packet);
+					break;
+				}
+			}
 
 			if (Client.IsEmulator) return;
 
@@ -257,9 +317,9 @@ namespace MiNET.Client
 		public override void HandleMcpeCreativeContent(McpeCreativeContent message)
 		{
 			ItemStacks slots = new ItemStacks();
-			foreach (var entry in message.Entries)
+			foreach (var entry in message.entries)
 			{
-				slots.Add(entry.Item);
+				slots.Add(entry.itemInstance);
 			}
 
 			// Off the session thread; blocking here for seconds makes the server
@@ -312,322 +372,48 @@ namespace MiNET.Client
 
 		public override void HandleMcpeStartGame(McpeStartGame message)
 		{
-			Client.EntityId = message.runtimeEntityId;
-			Client.NetworkEntityId = message.entityIdSelf;
-			Client.SpawnPoint = message.spawn;
-			Client.CurrentLocation = new PlayerLocation(Client.SpawnPoint, message.rotation.X, message.rotation.X, message.rotation.Y);
+			// Identity, spawn, the chunk-radius request and the loading screen are protocol
+			// behaviour and live in the base handler, which asks for the radius this client was
+			// configured with. This override only reports what arrived.
+			base.HandleMcpeStartGame(message);
 
-			BlockPalette blockPalette = message.blockPalette;
-			Client.BlockPalette = message.blockPalette;
-
-			//var blockPalette = BlockFactory.BlockStates;
 			Log.Warn($"Got position from startgame packet: {Client.CurrentLocation}");
-			Log.Warn($"StartGame: blockNetworkIdsAreHashes={message.blockNetworkIdsAreHashes}, spawn={message.spawn}");
+			Log.Warn($"StartGame: blockNetworkIdsAreHashes={message.blockNetworkIdsAreHashes}, position={message.position}");
 			Client.BlockNetworkIdsAreHashes = message.blockNetworkIdsAreHashes;
 
 			// Verify the server's block registry checksum like the real client does: compute from
 			// our own palette and compare. 0 from the server means "no claim" (MiNET, PMMP).
 			// Against BDS this is the live known-answer test for the checksum algorithm; MISMATCH
 			// is expected until the algorithm is cracked (see NetworkBlockPalette).
-			if (message.blockPaletteChecksum != 0)
+			if (message.serverBlockTypeRegistryChecksum != 0)
 			{
 				ulong computed = NetworkBlockPalette.ComputeRegistryChecksum();
-				bool match = computed == message.blockPaletteChecksum;
-				Log.Warn($"Registry checksum: received={message.blockPaletteChecksum} computed={computed} => {(match ? "MATCH, algorithm verified" : "MISMATCH, algorithm candidate wrong")}");
-
-				// Ground-truth capture: dump the palette BDS actually transmitted (non-hash mode) so
-				// the checksum algorithm can be verified against BDS's own registry content, not a
-				// third-party dump. Format per line: <runtimeId>\t<name>\t<stateType:stateName=value>|...
-				if (blockPalette != null && blockPalette.Count > 0)
-				{
-					string dumpPath = @"c:\Development\github\MiNET\temp_auto\bds-palette-nonhash.txt";
-					using var dump = new StreamWriter(dumpPath, false);
-					dump.WriteLine($"#checksum\t{message.blockPaletteChecksum}");
-					dump.WriteLine($"#count\t{blockPalette.Count}");
-					foreach (BlockStateContainer entry in blockPalette)
-					{
-						var states = entry.States.Select(s => s switch
-						{
-							BlockStateByte b => $"byte:{b.Name}={b.Value}",
-							BlockStateInt i => $"int:{i.Name}={i.Value}",
-							BlockStateString ss => $"string:{ss.Name}={ss.Value}",
-							_ => $"?:{s.Name}"
-						});
-						dump.WriteLine($"{entry.RuntimeId}\t{entry.Name}\t{string.Join("|", states)}");
-					}
-					Log.Warn($"Wrote BDS non-hash palette ({blockPalette.Count} entries) to {dumpPath}");
-				}
+				bool match = computed == message.serverBlockTypeRegistryChecksum;
+				Log.Warn($"Registry checksum: received={message.serverBlockTypeRegistryChecksum} computed={computed} => {(match ? "MATCH, algorithm verified" : "MISMATCH, algorithm candidate wrong")}");
 			}
 			else
 			{
 				Log.Warn("Registry checksum: server sent 0 (no claim), nothing to verify");
 			}
 
-			var settings = new JsonSerializerSettings
+			if (message.blockProperties != null && message.blockProperties.Count > 0)
 			{
-				PreserveReferencesHandling = PreserveReferencesHandling.Arrays,
-				TypeNameHandling = TypeNameHandling.Auto,
-				Formatting = Formatting.Indented,
-				DefaultValueHandling = DefaultValueHandling.Include
-			};
-
-			string fileName = Path.GetTempPath() + "MissingBlocks_" + Guid.NewGuid() + ".txt";
-			using(FileStream file = File.OpenWrite(fileName))
-			{
-				var writer = new IndentedTextWriter(new StreamWriter(file));
-				
-				Log.Warn($"BlockPalette ({blockPalette.Count}) Filename:\n{fileName}");
-
-				writer.WriteLine($"namespace MiNET.Blocks");
-				writer.WriteLine($"{{");
-				writer.Indent++;
-
-				var blocks = new List<(int, string)>();
-
-				foreach (IGrouping<string, BlockStateContainer> blockstateGrouping in blockPalette.OrderBy(record => record.Name).ThenBy(record => record.Data).ThenBy(record => record.RuntimeId) .GroupBy(record => record.Name))
-				{
-					BlockStateContainer currentBlockState = blockstateGrouping.First();
-					Log.Debug($"{currentBlockState.Name}, Id={currentBlockState.Id}");
-					BlockStateContainer defaultBlockState = BlockFactory.GetBlockById(currentBlockState.Id, 0)?.GetGlobalState();
-					if (defaultBlockState == null)
-					{
-						defaultBlockState = blockstateGrouping.FirstOrDefault(bs => bs.Data == 0);
-					}
-
-					Log.Debug($"{currentBlockState.RuntimeId}, {currentBlockState.Name}, {currentBlockState.Data}");
-					Block blockById = BlockFactory.GetBlockById(currentBlockState.Id);
-					bool existingBlock = blockById.GetType() != typeof(Block) && !blockById.IsGenerated;
-					int id = existingBlock ? currentBlockState.Id : -1;
-
-					string blockClassName = CodeName(currentBlockState.Name.Replace("minecraft:", ""), true);
-
-					blocks.Add((blockById.Id, blockClassName));
-					writer.WriteLineNoTabs($"");
-
-					writer.WriteLine($"public partial class {blockClassName} // {blockById.Id} typeof={blockById.GetType().Name}");
-					writer.WriteLine($"{{");
-					writer.Indent++;
-
-					writer.WriteLine($"public override string Name => \"{currentBlockState.Name}\";");
-					writer.WriteLineNoTabs("");
-
-					var bits = new List<BlockStateByte>();
-					foreach (var state in blockstateGrouping.First().States)
-					{
-						var q = blockstateGrouping.SelectMany(c => c.States);
-
-						// If this is on base, skip this property. We need this to implement common functionality.
-						Type baseType = blockById.GetType().BaseType;
-						bool propOverride = baseType != null
-											&& ("Block" != baseType.Name
-												&& baseType.GetProperty(CodeName(state.Name, true)) != null);
-
-						switch (state)
-						{
-							case BlockStateByte blockStateByte:
-							{
-								var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateByte) d).Value).Distinct().OrderBy(s => s).ToList();
-								byte defaultVal = ((BlockStateByte) defaultBlockState?.States.FirstOrDefault(s => s.Name.Equals(state.Name, StringComparison.OrdinalIgnoreCase)))?.Value ?? 0;
-								if (values.Min() == 0 && values.Max() == 1)
-								{
-									bits.Add(blockStateByte);
-									writer.Write($"[StateBit] ");
-									writer.WriteLine($"public{(propOverride ? " override" : "")} bool {CodeName(state.Name, true)} {{ get; set; }} = {(defaultVal == 1 ? "true" : "false")};");
-								}
-								else
-								{
-									writer.Write($"[StateRange({values.Min()}, {values.Max()})] ");
-									writer.WriteLine($"public{(propOverride ? " override" : "")} byte {CodeName(state.Name, true)} {{ get; set; }} = {defaultVal};");
-								}
-								break;
-							}
-							case BlockStateInt blockStateInt:
-							{
-								var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateInt) d).Value).Distinct().OrderBy(s => s).ToList();
-								int defaultVal = ((BlockStateInt) defaultBlockState?.States.FirstOrDefault(s => s.Name.Equals(state.Name, StringComparison.OrdinalIgnoreCase)))?.Value ?? 0;
-								writer.Write($"[StateRange({values.Min()}, {values.Max()})] ");
-								writer.WriteLine($"public{(propOverride ? " override" : "")} int {CodeName(state.Name, true)} {{ get; set; }} = {defaultVal};");
-								break;
-							}
-							case BlockStateString blockStateString:
-							{
-								var values = q.Where(s => s.Name == state.Name).Select(d => ((BlockStateString) d).Value).Distinct().ToList();
-								string defaultVal = ((BlockStateString) defaultBlockState?.States.FirstOrDefault(s => s.Name.Equals(state.Name, StringComparison.OrdinalIgnoreCase)))?.Value ?? "";
-								if (values.Count > 1)
-								{
-									writer.WriteLine($"[StateEnum({string.Join(',', values.Select(v => $"\"{v}\""))})]");
-								}
-								writer.WriteLine($"public{(propOverride ? " override" : "")} string {CodeName(state.Name, true)} {{ get; set; }} = \"{defaultVal}\";");
-								break;
-							}
-							default:
-								throw new ArgumentOutOfRangeException(nameof(state));
-						}
-					}
-
-					// Constructor
-
-					//if (id == -1 || blockById.IsGenerated)
-					//{
-					//	writer.WriteLine($"");
-
-					//	writer.WriteLine($"public {blockClassName}() : base({currentBlockState.Id})");
-					//	writer.WriteLine($"{{");
-					//	writer.Indent++;
-					//	writer.WriteLine($"IsGenerated = true;");
-					//	writer.WriteLine($"SetGenerated();");
-					//	writer.Indent--;
-					//	writer.WriteLine($"}}");
-					//}
-
-					writer.WriteLineNoTabs($"");
-					writer.WriteLine($"public override void SetState(List<IBlockState> states)");
-					writer.WriteLine($"{{");
-					writer.Indent++;
-					writer.WriteLine($"foreach (var state in states)");
-					writer.WriteLine($"{{");
-					writer.Indent++;
-					writer.WriteLine($"switch(state)");
-					writer.WriteLine($"{{");
-					writer.Indent++;
-
-					foreach (var state in blockstateGrouping.First().States)
-					{
-						writer.WriteLine($"case {state.GetType().Name} s when s.Name == \"{state.Name}\":");
-						writer.Indent++;
-						writer.WriteLine($"{CodeName(state.Name, true)} = {(bits.Contains(state) ? "Convert.ToBoolean(s.Value)" : "s.Value")};");
-						writer.WriteLine($"break;");
-						writer.Indent--;
-					}
-
-					writer.Indent--;
-					writer.WriteLine($"}} // switch");
-					writer.Indent--;
-					writer.WriteLine($"}} // foreach");
-					writer.Indent--;
-					writer.WriteLine($"}} // method");
-
-					writer.WriteLineNoTabs($"");
-					writer.WriteLine($"public override BlockStateContainer GetState()");
-					writer.WriteLine($"{{");
-					writer.Indent++;
-					writer.WriteLine($"var record = new BlockStateContainer();");
-					writer.WriteLine($"record.Name = \"{blockstateGrouping.First().Name}\";");
-					writer.WriteLine($"record.Id = {blockstateGrouping.First().Id};");
-					foreach (var state in blockstateGrouping.First().States)
-					{
-						string propName = CodeName(state.Name, true);
-						writer.WriteLine($"record.States.Add(new {state.GetType().Name} {{Name = \"{state.Name}\", Value = {(bits.Contains(state) ? $"Convert.ToByte({propName})" : propName)}}});");
-					}
-					writer.WriteLine($"return record;");
-					writer.Indent--;
-					writer.WriteLine($"}} // method");
-					writer.Indent--;
-					writer.WriteLine($"}} // class");
-				}
-
-				writer.WriteLine();
-
-				foreach (var block in blocks.OrderBy(tuple => tuple.Item1))
-				{
-					int clazzId = block.Item1;
-
-					Block blockById = BlockFactory.GetBlockById(clazzId);
-					bool existingBlock = blockById.GetType() != typeof(Block) && !blockById.IsGenerated;
-					if (existingBlock) continue;
-
-					string clazzName = block.Item2;
-					string baseClazz = clazzName.EndsWith("Stairs") ? "BlockStairs" : "Block";
-					baseClazz = clazzName.EndsWith("Slab") && !clazzName.EndsWith("DoubleSlab")? "SlabBase" : baseClazz;
-					writer.WriteLine($"public partial class {clazzName} : {baseClazz} {{ " +
-									$"public {clazzName}() : base({clazzId}) {{ IsGenerated = true; }} " +
-									$"}}");
-				}
-
-				writer.Indent--;
-				writer.WriteLine($"}}"); // namespace
-
-				//foreach (var block in blocks.OrderBy(tuple => tuple.Item1))
-				//{
-				//	// 495 => new StrippedCrimsonStem(),
-				//	writer.WriteLine($"\t\t\t\t{block.Item1} => new {block.Item2}(),");
-				//}
-
-				writer.Flush();
+				Log.Warn($"StartGame carries {message.blockProperties.Count} custom block properties");
 			}
 
-			LogGamerules(message.levelSettings.gamerules);
-
-			Client.LevelInfo.LevelName = "Default";
-			Client.LevelInfo.Version = 19133;
-			Client.LevelInfo.GameType = message.levelSettings.gamemode;
-
-			//ClientUtils.SaveLevel(_level);
-
-			{
-				var packet = McpeRequestChunkRadius.CreateObject();
-				Client.ChunkRadius = 5;
-				packet.chunkRadius = Client.ChunkRadius;
-				packet.maxRadius = 32;
-
-				Client.SendPacket(packet);
-			}
-
-			// A real client opens its loading screen right after requesting the chunk radius
-			// (captured live); the matching type 2 close is sent on PlayStatus(3).
-			{
-				var loadingScreen = McpeServerBoundLoadingScreen.CreateObject();
-				loadingScreen.type = 1;
-				loadingScreen.loadingScreenId = null;
-				Client.SendPacket(loadingScreen);
-			}
-		}
-
-		public static string CodeName(string name, bool firstUpper = false)
-		{
-			//name = name.ToLowerInvariant();
-
-			bool upperCase = firstUpper;
-
-			var result = string.Empty;
-			for (int i = 0; i < name.Length; i++)
-			{
-				if (name[i] == ' ' || name[i] == '_')
-				{
-					upperCase = true;
-				}
-				else
-				{
-					if ((i == 0 && firstUpper) || upperCase)
-					{
-						result += name[i].ToString().ToUpperInvariant();
-						upperCase = false;
-					}
-					else
-					{
-						result += name[i];
-					}
-				}
-			}
-
-			result = result.Replace(@"[]", "s");
-			return result;
+			LogGamerules(message.settings.gamerules);
 		}
 
 		public override void HandleMcpeAddPlayer(McpeAddPlayer message)
 		{
 			if (Client.IsEmulator) return;
 
-			Log.DebugFormat("McpeAddPlayer Unique ID: {0}", message.uniqueId);
+			Log.DebugFormat("McpeAddPlayer Unique ID: {0}", message.abilitiesData?.targetPlayerRawId);
 			Log.DebugFormat("McpeAddPlayer Runtime Entity ID: {0}", message.runtimeEntityId);
-			Log.DebugFormat("X: {0}", message.x);
-			Log.DebugFormat("Y: {0}", message.y);
-			Log.DebugFormat("Z: {0}", message.z);
-			Log.DebugFormat("Yaw: {0}", message.yaw);
-			Log.DebugFormat("Pitch: {0}", message.pitch);
-			Log.DebugFormat("Velocity X: {0}", message.speedX);
-			Log.DebugFormat("Velocity Y: {0}", message.speedY);
-			Log.DebugFormat("Velocity Z: {0}", message.speedZ);
+			Log.DebugFormat("Position: {0}", message.position);
+			Log.DebugFormat("Rotation: {0}", message.rotation);
+			Log.DebugFormat("Head rotation: {0}", message.yHeadRotation);
+			Log.DebugFormat("Velocity: {0}", message.velocity);
 			Log.DebugFormat("Metadata: {0}", Client.MetadataToCode(message.metadata));
 			Log.DebugFormat("Links count: {0}", message.links?.Count);
 		}
@@ -640,22 +426,17 @@ namespace MiNET.Client
 			{
 				var entity = new Entity(message.entityType, null);
 				entity.EntityId = message.runtimeEntityId;
-				entity.KnownPosition = new PlayerLocation(message.x, message.y, message.z, message.yaw, message.yaw, message.pitch);
-				entity.Velocity = new Vector3(message.speedX, message.speedY, message.speedZ);
+				entity.KnownPosition = new PlayerLocation(message.position.X, message.position.Y, message.position.Z, message.rotation.Y, message.rotation.Y, message.rotation.X);
+				entity.Velocity = message.velocity;
 				Client.Entities.TryAdd(entity.EntityId, entity);
 			}
 
 			Log.DebugFormat("McpeAddEntity Entity ID: {0}", message.entityIdSelf);
 			Log.DebugFormat("McpeAddEntity Runtime Entity ID: {0}", message.runtimeEntityId);
 			Log.DebugFormat("Entity Type: {0}", message.entityType);
-			Log.DebugFormat("X: {0}", message.x);
-			Log.DebugFormat("Y: {0}", message.y);
-			Log.DebugFormat("Z: {0}", message.z);
-			Log.DebugFormat("Yaw: {0}", message.yaw);
-			Log.DebugFormat("Pitch: {0}", message.pitch);
-			Log.DebugFormat("Velocity X: {0}", message.speedX);
-			Log.DebugFormat("Velocity Y: {0}", message.speedY);
-			Log.DebugFormat("Velocity Z: {0}", message.speedZ);
+			Log.DebugFormat("Position: {0}", message.position);
+			Log.DebugFormat("Rotation: {0}", message.rotation);
+			Log.DebugFormat("Velocity: {0}", message.velocity);
 			Log.DebugFormat("Metadata: {0}", Client.MetadataToCode(message.metadata));
 			Log.DebugFormat("Links count: {0}", message.links?.Count);
 
@@ -692,7 +473,7 @@ namespace MiNET.Client
 			if (message.entityType == "minecraft:horse")
 			{
 				var id = message.runtimeEntityId;
-				Vector3 pos = new Vector3(message.x, message.y, message.z);
+				Vector3 pos = message.position;
 				Task.Run(BotHelpers.DoWaitForSpawn(Client))
 					.ContinueWith(t => Task.Delay(3000).Wait())
 					//.ContinueWith(task =>
@@ -746,15 +527,15 @@ namespace MiNET.Client
 						Log.Warn("Sending transaction for horse");
 
 						var transaction = McpeInventoryTransaction.CreateObject();
-						transaction.transaction = new ItemUseOnEntityTransaction()
+						transaction.transaction = new ItemUseOnActorInventoryTransaction
 						{
-							TransactionRecords = new List<TransactionRecord>(),
-							EntityId = id,
-							ActionType = 0,
-							Slot = 0,
-							Item = new ItemAir(),
-							FromPosition = Client.CurrentLocation,
-							ClickPosition = pos,
+							actions = new List<InventoryAction>(),
+							runtimeId = id,
+							actionType = ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.Interact,
+							slot = 0,
+							item = new ItemAir(),
+							fromPosition = Client.CurrentLocation,
+							hitPosition = pos,
 						};
 
 						Client.SendPacket(transaction);
@@ -920,79 +701,30 @@ namespace MiNET.Client
 			Log.DebugFormat("NBT:\n{0}", message.namedtag.NbtFile.RootTag);
 		}
 
-		/// <summary>
-		///     Skeleton chunk: the payload is biomes only and block data has to be asked for a
-		///     section at a time. Highest requestable relative index is subChunkCount in limited
-		///     mode; relative index 0 is section y -4.
-		/// </summary>
-		private void SendSubChunkRequest(McpeLevelChunk message)
-		{
-			int highest = message.subChunkRequestMode == SubChunkRequestMode.SubChunkRequestModeLimited ? (int) message.subChunkCount : 23;
-
-			var request = McpeSubChunkRequestPacket.CreateObject();
-			request.dimension = message.dimension;
-			request.originX = message.chunkX;
-			request.originY = 0;
-			request.originZ = message.chunkZ;
-			for (int i = 0; i <= highest; i++)
-			{
-				request.offsets.Add(new SubChunkPositionOffset {XOffset = 0, YOffset = (sbyte) (i - 4), ZOffset = 0});
-			}
-
-			Client.SendPacket(request);
-		}
-
 		public override void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
-			// TODO doesn't work anymore I guess
+			// Blob-status replies and subchunk requests are protocol behaviour and live in the
+			// base handler; this override only decodes and records what arrived.
+			base.HandleMcpeLevelChunk(message);
+
 			if (Client.IsEmulator) return;
 
-			if (message.blobHashes != null)
+			if (message.cacheEnabled)
 			{
-				// Client.BlobCache isn't wired up to any actual blob storage yet, so every hash is
-				// reported as a miss (matches a real client's behaviour before it has anything
-				// cached). Previously this always reported every hash as a hit and left hashMisses
-				// null, which threw a NullReferenceException in McpeClientCacheBlobStatus.AfterEncode
-				// as soon as UseBlobCache was enabled.
-				var hits = new List<ulong>();
-				var misses = new List<ulong>();
-
-				foreach (ulong hash in message.blobHashes)
+				foreach (ulong hash in message.cacheMetadata)
 				{
-					Log.Debug($"Got hashes for {message.chunkX}, {message.chunkZ}, {hash}");
-					if (Client.BlobCache.ContainsKey(hash)) hits.Add(hash);
-					else misses.Add(hash);
-				}
-
-				var status = McpeClientCacheBlobStatus.CreateObject();
-				status.hashHits = hits.ToArray();
-				status.hashMisses = misses.ToArray();
-				Client.SendPacket(status);
-
-				// The hash on a cached LevelChunk covers the column's biome blob only, so the
-				// subchunks still have to be requested exactly as in the uncached case. Returning
-				// here left the chunk half fetched and, more to the point, meant we never saw the
-				// SubChunk entries that carry the per-section blob hashes.
-				if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
-				{
-					SendSubChunkRequest(message);
+					Log.Debug($"Got hashes for {message.chunkPosition.x}, {message.chunkPosition.z}, {hash}");
 				}
 			}
-			else
+			else if (message.clientRequestSubchunkLimit == null)
 			{
-				Client.Chunks.GetOrAdd(new ChunkCoordinates(message.chunkX, message.chunkZ), coordinates =>
+				Client.Chunks.GetOrAdd(new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z), coordinates =>
 				{
-					Log.Debug($"Chunk X={message.chunkX}, Z={message.chunkZ}, size={message.chunkData.Length}, Count={Client.Chunks.Count}");
+					Log.Debug($"Chunk X={message.chunkPosition.x}, Z={message.chunkPosition.z}, size={message.chunkData.Length}, Count={Client.Chunks.Count}");
 
 					ChunkColumn chunk = null;
 					try
 					{
-						if (message.subChunkRequestMode != SubChunkRequestMode.SubChunkRequestModeLegacy)
-						{
-							SendSubChunkRequest(message);
-							return null;
-						}
-
 						chunk = ClientUtils.DecodeChunkColumn((int) message.subChunkCount, message.chunkData, blockNetworkIdsAreHashes: Client.BlockNetworkIdsAreHashes);
 						if (chunk != null)
 						{
@@ -1121,19 +853,6 @@ namespace MiNET.Client
 
 		public override void HandleMcpeNetworkChunkPublisherUpdate(McpeNetworkChunkPublisherUpdate message)
 		{
-		}
-
-		public override void HandleMcpePlayStatus(McpePlayStatus message)
-		{
-
-			base.HandleMcpePlayStatus(message);
-
-			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess)
-			{
-				var packet = McpeClientCacheStatus.CreateObject();
-				packet.enabled = Client.UseBlobCache;
-				Client.SendPacket(packet);
-			}
 		}
 
 		/// <inheritdoc />

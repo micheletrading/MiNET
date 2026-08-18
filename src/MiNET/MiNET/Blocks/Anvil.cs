@@ -35,7 +35,7 @@ namespace MiNET.Blocks
 {
 	public partial class Anvil : Block
 	{
-		public Anvil() : base(145)
+		public Anvil()
 		{
 		}
 
@@ -56,20 +56,7 @@ namespace MiNET.Blocks
 
 		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
-			player.UsingAnvil = true;
-			var containerOpen = McpeContainerOpen.CreateObject();
-			containerOpen.windowId = 14;
-			containerOpen.type = 5;
-			containerOpen.coordinates = blockCoordinates;
-			containerOpen.actorUniqueId = EntityManager.EntityIdSelf;
-			player.SendPacket(containerOpen);
-
-			//var sendSlot = McpeInventorySlot.CreateObject();
-			//sendSlot.inventoryId = 14;
-			//sendSlot.slot = (uint) 1;
-			//sendSlot.uniqueid = 1;
-			//sendSlot.item = new ItemIronShovel();
-			//player.SendPacket(sendSlot);
+			player.OpenUiScreen(ScreenKind.Anvil, ContainerType.Anvil, blockCoordinates);
 
 			return true;
 		}

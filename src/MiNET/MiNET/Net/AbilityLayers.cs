@@ -77,23 +77,35 @@ namespace MiNET.Net
 
 	public abstract partial class Packet
 	{
+		public AbilityLayer ReadAbilityLayer()
+		{
+			return new AbilityLayer
+			{
+				Type = (AbilityLayerType) ReadUshort(),
+				Allowed = (AbilitySet) ReadUint(),
+				Enabled = (AbilitySet) ReadUint(),
+				FlySpeed = ReadFloat(),
+				VerticalFlySpeed = ReadFloat(),
+				WalkSpeed = ReadFloat(),
+			};
+		}
+
+		public void Write(AbilityLayer layer)
+		{
+			Write((ushort) layer.Type);
+			Write((uint) layer.Allowed);
+			Write((uint) layer.Enabled);
+			Write(layer.FlySpeed);
+			Write(layer.VerticalFlySpeed);
+			Write(layer.WalkSpeed);
+		}
+
 		public List<AbilityLayer> ReadAbilityLayers()
 		{
 			var layers = new List<AbilityLayer>();
 
 			byte count = ReadByte();
-			for (int i = 0; i < count; i++)
-			{
-				layers.Add(new AbilityLayer
-				{
-					Type = (AbilityLayerType) ReadUshort(),
-					Allowed = (AbilitySet) ReadUint(),
-					Enabled = (AbilitySet) ReadUint(),
-					FlySpeed = ReadFloat(),
-					VerticalFlySpeed = ReadFloat(),
-					WalkSpeed = ReadFloat(),
-				});
-			}
+			for (int i = 0; i < count; i++) layers.Add(ReadAbilityLayer());
 
 			return layers;
 		}
@@ -103,15 +115,7 @@ namespace MiNET.Net
 			layers ??= new List<AbilityLayer>();
 
 			Write((byte) layers.Count);
-			foreach (var layer in layers)
-			{
-				Write((ushort) layer.Type);
-				Write((uint) layer.Allowed);
-				Write((uint) layer.Enabled);
-				Write(layer.FlySpeed);
-				Write(layer.VerticalFlySpeed);
-				Write(layer.WalkSpeed);
-			}
+			foreach (var layer in layers) Write(layer);
 		}
 	}
 }

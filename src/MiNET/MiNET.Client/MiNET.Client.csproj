@@ -10,7 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\persona_skin.json" />
-    <EmbeddedResource Include="Data\grey_skin.json" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="log4net.xml">

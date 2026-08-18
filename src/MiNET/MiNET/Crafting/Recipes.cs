@@ -27,7 +27,6 @@ using System;
 using System.Collections.Generic;
 using MiNET.Items;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 
 namespace MiNET.Crafting
@@ -59,7 +58,7 @@ namespace MiNET.Crafting
 	/// </summary>
 	public class UnlockingRequirement
 	{
-		public byte Context { get; set; } = 1;
+		public int Context { get; set; } = 1;
 		public List<Item> Ingredients { get; set; }
 	}
 

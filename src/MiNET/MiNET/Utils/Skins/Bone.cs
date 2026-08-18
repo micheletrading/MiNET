@@ -68,7 +68,14 @@ namespace MiNET.Utils.Skins
 
 		public string Parent { get; set; }
 		public float[] Pivot { get; set; } = new float[3];
-		public float[] Pos { get; set; } = new float[3];
+
+		// Not a geometry 1.12.0 bone property: the schema allows name, parent, pivot, rotation,
+		// mirror, inflate, debug, render_group_id, cubes, locators, poly_mesh and texture_meshes,
+		// and none of the nineteen real geometry documents we have captured carries "pos". It kept
+		// a non-null default, so ToJson's NullValueHandling.Ignore could never drop it and every
+		// bone of every geometry the server wrote went out with "pos":[0,0,0]. Left in the model
+		// because Parse uses MissingMemberHandling.Error and some document once needed it.
+		public float[] Pos { get; set; }
 		public float[] Rotation { get; set; } = new float[3];
 		public List<Cube> Cubes { get; set; }
 		public bool NeverRender { get; set; }

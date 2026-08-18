@@ -29,6 +29,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using log4net;
 using log4net.Config;
@@ -40,8 +41,14 @@ namespace MiNET.Console
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Startup));
 
-		static void Main(string[] args)
+		static int Main(string[] args)
 		{
+			// Client mode: talk to a server that already runs, rather than being one.
+			if (args.Length > 0 && args[0] == "remote")
+			{
+				return RemoteConsoleClient.Run(args).GetAwaiter().GetResult();
+			}
+
 			if (args.Length > 0 && args[0] == "listener")
 			{
 				// This is a brutal hack to block BDS to use the ports we are using. So we start this, and basically block BDS
@@ -52,11 +59,14 @@ namespace MiNET.Console
 				System.Console.WriteLine("LISTENING!");
 				reset.WaitOne();
 				System.Console.WriteLine("EXIT!");
-				return;
+				return 0;
 			}
 
 			var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
-			XmlConfigurator.Configure(logRepository, new FileInfo(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "log4net.xml")));
+			// Watch the deployed log4net.xml so log levels can be changed while the server runs,
+			// e.g. dropping to INFO during load tests (per-packet TRACE serializes on the appender
+			// lock) and back to VERBOSE for protocol work, without a restart.
+			XmlConfigurator.ConfigureAndWatch(logRepository, new FileInfo(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "log4net.xml")));
 
 			Log.Info(MiNetServer.MiNET);
 			System.Console.WriteLine(MiNetServer.MiNET);
@@ -75,13 +85,43 @@ namespace MiNET.Console
 
 			service.StartServer();
 
-			System.Console.WriteLine("MiNET running. Press <enter> to stop service.");
-			if (System.Console.ReadLine() == null)
+			// A non-interactive host has no stdin to wait on, and used to sleep forever: the only
+			// way out was a kill, which skips StopServer and with it the level save, losing
+			// everything built since the last save interval. Ctrl+C, a close request, the remote
+			// console and a shutdown all land here instead and stop the server properly.
+			using var stopping = new ManualResetEventSlim(false);
+
+			void RequestStop(PosixSignalContext context)
 			{
-				// Non-interactive host (redirected stdin); stay alive until killed.
-				Thread.Sleep(Timeout.Infinite);
+				context.Cancel = true;
+				stopping.Set();
 			}
+
+			using RemoteConsole remoteConsole = RemoteConsole.StartIfEnabled(service, () => stopping.Set());
+
+			System.Console.WriteLine("MiNET running. Press <enter> to stop service.");
+
+			// A headless run has no console to signal and no stdin to type into, so it also watches
+			// for a file. Dropping temp_auto/stop-server next to the working directory stops the
+			// server the same way pressing enter would, which is the only way the level actually
+			// gets saved: a killed process never reaches StopServer.
+			string stopFile = Path.Combine(Directory.GetCurrentDirectory(), "temp_auto", "stop-server");
+			if (File.Exists(stopFile)) File.Delete(stopFile);
+
+			using (PosixSignalRegistration.Create(PosixSignal.SIGINT, RequestStop))
+			using (PosixSignalRegistration.Create(PosixSignal.SIGTERM, RequestStop))
+			{
+				if (System.Console.ReadLine() == null)
+				{
+					while (!stopping.IsSet && !File.Exists(stopFile)) stopping.Wait(500);
+					if (File.Exists(stopFile)) File.Delete(stopFile);
+				}
+			}
+
+			Log.Info("Shutting down, saving the level...");
 			service.StopServer();
+
+			return 0;
 		}
 	}
 }

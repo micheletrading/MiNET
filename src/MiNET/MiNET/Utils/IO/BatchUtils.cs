@@ -24,10 +24,10 @@
 #endregion
 
 using System;
+using System.Buffers;
 using System.IO;
 using System.IO.Compression;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 
 namespace MiNET.Utils.IO
 {
@@ -35,37 +35,45 @@ namespace MiNET.Utils.IO
 	{
 		public static McpeWrapper CreateBatchPacket(CompressionLevel compressionLevel, params Packet[] packets)
 		{
-			using (var stream = new MemoryStream())
+			using (MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
 			{
 				foreach (Packet packet in packets)
 				{
-					byte[] bytes = packet.Encode();
+					ReadOnlyMemory<byte> bytes = packet.EncodeAsMemory();
 					WriteLength(stream, bytes.Length);
-					stream.Write(bytes, 0, bytes.Length);
+					stream.Write(bytes.Span);
 					packet.PutPool();
 				}
 
-				var buffer = new Memory<byte>(stream.GetBuffer(), 0, (int) stream.Length);
+				var buffer = new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int) stream.Length);
 				return CreateBatchPacket(buffer, compressionLevel, false);
 			}
 		}
 
-		public static McpeWrapper CreateBatchPacket(Memory<byte> input, CompressionLevel compressionLevel, bool writeLen)
+		public static McpeWrapper CreateBatchPacket(ReadOnlyMemory<byte> input, CompressionLevel compressionLevel, bool writeLen)
 		{
 			var batch = McpeWrapper.CreateObject();
-			batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 
-			byte[] compressed = Compression.Compress(input, writeLen, input.Length > 1000 ? compressionLevel : CompressionLevel.NoCompression);
+			// Post-1.19.30 wrapper payloads carry a leading compressor-id byte, written by
+			// CompressIntoPooledStream, which also owns the compress-or-raw threshold rule.
+			batch.SetPayload(Compression.CompressIntoPooledStream(input, writeLen, compressionLevel));
 
-			// Post-1.19.30 wrapper payloads carry a leading compressor-id byte. This path
-			// runs only after compression is negotiated, so tag it as zlib/deflate (0x00);
-			// a NoCompression deflate stream still inflates through the same 0x00 branch.
-			byte[] payload = new byte[compressed.Length + 1];
-			payload[0] = 0x00;
-			compressed.CopyTo(payload, 1);
-			batch.payload = payload;
+			batch.EncodeAsMemory(); // prepare
+			return batch;
+		}
 
-			batch.Encode(); // prepare
+		/// <summary>
+		///     Batches a packet already assembled as a segment chain (the cached-roster path). The
+		///     sequence is consumed here, inside the call, so the caller may drop it as soon as
+		///     this returns.
+		/// </summary>
+		public static McpeWrapper CreateBatchPacket(ReadOnlySequence<byte> input, CompressionLevel compressionLevel, bool writeLen)
+		{
+			var batch = McpeWrapper.CreateObject();
+
+			batch.SetPayload(Compression.CompressIntoPooledStream(input, writeLen, compressionLevel));
+
+			batch.EncodeAsMemory(); // prepare
 			return batch;
 		}
 

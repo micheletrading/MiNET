@@ -69,12 +69,23 @@ namespace MiNET.Worlds
 		public bool IsDirty { get; private set; }
 
 		public ulong Hash { get; set; }
-		public bool DisableCache { get; set; } = true;
+
+		/// <summary>
+		///     Off means <see cref="Write" /> re-serializes this section on every call. The cache is
+		///     built either way, at the end of Write, so disabling only throws away work already
+		///     paid for. Every mutation nulls it and sets <see cref="IsDirty" /> through the four
+		///     block setters, which are the only writers.
+		///     <para>Set true to keep serialization honest while debugging, not otherwise.</para>
+		/// </summary>
+		public bool DisableCache { get; set; }
+
 		private byte[] _cache;
 
 		public SubChunk(bool clearBuffers = true)
 		{
-			_runtimeIds = new List<int> {(int) BlockFactory.GetBlockByName("minecraft:air").GetRuntimeId()};
+			// The air runtime id, not a block built to be asked for it. GetBlockByName ends in
+			// Activator.CreateInstance, and this runs for every section that comes into existence.
+			_runtimeIds = new List<int> {BlockFactory.AirRuntimeId};
 				
 			_blocks = ArrayPool<short>.Shared.Rent(4096);
 			_loggedBlocks = ArrayPool<byte>.Shared.Rent(4096);
@@ -98,7 +109,11 @@ namespace MiNET.Worlds
 		{
 			//if (IsDirty)
 			{
-				_isAllAir = AllZeroFast(_blocks);
+				// Every block pointing at palette slot 0 only means air when slot 0 is air. A
+				// subchunk that is uniformly one block (solid stone underground, a bedrock layer)
+				// has a single-entry palette and all-zero indices, and calling that air deletes the
+				// whole section from the chunk while the heightmap still says terrain is there.
+				_isAllAir = AllZeroFast(_blocks) && (_runtimeIds.Count == 0 || _runtimeIds[0] == BlockFactory.AirRuntimeId);
 			}
 			return _isAllAir;
 		}
@@ -237,6 +252,17 @@ namespace MiNET.Worlds
 			IsDirty = true;
 		}
 
+		/// <summary>
+		///     The one dirty mark for a bulk loader that has written the backing arrays directly
+		///     (<see cref="Blocks" />, the light arrays) instead of going through the per-cell
+		///     setters. Direct writes without this serve a stale encode cache.
+		/// </summary>
+		internal void MarkBulkLoaded()
+		{
+			_cache = null;
+			IsDirty = true;
+		}
+
 
 		public void SetLoggedBlock(int bx, int by, int bz, Block block)
 		{
@@ -285,6 +311,28 @@ namespace MiNET.Worlds
 		public void SetSkylight(int bx, int by, int bz, byte data)
 		{
 			_skylight[GetIndex(bx, by, bz)] = data;
+		}
+
+		/// <summary>
+		///     The sub-chunk request form (McpeSubChunk entries): version 9 with the absolute
+		///     section index after the storage count. The inline LevelChunk form (<see cref="Write" />)
+		///     stays version 8, where the section index is implied by stream order.
+		/// </summary>
+		public void WriteVersion9(MemoryStream stream, sbyte yIndex)
+		{
+			stream.WriteByte(9); // version
+
+			int numberOfStores = 0;
+			if (_runtimeIds != null && _runtimeIds.Count > 0) numberOfStores++;
+			if (_loggedRuntimeIds != null && _loggedRuntimeIds.Count > 0) numberOfStores++;
+
+			stream.WriteByte((byte) numberOfStores);
+			stream.WriteByte((byte) yIndex);
+
+			if (WriteStore(stream, _blocks, null, false, _runtimeIds))
+			{
+				WriteStore(stream, null, _loggedBlocks, false, _loggedRuntimeIds);
+			}
 		}
 
 		public void Write(MemoryStream stream)
@@ -345,7 +393,7 @@ namespace MiNET.Worlds
 			IsDirty = false;
 		}
 
-		public static bool WriteStore(MemoryStream stream, short[] blocks, byte[] loggedBlocks, bool forceWrite, List<int> palette)
+		public static bool WriteStore(MemoryStream stream, short[] blocks, byte[] loggedBlocks, bool forceWrite, List<int> palette, bool isBlockPalette = true)
 		{
 			if (palette.Count == 0) return false;
 
@@ -424,7 +472,10 @@ namespace MiNET.Worlds
 			VarInt.WriteSInt32(stream, palette.Count); // count
 			foreach (var val in palette)
 			{
-				VarInt.WriteSInt32(stream, (int) BlockFactory.GetNetworkId(val));
+				// Only BLOCK palettes go through the wire id conversion (hash mode); biome palettes
+				// carry plain biome ids, and hashing them poisons every chunk the moment
+				// BlockNetworkIdsAreHashes is on.
+				VarInt.WriteSInt32(stream, isBlockPalette ? (int) BlockFactory.GetNetworkId(val) : val);
 			}
 
 			return true;

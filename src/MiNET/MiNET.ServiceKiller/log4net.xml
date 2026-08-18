@@ -10,33 +10,9 @@
 		</filter>
 	</appender>
 
-	<appender name="Console" type="log4net.Appender.ManagedColoredConsoleAppender">
-		<mapping>
-			<level value="FATAL" />
-			<foreColor value="White" />
-			<backColor value="DarkRed" />
-		</mapping>
-
-		<mapping>
-			<level value="ERROR" />
-			<foreColor value="Red" />
-		</mapping>
-
-		<mapping>
-			<level value="INFO" />
-			<foreColor value="Green" />
-		</mapping>
-
-		<mapping>
-			<level value="WARN" />
-			<foreColor value="Yellow" />
-		</mapping>
-
-		<mapping>
-			<level value="DEBUG" />
-			<foreColor value="White" />
-		</mapping>
-
+	<!-- Plain, not ManagedColored: colouring is a Win32 console call per line, and every
+	     server here runs redirected to a file, where that work is discarded. -->
+	<appender name="Console" type="log4net.Appender.ConsoleAppender">
 		<layout type="log4net.Layout.PatternLayout">
 			<!-- Pattern to output the caller's file name and line number -->
 			<!--<conversionPattern value="%5level [%thread] (%file:%line) - %message%newline" />-->
@@ -44,7 +20,7 @@
 		</layout>
 
 		<filter type="log4net.Filter.LoggerMatchFilter">
-			<loggerToMatch value="MiNET.Net.RakNet.ConnectionInfo" />
+			<loggerToMatch value="MiNET.Net.ConnectionInfo" />
 			<acceptOnMatch value="false" />
 		</filter>
 
@@ -63,6 +39,9 @@
 	<appender name="RollingFile" type="log4net.Appender.RollingFileAppender">
 		<file value="minetlog.log" />
 		<appendToFile value="true" />
+		<!-- Default is true: a flush to disk per event, taken on the logging thread inside the
+		     appender lock. That is what starves the 50ms world tick. -->
+		<immediateFlush value="false" />
 		<maximumFileSize value="10000KB" />
 		<maxSizeRollBackups value="2" />
 
@@ -76,7 +55,7 @@
 		</filter>
 
 		<filter type="log4net.Filter.LoggerMatchFilter">
-			<loggerToMatch value="MiNET.Net.RakNet.ConnectionInfo" />
+			<loggerToMatch value="MiNET.Net.ConnectionInfo" />
 			<acceptOnMatch value="false" />
 		</filter>
 
@@ -88,6 +67,10 @@
 	</appender>
 
 	<root>
+		<!-- ERROR, and never above INFO for a load run. The fleet shares a box with the server,
+		     so anything chattier here is measured as if it were the server: log events are string
+		     formats and writes behind an appender lock, which blocks threads at almost no CPU
+		     cost. Raise it only for a deliberate trace session of the bots themselves. -->
 		<level value="ERROR" />
 		<appender-ref ref="Console" />
 		<appender-ref ref="RollingFile" />

@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -27,11 +27,19 @@ namespace MiNET.Net
 {
 	public partial class McpePlaySound : Packet<McpePlaySound>
 	{
-		// Protocol 1001: an optional Server Sound Handle follows Pitch (present bool, then an LE uint64 when true).
+		/// <summary>How many times the sound plays. 1 is a single playback.</summary>
+		public uint loopCount = 1;
+
+		/// <summary>
+		///     Identifies the playing sound so a later ClientboundUpdateSoundData can stop, fade or
+		///     seek it. Absent for a fire-and-forget sound.
+		/// </summary>
 		public ulong? serverSoundHandle;
 
 		partial void AfterDecode()
 		{
+			loopCount = ReadUnsignedVarInt();
+
 			if (ReadBool())
 			{
 				serverSoundHandle = ReadUlong();
@@ -40,6 +48,7 @@ namespace MiNET.Net
 
 		partial void AfterEncode()
 		{
+			WriteUnsignedVarInt(loopCount);
 			Write(serverSoundHandle.HasValue);
 			if (serverSoundHandle.HasValue)
 			{

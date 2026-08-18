@@ -25,18 +25,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using log4net;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Plugins.Attributes;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
+using MiNET.Worlds;
 
 namespace MiNET.Plotter
 {
 	public class PlotCommands
 	{
+		private static readonly ILog Log = LogManager.GetLogger(typeof(PlotCommands));
+
 		private readonly PlotManager _plotManager;
 
 		public PlotCommands(PlotManager plotManager)
@@ -44,9 +48,22 @@ namespace MiNET.Plotter
 			_plotManager = plotManager;
 		}
 
+		/// <summary>
+		///     Plot coordinates cover every world, so without this guard a plot command run in a map
+		///     world claims, retitles or resets ground that has no plot grid under it at all.
+		/// </summary>
+		private static bool HasNoPlots(Player player)
+		{
+			return !PlotterLevelManager.IsPlotWorld(player.Level);
+		}
+
+		private const string NoPlotsHere = "There are no plots in this world.";
+
 		[Command(Name = "plot auto")]
 		public string PlotAuto(Player player)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			BlockCoordinates coords = (BlockCoordinates) player.KnownPosition;
 
 			int x = 0, y = 0, d = 1, m = 1;
@@ -96,6 +113,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot claim")]
 		public string PlotClaim(Player player)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (coords == null) return "Not able to claim plot at this position.";
 
@@ -108,6 +127,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot setowner")]
 		public string PlotSetOwner(Player player, string username)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (coords == null) return "Not able to set owner for this plot.";
 			if (!_plotManager.HasClaim(coords, player)) return "Not able to set owner for this plot.";
@@ -137,6 +158,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot add")]
 		public string PlotAddPlayer(Player player, string username)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (coords == null) return "Not able to add player for this plot.";
 			if (!_plotManager.HasClaim(coords, player)) return "You don't own this plot.";
@@ -171,6 +194,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot remove")]
 		public string PlotRemovePlayer(Player player, string username)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (coords == null) return "No plot found.";
 			if (!_plotManager.HasClaim(coords, player)) return "You don't own this plot.";
@@ -205,6 +230,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot sethome")]
 		public string PlotSetHome(Player player)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (coords == null) return "Not able to set home plot at this position.";
 			if (!_plotManager.HasClaim(coords, player)) return "Not able to set home plot at this position.";
@@ -220,6 +247,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot home")]
 		public string PlotHome(Player player)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotPlayer plotPlayer = _plotManager.GetOrAddPlotPlayer(player);
 			if (plotPlayer == null) return "Sorry, you don't exist.";
 
@@ -238,6 +267,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot settitle")]
 		public string PlotSetTitle(Player player, string title = null)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (!_plotManager.HasClaim(coords, player)) return "You don't own this plot.";
 			if (!_plotManager.TryGetPlot(coords, out Plot plot)) return "No plot found.";
@@ -255,6 +286,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot setdescription")]
 		public string PlotSetDescription(Player player, string description = null)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (!_plotManager.HasClaim(coords, player)) return "You don't own this plot.";
 			if (!_plotManager.TryGetPlot(coords, out Plot plot)) return "No plot found.";
@@ -272,6 +305,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot settime")]
 		public string PlotSetTime(Player player, int time = 5000)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (!_plotManager.HasClaim(coords, player)) return "You don't own this plot.";
 			if (!_plotManager.TryGetPlot(coords, out Plot plot)) return "No plot found.";
@@ -291,6 +326,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot setdownfall")]
 		public string PlotSetDownfall(Player player, int downfall = 0)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (!_plotManager.HasClaim(coords, player)) return "You don't own this plot.";
 			if (!_plotManager.TryGetPlot(coords, out Plot plot)) return "No plot found.";
@@ -310,6 +347,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot setbiome")]
 		public string PlotSetBiome(Player player, int biomeId = 1)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (!_plotManager.HasClaim(coords, player)) return "You don't own this plot.";
 			if (!_plotManager.TryGetPlot(coords, out Plot plot)) return "No plot found.";
@@ -330,6 +369,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot visit")]
 		public string PlotVisit(Player player, string username)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotPlayer plotPlayer = _plotManager.GetPlotPlayer(username);
 			if (plotPlayer == null) return "Sorry, that user is homeless.";
 
@@ -347,6 +388,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot visit")]
 		public string PlotVisit(Player player, int x, int z)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = new PlotCoordinates(x, z);
 
 			if (x == 0 || z == 0) return $"No plot at this location {coords.X},{coords.Z}.";
@@ -363,6 +406,8 @@ namespace MiNET.Plotter
 		[Command(Name = "plot clear")]
 		public string PlotClear(Player player)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (coords == null) return "Not able to reset plot at this position.";
 
@@ -378,6 +423,8 @@ namespace MiNET.Plotter
 		[Authorize(Permission = 4)]
 		public string PlotDelete(Player player, bool force = false)
 		{
+			if (HasNoPlots(player)) return NoPlotsHere;
+
 			PlotCoordinates coords = (PlotCoordinates) player.KnownPosition;
 			if (!force && !_plotManager.HasClaim(coords, player)) return "Not able to reset plot at this position.";
 			if (!_plotManager.TryGetPlot(coords, out Plot plot) && !force) return "Not able to delete plot at this position.";
@@ -399,5 +446,97 @@ namespace MiNET.Plotter
 			});
 		}
 
+		// World management.
+		//
+		// A world here is its folder and nothing else: the plot world in LevelDBWorldFolder, and one
+		// world per subfolder of WorldsRoot, opened on first visit by PlotterLevelManager. Nothing
+		// registers them anywhere, so listing means reading the folders and asking the level manager
+		// which of them it currently holds.
+
+		[Command(Name = "plot worlds", Description = "Lists the worlds under WorldsRoot, marking loaded ones.")]
+		public string Worlds(Player player, string filter = null)
+		{
+			LevelManager levelManager = player.Level.LevelManager;
+
+			string[] loaded;
+			lock (levelManager.Levels)
+			{
+				loaded = levelManager.Levels.Select(level => level.LevelId).ToArray();
+			}
+
+			string worldsRoot = Config.GetProperty("WorldsRoot", "").Trim();
+			IEnumerable<string> available = worldsRoot.Length == 0 || !Directory.Exists(worldsRoot)
+				? Array.Empty<string>()
+				: Directory.EnumerateDirectories(worldsRoot).Select(Path.GetFileName);
+
+			if (!string.IsNullOrEmpty(filter))
+			{
+				available = available.Where(name => name.Contains(filter, StringComparison.InvariantCultureIgnoreCase));
+			}
+
+			string[] names = available.OrderBy(name => name, StringComparer.InvariantCultureIgnoreCase).ToArray();
+			if (names.Length == 0) return worldsRoot.Length == 0 ? "No WorldsRoot configured." : "No worlds found.";
+
+			var message = new List<string> {$"{names.Length} world(s), you are in {player.Level.LevelId}:"};
+			foreach (string name in names)
+			{
+				bool isLoaded = loaded.Any(id => id.Equals(name, StringComparison.InvariantCultureIgnoreCase));
+				message.Add(isLoaded ? $"{ChatColors.Green}{name}{ChatColors.White} (loaded)" : name);
+			}
+
+			return string.Join("\n", message);
+		}
+
+		[Command(Name = "plot world", Description = "Teleports you to a world. Pass create to make one that does not exist.")]
+		public string World(Player player, string name, bool create = false)
+		{
+			if (player.Level.LevelId.Equals(name, StringComparison.InvariantCultureIgnoreCase))
+			{
+				player.Teleport(player.SpawnPosition);
+				return $"Already in {player.Level.LevelId}, moved you to its spawn.";
+			}
+
+			LevelManager levelManager = player.Level.LevelManager;
+
+			bool exists;
+			lock (levelManager.Levels)
+			{
+				exists = levelManager.Levels.Any(level => level.LevelId.Equals(name, StringComparison.InvariantCultureIgnoreCase));
+			}
+
+			// A name with no folder is a new world, which is right for the plot server and wrong for a
+			// typo while browsing maps. So creating one is asked for, and a misspelt map name says so
+			// instead of quietly leaving an empty world behind.
+			if (!exists && !create)
+			{
+				string worldsRoot = Config.GetProperty("WorldsRoot", "").Trim();
+				if (worldsRoot.Length > 0 && !Directory.Exists(Path.Combine(worldsRoot, name)))
+				{
+					return $"No world named {name}. Use /plot worlds to list them, or /plot world {name} true to create it.";
+				}
+			}
+
+			// Opened before the move rather than inside SpawnLevel's level function: that function runs
+			// after the player has already left the old world, so a database that will not open strands
+			// them mid-transfer instead of answering the command. Reading a map's level.dat and tables
+			// is quick, and pre-warming its chunks runs on its own thread afterwards.
+			Level nextLevel;
+			try
+			{
+				lock (levelManager.Levels)
+				{
+					nextLevel = levelManager.GetLevel(player, name);
+				}
+			}
+			catch (Exception e)
+			{
+				Log.Error($"Could not open world {name}", e);
+				return $"Could not open {name}: {e.Message}";
+			}
+
+			player.SpawnLevel(nextLevel, nextLevel.SpawnPoint, false);
+
+			return $"Moving you to {name}.";
+		}
 	}
 }

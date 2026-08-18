@@ -45,7 +45,6 @@ namespace MiNET.Blocks
 		public BlockCoordinates Coordinates { get; set; }
 
 		public virtual string Name { get; protected set; }
-		public int Id { get; }
 
 		[Obsolete("Use block states instead.")]
 		public byte Metadata { get; set; }
@@ -97,14 +96,12 @@ namespace MiNET.Blocks
 
 		public byte BiomeId { get; set; }
 
-		//TODO: Update ALL blocks with names.
-		public Block(string name, int id)
-		{
-			Name = name;
-			Id = id;
-		}
-
-		public Block(int id) : this(string.Empty, id)
+		/// <summary>
+		///     A block is its name. Every block in the palette gets a generated partial that overrides
+		///     <see cref="Name" /> with its own identity, so nothing is passed in here; this exists for
+		///     the handful of classes that are not in the palette and set Name themselves.
+		/// </summary>
+		public Block()
 		{
 		}
 
@@ -123,7 +120,7 @@ namespace MiNET.Blocks
 
 		public virtual BlockStateContainer GetState()
 		{
-			Log.Warn($"Block {GetType().Name} ({Name}, id={Id}) has no generated state mapping (GetState not overridden)");
+			Log.Warn($"Block {GetType().Name} ({Name}) has no generated state mapping (GetState not overridden)");
 			return null;
 		}
 
@@ -200,7 +197,7 @@ namespace MiNET.Blocks
 			}
 
 			UpdateBlocks(world);
-			world.BroadcastSound(Coordinates, LevelSoundEventType.BreakBlock, Id);
+			world.BroadcastSound(Coordinates, LevelSoundEventType.BreakBlock, GetRuntimeId());
 		}
 
 		protected void UpdateBlocks(Level world)
@@ -306,7 +303,7 @@ namespace MiNET.Blocks
 
 		public override string ToString()
 		{
-			return $"Id: {Id}, Metadata: {GetState()}, Coordinates: {Coordinates}";
+			return $"Name: {Name}, State: {GetState()}, Coordinates: {Coordinates}";
 		}
 	}
 

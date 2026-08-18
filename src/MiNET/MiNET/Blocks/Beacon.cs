@@ -34,7 +34,7 @@ namespace MiNET.Blocks
 {
 	public partial class Beacon : Block
 	{
-		public Beacon() : base(138)
+		public Beacon()
 		{
 		}
 
@@ -68,12 +68,7 @@ namespace MiNET.Blocks
 
 		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
-			var containerOpen = McpeContainerOpen.CreateObject();
-			containerOpen.windowId = 5 + 9;
-			containerOpen.type = 13;
-			containerOpen.coordinates = blockCoordinates;
-			containerOpen.actorUniqueId = -1;
-			player.SendPacket(containerOpen);
+			player.OpenUiScreen(ScreenKind.Beacon, ContainerType.Beacon, blockCoordinates);
 
 			return true;
 		}

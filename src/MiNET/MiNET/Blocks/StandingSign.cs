@@ -38,7 +38,7 @@ namespace MiNET.Blocks
 	{
 		private readonly string _itemDropName;
 
-		public StandingSignBase(int id, string itemDropName) : base(id)
+		public StandingSignBase(string itemDropName)
 		{
 			_itemDropName = itemDropName;
 
@@ -76,42 +76,42 @@ namespace MiNET.Blocks
 
 	public partial class StandingSign : StandingSignBase
 	{
-		public StandingSign() : base(63, "minecraft:oak_sign") { }
+		public StandingSign() : base("minecraft:oak_sign") { }
 	}
 
 
 	public partial class SpruceStandingSign : StandingSignBase
 	{
-		public SpruceStandingSign() : base(436, "minecraft:spruce_sign") { }
+		public SpruceStandingSign() : base("minecraft:spruce_sign") { }
 	}
 
 	public partial class BirchStandingSign : StandingSignBase
 	{
-		public BirchStandingSign() : base(441, "minecraft:birch_sign") { }
+		public BirchStandingSign() : base("minecraft:birch_sign") { }
 	}
 
 	public partial class JungleStandingSign : StandingSignBase
 	{
-		public JungleStandingSign() : base(443, "minecraft:jungle_sign") { }
+		public JungleStandingSign() : base("minecraft:jungle_sign") { }
 	}
 
 	public partial class AcaciaStandingSign : StandingSignBase
 	{
-		public AcaciaStandingSign() : base(445, "minecraft:acacia_sign") { }
+		public AcaciaStandingSign() : base("minecraft:acacia_sign") { }
 	}
 
 	public partial class DarkoakStandingSign : StandingSignBase
 	{
-		public DarkoakStandingSign() : base(447, "minecraft:dark_oak_sign") { }
+		public DarkoakStandingSign() : base("minecraft:dark_oak_sign") { }
 	}
 
 	public partial class CrimsonStandingSign : StandingSignBase
 	{
-		public CrimsonStandingSign() : base(505, "minecraft:crimson_sign") { }
+		public CrimsonStandingSign() : base("minecraft:crimson_sign") { }
 	}
 
 	public partial class WarpedStandingSign : StandingSignBase
 	{
-		public WarpedStandingSign() : base(506, "minecraft:warped_sign") { }
+		public WarpedStandingSign() : base("minecraft:warped_sign") { }
 	}
 }

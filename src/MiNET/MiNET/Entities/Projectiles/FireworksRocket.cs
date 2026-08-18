@@ -101,7 +101,7 @@ namespace MiNET.Entities.Projectiles
 		{
 			McpeEntityEvent entityEvent = McpeEntityEvent.CreateObject();
 			entityEvent.runtimeEntityId = EntityId;
-			entityEvent.eventId = 25;
+			entityEvent.eventId = (byte) ActorEventType.FireworksExplode;
 			entityEvent.data = 0;
 			Level.RelayBroadcast(entityEvent);
 

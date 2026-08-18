@@ -217,6 +217,7 @@ namespace MiNET.Test
 		}*/
 
 		[TestMethod]
+		[Ignore("Benchmark, not a test: 10k-iteration palette build timing with no assertions. Run manually when measuring palette encoding.")]
 		public void EncodePaletteChunk()
 		{
 			var blocks = new short[4096];
@@ -570,7 +571,6 @@ namespace MiNET.Test
 		{
 			var packet = new McpeMoveEntityDelta();
 			packet.runtimeEntityId = 0x0102030405;
-			packet.flags = 0;
 			var prev = new PlayerLocation(new Vector3(0, 0, 0), 0, 0, 0);
 			packet.prevSentPosition = prev;
 			var current = new PlayerLocation(new Vector3(1, 2, 3), 41, 49, 60);
@@ -580,20 +580,18 @@ namespace MiNET.Test
 			var bytes = packet.Encode();
 
 			packet = new McpeMoveEntityDelta();
-			packet.prevSentPosition = prev;
 			packet.Decode(bytes.AsMemory());
 
 			Assert.AreEqual(packet.runtimeEntityId, 0x0102030405);
 
-			Assert.AreEqual(packet.flags & McpeMoveEntityDelta.HasX, McpeMoveEntityDelta.HasX);
-			Assert.AreEqual(packet.flags & McpeMoveEntityDelta.HasY, McpeMoveEntityDelta.HasY);
-			Assert.AreEqual(packet.flags & McpeMoveEntityDelta.HasZ, McpeMoveEntityDelta.HasZ);
-
-			Assert.AreEqual(packet.flags & McpeMoveEntityDelta.HasRotX, McpeMoveEntityDelta.HasRotX);
-			Assert.AreEqual(packet.flags & McpeMoveEntityDelta.HasRotY, McpeMoveEntityDelta.HasRotY);
-			Assert.AreEqual(packet.flags & McpeMoveEntityDelta.HasRotZ, McpeMoveEntityDelta.HasRotZ);
-
-			Assert.AreEqual(packet.flags & McpeMoveEntityDelta.OnGround, McpeMoveEntityDelta.OnGround);
+			// Every changed field travels as a present optional on the 2168 wire.
+			Assert.IsNotNull(packet.moveData.newPositionX);
+			Assert.IsNotNull(packet.moveData.newPositionY);
+			Assert.IsNotNull(packet.moveData.newPositionZ);
+			Assert.IsNotNull(packet.moveData.rotationX);
+			Assert.IsNotNull(packet.moveData.rotationY);
+			Assert.IsNotNull(packet.moveData.rotationYHead);
+			Assert.IsTrue(packet.moveData.isOnGround);
 
 			Assert.AreEqual(new Vector3(1, 2, 3), packet.GetCurrentPosition(prev).ToVector3());
 		}

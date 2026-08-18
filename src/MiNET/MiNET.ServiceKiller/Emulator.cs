@@ -26,7 +26,9 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,10 +59,23 @@ namespace MiNET.ServiceKiller
 		private static int RequestChunkRadius = 5;
 		private static bool ConcurrentSpawn = true;
 		private static int ConcurrentBatchSize = 5;
+		private static string Walker = "helix";
+		private static int WalkBounds = 800;
 
 		public AutoResetEvent ConcurrentSpawnWaitHandle = new AutoResetEvent(false);
 
 		public bool Running { get; set; } = true;
+
+		/// <summary>The fleet's one pacing clock; every spawned bot's walk registers here. See <see cref="ServiceKiller.WalkClock" /> for why this replaced a sleeping thread per bot.</summary>
+		public WalkClock WalkClock { get; } = new WalkClock();
+
+		private static int NameOffset = 0;
+
+		/// <summary>One fresh path per bot from the run's --walker choice; paths carry per-bot state.</summary>
+		public static IWalkPath CreateWalkPath()
+		{
+			return string.Equals(Walker, "waypoints", StringComparison.OrdinalIgnoreCase) ? new WaypointPath(WalkBounds) : new HelixPath();
+		}
 
 		/// <summary>
 		/// </summary>
@@ -70,13 +85,49 @@ namespace MiNET.ServiceKiller
 		/// <param name="batchSize">If parallel spawn, how many in each batch.</param>
 		/// <param name="chunkRadius">The chunk radius the bots will request. Server may override.</param>
 		/// <param name="processorAffinity">Processor affinity mask represented as an integer.</param>
-		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0)
+		/// <param name="transport">Transport the bots connect over: nethernet (raknet is gone).</param>
+		/// <param name="nameOffset">Offset for bot numbering, so parallel emulator processes get distinct names.</param>
+		/// <param name="auto">Run unattended: start without a prompt, exit when every bot's duration has elapsed. For scripted/detached runs, where stdin is not a console.</param>
+		/// <param name="sendIntervalMin">Lower bound (ms) of each bot's fixed movement-send cadence; with max, the per-bot interval is drawn once from this range. Higher = fewer packets = less CPU on both ends.</param>
+		/// <param name="sendIntervalMax">Upper bound (ms) of the cadence range.</param>
+		/// <param name="port">Signaling port to aim at. 19132 is the server port; a parking or side server may be elsewhere.</param>
+		/// <param name="walker">
+		///     Path shape for every bot: helix (the historical default, whole fleet corkscrewing in
+		///     one dense cluster at spawn) or waypoints (wander the map inside --walk-bounds, with
+		///     shared hubs where routes cross). Runs are only comparable to runs with the same walker.
+		/// </param>
+		/// <param name="walkBounds">waypoints only: radius in blocks of the wander disc around the level spawn.</param>
+		/// <param name="host">
+		///     Server to connect to. Loopback keeps the bots on the same machine, which is fast but
+		///     makes every send also pay the receiving side's delivery on the same box, so the CPU
+		///     numbers it produces are not the server's alone. Naming the public host instead
+		///     (yodamine.com) sends the traffic out to the router and back, a real network path,
+		///     which is what a measurement run wants.
+		/// </param>
+		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "nethernet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100, string host = "127.0.0.1", int port = 19132, string walker = "helix", int walkBounds = 800)
 		{
 			NumberOfBots = numberOfBots;
 			DurationOfConnection = TimeSpan.FromSeconds(durationOfConnection);
 			ConcurrentSpawn = concurrentSpawn;
 			ConcurrentBatchSize = batchSize;
 			RequestChunkRadius = chunkRadius;
+			NameOffset = nameOffset;
+			RanSleepMin = sendIntervalMin;
+			RanSleepMax = sendIntervalMax;
+			Walker = walker;
+			WalkBounds = walkBounds;
+
+			if (!string.Equals(transport, "nethernet", StringComparison.OrdinalIgnoreCase))
+			{
+				Console.WriteLine($"Unknown transport '{transport}': nethernet is the only transport (RakNet was removed).");
+				return;
+			}
+
+			if (!string.Equals(walker, "helix", StringComparison.OrdinalIgnoreCase) && !string.Equals(walker, "waypoints", StringComparison.OrdinalIgnoreCase))
+			{
+				Console.WriteLine($"Unknown walker '{walker}': expected helix or waypoints.");
+				return;
+			}
 
 			var currentProcess = Process.GetCurrentProcess();
 			currentProcess.ProcessorAffinity = processorAffinity <= 0 ? currentProcess.ProcessorAffinity : (IntPtr) processorAffinity;
@@ -96,26 +147,31 @@ namespace MiNET.ServiceKiller
 			try
 			{
 				AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
-				Console.WriteLine("Press <Enter> to start emulation...");
-				Console.ReadLine();
-
-				var threadPool = new DedicatedThreadPool(new DedicatedThreadPoolSettings(numberOfBots, "Shared_Thread"));
+				if (!auto)
+				{
+					Console.WriteLine("Press <Enter> to start emulation...");
+					Console.ReadLine();
+				}
 
 				var emulator = new Emulator {Running = true};
+				emulator.WalkClock.Start();
 				long start = DateTime.UtcNow.Ticks;
 
-				//IPEndPoint endPoint = new IPEndPoint(Dns.GetHostEntry("yodamine.com").AddressList[0], 19132);
-				var endPoint = new IPEndPoint(IPAddress.Loopback, 19132);
+				// A name resolves to whatever the router hands back, so pointing the fleet at the
+				// public host bounces every datagram out and back instead of short-circuiting in the
+				// loopback adapter. Same server, real network path.
+				IPAddress address = IPAddress.TryParse(host, out IPAddress parsed) ? parsed : Dns.GetHostEntry(host).AddressList.First(a => a.AddressFamily == AddressFamily.InterNetwork);
+				var endPoint = new IPEndPoint(address, port);
+				Console.WriteLine($"Target: {host} -> {endPoint}");
 
 				Task.Run(() =>
 				{
 					var sw = Stopwatch.StartNew();
 					for (int j = 0; j < NumberOfBots; j++)
 					{
-						string playerName = $"TheGrey{j + 1:D3}";
+						string playerName = $"TheGrey{j + 1 + NameOffset:D3}";
 
-						var client = new EmulatorClient(threadPool,
-							emulator,
+						var client = new EmulatorClient(emulator,
 							DurationOfConnection,
 							playerName,
 							(int) (DateTime.UtcNow.Ticks - start),
@@ -148,13 +204,29 @@ namespace MiNET.ServiceKiller
 					}
 				});
 
-				Console.WriteLine("Press <enter> to stop all clients.");
-				Console.ReadLine();
+				if (auto)
+				{
+					// Unattended: the spawn ramp plus every bot's scripted duration bounds the run;
+					// the margin covers connect/teardown straggling. Killing the process early is the
+					// out-of-band stop.
+					Thread.Sleep(DurationOfConnection + TimeSpan.FromSeconds(60));
+					emulator.Running = false;
+					Thread.Sleep(TimeSpan.FromSeconds(5));
 
-				emulator.Running = false;
+					// Transport plumbing (session dispatch threads, timers) can hold the process open
+					// past Main; an unattended run must never rely on every thread being background.
+					Environment.Exit(0);
+				}
+				else
+				{
+					Console.WriteLine("Press <enter> to stop all clients.");
+					Console.ReadLine();
 
-				Console.WriteLine("Stopping all clients, press <enter> to exit.");
-				Console.ReadLine();
+					emulator.Running = false;
+
+					Console.WriteLine("Stopping all clients, press <enter> to exit.");
+					Console.ReadLine();
+				}
 			}
 			catch (Exception e)
 			{

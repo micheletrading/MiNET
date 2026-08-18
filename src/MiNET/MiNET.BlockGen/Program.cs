@@ -83,10 +83,27 @@ public static class Program
 		Dictionary<string, int> baseIndex = VerifyPaletteLayout(palette, byName);
 		if (baseIndex == null) return 1;
 
-		int classes = WriteBlockDataClasses(Path.Combine(blocksDir, "BlockData.generated.cs"), byName, handWritten);
+		Dictionary<string, string> familyBases = ReadFamilyBases(dataDir, blocksDir, handWritten);
+		Console.WriteLine($"family bases: {familyBases.Values.Distinct().Count()} bases covering {familyBases.Count} blocks");
+
+		int classes = WriteBlockDataClasses(Path.Combine(blocksDir, "BlockData.generated.cs"), byName, handWritten, familyBases);
 		Console.WriteLine($"BlockData.generated.cs: {classes} classes");
 
-		int partials = WritePartialBlocks(Path.Combine(blocksDir, "PartialBlocks.cs"), byName, handImplemented, baseIndex);
+		// Where each block's states are declared. The creative families are one answer; a base the
+		// code declares for itself is the other, and both hoist the same way. Assigning a base to a
+		// GENERATED class stays creative-group-only above: this only decides who owns the states.
+		var blockClassNames = new HashSet<string>(byName.Select(g => CodeName(g.Key.Replace("minecraft:", ""))));
+		Dictionary<string, string> declaredBases = ReadDeclaredBases(blocksDir, handWritten, blockClassNames);
+		var stateOwners = new Dictionary<string, string>(familyBases, StringComparer.OrdinalIgnoreCase);
+		foreach (IGrouping<string, BlockState> group in byName)
+		{
+			if (stateOwners.ContainsKey(group.Key)) continue;
+			if (declaredBases.TryGetValue(CodeName(group.Key.Replace("minecraft:", "")), out string owner)) stateOwners[group.Key] = owner;
+		}
+
+		Console.WriteLine($"state owners: {stateOwners.Values.Distinct().Count()} bases covering {stateOwners.Count} blocks");
+
+		int partials = WritePartialBlocks(Path.Combine(blocksDir, "PartialBlocks.cs"), byName, handImplemented, baseIndex, stateOwners);
 		Console.WriteLine($"PartialBlocks.cs: {partials} partials");
 
 		int entries = WriteBlockPalette(Path.Combine(blocksDir, "BlockPaletteData.generated.cs"), palette);
@@ -105,6 +122,12 @@ public static class Program
 		int itemClasses = WriteItemDataClasses(Path.Combine(itemsDir, "ItemData.generated.cs"), items, blockNames, handWrittenItems,
 			Path.Combine(dataDir, "item_mappings.json"));
 		Console.WriteLine($"ItemData.generated.cs: {itemClasses} classes");
+
+		// The creative catalog, regenerated from Cloudburst's name-addressed creative_items.json
+		// through the same registry ids, so it can never drift from the item registry the way the
+		// old hand-captured file did. Data, not symbols, like the biome table below.
+		var networkIdByName = items.ToDictionary(i => i.Name, i => i.NetworkId, StringComparer.OrdinalIgnoreCase);
+		CreativeGenerator.Run(dataDir, Path.Combine(itemsDir, "Data", "creative_groups.json"), networkIdByName);
 
 		// Not code: this one emits our own data file, because biomes are a table nobody writes
 		// against by symbol. Their file stays here, ours ships.
@@ -655,6 +678,77 @@ public static class Program
 	///     reflection: the previously generated classes are indistinguishable from hand-written
 	///     ones once compiled, so asking the type system makes the generator skip everything.
 	/// </summary>
+	/// <summary>
+	///     Maps each block to the base class its family shares, from the creative inventory grouping.
+	///     Nothing on the wire says oak_stairs is a stair: the palette carries a name and states and
+	///     no notion of a family. The creative groups are the one place Mojang publishes it, and they
+	///     get it right where naming does not, separating fence from fence gate rather than lumping
+	///     everything ending in _fence together.
+	///     <para>
+	///         The base name is derived, not configured: itemGroup.name.leaves becomes LeavesBase. A
+	///         family only gets a base when someone has written that file, so adding shared behaviour
+	///         is one new file and no wiring, and a family with nothing to share stays on Block.
+	///     </para>
+	/// </summary>
+	private static Dictionary<string, string> ReadFamilyBases(string dataDir, string blocksDir, HashSet<string> handWritten)
+	{
+		var creative = JsonConvert.DeserializeObject<CreativeFamiliesJson>(File.ReadAllText(Path.Combine(dataDir, "creative_items.json")));
+		var bases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		var usable = new Dictionary<string, bool>();
+
+		foreach (CreativeFamilyItemJson item in creative.Items)
+		{
+			if (item.GroupId < 0 || item.GroupId >= creative.Groups.Count) continue;
+
+			string group = creative.Groups[item.GroupId].Name;
+			if (string.IsNullOrEmpty(group) || !group.StartsWith("itemGroup.name.")) continue;
+
+			string baseName = CodeName(group.Substring("itemGroup.name.".Length)) + "Base";
+			if (!handWritten.Contains(baseName)) continue;
+
+			// Only a base the generated class can actually call, which now means one that takes
+			// nothing: either no declared constructor at all, or an explicitly parameterless one.
+			// Several of the older bases still want an argument (SlabBase needs its double-slab
+			// name, others take a byte) that is not derivable from the palette, and those stay
+			// opt-in through a hand-written class until they are converted.
+			if (!usable.TryGetValue(baseName, out bool ok))
+			{
+				string file = Path.Combine(blocksDir, baseName + ".cs");
+				if (File.Exists(file))
+				{
+					string text = File.ReadAllText(file);
+					ok = Regex.IsMatch(text, @"\b" + baseName + @"\s*\(\s*\)")
+						|| !Regex.IsMatch(text, @"\b" + baseName + @"\s*\([^)]");
+				}
+
+				usable[baseName] = ok;
+			}
+
+			if (!ok) continue;
+
+			bases[item.Id] = baseName;
+		}
+
+		return bases;
+	}
+
+	private sealed class CreativeFamiliesJson
+	{
+		[JsonProperty("groups")] public List<CreativeFamilyGroupJson> Groups { get; set; }
+		[JsonProperty("items")] public List<CreativeFamilyItemJson> Items { get; set; }
+	}
+
+	private sealed class CreativeFamilyGroupJson
+	{
+		[JsonProperty("name")] public string Name { get; set; }
+	}
+
+	private sealed class CreativeFamilyItemJson
+	{
+		[JsonProperty("id")] public string Id { get; set; }
+		[JsonProperty("groupId")] public int GroupId { get; set; }
+	}
+
 	private static HashSet<string> ReadHandWrittenClasses(string blocksDir, params string[] generatedFiles)
 	{
 		var generated = new HashSet<string>(generatedFiles.Length > 0 ? generatedFiles : new[] {"PartialBlocks.cs", "BlockData.generated.cs"});
@@ -669,6 +763,42 @@ public static class Program
 		}
 
 		return names;
+	}
+
+	/// <summary>
+	///     Which base each hand-written block class declares, read from the source. The creative
+	///     groups name the families Mojang publishes, but the code has bases they do not: liquids,
+	///     furnaces, redstone torches. Their members say so themselves, in the file, and that is the
+	///     only place it is written down.
+	///     <para>
+	///         Only a base that is not itself a block counts, so a concrete class that happens to be
+	///         someone's base (RedstoneOre under LitRedstoneOre) keeps its own states rather than
+	///         having them hoisted out from under it.
+	///     </para>
+	/// </summary>
+	/// <summary>Line comments only, enough to keep a commented-out class from being read as one.</summary>
+	private static string StripLineComments(string text)
+	{
+		return Regex.Replace(text, @"//.*?$", "", RegexOptions.Multiline);
+	}
+
+	private static Dictionary<string, string> ReadDeclaredBases(string blocksDir, HashSet<string> handWritten, HashSet<string> blockClassNames)
+	{
+		var declared = new Dictionary<string, string>();
+		foreach (string path in Directory.GetFiles(blocksDir, "*.cs"))
+		{
+			if (Path.GetFileName(path) is "PartialBlocks.cs" or "BlockData.generated.cs" or "BlockPaletteData.generated.cs") continue;
+
+			string text = StripLineComments(File.ReadAllText(path));
+			foreach (Match m in Regex.Matches(text, @"public\s+(?:(?:abstract|sealed|static|partial)\s+)*class\s+(\w+)\s*:\s*(\w+)"))
+			{
+				string baseName = m.Groups[2].Value;
+				if (baseName == "Block" || !handWritten.Contains(baseName) || blockClassNames.Contains(baseName)) continue;
+				declared[m.Groups[1].Value] = baseName;
+			}
+		}
+
+		return declared;
 	}
 
 	/// <summary>
@@ -695,7 +825,7 @@ public static class Program
 		return names;
 	}
 
-	private static int WriteBlockDataClasses(string path, List<IGrouping<string, BlockState>> byName, HashSet<string> handWritten)
+	private static int WriteBlockDataClasses(string path, List<IGrouping<string, BlockState>> byName, HashSet<string> handWritten, Dictionary<string, string> familyBases)
 	{
 		var sb = new StringBuilder();
 		WriteHeader(sb, "CloudburstMC/Data block_palette.nbt");
@@ -708,12 +838,15 @@ public static class Program
 			string className = CodeName(group.Key.Replace("minecraft:", ""));
 			if (handWritten.Contains(className)) continue;
 
-			BlockState first = group.First();
 			count++;
 			sb.AppendLine();
-			sb.AppendLine($"\tpublic partial class {className} : Block // {group.Key}");
+
+			// The family base when the block belongs to one and someone has written it, Block otherwise.
+			string familyBase = familyBases.TryGetValue(group.Key, out string found) ? found : "Block";
+
+			sb.AppendLine($"\tpublic partial class {className} : {familyBase} // {group.Key}");
 			sb.AppendLine("\t{");
-			sb.AppendLine($"\t\tpublic {className}() : base({first.Id})");
+			sb.AppendLine($"\t\tpublic {className}()");
 			sb.AppendLine("\t\t{");
 			sb.AppendLine("\t\t\tIsGenerated = true;");
 			sb.AppendLine("\t\t}");
@@ -788,8 +921,25 @@ public static class Program
 		[JsonProperty("canContainLiquidSource")] public bool CanContainLiquidSource { get; set; }
 	}
 
-	private static int WritePartialBlocks(string path, List<IGrouping<string, BlockState>> byName, HashSet<string> handImplemented, Dictionary<string, int> baseIndex)
+	private static int WritePartialBlocks(string path, List<IGrouping<string, BlockState>> byName, HashSet<string> handImplemented, Dictionary<string, int> baseIndex,
+		Dictionary<string, string> familyBases)
 	{
+		// State declarations for each family base, collected once and written at the end.
+		var baseStates = new Dictionary<string, StringBuilder>();
+
+		// A base may only declare a state every one of its members has. Families are mostly uniform,
+		// but not always: mangrove_propagule sits in the sapling family and adds hanging and
+		// propagule_stage on top of the shared age_bit, so those two stay on the variant.
+		var sharedStateNames = new Dictionary<string, HashSet<string>>();
+		foreach (IGrouping<string, BlockState> group in byName)
+		{
+			if (!familyBases.TryGetValue(group.Key, out string owner)) continue;
+
+			var names = new HashSet<string>(group.First().States.Select(s => s.Name));
+			if (sharedStateNames.TryGetValue(owner, out HashSet<string> common)) common.IntersectWith(names);
+			else sharedStateNames[owner] = names;
+		}
+
 		Dictionary<string, BlockProperties> properties = ReadBlockProperties(
 			Path.Combine(Path.GetDirectoryName(path)!, "..", "..", "MiNET.BlockGen", "Data", "block_properties.json"));
 		Console.WriteLine($"block properties: {properties.Count} blocks");
@@ -808,8 +958,9 @@ public static class Program
 		{
 			string className = CodeName(group.Key.Replace("minecraft:", ""));
 			if (handImplemented.Contains(className)) continue;
-			BlockState first = group.First();
 			count++;
+
+			BlockState first = group.First();
 
 			// Every distinct value a state takes across this block's permutations, so a bit stays
 			// a bool and a range keeps its real bounds.
@@ -829,8 +980,27 @@ public static class Program
 			sb.AppendLine();
 			WriteBlockProperties(sb, group.Key, properties);
 
+			// A family shares one state signature, so its states are declared once on the base
+			// rather than repeated on every member. Emitted into baseStates here and written out
+			// after the loop; the variant still gets SetState and GetState, which need its own
+			// name and id.
+			familyBases.TryGetValue(group.Key, out string ownerBase);
+			StringBuilder baseTarget = null;
+			var claimed = new HashSet<string>();
+			if (ownerBase != null)
+			{
+				if (!baseStates.TryGetValue(ownerBase, out baseTarget)) baseStates[ownerBase] = baseTarget = new StringBuilder();
+				claimed = baseStates[ownerBase].Length == 0 ? sharedStateNames[ownerBase] : new HashSet<string>();
+			}
+
 			foreach ((string stateName, object defaultValue) in first.States)
 			{
+				// Shared states go on the base, once. Anything this block adds beyond the family
+				// stays here, and members after the first emit neither, since the base has them.
+				StringBuilder stateTarget = ownerBase == null || !sharedStateNames[ownerBase].Contains(stateName)
+					? sb
+					: claimed.Contains(stateName) ? baseTarget : new StringBuilder();
+
 				string prop = CodeName(stateName.Replace("minecraft:", ""));
 				List<object> values = valuesByState[stateName];
 				switch (defaultValue)
@@ -841,24 +1011,24 @@ public static class Program
 						if (bytes.Count <= 2 && bytes.Min() == 0 && bytes.Max() <= 1)
 						{
 							bits.Add(stateName);
-							sb.AppendLine($"\t\t[StateBit] public bool {prop} {{ get; set; }} = {((byte) defaultValue == 1 ? "true" : "false")};");
+							stateTarget.AppendLine($"\t\t[StateBit] public bool {prop} {{ get; set; }} = {((byte) defaultValue == 1 ? "true" : "false")};");
 						}
 						else
 						{
-							sb.AppendLine($"\t\t[StateRange({bytes.Min()}, {bytes.Max()})] public byte {prop} {{ get; set; }} = {(byte) defaultValue};");
+							stateTarget.AppendLine($"\t\t[StateRange({bytes.Min()}, {bytes.Max()})] public byte {prop} {{ get; set; }} = {(byte) defaultValue};");
 						}
 						break;
 					}
 					case int:
 					{
 						List<int> ints = values.Cast<int>().OrderBy(v => v).ToList();
-						sb.AppendLine($"\t\t[StateRange({ints.Min()}, {ints.Max()})] public int {prop} {{ get; set; }} = {(int) defaultValue};");
+						stateTarget.AppendLine($"\t\t[StateRange({ints.Min()}, {ints.Max()})] public int {prop} {{ get; set; }} = {(int) defaultValue};");
 						break;
 					}
 					case string:
 					{
 						string enumValues = string.Join(",", values.Cast<string>().Select(v => $"\"{v}\""));
-						sb.AppendLine($"\t\t[StateEnum({enumValues})] public string {prop} {{ get; set; }} = \"{(string) defaultValue}\";");
+						stateTarget.AppendLine($"\t\t[StateEnum({enumValues})] public string {prop} {{ get; set; }} = \"{(string) defaultValue}\";");
 						break;
 					}
 				}
@@ -902,6 +1072,20 @@ public static class Program
 
 			WriteRuntimeId(sb, group.ToList(), baseIndex[group.Key], bits);
 
+			sb.AppendLine("\t} // class");
+		}
+
+		// The family bases last, each carrying the states its members share. Declared here rather
+		// than on every member so a base can use them as typed properties instead of digging them
+		// out of the state container by name, and so 138 slabs declare their states once.
+		foreach ((string baseName, StringBuilder states) in baseStates.OrderBy(p => p.Key, StringComparer.Ordinal))
+		{
+			if (states.Length == 0) continue;
+
+			sb.AppendLine();
+			sb.AppendLine($"\tpublic abstract partial class {baseName}");
+			sb.AppendLine("\t{");
+			sb.Append(states);
 			sb.AppendLine("\t} // class");
 		}
 

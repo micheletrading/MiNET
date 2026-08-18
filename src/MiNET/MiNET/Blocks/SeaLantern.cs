@@ -30,7 +30,7 @@ namespace MiNET.Blocks
 {
 	public partial class SeaLantern : Block
 	{
-		public SeaLantern() : base(169)
+		public SeaLantern()
 		{
 		}
 

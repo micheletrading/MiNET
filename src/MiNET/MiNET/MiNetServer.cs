@@ -29,15 +29,18 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Numerics;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using log4net;
 using Microsoft.IO;
 using MiNET.Crafting;
 using MiNET.Items;
 using MiNET.Net;
-using MiNET.Net.RakNet;
+using MiNET.Net.NetherNet;
 using MiNET.Plugins;
 using MiNET.Utils;
+using MiNET.Utils.Cryptography;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.IO;
 using MiNET.Worlds;
 
@@ -52,16 +55,26 @@ namespace MiNET
 		private const int DefaultPort = 19132;
 
 		public IPEndPoint Endpoint { get; private set; }
-		private RakConnection _listener;
+		private NetherNetListener _netherNetListener;
+		private AcmeCertificateManager _acmeCertificateManager;
 
 		public MotdProvider MotdProvider { get; set; }
 
-		public static RecyclableMemoryStreamManager MemoryStreamManager { get; set; } = new RecyclableMemoryStreamManager();
+		// Wrapper payloads lease these buffers for as long as the wrapper is in flight, so blocks
+		// are sized for typical batches and the free pools are capped: an unbounded default pool
+		// retains its high-water mark forever.
+		public static RecyclableMemoryStreamManager MemoryStreamManager { get; set; } = new RecyclableMemoryStreamManager(new RecyclableMemoryStreamManager.Options
+		{
+			BlockSize = 16 * 1024,
+			LargeBufferMultiple = 256 * 1024,
+			MaximumBufferSize = 32 * 1024 * 1024,
+			MaximumSmallPoolFreeBytes = 64 * 1024 * 1024,
+			MaximumLargePoolFreeBytes = 128 * 1024 * 1024,
+		});
 
 		public IServerManager ServerManager { get; set; }
 		public LevelManager LevelManager { get; set; }
 		public PlayerFactory PlayerFactory { get; set; }
-		public GreyListManager GreyListManager { get; set; }
 
 		public bool IsEdu { get; set; } = Config.GetProperty("EnableEdu", false);
 		public EduTokenManager EduTokenManager { get; set; }
@@ -70,6 +83,30 @@ namespace MiNET
 		public SessionManager SessionManager { get; set; }
 
 		public ConnectionInfo ConnectionInfo { get; set; }
+
+		/// <summary>
+		///     Whether new connections are answered. Clearing it leaves established sessions running
+		///     and the socket open, but a client that tries to join gets no reply at all, so it
+		///     concludes the server is down. Closing this before moving players off is what stops a
+		///     reconnect racing the shutdown.
+		/// </summary>
+		public bool AcceptConnections
+		{
+			get => _netherNetListener?.AcceptConnections ?? false;
+			set
+			{
+				if (_netherNetListener != null) _netherNetListener.AcceptConnections = value;
+			}
+		}
+
+		/// <summary>Live transport sessions right now, read straight off the listener (ConnectionInfo's count refreshes on a timer and can lag by a second).</summary>
+		public int LiveSessionCount => _netherNetListener?.Sessions.Count ?? 0;
+
+		/// <summary>The transport, for a plugin that needs to open its own signaling ports. Null until the server starts.</summary>
+		public NetherNetListener NetherNetListener => _netherNetListener;
+
+		/// <summary>Raised once the server is listening and <see cref="NetherNetListener" /> exists.</summary>
+		public event EventHandler ServerStarted;
 
 		public ServerRole ServerRole { get; set; }
 
@@ -118,7 +155,7 @@ namespace MiNET
 		{
 			DisplayTimerProperties();
 
-			if (_listener != null) return false; // Already started
+			if (_netherNetListener != null) return false; // Already started
 
 			try
 			{
@@ -163,41 +200,125 @@ namespace MiNET
 					// recipes takes about a second).
 					Log.Info($"Loaded {RecipeManager.Recipes.Count} recipes");
 
+					// Label every handler method now that the closed world is final (plugins loaded):
+					// verified handlers may dispatch without the queue hop, everything else keeps the
+					// queue, and the warnings this prints are the cleanup worklist. Runs once, ~200ms.
+					var handlerAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+						.Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+						.Where(a =>
+						{
+							string name = a.GetName().Name ?? "";
+							return !name.StartsWith("System") && !name.StartsWith("Microsoft") && name != "mscorlib" && name != "netstandard";
+						})
+						.ToList();
+					var activeHandlerTypes = handlerAssemblies
+						.SelectMany(a =>
+						{
+							try { return a.GetTypes(); }
+							catch (ReflectionTypeLoadException e) { return e.Types.Where(t => t != null); }
+						})
+						.Where(t => typeof(Player).IsAssignableFrom(t) || typeof(LoginMessageHandler).IsAssignableFrom(t))
+						.ToArray();
+					HandlerVerification.ScanAndReport(handlerAssemblies, activeHandlerTypes);
+
 					// Cache - remove
 					LevelManager.GetLevel(null, Dimension.Overworld.ToString());
 				}
 
-				GreyListManager ??= new GreyListManager();
 				MotdProvider ??= new MotdProvider();
 				if (Endpoint != null)
 				{
 					MotdProvider.PortV4 = Endpoint.Port;
-					MotdProvider.PortV6 = Endpoint.Port + 1;
+
+					// Both the same, because one socket serves both families and nothing is bound on
+					// port + 1. Advertising a port we do not listen on is what the BDS convention
+					// would have us do, and the client appears to list a row per address it is
+					// offered.
+					MotdProvider.PortV6 = Endpoint.Port;
 				}
 
 				if (ServerRole == ServerRole.Full || ServerRole == ServerRole.Proxy)
 				{
-					_listener = new RakConnection(Endpoint, GreyListManager, MotdProvider);
-					//_listener.ServerInfo.DisableAck = true;
-					_listener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
+					_netherNetListener = new NetherNetListener(Endpoint);
+					_netherNetListener.CustomMessageHandlerFactory = session => new BedrockMessageHandler(session, ServerManager, PluginManager);
 
-					//TODO: This is bad design, need to refactor this later.
-					GreyListManager.ConnectionInfo = _listener.ConnectionInfo;
-					ConnectionInfo = _listener.ConnectionInfo;
+					// Plugins serve the server port for anything NetherNet does not claim itself.
+					_netherNetListener.RequestHandler = PluginManager.HandleHttpRequest;
+
+					NetherNetListener listener = _netherNetListener;
+					ConnectionInfo = new ConnectionInfo(() => listener.Sessions.Count);
+
+					// The same live count the console line reads, handed to the meter so
+					// transport.sessions.active is the denominator for every per-session rate a
+					// collector computes. The two queue depths walk the same table; both run on the
+					// collector's scrape thread, once an interval, never on a transport thread.
+					TransportMetrics.SessionCountProvider = () => listener.Sessions.Count;
+					TransportMetrics.SendQueueDepthProvider = () =>
+					{
+						long depth = 0;
+						foreach (NetherNetSession session in listener.Sessions.Values) depth += session.SendQueueDepth;
+						return depth;
+					};
+					TransportMetrics.DispatchQueueDepthProvider = () =>
+					{
+						long depth = 0;
+						foreach (NetherNetSession session in listener.Sessions.Values) depth += session.DispatchQueueDepth;
+						return depth;
+					};
 					ConnectionInfo.MaxNumberOfPlayers = Config.GetProperty("MaxNumberOfPlayers", 10);
 					ConnectionInfo.MaxNumberOfConcurrentConnects = Config.GetProperty("MaxNumberOfConcurrentConnects", ConnectionInfo.MaxNumberOfPlayers);
 
-					_listener.Start();
+					// The mux answers RakNet's legacy unconnected ping on the gameplay UDP port so
+					// the server still shows in the client's server tab; Mojang shipped no NetherNet
+					// replacement for it. EnableDiscovery=false turns the responder off entirely.
+					if (Config.GetProperty("EnableDiscovery", true))
+					{
+						_netherNetListener.Discovery = new NetherNetDiscovery(MotdProvider, ConnectionInfo, () => listener.Sessions.Count);
+					}
+
+					_netherNetListener.Start();
+
+					// TLS for the signaling port, default OFF: SignalingTls.Enabled gates the whole
+					// ACME machinery, so a stock install never dials a certificate authority
+					// whatever else its config carries. Enabled, the manager issues and renews a
+					// Let's Encrypt certificate for SignalingDomain through the listener's own
+					// challenge route, and the listener answers a client's TLS offer with it
+					// instead of refusing into the plaintext fallback. Started after the listener,
+					// because the manager's first act is to dial its own responder.
+					if (Config.GetProperty("SignalingTls.Enabled", false))
+					{
+						string signalingDomain = Config.GetProperty("SignalingDomain", null);
+						if (string.IsNullOrWhiteSpace(signalingDomain))
+						{
+							Log.Warn("SignalingTls.Enabled is set but SignalingDomain is empty; signaling TLS stays off");
+						}
+						else
+						{
+							_acmeCertificateManager = new AcmeCertificateManager(
+								signalingDomain.Trim(),
+								Config.GetProperty("SignalingCertificateDirectory", "certificates"),
+								Config.GetProperty("AcmeContactEmail", null),
+								Config.GetProperty("AcmeStaging", false));
+							_netherNetListener.TlsCertificateProvider = _acmeCertificateManager.GetCertificateContext;
+							_netherNetListener.AcmeChallengeHandler = _acmeCertificateManager.GetChallengeResponse;
+							_acmeCertificateManager.Start();
+						}
+					}
 				}
 
 				Log.Info("Server open for business on port " + Endpoint?.Port + " ...");
+
+				// After the transport exists, which is the whole point: plugins are enabled long
+				// before this, and LevelCreated fires earlier still, so anything needing the
+				// listener had nowhere to hook until here.
+				ServerStarted?.Invoke(this, EventArgs.Empty);
 
 				return true;
 			}
 			catch (Exception e)
 			{
 				Log.Error("Error during startup!", e);
-				_listener.Stop();
+				_netherNetListener?.Stop();
 			}
 
 			return false;
@@ -211,14 +332,20 @@ namespace MiNET
 			Log.Info("Disabling plugins...");
 			PluginManager?.DisablePlugins();
 			
-			_listener?.Stop();
+			_acmeCertificateManager?.Stop();
+			_netherNetListener?.Stop();
 			ConnectionInfo?.Stop();
 
 			var fastThreadPool = FastThreadPool;
 			fastThreadPool?.Dispose();
 			
 			Log.Info($"Waiting for threads to exit...");
-			fastThreadPool?.WaitForThreadsExit();
+
+			// Bounded, not infinite: a pool worker that never exits (an observed, unexplained
+			// hang) would otherwise wedge the process forever AFTER the level is already saved,
+			// turning every restart into a manual kill. Ten seconds is grace, not correctness;
+			// everything that matters has already been flushed above.
+			fastThreadPool?.WaitForThreadsExit(TimeSpan.FromSeconds(10));
 		}
 	}
 

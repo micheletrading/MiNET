@@ -36,6 +36,7 @@ using System.Threading;
 using fNbt;
 using log4net;
 using Microsoft.IO;
+using MiNET.BlockEntities;
 using MiNET.Blocks;
 using MiNET.Camera;
 using MiNET.Crafting;
@@ -48,6 +49,7 @@ using MiNET.Net;
 using MiNET.Particles;
 using MiNET.UI;
 using MiNET.Utils;
+using MiNET.Utils.Diagnostics;
 using MiNET.Utils.Metadata;
 using MiNET.Utils.Nbt;
 using MiNET.Utils.Skins;
@@ -66,10 +68,15 @@ namespace MiNET
 		public IPEndPoint EndPoint { get; private set; }
 		public INetworkHandler NetworkHandler { get; set; }
 
-		private Dictionary<ChunkCoordinates, McpeWrapper> _chunksUsed = new Dictionary<ChunkCoordinates, McpeWrapper>();
+		// Which columns this player already holds, and which version of each. A column is pushed
+		// once and never again until its content actually changes, which is what the version says.
+		private Dictionary<ChunkCoordinates, long> _chunksUsed = new Dictionary<ChunkCoordinates, long>();
 		private ChunkCoordinates _currentChunkPosition;
 
-		internal IInventory _openInventory;
+		/// <summary>What the player has open. Never null: closing everything leaves the player's own
+		/// inventory screen.</summary>
+		public Screen Screen { get; private set; } = new Screen(ScreenKind.Inventory);
+
 		public PlayerInventory Inventory { get; set; }
 		public ItemStackInventoryManager ItemStackInventoryManager { get; set; }
 
@@ -81,13 +88,11 @@ namespace MiNET
 
 		/// <summary>
 		///     Chunks sent between pauses while streaming, and how long to pause. The pause exists
-		///     to keep a join burst from burying the RakNet send queue under thousands of ordered
+		///     to keep a join burst from burying the session's send queue under thousands of ordered
 		///     datagrams while everything else on the session waits behind them. Measured on a
 		///     radius 32 join: 3209 chunks took 3.4s, of which 2.4s was these sleeps. Set the delay
 		///     to 0 to stream flat out.
 		/// </summary>
-		public int ChunkSendBatchSize { get; set; } = 16;
-		public int ChunkSendDelayMs { get; set; } = 12;
 
 		public GameMode GameMode { get; set; }
 		public bool UseCreativeInventory { get; set; } = true;
@@ -169,6 +174,19 @@ namespace MiNET
 			NoAi = false;
 		}
 
+		// The join clock and how far this join has got. Started when the player object exists, which
+		// is the first moment the server owns the join; everything before it is the transport's and
+		// is measured there. _joinStage is what join.abandoned is tagged with, so a join that dies
+		// names the stage it died after rather than only that it died.
+		private readonly long _joinStartedAt = Stopwatch.GetTimestamp();
+		private JoinStage _joinStage = JoinStage.None;
+
+		private void CompleteJoinStage(JoinStage stage)
+		{
+			_joinStage = stage;
+			EngineMetrics.RecordJoinStage(stage, Username, _joinStartedAt);
+		}
+
 		public virtual void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
 		{
 			// Beware that message might be null here.
@@ -181,6 +199,8 @@ namespace MiNET
 			{
 				SendResourcePacksInfo();
 			}
+
+			CompleteJoinStage(JoinStage.Handshake);
 
 			//MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
 		}
@@ -221,7 +241,41 @@ namespace MiNET
 			pk.oldSkinName = this.Skin.SkinId;
 			pk.skinName = message.skinName;
 			this.Skin = message.skin;
+			InvalidateRosterSlices();
 			this.Level.RelayBroadcast(pk);
+		}
+
+		private PlayerListRecordSlices _rosterSlices;
+
+		/// <summary>
+		///     This player's cached player-list Add record fragments, built on first roster
+		///     inclusion. Two racing builders both produce correct slices; the loser releases its
+		///     skin-store acquisition so refcounts stay exact.
+		/// </summary>
+		public PlayerListRecordSlices GetOrBuildRosterSlices()
+		{
+			PlayerListRecordSlices slices = _rosterSlices;
+			if (slices != null) return slices;
+
+			slices = PlayerListRecordSlices.Build(this);
+			PlayerListRecordSlices raced = Interlocked.CompareExchange(ref _rosterSlices, slices, null);
+			if (raced != null)
+			{
+				slices.Release();
+				return raced;
+			}
+
+			return slices;
+		}
+
+		/// <summary>
+		///     Drops the cached record fragments after anything they encode changes (display name,
+		///     skin) or when the player leaves. Rosters already borrowing the old arrays stay
+		///     valid: the arrays are GC-owned and only the store refcount moves.
+		/// </summary>
+		public void InvalidateRosterSlices()
+		{
+			Interlocked.Exchange(ref _rosterSlices, null)?.Release();
 		}
 
 		public virtual void HandleMcpePhotoTransfer(McpePhotoTransfer message)
@@ -332,8 +386,14 @@ namespace MiNET
 		{
 		}
 
+		private readonly ManualResetEventSlim _localPlayerInitialized = new(false);
+
 		public virtual void HandleMcpeSetLocalPlayerAsInitialized(McpeSetLocalPlayerAsInitialized message)
 		{
+			// The client sends this in the same instant it closes its loading screen (traced
+			// 2026-08-17): the true "I am in the world" edge. The join's chunk flood holds for it.
+			_localPlayerInitialized.Set();
+
 			OnLocalPlayerIsInitialized(new PlayerEventArgs(this));
 		}
 
@@ -341,9 +401,9 @@ namespace MiNET
 
 		public virtual void HandleMcpeResourcePackClientResponse(McpeResourcePackClientResponse message)
 		{
-			if (Log.IsDebugEnabled) Log.Debug($"Handled packet 0x{message.Id:X2}\n{Packet.HexDump(message.Bytes)}");
+			if (Log.IsDebugEnabled) Log.Debug($"Handled packet 0x{message.Id:X2}");
 
-			if (message.responseStatus == 2)
+			if (message.response is ResourcePackClientResponseDownloading)
 			{
 				McpeResourcePackDataInfo dataInfo = McpeResourcePackDataInfo.CreateObject();
 				dataInfo.packageId = "5abdb963-4f3f-4d97-8482-88e2049ab149";
@@ -354,7 +414,7 @@ namespace MiNET
 				SendPacket(dataInfo);
 				return;
 			}
-			else if (message.responseStatus == 3)
+			else if (message.response is ResourcePackClientResponseDownloadingFinished)
 			{
 				//if (_serverHaveResources)
 				{
@@ -366,8 +426,10 @@ namespace MiNET
 				//}
 				return;
 			}
-			else if (message.responseStatus == 4)
+			else if (message.response is ResourcePackClientResponseResourcePackStackFinished)
 			{
+				CompleteJoinStage(JoinStage.Packs);
+
 				//if (_serverHaveResources)
 				{
 					MiNetServer.FastThreadPool.QueueUserWorkItem(() => { Start(null); });
@@ -379,20 +441,28 @@ namespace MiNET
 		public virtual void SendResourcePacksInfo()
 		{
 			McpeResourcePacksInfo packInfo = McpeResourcePacksInfo.CreateObject();
-			packInfo.worldTemplateId = (UUID) Guid.Empty;
-			packInfo.worldTemplateVersion = "0.0.0"; // vanilla sends this, not an empty string
+			packInfo.worldTemplateIdAndVersion = new PackIdVersion
+			{
+				packUuid = (UUID) Guid.Empty,
+				packVersion = "0.0.0" // vanilla sends this, not an empty string
+			};
+			packInfo.resourcePacks = new List<PackInfoData>();
 			if (_serverHaveResources)
 			{
 				packInfo.mustAccept = false;
-				packInfo.texturepacks = new TexturePackInfos
+				packInfo.resourcePacks.Add(new PackInfoData
 				{
-					new TexturePackInfo()
+					packIdVersion = new PackIdVersion
 					{
-						UUID = "5abdb963-4f3f-4d97-8482-88e2049ab149",
-						Version = "0.0.1",
-						Size = 359901
+						packUuid = new UUID("5abdb963-4f3f-4d97-8482-88e2049ab149"),
+						packVersion = "0.0.1"
 					},
-				};
+					packSize = 359901,
+					contentKey = "",
+					subpackName = "",
+					contentIdentity = "",
+					cdnUrl = ""
+				});
 			}
 
 			SendPacket(packInfo);
@@ -409,7 +479,7 @@ namespace MiNET
 				packStack.mustAccept = false;
 				packStack.resourcepackidversions = new ResourcePackIdVersions
 				{
-					new PackIdVersion()
+					new LegacyPackIdVersion()
 					{
 						Id = "5abdb963-4f3f-4d97-8482-88e2049ab149",
 						Version = "0.0.1"
@@ -487,16 +557,197 @@ namespace MiNET
 
 		public virtual void SendMapInfo(MapInfo mapInfo)
 		{
-			McpeClientboundMapItemData packet = McpeClientboundMapItemData.CreateObject();
-			packet.mapinfo = mapInfo;
-			SendPacket(packet);
+			SendPacket(McpeClientboundMapItemData.FromMapInfo(mapInfo));
 		}
+
+		/// <summary>Chunk radius vanilla publishes during the join burst, before negotiation.</summary>
+		/// <summary>
+		///     Pacing for the skeleton stream. Each column is pre-compressed into its own
+		///     <see cref="McpeWrapper" />, and a wrapper cannot nest inside another, so the send lane
+		///     passes every one through as its own SCTP message: a radius-64 pass is 16,641 messages
+		///     handed to one session back to back, with everything else that player needs queued behind
+		///     them.
+		///     <para>
+		///     This pacing was removed once on the grounds that the send queue already paces it. It does
+		///     not: the queue is an unbounded channel, so the producer never blocks and never feels the
+		///     transport's backpressure at all. The only real limit is the SCTP window, which stalls the
+		///     LANE rather than the loop feeding it, which is how send queue depth reached 1,284 packets
+		///     under load with the producer already finished.
+		///     </para>
+		///     <para>Set <see cref="ChunkSendDelayMs" /> to 0 to send unpaced.</para>
+		/// </summary>
+		public int ChunkSendBatchSize { get; set; } = 16;
+
+		/// <inheritdoc cref="ChunkSendBatchSize" />
+		public int ChunkSendDelayMs { get; set; } = 12;
+
+		public const int JoinBurstChunkRadius = 4;
+
+		/// <summary>
+		///     The most blob ids one ClientCacheBlobStatus may carry (Tomcc's design gist; bigger
+		///     packets can be rejected).
+		/// </summary>
+		private const int MaxBlobStatusIds = 4095;
+
+		/// <summary>
+		///     Hash count at which a chunk group flushes mid-sweep: what one ClientCacheBlobStatus
+		///     can answer. Tick-sized blocks (250) were tried 2026-08-17 and made the join WORSE,
+		///     so small is not better here. int.MaxValue turns grouping off.
+		/// </summary>
+		private const int GroupFlushHashes = MaxBlobStatusIds;
 
 		public int ChunkRadius { get; private set; } = -1;
 
+		/// <summary>
+		///     The radius the client last asked for, before any cap this server applies. Kept so an
+		///     adaptive reduction can be walked back up toward what the player actually wants rather
+		///     than toward whatever we last forced on them.
+		/// </summary>
+		private int _requestedChunkRadius = -1;
+
+		// Columns the client has come back for. Kept for the request-latency metric.
+		private long _columnsDrained;
+
+		/// <summary>Smallest radius the adaptive cap will ever impose. Below this the world is unplayable regardless of streaming.</summary>
+		public static int AdaptiveRadiusFloor { get; set; } = 8;
+
+		/// <summary>Seconds between adaptive evaluations. Each change costs the client a renegotiation, so this is deliberately slow.</summary>
+		public static double AdaptiveRadiusIntervalSeconds { get; set; } = 5;
+
+		/// <summary>
+		///     Seconds to wait after changing the radius before judging again. Reducing does not drain
+		///     the queue the client already holds, it only stops adding to it, so a backlog stays high
+		///     long after a reduction that will eventually fix it. Without this the loop measured its
+		///     own lag and cut again - 38 to 29 to 22 in a few seconds, each step deleting more of the
+		///     player's view for no gain.
+		/// </summary>
+		public static double AdaptiveRadiusCooldownSeconds { get; set; } = 20;
+
+
+		/// <summary>Set false to disable adaptation entirely and honour the client's request up to MaxViewDistance.</summary>
+		public static bool AdaptiveRadiusEnabled { get; set; } = true;
+
+		private long _lastAdaptiveCheck;
+		private int _healthyChecks;
+
 		public void SetChunkRadius(int radius)
 		{
-			ChunkRadius = Math.Max(5, Math.Min(radius, MaxViewDistance));
+			_requestedChunkRadius = radius;
+
+			int updated = Math.Max(5, Math.Min(radius, MaxViewDistance));
+			if (updated == ChunkRadius) return;
+
+			ChunkRadius = updated;
+
+			// Just run a pass. The seen set is deliberately NOT cleared: the sweep already prunes
+			// whatever fell outside the new radius, and widening only adds columns the client does not
+			// have yet. Clearing would re-push the entire radius for a change that invalidates almost
+			// none of it.
+			//
+			// Without this the pass would bail on the standing-still guard, so a render-distance
+			// change took effect only once the player next moved.
+			Volatile.Write(ref _forceChunkPass, 1);
+		}
+
+		// Set when something other than movement invalidated the streamed area. Cleared by the pass
+		// that honours it; see SendChunksForKnownPosition's same-position early-out.
+		private int _forceChunkPass;
+
+		/// <summary>
+		///     Matches the streamed radius to what this client can actually consume, per player.
+		///     <para>
+		///     The signal is the backlog: columns whose skeleton we pushed and which the client has
+		///     never asked a single sub-chunk for. A client that is keeping up holds a backlog of about
+		///     one pass; one that cannot holds thousands and falls minutes behind, at which point the
+		///     columns it does request are for terrain the player left long ago. Measured on a real
+		///     client: radius 16 held a backlog of ~30 with 91ms turnaround, radius 50 reached 8,512
+		///     with 41 SECONDS of turnaround, on identical server code.
+		///     </para>
+		///     <para>
+		///     Reductions are immediate, recoveries are slow and need several consecutive healthy
+		///     checks, because every change costs the client a renegotiation and re-sending a skeleton
+		///     makes it rebuild that column - Mojang's own SubChunk Request System doc warns of visual
+		///     artifacts when that happens. Oscillating here would look worse than any fixed cap.
+		///     </para>
+		/// </summary>
+		private void AdaptChunkRadius()
+		{
+			if (!AdaptiveRadiusEnabled || !IsSpawned || _requestedChunkRadius <= 0) return;
+
+			long now = Stopwatch.GetTimestamp();
+			if (_lastAdaptiveCheck != 0 && (now - _lastAdaptiveCheck) / (double) Stopwatch.Frequency < AdaptiveRadiusIntervalSeconds) return;
+			_lastAdaptiveCheck = now;
+
+			// The whole signal, and it is not a proxy for the failure - it IS the failure. The player
+			// is standing in a column whose skeleton we pushed and which the client has never asked a
+			// single sub-chunk for, so there is nothing to draw where they are. No rate, no threshold,
+			// no distribution to calibrate: if you are inside it and the client never asked, the client
+			// does not have it, whatever the reason.
+			var here = new ChunkCoordinates(KnownPosition);
+			bool standingInUnrequested = _skeletonSentAt.ContainsKey(here);
+
+			// Nothing is judged until the client has once caught up with where the player stands.
+			// IsSpawned is true long before that: the join burst has just pushed the columns around
+			// spawn and the client has not asked for a sub-chunk of any of them yet, which is exactly
+			// the state below reads as failure. Every player would be told their view distance was
+			// reduced, on arrival, every time. The arming signal is the same one the adaptor runs on,
+			// so there is no timer to tune: the first check that finds the player's own column already
+			// requested means streaming is level with them, and from then on the signal means what it
+			// says.
+			if (!_adaptiveArmed)
+			{
+				if (standingInUnrequested) return;
+
+				_adaptiveArmed = true;
+				_healthyChecks = 0;
+				return;
+			}
+
+			int ceiling = Math.Min(_requestedChunkRadius, MaxViewDistance);
+			int backlog = _skeletonSentAt.Count;
+
+			if (standingInUnrequested && ChunkRadius > AdaptiveRadiusFloor)
+			{
+				_healthyChecks = 0;
+
+				// A quarter at a time rather than straight to the floor: the aim is the largest radius
+				// this client can hold, not the smallest one that works.
+				int reduced = Math.Max(AdaptiveRadiusFloor, ChunkRadius - Math.Max(1, ChunkRadius / 4));
+				ApplyAdaptiveRadius(reduced, backlog, lowered: true);
+				return;
+			}
+
+			// Recovery is the same signal held clean: the player has walked for several checks without
+			// once arriving somewhere the client had not asked about.
+			if (!standingInUnrequested && ChunkRadius < ceiling)
+			{
+				if (++_healthyChecks < 3) return;
+
+				_healthyChecks = 0;
+				ApplyAdaptiveRadius(Math.Min(ceiling, ChunkRadius + 2), backlog, lowered: false);
+				return;
+			}
+
+			_healthyChecks = 0;
+		}
+
+		private void ApplyAdaptiveRadius(int radius, int backlog, bool lowered)
+		{
+			if (radius == ChunkRadius) return;
+
+			ChunkRadius = radius;
+			SendChunkRadiusUpdate();
+			Volatile.Write(ref _forceChunkPass, 1);
+
+			// Hold off judging again until the client has had time to work down what it already holds.
+			_lastAdaptiveCheck = Stopwatch.GetTimestamp() + (long) (AdaptiveRadiusCooldownSeconds * Stopwatch.Frequency);
+			_healthyChecks = 0;
+
+			SendMessage(lowered
+				? $"§eView distance reduced to §f{radius}§e: you walked into terrain the client had not loaded."
+				: $"§aView distance raised to §f{radius}§a: streaming is keeping up.");
+
+			Log.Info($"Adaptive chunk radius for {Username}: {(lowered ? "lowered" : "raised")} to {radius} ({backlog} columns pushed and unrequested, client asked for {_requestedChunkRadius})");
 		}
 		
 		public virtual void HandleMcpeRequestChunkRadius(McpeRequestChunkRadius message)
@@ -741,28 +992,27 @@ namespace MiNET
 		}
 
 		private float _baseSpeed;
-		private object _sprintLock = new object();
 
+		// No lock: only this player's own handlers call it (PlayerAction and PlayerAuthInput),
+		// and the session's single dispatch consumer serializes them, so the base/boosted-speed
+		// read-modify-write below cannot interleave.
 		public void SetSprinting(bool isSprinting)
 		{
-			lock (_sprintLock)
+			if (isSprinting == IsSprinting) return;
+
+			if (isSprinting)
 			{
-				if (isSprinting == IsSprinting) return;
-
-				if (isSprinting)
-				{
-					IsSprinting = true;
-					_baseSpeed = MovementSpeed;
-					MovementSpeed += MovementSpeed * 0.3f;
-				}
-				else
-				{
-					IsSprinting = false;
-					MovementSpeed = _baseSpeed;
-				}
-
-				SendUpdateAttributes();
+				IsSprinting = true;
+				_baseSpeed = MovementSpeed;
+				MovementSpeed += MovementSpeed * 0.3f;
 			}
+			else
+			{
+				IsSprinting = false;
+				MovementSpeed = _baseSpeed;
+			}
+
+			SendUpdateAttributes();
 		}
 
 		public virtual void HandleMcpeBlockEntityData(McpeBlockEntityData message)
@@ -935,97 +1185,86 @@ namespace MiNET
 				SpawnPosition = (PlayerLocation) (SpawnPosition ?? Level.SpawnPoint).Clone();
 				KnownPosition = (PlayerLocation) SpawnPosition.Clone();
 
-				// Check if the user already exist, that case bumpt the old one
-				Level.RemoveDuplicatePlayers(Username, ClientId);
+				// A name is one seat: evict whoever already holds it (see Level.RemoveDuplicatePlayers).
+				Level.RemoveDuplicatePlayers(this);
 
 				Level.EntityManager.AddEntity(this);
 
 				GameMode = Config.GetProperty("Player.GameMode", Level.GameMode);
 
-				//
-				// Start game - spawn sequence starts here
-				//
+				// The client requires this burst as an exact set in an exact order: a hole or a
+				// reorder is rejected with no diagnostic. The frame numbers map to the vanilla
+				// join it mirrors. Content is built from live state and the committed data files
+				// (see JoinSequenceData); no captured bytes are replayed.
+				SendSleepStatus(); // frame 6, LevelEventGeneric
 
-				// Vanilla 1st player list here
+				SendPlayerListSelf(); // frame 7, vanilla 1st player list, before StartGame
 
-				//Level.AddPlayer(this, false);
+				SendWorldClockState(); // frame 8
 
-				// Join sequence mirrors vanilla BDS 1.26.34 (wire capture in temp_auto/trace-bds):
-				// same packet set, same order. Every packet is built by MiNET from real level/player
-				// state or from its own committed data files (Data/*.json, see JoinSequenceData);
-				// nothing replays captured bytes.
-				SendSleepStatus();
+				SendJigsawStructureData(); // frame 9
 
-				SendPlayerListSelf(); // Vanilla 1st player list, before StartGame
+				SendVoxelShapes(); // frame 10
 
-				SendWorldClockState();
-				// TODO: jigsaw structures. Vanilla's payload is one structure, minecraft:trail_ruins,
-				// and nothing we generate uses the jigsaw system.
-				//SendJigsawStructureData();
-				// TODO: voxel shapes. Only matters for custom block geometry, and vanilla sends
-				// nothing but the two built-in shapes with a zero custom count.
-				//SendVoxelShapes();
+				SendStartGame(); // frame 11
 
-				SendStartGame();
+				SendSyncEntityProperty(); // frames 12-24, one per entity type
 
-				// TODO: entity properties. Vanilla declares actor-property schemas for thirteen mobs
-				// (happy ghast, sulfur cube, wolf, cat and the rest); we set none of those properties.
-				//SendSyncEntityProperty();
+				SendItemRegistry(); // frame 25
 
-				SendItemRegistry();
+				SendPlayerSpawnPosition(); // frame 26, undefined-position sentinel: no personal (bed) spawn at join
 
-				SendPlayerSpawnPosition(); // undefined-position sentinel: no personal (bed) spawn at join
+				SendWorldClockRegistry(); // frame 27
 
-				SendWorldClockRegistry();
+				SendSetDificulty(); // frame 28
 
-				SendSetDificulty();
+				SendSetCommandsEnabled(); // frame 29
 
-				SendSetCommandsEnabled();
+				SendAdventureSettings(); // frames 30-31, adventure settings + first abilities
 
-				SendAdventureSettings();
+				SendGameRules(); // frame 32
 
-				SendGameRules();
+				Level.AddPlayer(this, false); // frame 33, vanilla 2nd player list
 
-				// Vanilla 2nd player list
+				SendUpdateAbilitiesPacket(); // frame 34, abilities again after the 2nd player list
 
-				Level.AddPlayer(this, false);
+				SendBiomeDefinitionList(); // frame 35
 
-				SendUpdateAbilitiesPacket(); // vanilla sends abilities again after the 2nd player list
+				SendAvailableEntityIdentifiers(); // frame 36
 
-				SendBiomeDefinitionList();
+				SendPlayerFog(); // frame 37
+				SendCameraPresets(); // frame 38
+				SendCameraAimAssistPresets(); // frame 39
+				SendCameraSpline(); // frame 40
 
-				SendAvailableEntityIdentifiers();
+				if (ChunkRadius == -1) ChunkRadius = JoinBurstChunkRadius;
 
-				SendPlayerFog();
-				SendCameraPresets();
-				SendCameraAimAssistPresets();
-				SendCameraSpline();
+				SendUpdateAttributes(); // frame 41
 
-				if (ChunkRadius == -1) ChunkRadius = 5;
+				SendCreativeInventory(); // frame 42
 
-				SendUpdateAttributes();
+				SendTrimData(); // frame 43
 
-				SendCreativeInventory();
+				SendPlayerInventory(); // frames 44-47, four InventoryContent
 
-				SendTrimData();
+				SendPlayerHotbar(); // frame 48
 
-				SendPlayerInventory();
+				SendCraftingRecipes(); // frame 49
 
-				SendPlayerHotbar();
+				SendAvailableCommands(); // frame 50 - the server's REAL command registry, never the captured vanilla list
 
-				SendCraftingRecipes();
-
-				SendAvailableCommands(); // The server's REAL command registry - never the captured vanilla list. Don't send before StartGame!
-
-				// Vanilla sends two searching-state respawns before chunk streaming.
+				// Frames 51-53: vanilla sends THREE searching-state respawns before chunk streaming.
 				SendRespawn();
-				SendRespawn();
+				// SendRespawn();
+				// SendRespawn();
 
-				SendNetworkChunkPublisherUpdate();
+				// frame 54; skeleton chunks stream from frame 55. Fixed 4 chunks (64 blocks) like
+				// vanilla, regardless of any radius the client has already asked for.
+				SendNetworkChunkPublisherUpdate(JoinBurstChunkRadius);
 
 				BroadcastSetEntityData();
 
-				SendCurrentStructureFeature();
+				SendCurrentStructureFeature(); // vanilla sends this just after the first chunks (frame 58)
 			}
 			catch (Exception e)
 			{
@@ -1037,6 +1276,7 @@ namespace MiNET
 				// a failed sequence can't leave the chunk task waiting forever.
 				_loginSequenceCompleted.Set();
 				Interlocked.Decrement(ref serverInfo.ConnectionsInConnectPhase);
+				CompleteJoinStage(JoinStage.Burst);
 			}
 
 			LastUpdatedTime = DateTime.UtcNow;
@@ -1053,7 +1293,7 @@ namespace MiNET
 		public virtual void SendPlayerListSelf()
 		{
 			var playerList = McpePlayerList.CreateObject();
-			playerList.records = new PlayerAddRecords {this};
+			playerList.records = McpePlayerList.Added(this);
 			SendPacket(playerList);
 		}
 
@@ -1126,6 +1366,13 @@ namespace MiNET
 			// connection during join. Sent right after StartGame, matching PMMP's
 			// PreSpawnPacketHandler and vanilla BDS 1.26.34. Entry data comes from the generated
 			// ItemRegistry, whose component blobs are already the bytes BDS puts on the wire.
+			// REFCT: rebuilt per player, and the registry is immutable after startup. Every join walks
+			// the whole ItemRegistry and allocates an ItemComponent per item, plus an NbtFile, an
+			// NbtCompound and its backing dictionary for each item with no components, producing the
+			// identical bytes every time. Measured on a 2000 bot join burst this and the entity
+			// identifiers below are most of the NBT allocation on the login path. It should be built
+			// once and kept as a pre-encoded payload; note also that a plugin suppressing this packet
+			// suppresses it at SEND, so today the work is done and then discarded.
 			var entries = new ItemComponentList();
 			foreach (ItemRegistryEntry entry in ItemFactory.ItemRegistry)
 			{
@@ -1153,6 +1400,9 @@ namespace MiNET
 		}
 
 		// Entity identifier registry, built from our own EntityType registry (EntityHelpers).
+		//
+		// REFCT: same as SendItemComponents above. Regenerated per player from a registry that cannot
+		// change after startup, so every join builds the same NBT tree and encodes the same bytes.
 		public virtual void SendAvailableEntityIdentifiers()
 		{
 			var root = new NbtCompound("") {EntityHelpers.GenerateEntityIdentifiers()};
@@ -1329,6 +1579,10 @@ namespace MiNET
 
 		public virtual void InitializePlayer()
 		{
+			// Reaching here means chunk streaming published enough for the client to initialize; the
+			// rest of this method is the spawn itself.
+			CompleteJoinStage(JoinStage.Chunks);
+
 			// Vanilla join tail: a ready-state respawn during chunk streaming, then set health,
 			// the spawn play-status, and entity data. No SetTime and no MovePlayer here; the
 			// client has the position from StartGame.
@@ -1354,6 +1608,9 @@ namespace MiNET
 			LastUpdatedTime = DateTime.UtcNow;
 			_haveJoined = true;
 
+			CompleteJoinStage(JoinStage.Spawn);
+			EngineMetrics.RecordJoinCompleted(_joinStartedAt);
+
 			OnPlayerJoin(new PlayerEventArgs(this));
 
 			// Temporary: proves the camera API against a real client. Delete with Camera/CameraDemo.cs.
@@ -1369,6 +1626,10 @@ namespace MiNET
 		{
 			if (message.state == (byte) McpeRespawn.RespawnState.ClientReady)
 			{
+				// The client tears its own window down when the player dies, so this is the server
+				// catching up rather than telling it anything.
+				ReleaseScreen();
+
 				HealthManager.ResetHealth();
 
 				HungerManager.ResetHunger();
@@ -1433,13 +1694,10 @@ namespace MiNET
 
 			var packet = McpeMovePlayer.CreateObject();
 			packet.runtimeEntityId = EntityManager.EntityIdSelf;
-			packet.x = position.X;
-			packet.y = position.Y + 1.62f;
-			packet.z = position.Z;
-			packet.yaw = position.Yaw;
+			packet.position = new Vector3(position.X, position.Y + 1.62f, position.Z);
+			packet.rotation = new Vector2(position.Pitch, position.Yaw);
 			packet.headYaw = position.HeadYaw;
-			packet.pitch = position.Pitch;
-			packet.mode = (byte) (teleport ? 1 : 0);
+			packet.mode = teleport ? McpeMovePlayer.PositionMode.Respawn : McpeMovePlayer.PositionMode.Normal;
 
 			SendPacket(packet);
 		}
@@ -1457,12 +1715,15 @@ namespace MiNET
 
 				if (!IsChunkInCache(newPosition))
 				{
-					// send teleport straight up, no chunk loading
+					// Straight up over the DESTINATION, not over where we are leaving: the column we
+					// are about to send is the destination's, and a client standing in a different
+					// column has no use for it. High and in open air because NoAi holds the player
+					// still but the client still has no sections beneath them yet.
 					SetPosition(new PlayerLocation
 					{
-						X = KnownPosition.X,
+						X = newPosition.X,
 						Y = 4000,
-						Z = KnownPosition.Z,
+						Z = newPosition.Z,
 						Yaw = 91,
 						Pitch = 28,
 						HeadYaw = 91,
@@ -1900,6 +2161,11 @@ namespace MiNET
 
 		public virtual void SpawnLevel(Level toLevel, PlayerLocation spawnPoint, bool useLoadingScreen = false, Func<Level> levelFunc = null, Action postSpawnAction = null)
 		{
+			// A screen carried into another level would still resolve slot clicks against a block in the
+			// one being left. The client is told as well as the bookkeeping being done, because unlike
+			// dying, changing level does not make the client tear its own window down.
+			if (Screen.Kind != ScreenKind.Inventory) HandleMcpeContainerClose(null);
+
 			bool oldNoAi = NoAi;
 			SetNoAi(true);
 
@@ -2049,7 +2315,7 @@ namespace MiNET
 
 			var uiContent = McpeInventoryContent.CreateObject();
 			uiContent.inventoryId = 0x7c;
-			uiContent.input = Resize(Inventory.GetUiSlots(), 54);
+			uiContent.input = Resize(Inventory.GetUiSlots(), CursorInventory.Size);
 			SendPacket(uiContent);
 
 			var offHandContent = McpeInventoryContent.CreateObject();
@@ -2076,6 +2342,8 @@ namespace MiNET
 			if (!UseCreativeInventory) return;
 
 			var creativeContent = McpeCreativeContent.CreateObject();
+			creativeContent.groups = new List<CreativeGroupInfoPayload>();
+			creativeContent.entries = new List<CreativeItemEntryPayload>();
 
 			// Vanilla tab groups (captured 1.26.34 data): groups with category/name/icon, and each
 			// entry referencing its group by index. Without correct groups the client shows empty
@@ -2101,11 +2369,11 @@ namespace MiNET
 					}
 				}
 
-				creativeContent.Groups.Add(new CreativeItemGroup
+				creativeContent.groups.Add(new CreativeGroupInfoPayload
 				{
-					Category = def.Category,
-					Name = def.Name ?? string.Empty,
-					Icon = icon,
+					creativeCategory = (CreativeGroupInfoPayload.CreativeCategory) def.Category,
+					name = def.Name ?? string.Empty,
+					groupIconItem = icon,
 				});
 			}
 
@@ -2123,11 +2391,11 @@ namespace MiNET
 					item.ExtraData = (NbtCompound) nbtFile.RootTag;
 				}
 
-				creativeContent.Entries.Add(new CreativeContentEntry
+				creativeContent.entries.Add(new CreativeItemEntryPayload
 				{
-					GroupIndex = def.GroupIndex,
-					EntryId = i + 1,
-					Item = item,
+					groupIndex = (uint) def.GroupIndex,
+					creativeNetId = (uint) (i + 1),
+					itemInstance = item,
 				});
 			}
 
@@ -2138,6 +2406,13 @@ namespace MiNET
 		{
 			McpeChunkRadiusUpdate packet = McpeChunkRadiusUpdate.CreateObject();
 			packet.chunkRadius = ChunkRadius;
+
+			SendPacket(packet);
+		}
+		private void SendChunkRadiusUpdate(int radius)
+		{
+			McpeChunkRadiusUpdate packet = McpeChunkRadiusUpdate.CreateObject();
+			packet.chunkRadius = radius;
 
 			SendPacket(packet);
 		}
@@ -2154,25 +2429,30 @@ namespace MiNET
 		{
 			GameMode = gameMode;
 
-			SendSetPlayerGameType();
+			SendUpdatePlayerGameType();
 		}
 
 
-		public void SendSetPlayerGameType()
+		/// <summary>
+		///     SetPlayerGameType (0x3e) is the CLIENT's request; the server answers with
+		///     UpdatePlayerGameType (0x97), which also carries who changed and when. Sending 0x3e
+		///     back at the client is not legal in that direction.
+		/// </summary>
+		public void SendUpdatePlayerGameType()
 		{
-			McpeSetPlayerGameType gametype = McpeSetPlayerGameType.CreateObject();
-			gametype.gamemode = (int) GameMode;
+			McpeUpdatePlayerGameType gametype = McpeUpdatePlayerGameType.CreateObject();
+			gametype.playerGameType = (int) GameMode;
+			gametype.targetPlayerUniqueId = EntityId;
+			gametype.tick = 0;
 			SendPacket(gametype);
 		}
 
 		[Wired]
 		public void StrikeLightning()
 		{
-			Lightning lightning = new Lightning(Level) {KnownPosition = KnownPosition};
-
-			if (lightning.Level == null) return;
-
-			lightning.SpawnEntity();
+			// Through the level, so this gets the same centring correction as every other caller
+			// instead of spawning the bolt itself and landing half a block off.
+			Level?.StrikeLightning(KnownPosition.ToVector3());
 		}
 
 		private object _disconnectSync = new object();
@@ -2192,6 +2472,7 @@ namespace MiNET
 						if (sendDisconnect)
 						{
 							var disconnect = McpeDisconnect.CreateObject();
+							disconnect.reason = (int) McpeDisconnect.FailReason.LegacyDisconnect;
 							disconnect.message = reason;
 							NetworkHandler.SendPacket(disconnect);
 						}
@@ -2201,6 +2482,11 @@ namespace MiNET
 
 						IsConnected = false;
 					}
+
+					// While the level is still there to hear it. A chest whose last viewer left without
+					// closing it reads as open forever: the lid stays up for everyone, and the inventory
+					// holds a departed player it keeps sending slot changes to.
+					ReleaseScreen();
 
 					Level?.RemovePlayer(this);
 
@@ -2215,6 +2501,7 @@ namespace MiNET
 					string levelId = Level == null ? "Unknown" : Level.LevelId;
 					if (!_haveJoined)
 					{
+						EngineMetrics.RecordJoinAbandoned(_joinStage, Username, _joinStartedAt);
 						Log.WarnFormat("Disconnected crashed player {0}/{1} from level <{3}>, reason: {2}", Username, EndPoint.Address, reason, levelId);
 					}
 					else
@@ -2241,28 +2528,20 @@ namespace MiNET
 			Level.BroadcastMessage(text, sender: this);
 		}
 
-		private int _lastOrderingIndex;
-		private object _moveSyncLock = new object();
-
 		public virtual void HandleMcpeMovePlayer(McpeMovePlayer message)
 		{
+			// No ordering guard here: ordered delivery is the transport's guarantee (the session's
+			// single dispatch consumer), so handlers run sequentially and in sequence by
+			// construction. A handler-level lock duplicating that would also cost this method its
+			// verified label.
 			if (!IsSpawned || HealthManager.IsDead) return;
 
-			if (Server.ServerRole != ServerRole.Node)
-			{
-				lock (_moveSyncLock)
-				{
-					if (_lastOrderingIndex > message.ReliabilityHeader.OrderingIndex) return;
-					_lastOrderingIndex = message.ReliabilityHeader.OrderingIndex;
-				}
-			}
-
 			var origin = KnownPosition.ToVector3();
-			double distanceTo = Vector3.Distance(origin, new Vector3(message.x, message.y - 1.62f, message.z));
+			double distanceTo = Vector3.Distance(origin, new Vector3(message.position.X, message.position.Y - 1.62f, message.position.Z));
 
 			CurrentSpeed = distanceTo / ((double) (DateTime.UtcNow - LastUpdatedTime).Ticks / TimeSpan.TicksPerSecond);
 
-			double verticalMove = message.y - 1.62 - KnownPosition.Y;
+			double verticalMove = message.position.Y - 1.62 - KnownPosition.Y;
 
 			bool isOnGround = IsOnGround;
 			bool isFlyingHorizontally = false;
@@ -2278,15 +2557,15 @@ namespace MiNET
 			IsOnGround = isOnGround;
 
 			// Hunger management
-			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(message.x, 0, message.z)));
+			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(message.position.X, 0, message.position.Z)));
 
 			KnownPosition = new PlayerLocation
 			{
-				X = message.x,
-				Y = message.y - 1.62f,
-				Z = message.z,
-				Pitch = message.pitch,
-				Yaw = message.yaw,
+				X = message.position.X,
+				Y = message.position.Y - 1.62f,
+				Z = message.position.Z,
+				Pitch = message.rotation.X,
+				Yaw = message.rotation.Y,
 				HeadYaw = message.headYaw
 			};
 
@@ -2325,7 +2604,7 @@ namespace MiNET
 
 		protected virtual bool DetectSimpleFly(McpeMovePlayer message, bool isOnGround)
 		{
-			double d = Math.Abs(KnownPosition.Y - (message.y - 1.62f));
+			double d = Math.Abs(KnownPosition.Y - (message.position.Y - 1.62f));
 			return !(AllowFly || IsOnGround || isOnGround || d > 0.001);
 		}
 
@@ -2337,7 +2616,7 @@ namespace MiNET
 			if (Level == null)
 				return true;
 
-			BlockCoordinates pos = new Vector3(message.x, message.y - 1.62f, message.z);
+			BlockCoordinates pos = new Vector3(message.position.X, message.position.Y - 1.62f, message.position.Z);
 
 			foreach (int layer in Layers)
 			{
@@ -2378,8 +2657,6 @@ namespace MiNET
 		///     us it keeps a cache, and BlobCacheEnabled says we are willing to serve one. Some
 		///     clients never opt in, so the plain chunk path is not optional and stays the default.
 		/// </summary>
-		public bool UseBlobCache { get; private set; }
-
 		/// <summary>
 		///     The emotes this client owns, sent once after login. Parsed but unused: acting on it
 		///     means validating an incoming Emote against the list and relaying it to the other
@@ -2390,10 +2667,27 @@ namespace MiNET
 			if (Log.IsDebugEnabled) Log.Debug($"Emote list from {Username}: {message.emotePieceIds.Length} emotes");
 		}
 
+		/// <summary>
+		///     The client announces whether it caches chunk blobs. We require that it does.
+		///     <para>
+		///         Every Mojang client supports it, so a client saying no is either something we did
+		///         not write or something pretending. Serving it would mean carrying a second chunk
+		///         path for ever: the same column serialized twice, biomes inline instead of blob
+		///         addressed, and the whole terrain re-sent to a player who already walked here. One
+		///         path is the point of this check, and refusing is a server protecting itself rather
+		///         than a judgement about the client.
+		///     </para>
+		/// </summary>
 		public virtual void HandleMcpeClientCacheStatus(McpeClientCacheStatus message)
 		{
-			UseBlobCache = message.enabled && BlobStore.Enabled;
-			Log.Info($"Cache status from {Username}: client={(message.enabled ? "enabled" : "disabled")}, serving blobs={UseBlobCache}");
+			if (!message.enabled)
+			{
+				Log.Warn($"Refusing {Username}: the client says it does not cache chunks, which this server requires.");
+				Disconnect("This server requires a client that caches chunks.");
+				return;
+			}
+
+			Log.Info($"Cache status from {Username}: client caches, as this server requires.");
 		}
 
 		/// <summary>
@@ -2402,16 +2696,33 @@ namespace MiNET
 		///     out of the store after we advertised it, which would strand the chunk, so it is
 		///     logged rather than passed over.
 		/// </summary>
+		private readonly ManualResetEventSlim _clientCacheBlobStatusReceived = new(false);
+
 		public virtual void HandleMcpeClientCacheBlobStatus(McpeClientCacheBlobStatus message)
 		{
+			// First status of the session = the client has verified the spawn block's hashes.
+			// The join's flood also waits for this edge; once set it stays set.
+			_clientCacheBlobStatusReceived.Set();
+
+			// The client's own cache verdict, hash by hash: the hit/miss ratio here is the direct
+			// measure of how much the blob cache is actually saving.
+			EngineMetrics.BlobCacheReport("hit", message.hashHits?.Length ?? 0);
+			EngineMetrics.BlobCacheReport("miss", message.hashMisses?.Length ?? 0);
+
 			if (message.hashMisses == null || message.hashMisses.Length == 0) return;
 
+			int unresolved = 0;
 			var blobs = new Dictionary<ulong, byte[]>();
 			foreach (ulong hash in message.hashMisses)
 			{
 				if (BlobStore.TryGet(hash, out byte[] blob)) blobs[hash] = blob;
-				else Log.Warn($"No blob for hash {hash:X16} requested by {Username}");
+				else
+				{
+					unresolved++;
+					Log.Warn($"No blob for hash {hash:X16} requested by {Username}");
+				}
 			}
+			EngineMetrics.BlobCacheReport("unresolved", unresolved);
 
 			if (blobs.Count == 0) return;
 
@@ -2445,26 +2756,18 @@ namespace MiNET
 		{
 			// The 1.26 client sends PlayerAuthInput every tick as its only movement packet
 			// (MovePlayer is server->client only now). Position is at eye height, like
-			// MovePlayer's was.
+			// MovePlayer's was. No ordering guard: see HandleMcpeMovePlayer's remarks, ordering
+			// is the transport's guarantee on both paths.
 			if (!IsSpawned || HealthManager.IsDead) return;
-
-			if (Server.ServerRole != ServerRole.Node)
-			{
-				lock (_moveSyncLock)
-				{
-					if (_lastOrderingIndex > message.ReliabilityHeader.OrderingIndex) return;
-					_lastOrderingIndex = message.ReliabilityHeader.OrderingIndex;
-				}
-			}
 
 			var newPosition = new PlayerLocation
 			{
-				X = message.Position.X,
-				Y = message.Position.Y - 1.62f,
-				Z = message.Position.Z,
-				Pitch = message.Pitch,
-				Yaw = message.Yaw,
-				HeadYaw = message.HeadYaw
+				X = message.position.X,
+				Y = message.position.Y - 1.62f,
+				Z = message.position.Z,
+				Pitch = message.playerRotation.X,
+				Yaw = message.playerRotation.Y,
+				HeadYaw = message.playerHeadRotation
 			};
 
 			double distanceTo = Vector3.Distance(KnownPosition.ToVector3(), newPosition.ToVector3());
@@ -2472,23 +2775,41 @@ namespace MiNET
 
 			// The input flags carry collision state directly; vertical collision while not
 			// jumping is standing on ground.
-			IsOnGround = (message.InputFlags & AuthInputFlags.VerticalCollision) != 0;
+			IsOnGround = (message.inputData & AuthInputFlags.VerticalCollision) != 0;
 
 			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(newPosition.X, 0, newPosition.Z)));
 
 			KnownPosition = newPosition;
 			LastUpdatedTime = DateTime.UtcNow;
 
-			// Keep chunk streaming following the player; this used to hang off MovePlayer,
-			// which the 1.26 client no longer sends. SendChunksForKnownPosition self-guards
-			// (lock + same-chunk early-out), so a per-tick call is cheap.
-			MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
+			// Republish the live area the moment the player crosses into a new column, ahead of any
+			// streaming. The publisher update names the centre and radius the client treats as live,
+			// and it used to go out only once per streaming pass - so while a pass ran for tens of
+			// seconds the published centre stayed where the player had been, and they could walk
+			// outside their own publish area. Vanilla republishes far more often than we did. The
+			// packet is a coordinate and a varint.
+			MaybePublishChunkArea();
+
+
+			// Keep chunk streaming following the player; this used to hang off MovePlayer, which the
+			// 1.26 client no longer sends.
+			//
+			// Guarded HERE, not left to the callee. SendChunksForKnownPosition does self-guard, but
+			// by then the work item is already allocated and scheduled, and auth input arrives twenty
+			// times a second per player whether they moved or not: 2000 stationary players queued
+			// 40000 pool items a second to discover they had nothing to do. Same test the move
+			// handler has always used.
+			var authChunkPosition = new ChunkCoordinates(KnownPosition);
+			if (_currentChunkPosition != authChunkPosition && _currentChunkPosition.DistanceTo(authChunkPosition) >= MoveRenderDistance)
+			{
+				MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
+			}
 
 			// Movement state transitions arrive as input flags now (the old PlayerAction
 			// start/stop sprint/sneak/glide packets are gone in 1.26). Route them to the same
 			// behaviors; without this the server keeps broadcasting stale entity state against
 			// the client's prediction and sprint/sneak stutter and cancel.
-			AuthInputFlags flags = message.InputFlags;
+			AuthInputFlags flags = message.inputData;
 			if ((flags & (AuthInputFlags.StartSprinting | AuthInputFlags.StopSprinting | AuthInputFlags.StartSneaking | AuthInputFlags.StopSneaking | AuthInputFlags.StartGliding | AuthInputFlags.StopGliding)) != 0)
 			{
 				if ((flags & AuthInputFlags.StartSprinting) != 0) SetSprinting(true);
@@ -2519,20 +2840,57 @@ namespace MiNET
 				BroadcastSetEntityData();
 			}
 
-			if (message.ItemStackRequest != null)
+			// Placing and using a block arrives here on a server-authoritative client, folded into the
+			// movement tick, and NOT as its own McpeInventoryTransaction: the client sends one or the
+			// other, never both. Same transaction, same handler, so a right-click reaches a chest the
+			// same way whichever packet carried it.
+			//
+			// Hesitate, then thread: the transaction branch reaches world locks (Level.Interact,
+			// UI screens), so it runs as a pool work item instead of on the movement path. A click
+			// lands a beat later; the 20/s movement tail stays provably lock-free.
+			if (message.itemUseTransaction?.itemUseTransaction != null)
 			{
-				HandleSingleItemStackRequest(message.ItemStackRequest);
+				ItemUseInventoryTransaction transaction = message.itemUseTransaction.itemUseTransaction;
+
+				// The transaction belongs to the packet, and the packet is released the moment this
+				// handler returns: Reset hands back its leases and this would be reading memory that
+				// went with them. A reference keeps it alive until the queued work is done with it.
+				message.AddReferences(1);
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() =>
+				{
+					try { HandleItemUseTransaction(transaction); }
+					finally { message.PutPool(); }
+				});
 			}
 
-			if (message.BlockActions != null)
+			if (message.itemStackRequest != null)
+			{
+				// Hesitate, then thread, same as the transaction above: crafting resolution takes
+				// the recipe-manager lock, so an inventory click folded into a movement tick runs
+				// as a pool work item too.
+				ItemStackRequest request = message.itemStackRequest;
+
+				// Same ownership problem as the transaction above.
+				message.AddReferences(1);
+				MiNetServer.FastThreadPool.QueueUserWorkItem(() =>
+				{
+					try { HandleSingleItemStackRequest(request); }
+					finally { message.PutPool(); }
+				});
+			}
+
+			if (message.playerBlockActions != null)
 			{
 				// Server-authoritative block breaking (StartGame flag): break progress and the
 				// actual destroy arrive as auth-input block actions instead of the old
 				// PlayerAction/InventoryTransaction path.
-				foreach (McpePlayerAuthInput.PlayerBlockAction action in message.BlockActions)
+				foreach (PlayerBlockActionData action in message.playerBlockActions)
 				{
-					var coordinates = new BlockCoordinates(action.X, action.Y, action.Z);
-					switch (action.ActionType)
+					BlockCoordinates coordinates = action.position;
+
+					// PMMP's PlayerAction numbers, not the generated PlayerActionType enum: that is the
+					// standalone PlayerAction packet's list under the same name.
+					switch ((int) action.playerActionType)
 					{
 						case 0: // start_break
 						{
@@ -2571,13 +2929,13 @@ namespace MiNET
 							McpeLevelEvent breakEvent = McpeLevelEvent.CreateObject();
 							breakEvent.eventId = 2014;
 							breakEvent.position = coordinates;
-							breakEvent.data = ((int) target.GetRuntimeId()) | ((byte) (action.Face << 24));
+							breakEvent.data = ((int) target.GetRuntimeId()) | ((byte) (action.facing << 24));
 							Level.RelayBroadcast(breakEvent);
 							break;
 						}
 						case 26: // predict_break: the client predicted the destroy; perform it
 						{
-							Level.BreakBlock(this, coordinates, (BlockFace) action.Face);
+							Level.BreakBlock(this, coordinates, (BlockFace) action.facing);
 							break;
 						}
 					}
@@ -2652,63 +3010,61 @@ namespace MiNET
 		}
 
 
-		public bool UsingAnvil { get; set; }
-
 		// Single request embedded in McpePlayerAuthInput (item_stack_request input flag); same
 		// processing and response flow as the standalone McpeItemStackRequest packet.
-		private void HandleSingleItemStackRequest(ItemStackActionList request)
+		private void HandleSingleItemStackRequest(ItemStackRequest request)
 		{
 			var response = McpeItemStackResponse.CreateObject();
-			response.responses = new ItemStackResponses();
+			response.responses = new List<ItemStackResponseInfo>();
 
-			var stackResponse = new ItemStackResponse
+			var stackResponse = new ItemStackResponseInfo
 			{
-				Result = StackResponseStatus.Ok,
-				RequestId = request.RequestId,
-				ResponseContainerInfos = new List<StackResponseContainerInfo>()
+				result = ItemStackResponseInfo.Result.Success,
+				clientRequestId = request.clientRequestId,
+				containers = new List<ItemStackResponseContainerInfo>()
 			};
 			response.responses.Add(stackResponse);
 
 			try
 			{
-				stackResponse.ResponseContainerInfos.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+				stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.clientRequestId, request));
 			}
 			catch (Exception e)
 			{
 				Log.Warn($"Failed to process inventory actions", e);
-				stackResponse.Result = StackResponseStatus.Error;
-				stackResponse.ResponseContainerInfos.Clear();
+				stackResponse.result = ItemStackResponseInfo.Result.Error;
+				stackResponse.containers.Clear();
 			}
 
 			SendPacket(response);
-			if (stackResponse.Result != StackResponseStatus.Ok) ResyncInventoryAfterFailedStackRequest();
+			if (stackResponse.result != ItemStackResponseInfo.Result.Success) ResyncInventoryAfterFailedStackRequest();
 		}
 
 		public virtual void HandleMcpeItemStackRequest(McpeItemStackRequest message)
 		{
 			var response = McpeItemStackResponse.CreateObject();
-			response.responses = new ItemStackResponses();
+			response.responses = new List<ItemStackResponseInfo>();
 			bool anyFailed = false;
-			foreach (ItemStackActionList request in message.requests)
+			foreach (ItemStackRequest request in message.requests)
 			{
-				var stackResponse = new ItemStackResponse()
+				var stackResponse = new ItemStackResponseInfo
 				{
-					Result = StackResponseStatus.Ok,
-					RequestId = request.RequestId,
-					ResponseContainerInfos = new List<StackResponseContainerInfo>()
+					result = ItemStackResponseInfo.Result.Success,
+					clientRequestId = request.clientRequestId,
+					containers = new List<ItemStackResponseContainerInfo>()
 				};
 
 				response.responses.Add(stackResponse);
 
 				try
 				{
-					stackResponse.ResponseContainerInfos.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.RequestId, request));
+					stackResponse.containers.AddRange(ItemStackInventoryManager.HandleItemStackActions(request.clientRequestId, request));
 				}
 				catch (Exception e)
 				{
 					Log.Warn($"Failed to process inventory actions", e);
-					stackResponse.Result = StackResponseStatus.Error;
-					stackResponse.ResponseContainerInfos.Clear();
+					stackResponse.result = ItemStackResponseInfo.Result.Error;
+					stackResponse.containers.Clear();
 					anyFailed = true;
 				}
 			}
@@ -2726,68 +3082,55 @@ namespace MiNET
 			SendPlayerHotbar();
 		}
 
-		protected Item GetContainerItem(int containerId, int slot)
+		/// <summary>
+		///     A container's slot, addressed the way the client does, by ContainerEnumName. Which store
+		///     that name reaches depends on the open screen, so the mapping lives in <see cref="Screen" />.
+		/// </summary>
+		protected internal virtual Item GetContainerItem(FullContainerName.ContainerEnumName containerId, int slot)
 		{
-			if (UsingAnvil && containerId < 3) containerId = 13;
+			SlotBinding binding = Screen.Bind(containerId, slot);
 
-			Item item = null;
-			switch (containerId)
+			switch (binding.Store)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
-					item = Inventory.UiInventory.Slots[slot];
-					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
-					item = Inventory.Slots[slot];
-					break;
-				case 6: // armor
-					item = slot switch
+				case SlotStore.Ui:
+					return Inventory.UiInventory.Slots[binding.Index];
+				case SlotStore.Main:
+					return Inventory.Slots[binding.Index];
+				case SlotStore.Offhand:
+					return Inventory.OffHand;
+				case SlotStore.Armor:
+					return binding.Index switch
 					{
 						0 => Inventory.Helmet,
 						1 => Inventory.Chest,
 						2 => Inventory.Leggings,
 						3 => Inventory.Boots,
-						_ => null
+						_ => throw new InvalidOperationException($"Armor has no slot {binding.Index}")
 					};
-					break;
-				case 7: // chest/container
-					if (_openInventory is Inventory inventory) item = inventory.GetSlot((byte) slot);
-					break;
+				case SlotStore.Block:
+					return Screen.BlockInventory.GetSlot((byte) binding.Index);
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					throw new InvalidOperationException($"Container {containerId} resolved to {binding.Store}, which cannot be read");
 			}
-
-			return item;
 		}
 
-		protected void SetContainerItem(int containerId, int slot, Item item)
+		protected internal virtual void SetContainerItem(FullContainerName.ContainerEnumName containerId, int slot, Item item)
 		{
-			if (UsingAnvil && containerId < 3) containerId = 13;
+			SlotBinding binding = Screen.Bind(containerId, slot);
 
-			switch (containerId)
+			switch (binding.Store)
 			{
-				case 13: // crafting
-				case 21: // enchanting
-				case 22: // enchanting
-				case 41: // loom
-				case 58: // cursor
-				case 59: // creative
-					Inventory.UiInventory.Slots[slot] = item;
+				case SlotStore.Ui:
+					Inventory.UiInventory.Slots[binding.Index] = item;
 					break;
-				case 12: // auto
-				case 27: // hotbar
-				case 28: // player inventory
-					Inventory.Slots[slot] = item;
+				case SlotStore.Main:
+					Inventory.Slots[binding.Index] = item;
 					break;
-				case 6: // armor
-					switch (slot)
+				case SlotStore.Offhand:
+					Inventory.OffHand = item;
+					break;
+				case SlotStore.Armor:
+					switch (binding.Index)
 					{
 						case 0:
 							Inventory.Helmet = item;
@@ -2801,14 +3144,15 @@ namespace MiNET
 						case 3:
 							Inventory.Boots = item;
 							break;
+						default:
+							throw new InvalidOperationException($"Armor has no slot {binding.Index}");
 					}
 					break;
-				case 7: // chest/container
-					if (_openInventory is Inventory inventory) inventory.SetSlot(this, (byte) slot, item);
+				case SlotStore.Block:
+					Screen.BlockInventory.SetSlot(this, (byte) binding.Index, item);
 					break;
 				default:
-					Log.Warn($"Unknown containerId: {containerId}");
-					break;
+					throw new InvalidOperationException($"Container {containerId} resolved to {binding.Store}, which cannot be written");
 			}
 		}
 
@@ -2838,45 +3182,80 @@ namespace MiNET
 		/// <inheritdoc />
 		public virtual void HandleMcpeSubChunkRequestPacket(McpeSubChunkRequestPacket message)
 		{
-			/*McpeSubChunkPacket response = McpeSubChunkPacket.CreateObject();
-			if (message.dimension != (int) Level.Dimension)
+			// The block half of the chunk flow: the skeleton LevelChunk carried only biomes, and
+			// the client asks here for the sections it wants, as offsets from an origin in absolute
+			// sub-chunk coordinates. One entry is answered per offset; the column serializes it.
+			var response = McpeSubChunkPacket.CreateObject();
+			response.cacheEnabled = true;
+			response.dimensionType = message.dimension;
+			response.centerPos = new SubChunkPos {subchunkPositionX = message.originX, subchunkPositionY = message.originY, subchunkPositionZ = message.originZ};
+			response.subchunkData = new List<SubChunkPacketData>();
+
+			foreach (SubChunkPosOffset offset in message.offsets)
 			{
-				response.requestResult = (int) SubChunkRequestResult.WrongDimension;
+				SubChunkPacketData entry = BuildSubChunkEntry(message, offset);
+
+				// Counted per entry, not per request: one request carries many offsets and they can
+				// have different outcomes, which is exactly the distinction worth having.
+				EngineMetrics.SubChunkResult(entry.subchunkRequestResult.ToString().ToLowerInvariant());
+				if (entry.serializedSubChunk != null) EngineMetrics.SubChunkBytes(entry.serializedSubChunk.Length);
+
+				response.subchunkData.Add(entry);
 			}
-			else
+
+			SendPacket(response);
+		}
+
+		private SubChunkPacketData BuildSubChunkEntry(McpeSubChunkRequestPacket message, SubChunkPosOffset offset)
+		{
+			SubChunkPacketData Rejected(SubChunkPacketData.SubchunkRequestResult result) => new SubChunkPacketData
 			{
-				var chunk = Level.GetChunk(message.subchunkCoordinates);
-
-				if (chunk == null)
+				subchunkPosOffset = offset,
+				subchunkRequestResult = result,
+				heightMapData = new SubChunkHeightmapData
 				{
-					response.requestResult = (int) SubChunkRequestResult.NoSuchChunk;
+					heightMapType = SubChunkHeightmapData.HeightMapType.Nodata,
+					renderHeightMapType = SubChunkHeightmapData.RenderHeightMapType.Nodata
 				}
-				else
-				{
-					try
-					{
-						var subChunk = chunk.GetSubChunk(message.subchunkCoordinates.Y);
+			};
 
-						using (MemoryStream ms = new MemoryStream())
-						{
-							subChunk.Write(ms);
-							response.data = ms.ToArray();
-						}
-						//subChunk.Write();
+			if (message.dimension != (int) Level.Dimension) return Rejected(SubChunkPacketData.SubchunkRequestResult.Wrongdimension);
 
-						response.dimension = message.dimension;
-						response.heightmapData = new HeightMapData(chunk.height);
-						
-						response.requestResult = (int) SubChunkRequestResult.Success;
-					}
-					catch (IndexOutOfRangeException)
-					{
-						response.requestResult = (int) SubChunkRequestResult.YIndexOutOfBounds;
-					}
-				}
+			int sectionY = message.originY + offset.subchunkOffsetY;
+			if (!ChunkColumn.IsSectionInBounds(sectionY)) return Rejected(SubChunkPacketData.SubchunkRequestResult.Indexoutofbounds);
+
+			var coordinates = new ChunkCoordinates(message.originX + offset.subchunkOffsetX, message.originZ + offset.subchunkOffsetZ);
+
+			// First request for this column: close the loop on when its skeleton went out. Removed on
+			// the first match, so what remains in the dictionary is exactly the set of columns the
+			// client has been told about and never come back for.
+			if (_skeletonSentAt.TryRemove(coordinates, out long sentAt))
+			{
+				double millis = (Stopwatch.GetTimestamp() - sentAt) * 1000d / Stopwatch.Frequency;
+				EngineMetrics.RecordChunkRequestLatency(millis);
+
+				// Feeds the distribution the stale threshold is derived from: only columns the client
+				// actually came back for describe how long coming back normally takes.
+				Interlocked.Increment(ref _columnsDrained);
 			}
-			
-			SendPacket(response);*/
+
+			// Loads the column if it is not resident yet, rather than answering "does not exist" for
+			// anything the streaming path has not reached. cacheOnly was here to keep disk IO off the
+			// transport receive thread; that is no longer the reason it needs, because this handler
+			// does IO and so is disqualified from inline dispatch outright. Rejecting instead of
+			// loading is what left a dense hand-built map rendering as void with ore and lava floating
+			// in it: the client asks for sub-chunks faster than the publisher loads columns, and it
+			// does not come back for a rejection.
+			ChunkColumn chunkColumn = Level.GetChunk(coordinates);
+			if (chunkColumn == null) return Rejected(SubChunkPacketData.SubchunkRequestResult.Levelchunkdoesntexist);
+
+			// A section asked for twice was evicted client-side and re-marked by a fresh skeleton;
+			// counting those is how the client's eviction behaviour stays visible.
+			bool seenBefore;
+			lock (_subChunksServed) seenBefore = !_subChunksServed.Add((coordinates, sectionY));
+			if (seenBefore) EngineMetrics.SubChunkReRequested();
+
+			return chunkColumn.GetSubChunkData(offset, sectionY);
 		}
 
 		public virtual void HandleMcpeMobArmorEquipment(McpeMobArmorEquipment message)
@@ -2918,9 +3297,61 @@ namespace MiNET
 
 		private object _inventorySync = new object();
 
-		public virtual void SetOpenInventory(IInventory inventory)
+		public virtual void OpenScreen(Screen screen)
 		{
-			_openInventory = inventory;
+			Screen = screen;
+		}
+
+		/// <summary>Block inventories carry a fixed window id per kind (see InventoryManager), all of
+		/// them below this, and the client reserves 0x77 and up for its own windows. Everything in
+		/// between is the server's to hand out.</summary>
+		private const byte FirstScreenWindowId = 30;
+
+		private byte _nextScreenWindowId = FirstScreenWindowId;
+
+		private byte NextScreenWindowId()
+		{
+			if (_nextScreenWindowId >= 0x77) _nextScreenWindowId = FirstScreenWindowId;
+
+			return _nextScreenWindowId++;
+		}
+
+		/// <summary>Opens a screen the client drives on its own: an anvil, a loom, a smithing table.
+		/// Every slot in one of these lives in the flat UI window, so the server holds nothing and
+		/// opening it is just naming it. Whatever was open is closed first, because the client refuses
+		/// to open a second window while it believes one is still up.</summary>
+		public virtual void OpenUiScreen(ScreenKind kind, ContainerType type, BlockCoordinates coordinates)
+		{
+			lock (_inventorySync)
+			{
+				if (Screen.Kind != ScreenKind.Inventory) HandleMcpeContainerClose(null);
+
+				byte windowId = NextScreenWindowId();
+				OpenScreen(new Screen(kind, type, windowId, coordinates, null));
+
+				var containerOpen = McpeContainerOpen.CreateObject();
+				containerOpen.windowId = windowId;
+				containerOpen.type = (byte) type;
+				containerOpen.coordinates = coordinates;
+				// -1, the same as every block container BDS opens. The anvil, the crafting table and
+				// the loom used to send EntityIdSelf here and the client took that too, so the field
+				// looks unread for a screen that names a block.
+				containerOpen.actorUniqueId = -1;
+				SendPacket(containerOpen);
+			}
+		}
+
+		private static ScreenKind ScreenKindOf(BlockEntity blockEntity)
+		{
+			return blockEntity switch
+			{
+				FurnaceBlockEntity => ScreenKind.Furnace,
+				BlastFurnaceBlockEntity => ScreenKind.BlastFurnace,
+				SmokerBlockEntity => ScreenKind.Smoker,
+				BrewingStandBlockEntity => ScreenKind.BrewingStand,
+				EnchantingTableBlockEntity => ScreenKind.EnchantingTable,
+				_ => ScreenKind.Container
+			};
 		}
 
 		public void OpenInventory(BlockCoordinates inventoryCoord)
@@ -2928,9 +3359,9 @@ namespace MiNET
 			// https://github.com/pmmp/PocketMine-MP/blob/stable/src/pocketmine/network/mcpe/protocol/types/WindowTypes.php
 			lock (_inventorySync)
 			{
-				if (_openInventory is Inventory openInventory)
+				if (Screen.Kind != ScreenKind.Inventory)
 				{
-					if (openInventory.Coordinates.Equals(inventoryCoord)) return;
+					if (Screen.BlockInventory != null && Screen.Coordinates.Equals(inventoryCoord)) return;
 					HandleMcpeContainerClose(null);
 				}
 
@@ -2949,9 +3380,15 @@ namespace MiNET
 				// get inventory # from inventory manager
 				// set inventory as active on player
 
-				_openInventory = inventory;
+				OpenScreen(new Screen(ScreenKindOf(inventory.BlockEntity), (ContainerType) inventory.Type, inventory.WindowsId, inventoryCoord, inventory));
 
-				if (inventory.Type == 0 && !inventory.IsOpen()) // Chest open animation
+				// A barrel has no open animation to broadcast: its lid is a block state, so it opens by
+				// changing the block. Both of these ask "is anyone else already looking at it" before
+				// the subscription below, and answer again after the unsubscription in the close.
+				if (inventory.BlockEntity is BarrelBlockEntity && !inventory.IsOpen()) SetBarrelLid(inventoryCoord, true);
+
+				// Chest open animation.
+				if (inventory.BlockEntity is ChestBlockEntity or ShulkerBoxBlockEntity && !inventory.IsOpen())
 				{
 					var tileEvent = McpeBlockEvent.CreateObject();
 					tileEvent.coordinates = inventoryCoord;
@@ -2978,6 +3415,20 @@ namespace MiNET
 				containerSetContent.input = inventory.Slots;
 				SendPacket(containerSetContent);
 			}
+		}
+
+		/// <summary>The barrel's open lid, which is a block state rather than the block event a chest
+		/// answers with. Everyone in range sees it, so it follows whether ANY player has the barrel
+		/// open, not this one.</summary>
+		private void SetBarrelLid(BlockCoordinates coordinates, bool open)
+		{
+			if (Level?.GetBlock(coordinates) is not Barrel barrel || barrel.OpenBit == open) return;
+
+			barrel.OpenBit = open;
+
+			// Same block, same opacity, one state bit: nothing to relight and nothing to fall, so a
+			// barrel being opened does not drag a skylight recalculation behind it.
+			Level.SetBlock(barrel, applyPhysics: false, calculateLight: false);
 		}
 
 		private void OnInventoryChange(Player player, Inventory inventory, byte slot, Item itemStack)
@@ -3012,19 +3463,19 @@ namespace MiNET
 		{
 			switch (message.transaction)
 			{
-				case InventoryMismatchTransaction inventoryMismatchTransaction:
+				case InventoryMismatchData inventoryMismatchTransaction:
 					HandleInventoryMismatchTransaction(inventoryMismatchTransaction);
 					break;
-				case ItemReleaseTransaction itemReleaseTransaction:
+				case ItemReleaseInventoryTransaction itemReleaseTransaction:
 					HandleItemReleaseTransaction(itemReleaseTransaction);
 					break;
-				case ItemUseOnEntityTransaction itemUseOnEntityTransaction:
+				case ItemUseOnActorInventoryTransaction itemUseOnEntityTransaction:
 					HandleItemUseOnEntityTransaction(itemUseOnEntityTransaction);
 					break;
-				case ItemUseTransaction itemUseTransaction:
+				case ItemUseInventoryTransaction itemUseTransaction:
 					HandleItemUseTransaction(itemUseTransaction);
 					break;
-				case NormalTransaction normalTransaction:
+				case NormalTransactionData normalTransaction:
 					HandleNormalTransaction(normalTransaction);
 					break;
 				default:
@@ -3032,17 +3483,17 @@ namespace MiNET
 			}
 		}
 
-		protected virtual void HandleItemUseOnEntityTransaction(ItemUseOnEntityTransaction transaction)
+		protected virtual void HandleItemUseOnEntityTransaction(ItemUseOnActorInventoryTransaction transaction)
 		{
-			switch ((McpeInventoryTransaction.ItemUseOnEntityAction) transaction.ActionType)
+			switch (transaction.actionType)
 			{
-				case McpeInventoryTransaction.ItemUseOnEntityAction.Interact: // Right click
+				case ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.Interact: // Right click
 					EntityInteract(transaction);
 					break;
-				case McpeInventoryTransaction.ItemUseOnEntityAction.Attack: // Left click
+				case ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.Attack: // Left click
 					EntityAttack(transaction);
 					break;
-				case McpeInventoryTransaction.ItemUseOnEntityAction.ItemInteract:
+				case ItemUseOnActorInventoryTransaction.ItemUseOnActorActionType.ItemInteract:
 					Log.Warn($"Got Entity ItemInteract. Was't sure it existed, but obviously it does :-o");
 					EntityItemInteract(transaction);
 					break;
@@ -3051,35 +3502,35 @@ namespace MiNET
 			}
 		}
 
-		private void EntityItemInteract(ItemUseOnEntityTransaction transaction)
+		private void EntityItemInteract(ItemUseOnActorInventoryTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.item.Metadata)
 			{
-				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
+				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.item}");
 			}
 
-			if (!Level.TryGetEntity(transaction.EntityId, out Entity target)) return;
+			if (!Level.TryGetEntity(transaction.runtimeId, out Entity target)) return;
 			target.DoItemInteraction(this, itemInHand);
 		}
 
-		protected virtual void EntityInteract(ItemUseOnEntityTransaction transaction)
+		protected virtual void EntityInteract(ItemUseOnActorInventoryTransaction transaction)
 		{
-			DoInteraction((int) transaction.ActionType, this);
+			DoInteraction((int) transaction.actionType, this);
 
-			if (!Level.TryGetEntity(transaction.EntityId, out Entity target)) return;
-			target.DoInteraction((int) transaction.ActionType, this);
+			if (!Level.TryGetEntity(transaction.runtimeId, out Entity target)) return;
+			target.DoInteraction((int) transaction.actionType, this);
 		}
 
-		protected virtual void EntityAttack(ItemUseOnEntityTransaction transaction)
+		protected virtual void EntityAttack(ItemUseOnActorInventoryTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
-			if (!itemInHand.Name.Equals(transaction.Item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.Item.Metadata)
+			if (!itemInHand.Name.Equals(transaction.item.Name, StringComparison.OrdinalIgnoreCase) || itemInHand.Metadata != transaction.item.Metadata)
 			{
-				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.Item}");
+				Log.Warn($"Attack item mismatch. Expected {itemInHand}, but client reported {transaction.item}");
 			}
 
-			if (!Level.TryGetEntity(transaction.EntityId, out Entity target)) return;
+			if (!Level.TryGetEntity(transaction.runtimeId, out Entity target)) return;
 
 
 			LastAttackTarget = target;
@@ -3121,23 +3572,23 @@ namespace MiNET
 			HungerManager.IncreaseExhaustion(0.3f);
 		}
 
-		protected virtual void HandleInventoryMismatchTransaction(InventoryMismatchTransaction transaction)
+		protected virtual void HandleInventoryMismatchTransaction(InventoryMismatchData transaction)
 		{
 			Log.Warn($"Transaction mismatch");
 		}
 
-		protected virtual void HandleItemReleaseTransaction(ItemReleaseTransaction transaction)
+		protected virtual void HandleItemReleaseTransaction(ItemReleaseInventoryTransaction transaction)
 		{
 			Item itemInHand = Inventory.GetItemInHand();
 
-			switch (transaction.ActionType)
+			switch (transaction.actionType)
 			{
-				case McpeInventoryTransaction.ItemReleaseAction.Release:
+				case ItemReleaseInventoryTransaction.ItemReleaseActionType.Release:
 				{
-					itemInHand.Release(Level, this, transaction.FromPosition);
+					itemInHand.Release(Level, this, transaction.fromPosition);
 					break;
 				}
-				case McpeInventoryTransaction.ItemReleaseAction.Use:
+				case ItemReleaseInventoryTransaction.ItemReleaseActionType.Use:
 				{
 					break;
 				}
@@ -3145,108 +3596,68 @@ namespace MiNET
 					throw new ArgumentOutOfRangeException();
 			}
 
-			HandleTransactionRecords(transaction.TransactionRecords);
+			HandleTransactionRecords(transaction.actions);
 		}
 
-		protected virtual void HandleItemUseTransaction(ItemUseTransaction transaction)
+		protected virtual void HandleItemUseTransaction(ItemUseInventoryTransaction transaction)
 		{
 			var itemInHand = Inventory.GetItemInHand();
 
-			switch (transaction.ActionType)
+			switch (transaction.actionType)
 			{
-				case McpeInventoryTransaction.ItemUseAction.Place:
+				case ItemUseInventoryTransaction.ItemUseActionType.Place:
 				{
-					Level.Interact(this, itemInHand, transaction.Position, (BlockFace) transaction.Face, transaction.ClickPosition);
+					Level.Interact(this, itemInHand, transaction.position, (BlockFace) transaction.face, transaction.clickPosition);
 					break;
 				}
-				case McpeInventoryTransaction.ItemUseAction.Use:
+				case ItemUseInventoryTransaction.ItemUseActionType.Use:
 				{
-					itemInHand.UseItem(Level, this, transaction.Position);
+					itemInHand.UseItem(Level, this, transaction.position);
 					break;
 				}
-				case McpeInventoryTransaction.ItemUseAction.Destroy:
+				case ItemUseInventoryTransaction.ItemUseActionType.Destroy:
 				{
 					//TODO: Add face and other parameters to break. For logic in break block.
-					Level.BreakBlock(this, transaction.Position, (BlockFace) transaction.Face);
+					Level.BreakBlock(this, transaction.position, (BlockFace) transaction.face);
 					break;
 				}
 			}
 
-			HandleTransactionRecords(transaction.TransactionRecords);
+			HandleTransactionRecords(transaction.actions);
 		}
 
-		protected virtual void HandleNormalTransaction(NormalTransaction transaction)
+		protected virtual void HandleNormalTransaction(NormalTransactionData transaction)
 		{
-			HandleTransactionRecords(transaction.TransactionRecords);
+			HandleTransactionRecords(transaction.actions);
 		}
 
-		protected virtual void HandleTransactionRecords(List<TransactionRecord> records)
+		/// <summary>
+		///     The actions a transaction carries. Since the packet moved onto the schemas these are
+		///     InventoryAction, where the kind is the source's own type rather than a subclass, and
+		///     the item the client says the slot ends up holding is toItem.
+		/// </summary>
+		/// <summary>
+		///     Only the world-interaction source still arrives here. Slot movement moved to
+		///     ItemStackRequest with the stack net id, which is a stronger claim than "the item I
+		///     believe is in that slot", so container records stopped being sent and the code that
+		///     verified them against the server's own slots went with them. Dropping an item is
+		///     what is left.
+		/// </summary>
+		protected virtual void HandleTransactionRecords(List<InventoryAction> records)
 		{
-			if (records.Count == 0) return;
+			if (records == null || records.Count == 0) return;
 
-			foreach (TransactionRecord record in records)
+			foreach (InventoryAction record in records)
 			{
-				//Item oldItem = record.OldItem;
-				Item newItem = record.NewItem;
-				//int slot = record.Slot;
+				Item newItem = record.toItem;
 
-				switch (record)
+				switch (record.source?.sourceType)
 				{
-					//case ContainerTransactionRecord rec:
-					//{
-					//	int inventoryId = rec.InventoryId;
-
-					//	switch (inventoryId)
-					//	{
-					//		case 0: // Player inventory
-					//		{
-					//			Item existingItem = Inventory.Slots[slot];
-
-					//			if (!newItem.Equals(existingItem)) Log.Warn($"Inventory mismatch. Client reported new item as {oldItem} and it did not match existing item {existingItem}");
-					//			else Log.Debug($"Verified new inventory slot {slot} to {Inventory.Slots[slot]}");
-					//			break;
-					//		}
-					//		case 119: // Armor inventory
-					//		case 120: // Armor inventory
-					//		case 121: // Creative inventory
-					//		case 124: // Cursor inventory
-					//			throw new Exception($"This should never happen with new inventory transactions");
-					//		default:
-					//		{
-					//			throw new Exception($"This should never happen with new inventory transactions");
-					//			////TODO Handle custom items, like player inventory and cursor
-
-					//			//if (_openInventory != null)
-					//			//{
-					//			//	if (_openInventory is Inventory inventory && inventory.WindowsId == inventoryId)
-					//			//	{
-					//			//		//if (!oldItem.Equals(inventory.CraftRemoveIngredient((byte)slot))) Log.Warn($"Cursor mismatch. Client reported old item as {oldItem} and it did not match existing the item {inventory.CraftRemoveIngredient((byte)slot)}");
-
-					//			//		// block inventories of various kinds (chests, furnace, etc)
-					//			//		inventory.SetSlot(this, (byte) slot, newItem);
-					//			//	}
-					//			//	else if (_openInventory is HorseInventory horseInventory)
-					//			//	{
-					//			//		//if (!oldItem.Equals(horseInventory.CraftRemoveIngredient((byte)slot))) Log.Warn($"Cursor mismatch. Client reported old item as {oldItem} and it did not match existing the item {horseInventory.CraftRemoveIngredient((byte)slot)}");
-					//			//		horseInventory.SetSlot(slot, newItem);
-					//			//	}
-					//			//}
-					//			//break;
-					//		}
-					//	}
-					//	break;
-					//}
-
-					//TODO Handle custom items, like player inventory and cursor. Not entirely sure how to handle this for crafting and similar inventories.
-					case CraftTransactionRecord _:
+					case InventorySource.InventorySourceType.CreativeInventory:
 					{
 						throw new Exception($"This should never happen with new inventory transactions");
 					}
-					case CreativeTransactionRecord _:
-					{
-						throw new Exception($"This should never happen with new inventory transactions");
-					}
-					case WorldInteractionTransactionRecord _:
+					case InventorySource.InventorySourceType.WorldInteraction:
 					{
 						// Drop
 						Item sourceItem = Inventory.GetItemInHand();
@@ -3374,52 +3785,65 @@ namespace MiNET
 			}
 		}
 
-		public virtual void HandleMcpeContainerClose(McpeContainerClose message)
+		/// <summary>Lets go of whatever screen is open, server side only, and returns what was let go
+		/// of. Everything here says "this player is no longer looking": the subscription, the observer
+		/// registration, and the lid or animation that told the room. Answering the client is the
+		/// caller's business, because a player who has just disconnected has nothing left to answer to,
+		/// and a shared inventory that keeps a departed player as an observer counts as open forever.</summary>
+		protected virtual Screen ReleaseScreen()
 		{
-			UsingAnvil = false;
-
 			lock (_inventorySync)
 			{
-				if (_openInventory is Inventory inventory)
+				Screen closing = Screen;
+				Screen = new Screen(ScreenKind.Inventory);
+
+				if (closing.BlockInventory is not Inventory inventory) return closing;
+
+				// unsubscribe to inventory changes
+				inventory.InventoryChange -= OnInventoryChange;
+				inventory.RemoveObserver(this);
+
+				if (inventory.BlockEntity is BarrelBlockEntity && !inventory.IsOpen()) SetBarrelLid(inventory.Coordinates, false);
+
+				// close container
+				if (inventory.BlockEntity is ChestBlockEntity or ShulkerBoxBlockEntity && !inventory.IsOpen())
 				{
-					_openInventory = null;
-
-					// unsubscribe to inventory changes
-					inventory.InventoryChange -= OnInventoryChange;
-					inventory.RemoveObserver(this);
-
-					if (message != null && message.windowId != inventory.WindowsId) return;
-
-					// close container 
-					if (inventory.Type == 0 && !inventory.IsOpen())
-					{
-						var tileEvent = McpeBlockEvent.CreateObject();
-						tileEvent.coordinates = inventory.Coordinates;
-						tileEvent.case1 = 1;
-						tileEvent.case2 = 0;
-						Level.RelayBroadcast(tileEvent);
-					}
-
-					var closePacket = McpeContainerClose.CreateObject();
-					closePacket.windowId = inventory.WindowsId;
-					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
-					closePacket.server = message == null ? true : false;
-					SendPacket(closePacket);
+					var tileEvent = McpeBlockEvent.CreateObject();
+					tileEvent.coordinates = inventory.Coordinates;
+					tileEvent.case1 = 1;
+					tileEvent.case2 = 0;
+					Level.RelayBroadcast(tileEvent);
 				}
-				else if (_openInventory is HorseInventory horseInventory)
+
+				return closing;
+			}
+		}
+
+		public virtual void HandleMcpeContainerClose(McpeContainerClose message)
+		{
+			lock (_inventorySync)
+			{
+				Screen closing = ReleaseScreen();
+
+				if (closing.Kind == ScreenKind.Horse) return;
+
+				// The player's own screen is answered with an allocated id (see the self open-inventory
+				// case in HandleMcpeInteract) that is never recorded here, so only a screen the server
+				// opened has an id worth comparing.
+				if (message != null && closing.Kind != ScreenKind.Inventory && message.windowId != closing.WindowId)
 				{
-					_openInventory = null;
+					Log.Warn($"Client closed window {message.windowId} while {closing.Kind} held window {closing.WindowId}");
 				}
-				else
-				{
-					// Echo the id the client closed (vanilla answers with the allocated window id,
-					// e.g. 2 for the self-inventory pseudo window), never a hardcoded 0.
-					var closePacket = McpeContainerClose.CreateObject();
-					closePacket.windowId = message?.windowId ?? 0;
-					closePacket.windowType = message?.windowType ?? (byte) 0xf7; // 247 = none, matches BDS echo
-					closePacket.server = message == null ? true : false;
-					SendPacket(closePacket);
-				}
+
+				// A close the client asked for is ALWAYS answered, with the id it named. Skipping the
+				// answer when the ids disagree leaves the client believing its window is still open,
+				// and it then refuses to open any other: no inventory, no chest, and the lid of the
+				// one it thinks is open stays up because the block event above never ran either.
+				var closePacket = McpeContainerClose.CreateObject();
+				closePacket.windowId = message?.windowId ?? closing.WindowId;
+				closePacket.windowType = message?.windowType ?? (byte) ContainerType.None;
+				closePacket.server = message == null;
+				SendPacket(closePacket);
 			}
 		}
 
@@ -3437,7 +3861,7 @@ namespace MiNET
 		/// <param name="message">The message.</param>
 		public virtual void HandleMcpeInteract(McpeInteract message)
 		{
-			//Log.Info($"Interact. Target={message.targetRuntimeEntityId} Action={message.actionId} Position={message.Position}");
+			//Log.Info($"Interact. Target={message.targetRuntimeEntityId} Action={message.actionId} Position={message.position}");
 			Entity target = null;
 			long runtimeEntityId = message.targetRuntimeEntityId;
 			if (runtimeEntityId == EntityManager.EntityIdSelf)
@@ -3478,6 +3902,11 @@ namespace MiNET
 				{
 					if (target == this)
 					{
+						// Opening the player's own screen replaces whatever was open, so a block
+						// screen still recorded here has to be torn down first: leaving it makes the
+						// player's next close carry window id 2 against a chest's window id.
+						if (Screen.Kind != ScreenKind.Inventory) HandleMcpeContainerClose(null);
+
 						// Mirrors vanilla's answer to a self open-inventory request (captured live
 						// from BDS 1.26.34): an ALLOCATED window id (2, never the reserved
 						// inventory id 0), type 255 (none), the player's block position and
@@ -3587,89 +4016,100 @@ namespace MiNET
 		{
 			var levelSettings = new LevelSettings
 			{
-				spawnSettings = new SpawnSettings()
+				spawnSettings = new SpawnSettings
 				{
-					Dimension = (int) (Level?.Dimension ?? 0),
-					BiomeName = Level.SpawnBiomeName,
-					BiomeType = Level.SpawnBiomeType
+					dimension = (int) (Level?.Dimension ?? 0),
+					userDefinedBiomeName = Level.SpawnBiomeName,
+					spawnBiomeType = (SpawnSettings.SpawnBiomeType) Level.SpawnBiomeType
 				},
-				seed = Level.Seed,
-				generator = Level.GeneratorType,
-				gamemode = (int) GameMode,
-				difficulty = (int) Level.Difficulty,
-				x = (int) SpawnPosition.X,
-				y = (int) (SpawnPosition.Y + Height),
-				z = (int) SpawnPosition.Z,
-				hasAchievementsDisabled = Level.AchievementsDisabled,
-				time = (int) Level.WorldTime,
-				eduOffer = PlayerInfo.Edition == 1 ? 1 : 0,
+				seed = (ulong) Level.Seed,
+				generatorType = (LevelSettings.GeneratorType) Level.GeneratorType,
+				gameType = (LevelSettings.GameType) GameMode,
+				gameDifficulty = (LevelSettings.GameDifficulty) Level.Difficulty,
+				// The LEVEL spawn, not this player's: SpawnPosition is per-player and plugins
+				// (Plotter) persist it, so it is wherever this player last was. Vanilla puts the
+				// world's fixed spawn block here.
+				defaultSpawnBlockPosition = new BlockCoordinates((int) Level.SpawnPoint.X, (int) Level.SpawnPoint.Y, (int) Level.SpawnPoint.Z),
+				achievementsDisabled = Level.AchievementsDisabled,
+				dayCycleStopTime = (int) Level.WorldTime,
+				educationEditionOffer = PlayerInfo.Edition == 1 ? LevelSettings.EducationEditionOffer.Restofworld : LevelSettings.EducationEditionOffer.None,
+				educationProductId = "",
 				rainLevel = Level.RainLevel,
 				lightningLevel = Level.LightningLevel,
-				isMultiplayer = Level.IsMultiplayer,
-				broadcastToLan = Level.BroadcastToLan,
-				enableCommands = EnableCommands,
-				isTexturepacksRequired = Level.IsTexturepacksRequired,
+				multiplayerGameIntent = Level.IsMultiplayer,
+				lanBroadcastIntent = Level.BroadcastToLan,
+				commandsEnabled = EnableCommands,
+				texturePacksRequired = Level.IsTexturepacksRequired,
 				gamerules = Level.GetGameRules(),
-				bonusChest = Level.BonusChest,
-				mapEnabled = Level.MapEnabled,
-				permissionLevel = (int) PermissionLevel,
+				experiments = new Experiments(),
+				hasBonusChestEnabled = Level.BonusChest,
+				startWithMapEnabled = Level.MapEnabled,
+				playerPermissions = (LevelSettings.PlayerPermissions) PermissionLevel,
 				// "*" is what vanilla sends here, not the version string and not empty.
-				gameVersion = "*",
+				baseGameVersion = "*",
 
 				// This server is not Education Edition. Sending true put every client into edu mode,
 				// which changes chat, permissions and the player roster UI.
-				hasEduFeaturesEnabled = false,
+				educationFeaturesEnabled = false,
+				eduSharedUriResource = new EduSharedUriResource {buttonName = "", linkUri = ""},
 
 				serverChunkTickRange = Level.ServerChunkTickRange,
 				useMsaGamertagsOnly = Level.UseMsaGamertagsOnly,
 				limitedWorldWidth = Level.LimitedWorldWidth,
-				limitedWorldLength = Level.LimitedWorldLength,
-				xboxLiveBroadcastMode = Level.XboxLiveBroadcastMode,
-				platformBroadcastMode = Level.PlatformBroadcastMode
+				limitedWorldDepth = Level.LimitedWorldLength,
+				xboxLiveBroadcastSetting = Level.XboxLiveBroadcastMode,
+				platformBroadcastSetting = Level.PlatformBroadcastMode,
 			};
 
 			var startGame = McpeStartGame.CreateObject();
-			startGame.levelSettings = levelSettings;
+			startGame.settings = levelSettings;
 			startGame.entityIdSelf = EntityId;
 			startGame.runtimeEntityId = EntityManager.EntityIdSelf;
-			startGame.playerGamemode = 5; // fallback: use the level's game mode, like vanilla
+			startGame.gameType = McpeStartGame.GameType.Default; // fallback: use the level's game mode, like vanilla
 			// Eye height, like every other position we send. SpawnPosition is feet, and the client
 			// subtracts the offset to place them, so sending it raw spawns the player 1.62 low,
 			// which is inside the ground when the spawn is snapped to the surface.
-			startGame.spawn = new PlayerLocation(SpawnPosition.X, SpawnPosition.Y + 1.62f, SpawnPosition.Z);
+			startGame.position = new Vector3(SpawnPosition.X, SpawnPosition.Y + 1.62f, SpawnPosition.Z);
 			startGame.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.HeadYaw);
-			
+
 			// A stable but non-legacy level id: the client keys local caches on world identity,
 			// and the old constant id may pin poisoned cache entries from early broken sessions.
 			startGame.levelId = "minet-" + (Level.LevelName ?? "world");
-			startGame.worldName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
-			startGame.premiumWorldTemplateId = "00000000-0000-0000-0000-000000000000"; // vanilla sends the zero uuid as a string, not empty
+			startGame.levelName = string.IsNullOrEmpty(Level.LevelName) ? "MiNET" : Level.LevelName;
+			startGame.templateContentIdentity = "00000000-0000-0000-0000-000000000000"; // vanilla sends the zero uuid as a string, not empty
 			startGame.isTrial = Level.IsTrial;
 			// How SubChunk.WriteStore encodes chunk palettes. The two must always agree, so both
 			// come from the one setting. The palette itself is never sent, in either mode: vanilla
 			// stopped sending it, and index mode indexes the client's own canonical palette. That
 			// is what makes index mode demanding: our palette order has to be the client's, exactly.
 			startGame.blockNetworkIdsAreHashes = SubChunk.BlockNetworkIdsAreHashes;
-			startGame.movementRewindHistorySize = Level.MovementRewindHistorySize;
-			// Wire behaviour switches, not world settings: both must match how this server actually
-			// handles breaking and sound, so they are not somebody's to configure.
-			startGame.enableNewBlockBreakSystem = true;
-			startGame.serverControlledSound = true;
-			startGame.currentTick = Level.TickTime;
+			// Wire behaviour switches, not world settings: server-auth block breaking must match how
+			// this server actually handles breaking, so it is not somebody's to configure.
+			startGame.movementSettings = new SyncedPlayerMovementSettings
+			{
+				rewindHistorySize = Level.MovementRewindHistorySize,
+				serverAuthoritativeBlockBreaking = true
+			};
+			startGame.serverAuthSoundEnabled = true;
+			startGame.levelCurrentTime = (ulong) Level.TickTime;
 			startGame.enchantmentSeed = Level.EnchantmentSeed;
-			startGame.enableNewInventorySystem = true;
+			startGame.enableItemStackNetManager = true;
+			startGame.blockProperties = new List<ServerBlockProperty>();
+			startGame.playerPropertyData = new Nbt {NbtFile = new NbtFile(new NbtCompound("")) {BigEndian = false, UseVarInt = true}};
 			// 0 disables the client's palette-checksum verification. NEVER mirror BDS's value:
 			// the client recomputes the checksum locally and rejects the join with "Blocks
 			// between client and server do not match" on any mismatch (observed live 2026-07-31;
 			// the mirrored 1.26.34 value failed a 1.26.33 client). PMMP ships 0 for the same
 			// reason. Computing the real value needs the exact vanilla algorithm; until then 0.
-			startGame.blockPaletteChecksum = 0;
+			startGame.serverBlockTypeRegistryChecksum = 0;
 			startGame.serverVersion = McpeProtocolInfo.GameVersion;
 			startGame.worldTemplateId = new UUID(new byte[16]);
 			// Session correlation id in vanilla's "<raknet>xxxx-xxxx-xxxx-xxxx" shape.
 			startGame.multiplayerCorrelationId = "<raknet>" + Guid.NewGuid().ToString("N").Substring(0, 16).Insert(4, "-").Insert(9, "-").Insert(14, "-");
+			startGame.serverEnabledClientsideGeneration = false;
 			// Vanilla sends the join-info block with all three optional sub-blocks absent.
-			startGame.hasServerJoinInfo = true;
+			startGame.serverConfigurationJoinInfo = new ServerConfig();
+			startGame.serverTelemetryData = new ServerTelemetryData {serverId = "", scenarioId = "", worldId = "", ownerId = ""};
 
 			SendPacket(startGame);
 		}
@@ -3682,6 +4122,7 @@ namespace MiNET
 			McpeSetSpawnPosition mcpeSetSpawnPosition = McpeSetSpawnPosition.CreateObject();
 			mcpeSetSpawnPosition.spawnType = 1;
 			mcpeSetSpawnPosition.coordinates = (BlockCoordinates) SpawnPosition;
+			mcpeSetSpawnPosition.dimension = (int) Level.Dimension;
 			SendPacket(mcpeSetSpawnPosition);
 		}
 
@@ -3694,25 +4135,6 @@ namespace MiNET
 		// before the registries. BDS sends the registries first and PlayStatus(3) last; a strict
 		// 1.26 client disconnects when told to spawn without an item registry.
 		private readonly ManualResetEventSlim _loginSequenceCompleted = new ManualResetEventSlim(false);
-
-		private void ForcedSendChunk(PlayerLocation position)
-		{
-			lock (_sendChunkSync)
-			{
-				var chunkPosition = new ChunkCoordinates(position);
-
-				McpeWrapper chunk = Level.GetChunk(chunkPosition)?.GetBatch();
-				if (!_chunksUsed.ContainsKey(chunkPosition))
-				{
-					_chunksUsed.Add(chunkPosition, chunk);
-				}
-
-				if (chunk != null)
-				{
-					SendPacket(chunk);
-				}
-			}
-		}
 
 		private void ForcedSendEmptyChunks()
 		{
@@ -3730,8 +4152,8 @@ namespace MiNET
 					for (int z = -1; z <= 1; z++)
 					{
 						var chunk = new McpeLevelChunk();
-						chunk.chunkX = chunkPosition.X + x;
-						chunk.chunkZ = chunkPosition.Z + z;
+						chunk.chunkPosition = new ChunkPos {x = chunkPosition.X + x, z = chunkPosition.Z + z};
+						chunk.cacheMetadata = new List<ulong>();
 						chunk.chunkData = new byte[0];
 						SendPacket(chunk);
 					}
@@ -3745,32 +4167,178 @@ namespace MiNET
 
 		public void SendNetworkChunkPublisherUpdate()
 		{
-			var pk = McpeNetworkChunkPublisherUpdate.CreateObject();
-			pk.coordinates = KnownPosition.GetCoordinates3D();
-			pk.radius = (uint) (MaxViewDistance * 16);
-			SendPacket(pk);
+			SendNetworkChunkPublisherUpdate(ChunkRadius);
 		}
 
-		public void ForcedSendChunks(Action postAction = null)
+		/// <summary>Publishes an area centred somewhere other than where the player currently is.</summary>
+		public void SendNetworkChunkPublisherUpdate(PlayerLocation position)
+		{
+			SendNetworkChunkPublisherUpdate(ChunkRadius, position);
+		}
+
+		// The column the publish area was last centred on. Written only from the dispatch thread that
+		// handles movement, so it needs no synchronization of its own.
+		private ChunkCoordinates _lastPublishedChunk = new ChunkCoordinates(int.MaxValue, int.MaxValue);
+
+		/// <summary>
+		///     Republishes the live chunk area when the player enters a new column, and does nothing
+		///     otherwise. Cheap enough to sit on the movement path: one coordinate and one varint,
+		///     against a client that otherwise keeps treating a stale centre as authoritative.
+		/// </summary>
+		private void MaybePublishChunkArea()
+		{
+			if (!IsSpawned || ChunkRadius <= 0) return;
+
+			var chunkPosition = new ChunkCoordinates(KnownPosition);
+			if (chunkPosition == _lastPublishedChunk) return;
+
+			_lastPublishedChunk = chunkPosition;
+			SendNetworkChunkPublisherUpdate();
+		}
+
+		/// <summary>
+		///     Radius is in BLOCKS. Vanilla publishes a fixed <see cref="JoinBurstChunkRadius" /> for
+		///     the whole join burst and switches to the negotiated radius only afterwards. The burst
+		///     value must not depend on the negotiated one, because RequestChunkRadius can arrive
+		///     before the burst reaches this point.
+		/// </summary>
+		public void SendNetworkChunkPublisherUpdate(int chunkRadius, PlayerLocation position = null)
+		{
+			SendPacket(CreateNetworkChunkPublisherUpdate(chunkRadius, position));
+		}
+
+		/// <summary>
+		///     Built rather than sent so the chunk sweeps can put it at the head of their first
+		///     skeleton group: the publish and the columns it covers then ride one wrapper.
+		/// </summary>
+		private McpeNetworkChunkPublisherUpdate CreateNetworkChunkPublisherUpdate(int chunkRadius, PlayerLocation position = null)
+		{
+			var pk = McpeNetworkChunkPublisherUpdate.CreateObject();
+
+			// The centre is where the chunks being published ARE, which is not always where the
+			// player is. Respawn, teleport and both dimension paths stream the destination before
+			// SetPosition moves anyone onto it, so taking KnownPosition there publishes an area
+			// around the place they are leaving and the client drops everything just sent.
+			pk.coordinates = (position ?? KnownPosition).GetCoordinates3D();
+
+			// The radius the view actually covers, in blocks. Every captured BDS value is exactly
+			// view x 16 (64/80/160/192 for views 4/5/10/12), no rounding or padding for rim
+			// coverage, so the client converts to chunk space itself rather than testing
+			// block-precise containment.
+			pk.radius = (uint) (chunkRadius * 16);
+			return pk;
+		}
+
+		/// <summary>
+		///     One column, the one the player is about to be put on, so there is ground under them
+		///     the moment they arrive. Respawn, teleport and both dimension paths all send terrain
+		///     before SetPosition moves anyone onto it, which is why the position is a parameter and
+		///     not KnownPosition: that is still the place they are leaving.
+		///     <para>
+		///         A single column rather than the radius on purpose. The rest streams asynchronously
+		///         once the player is placed, whereas generating a whole radius here runs inside the
+		///         teleport lock and blocks the arrival: at radius 12 that is some 450 columns out of
+		///         the world provider before the client is told anything at all.
+		///     </para>
+		///     <para>
+		///         The publish has to move with it. The client drops chunks outside the area it was
+		///         last told about, and that area is centred wherever this says, not on the player.
+		///     </para>
+		/// </summary>
+		private void ForcedSendChunk(PlayerLocation position)
+		{
+			lock (_sendChunkSync)
+			{
+				var chunkPosition = new ChunkCoordinates(position);
+				ChunkColumn column = Level.GetChunk(chunkPosition);
+
+				if (column == null) return;
+
+				// Pushed, not announced. This is the column the player is standing in during a join
+				// or a teleport, and it has to be there when they arrive rather than after a round
+				// trip they have to wait for.
+				McpeLevelChunk chunk = column.CreateCachedPushChunk();
+				_chunksUsed[chunkPosition] = column.Version;
+
+				SendNetworkChunkPublisherUpdate(position);
+				_lastPublishedChunk = chunkPosition;
+
+				SendPacket(chunk);
+			}
+		}
+
+		/// <summary>
+		///     Streams the radius around <paramref name="position" />, defaulting to where the player
+		///     currently is.
+		/// </summary>
+		public void ForcedSendChunks(Action postAction = null, PlayerLocation position = null)
 		{
 			Monitor.Enter(_sendChunkSync);
 			try
 			{
-				var chunkPosition = new ChunkCoordinates(KnownPosition);
+				var chunkPosition = new ChunkCoordinates(position ?? KnownPosition);
 
 				_currentChunkPosition = chunkPosition;
 
 				if (Level == null) return;
 
-				SendNetworkChunkPublisherUpdate();
-				int packetCount = 0;
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, useBlobCache: UseBlobCache))
-				{
-					if (chunk != null) SendPacket(chunk);
+				// Centred on what is being sent, not on where the player stands. See the overload.
+				// The publish centre and the streamed centre must agree, so the movement path's
+				// "have I already published this column" memory is updated to match rather than
+				// left claiming the old one.
+				_lastPublishedChunk = chunkPosition;
 
-					packetCount++;
-				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
+				// The whole pass accumulates into list-form sends, publisher update at the head:
+				// the transport decides what shares a wrapper and a datagram. Groups flush at
+				// the blob-status boundary like the streamer does.
+				// Small publisher + spawn block first, full publisher ahead of the rest: the
+				// same join-burst ordering as the streamer, so the client can complete and draw
+				// the near area before being told about the whole view.
+				var group = new List<Packet> {CreateNetworkChunkPublisherUpdate(JoinBurstChunkRadius, position ?? KnownPosition)};
+				int groupHashes = 0;
+
+				// A forced pass is a join or a level change, so it happens once and covers the whole
+				// disc. What it cost is worth saying out loud: at a large view distance this is the
+				// wait a player experiences, and split by phase it says whether the time went into
+				// reading columns or into handing them to the transport.
+				long passStarted = Stopwatch.GetTimestamp();
+				int spawnColumns = 0, streamColumns = 0;
+
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, Math.Min(JoinBurstChunkRadius, ChunkRadius), prune: false, cachedPush: true))
+				{
+					if (chunk != null)
+					{
+						group.Add(chunk);
+						spawnColumns++;
+					}
 				}
+
+				long spawnBuilt = Stopwatch.GetTimestamp();
+				SendPackets(group);
+				long spawnSent = Stopwatch.GetTimestamp();
+				group = new List<Packet> {CreateNetworkChunkPublisherUpdate(ChunkRadius, position ?? KnownPosition)};
+
+				// The rest of the disc at the blob-status boundary (see the streamer).
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, cachedPush: true))
+				{
+					if (chunk == null) continue;
+
+					group.Add(chunk);
+					streamColumns++;
+					groupHashes += chunk.cacheMetadata?.Count ?? 0;
+
+					if (groupHashes >= GroupFlushHashes)
+					{
+						SendPackets(group);
+						group = new List<Packet>();
+						groupHashes = 0;
+					}
+				}
+				if (group.Count > 0) SendPackets(group);
+
+				long passEnded = Stopwatch.GetTimestamp();
+				double Ms(long from, long to) => (to - from) * 1000d / Stopwatch.Frequency;
+				Log.Info($"Forced chunk pass for {Username} on {Level?.LevelId}: radius {ChunkRadius}, spawn block {spawnColumns} columns in {Ms(passStarted, spawnBuilt):F0}ms (send {Ms(spawnBuilt, spawnSent):F0}ms), rest {streamColumns} columns in {Ms(spawnSent, passEnded):F0}ms, total {Ms(passStarted, passEnded):F0}ms");
 			}
 			finally
 			{
@@ -3789,7 +4357,18 @@ namespace MiNET
 			// before the pre-spawn sequence has gone out. No-op after login.
 			if (!_loginSequenceCompleted.Wait(15000)) return;
 
-			if (!Monitor.TryEnter(_sendChunkSync)) return;
+			// A pass already running does not mean this trigger can be thrown away: the player has
+			// moved somewhere the running pass was not computed for, and nothing else will ever come
+			// back for it - the next trigger only fires on the NEXT chunk boundary crossed. Measured at
+			// 386 lost triggers in 45 seconds on a big Anvil map, which is exactly as many patches of
+			// world that silently never streamed. Remembered here and re-run once below instead, so
+			// any number of triggers during one pass coalesce into exactly one more pass.
+			if (!Monitor.TryEnter(_sendChunkSync))
+			{
+				Volatile.Write(ref _chunkPassPending, 1);
+				EngineMetrics.ChunkPassSkipped();
+				return;
+			}
 
 			try
 			{
@@ -3798,10 +4377,15 @@ namespace MiNET
 				if (!IsSpawned) SendChunkRadiusUpdate();
 
 
-				var chunkPosition = new ChunkCoordinates(KnownPosition);
-				if (IsSpawned && _currentChunkPosition == chunkPosition) return;
+				// Consumed before the position guards below: a forced pass is one where the streamed
+				// area was invalidated without the player moving, which is exactly the case those
+				// guards would otherwise throw away.
+				bool forced = Interlocked.Exchange(ref _forceChunkPass, 0) == 1;
 
-				if (IsSpawned && _currentChunkPosition.DistanceTo(chunkPosition) < MoveRenderDistance)
+				var chunkPosition = new ChunkCoordinates(KnownPosition);
+				if (!forced && IsSpawned && _currentChunkPosition == chunkPosition) return;
+
+				if (!forced && IsSpawned && _currentChunkPosition.DistanceTo(chunkPosition) < MoveRenderDistance)
 				{
 					return;
 				}
@@ -3812,20 +4396,121 @@ namespace MiNET
 
 				if (Level == null) return;
 
-				SendNetworkChunkPublisherUpdate();
+				// HeadYaw, not Yaw: the head is what the player is actually looking along, and the body
+				// lags it. The sweep stays radial; this only decides which side of the circle is served
+				// first, which is what a player perceives while a large pass is still running.
+				//
+				// The pass accumulates into a list-form send, publisher update at its head, and
+				// the transport decides what shares a wrapper and a datagram. The mid-pass
+				// flushes are the spawn gate below (ordering, not grouping) and the blob-status
+				// boundary in the loop (grouping matched to what the client can answer).
+				var group = new List<Packet>();
+				var groupCoordinates = new List<ChunkCoordinates>();
+				int groupHashes = 0;
 
-				foreach (McpeWrapper chunk in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, UseBlobCache))
+				void FlushGroup()
 				{
-					if (chunk != null) SendPacket(chunk);
+					if (group.Count == 0) return;
+
+					// Stamped at the actual send, not at build: the stamp times the client's
+					// turnaround from skeleton to first sub-chunk request, and buffering time in
+					// the list is ours, not the client's. groupCoordinates carries only the
+					// skeletons, so the non-skeleton head of the list is never stamped.
+					long now = Stopwatch.GetTimestamp();
+					foreach (ChunkCoordinates stamped in groupCoordinates)
+					{
+						EngineMetrics.SkeletonSent();
+						_skeletonSentAt[stamped] = now;
+					}
+
+					SendPackets(group);
+					group = new List<Packet>();
+					groupCoordinates.Clear();
+					groupHashes = 0;
+				}
+
+				// Delivery is a per-player STATE: the first pass streams the whole burst in the
+				// pull flow, and only after those first sends does the player switch to the
+				// push phase. The flag flips at the end of the pass that streamed the burst -
+				// send-driven, deliberately not derived from IsSpawned, which the client can
+				// flip mid-pass (a bot acknowledges PlayStatus(3) within milliseconds).
+				bool spawningPass = !_firstBurstSent;
+
+				// The spawn block exists ONLY on the initial spawn pass. Movement passes never
+				// re-enter this: re-declaring the small area mid-session momentarily shrinks the
+				// published area, and a faithfully evicting client obeys it - measured at 200
+				// walking bots as 600k+ sub-chunk re-fetches of ring columns evicted and re-sent
+				// on every boundary crossing. Vanilla never shrinks the area after the burst.
+				if (spawningPass)
+				{
+					// The join-burst publisher first, the way vanilla does it: the client is told
+					// about the small spawn area only, so the columns that follow COMPLETE it and
+					// it can draw. prune: false because this radius is not the published area,
+					// and the spawn goes out right after it: block on the queue first,
+					// PlayStatus(3) second.
+					group.Add(CreateNetworkChunkPublisherUpdate(JoinBurstChunkRadius));
+					foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, Math.Min(JoinBurstChunkRadius + 2, ChunkRadius), prune: false))
+					{
+						if (chunk == null) continue;
+
+						group.Add(chunk);
+						groupCoordinates.Add(coordinates);
+						packetCount++;
+					}
+
+					FlushGroup();
+
+					if (!IsSpawned) InitializePlayer();
+				}
+
+				// Now the world grows: the full-radius publisher rides at the head of the next
+				// group, exactly where vanilla widens the area after the join burst.
+				group.Add(CreateNetworkChunkPublisherUpdate(ChunkRadius));
+
+				// The big sweep, cost-ordered with the view bias. Everything block 1 sent is
+				// already versioned in _chunksUsed, so it yields as null here and only the rest
+				// of the disc travels, at the blob-status boundary: one ClientCacheBlobStatus
+				// answers at most 4095 ids, so each block is one the client can settle with a
+				// single status packet.
+				//
+				// Delivery mode is phased per player: the spawn pass streams the pull flow (the
+				// client's request selectivity tames the cold disc), and once spawned the rim
+				// delta switches to cached push - a walking player takes every rim column
+				// anyway, so pull's skeleton+request+response per column collapses to one
+				// pushed packet. Pushed columns stay OUT of the request-latency bookkeeping
+				// (groupCoordinates): nothing will ever request them, and stamping them would
+				// false-positive the adaptive radius's never-requested signal.
+				// The streamer's own call: a spawning pass leaves the client to ask, because its
+				// request selectivity is what makes a cold horizon bearable, and every pass after
+				// that pushes, because a walking player takes the whole rim anyway.
+				bool pushRim = !spawningPass;
+				foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, KnownPosition.HeadYaw, cachedPush: pushRim))
+				{
+					if (chunk != null)
+					{
+						group.Add(chunk);
+						if (!pushRim) groupCoordinates.Add(coordinates);
+						groupHashes += chunk.cacheMetadata?.Count ?? 0;
+
+						if (groupHashes >= GroupFlushHashes)
+						{
+							FlushGroup();
+							group.Add(CreateNetworkChunkPublisherUpdate(ChunkRadius));
+						}
+					}
 
 					packetCount++;
-				if (ChunkSendDelayMs > 0 && packetCount % ChunkSendBatchSize == 0) Thread.Sleep(ChunkSendDelayMs);
-
-					if (!IsSpawned && packetCount == 56)
-					{
-						InitializePlayer();
-					}
 				}
+
+				FlushGroup();
+
+				// The first sends are done, so from the next pass on this player's rim is pushed.
+				_firstBurstSent = true;
+
+				// A client does not request sub-chunks until it has been told to spawn, so gating the
+				// spawn on sub-chunk responses would deadlock the join.
+				EngineMetrics.ChunkPassCompleted(packetCount);
+				EngineMetrics.ChunkNeverAsked(_skeletonSentAt.Count);
 
 				Log.Debug($"Sent {packetCount} chunks for {chunkPosition} with view distance {MaxViewDistance}");
 			}
@@ -3837,7 +4522,46 @@ namespace MiNET
 			{
 				Monitor.Exit(_sendChunkSync);
 			}
+
+			// Outside the lock, so the queued pass can take it immediately. Exchange rather than a
+			// read-then-clear: a trigger arriving between those two steps would be dropped by exactly
+			// the bug this exists to close.
+			if (Interlocked.Exchange(ref _chunkPassPending, 0) == 1 && IsConnected)
+			{
+				MiNetServer.FastThreadPool.QueueUserWorkItem(SendChunksForKnownPosition);
+			}
 		}
+
+		// Set when a streaming pass was triggered while another was already running; cleared by the
+		// pass that honours it. See SendChunksForKnownPosition's TryEnter.
+		private int _chunkPassPending;
+
+		// Chunk delivery phase: false until the first burst has actually been SENT (flipped at
+		// the end of the pass that streamed it), after which movement passes may switch to the
+		// cached push form. Send-driven on purpose; never derived from client acknowledgments.
+		private bool _firstBurstSent;
+
+
+		// When each column's skeleton went out, so the first sub-chunk request for it can be timed
+		// against that. Written by the streaming pass, read and cleared by the request handler on a
+		// different thread, hence concurrent. An entry that is never removed is a column the client
+		// was told about and never asked about - which is what a hole in the world looks like.
+		private readonly System.Collections.Concurrent.ConcurrentDictionary<ChunkCoordinates, long> _skeletonSentAt = new();
+
+		// Every section this player has been served, so a request for one of them again is
+		// countable: the client only re-asks after a fresh skeleton re-marked the column, so each
+		// re-request is a section the client evicted and came back for. Written by the request
+		// handler on the dispatch thread, cleared by CleanCache from respawn/dimension paths,
+		// hence locked on itself. Grows with the ground covered and is never pruned;
+		// diagnostics-priced, a tuple per section.
+		private readonly HashSet<(ChunkCoordinates Column, int SectionY)> _subChunksServed = new();
+
+		/// <summary>Columns pushed to this player that no sub-chunk has ever been requested for.</summary>
+		public int ColumnsNeverRequested => _skeletonSentAt.Count;
+
+		// Whether streaming has ever been level with this player. False through the join burst and
+		// after anything that restreams the world under them; see AdaptChunkRadius.
+		private bool _adaptiveArmed;
 
 		public virtual void SendUpdateAttributes()
 		{
@@ -3846,7 +4570,13 @@ namespace MiNET
 			var attributes = new PlayerAttributes();
 			void Add(string name, float min, float max, float value, float def)
 			{
-				attributes[name] = new PlayerAttribute {Name = name, MinValue = min, MaxValue = max, Value = value, Default = def};
+				// DefaultMin/DefaultMax are the attribute's own range, not zero: left at zero the
+				// client is told every attribute has a default range of [0,0].
+				attributes[name] = new PlayerAttribute
+				{
+					Name = name, MinValue = min, MaxValue = max, Value = value, Default = def,
+					DefaultMinValue = min, DefaultMaxValue = max
+				};
 			}
 
 			Add("minecraft:player.hunger", 0, 20, HungerManager.Hunger, 20);
@@ -3918,13 +4648,10 @@ namespace MiNET
 		{
 			var packet = McpeMovePlayer.CreateObject();
 			packet.runtimeEntityId = EntityManager.EntityIdSelf;
-			packet.x = KnownPosition.X;
-			packet.y = KnownPosition.Y + 1.62f;
-			packet.z = KnownPosition.Z;
-			packet.yaw = KnownPosition.Yaw;
+			packet.position = new Vector3(KnownPosition.X, KnownPosition.Y + 1.62f, KnownPosition.Z);
+			packet.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
 			packet.headYaw = KnownPosition.HeadYaw;
-			packet.pitch = KnownPosition.Pitch;
-			packet.mode = (byte) (teleport ? 1 : 0);
+			packet.mode = teleport ? McpeMovePlayer.PositionMode.Respawn : McpeMovePlayer.PositionMode.Normal;
 
 			SendPacket(packet);
 		}
@@ -3932,6 +4659,12 @@ namespace MiNET
 		public override void OnTick(Entity[] entities)
 		{
 			OnTicking(new PlayerEventArgs(this));
+
+			// On the tick, not at the end of a streaming pass: passes only run when the player crosses
+			// into a new column, so a player standing still or walking through columns they already
+			// have never re-evaluated - which is how a radius that had been walked down to the floor
+			// stayed there. It self-throttles on its own interval.
+			AdaptChunkRadius();
 
 			if (DetectInPortal())
 			{
@@ -4057,7 +4790,12 @@ namespace MiNET
 			metadata[(int) MetadataFlags.NameTag] = new MetadataString(NameTag ?? Username);
 			metadata[(int) MetadataFlags.ButtonText] = new MetadataString(ButtonText ?? string.Empty);
 			metadata[(int) MetadataFlags.PlayerFlags] = new MetadataByte((byte) (IsSleeping ? 0b10 : 0));
-			metadata[(int) MetadataFlags.BedPosition] = new MetadataIntCoordinates((int) SpawnPosition.X, (int) SpawnPosition.Y, (int) SpawnPosition.Z);
+			// A player has no spawn position until the level assigns one, and metadata is broadcast
+			// before that: any throw here takes down the whole wrapper batch it rides in.
+			PlayerLocation bedPosition = SpawnPosition ?? KnownPosition;
+			metadata[(int) MetadataFlags.BedPosition] = bedPosition == null
+				? new MetadataIntCoordinates(0, 0, 0)
+				: new MetadataIntCoordinates((int) bedPosition.X, (int) bedPosition.Y, (int) bedPosition.Z);
 
 			// Players report their bounding box as a single CollisionBox vector3 (width, height, 0)
 			// instead of the generic CollisionBoxWidth/Height floats used by mobs.
@@ -4096,18 +4834,19 @@ namespace MiNET
 		public void SetDisplayName(string displayName)
 		{
 			DisplayName = displayName;
+			InvalidateRosterSlices();
 
 			{
 				var playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerRemoveRecords {this};
-				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.Encode())); // Replace with records, to remove need for player and encode
+				playerList.records = McpePlayerList.Removed(this);
+				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.EncodeAsMemory())); // Replace with records, to remove need for player and encode
 				playerList.records = null;
 				playerList.PutPool();
 			}
 			{
 				var playerList = McpePlayerList.CreateObject();
-				playerList.records = new PlayerAddRecords {this};
-				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.Encode())); // Replace with records, to remove need for player and encode
+				playerList.records = McpePlayerList.Added(this);
+				Level.RelayBroadcast(Level.CreateMcpeBatch(playerList.EncodeAsMemory())); // Replace with records, to remove need for player and encode
 				playerList.records = null;
 				playerList.PutPool();
 			}
@@ -4256,11 +4995,64 @@ namespace MiNET
 			if (NetworkHandler == null)
 			{
 				packet.PutPool();
+				return;
 			}
-			else
+
+			// Plugins get the packet HERE, before it is queued, rather than in PrepareSend on the way
+			// out. A suppressed packet then costs the object and nothing else: no channel write, no
+			// drain, no coalesce pass, no encode. The handler may also replace it, which is why the
+			// result is what gets sent.
+			//
+			// Not written as "handler(...) ?? packet": null is the handler SUPPRESSING the packet,
+			// and coalescing that with "there is no handler" sends everything a plugin asked to drop.
+			MiNET.Plugins.PluginManager plugins = Server?.PluginManager;
+			if (plugins != null)
 			{
-				NetworkHandler?.SendPacket(packet);
+				Packet outgoing = plugins.PluginPacketHandler(packet, false, this);
+				if (outgoing != packet)
+				{
+					packet.PutPool();
+					if (outgoing == null) return;
+
+					packet = outgoing;
+				}
 			}
+
+			NetworkHandler.SendPacket(packet);
+		}
+
+		/// <summary>
+		///     The list form of <see cref="SendPacket" />: the packets reach the transport as one
+		///     unit and normally leave in one wrapper instead of one each. Plugins see every packet
+		///     exactly as they would through the single form, including suppression and
+		///     replacement. The list and its packets are handed over.
+		/// </summary>
+		public void SendPackets(List<Packet> packets)
+		{
+			if (packets == null || packets.Count == 0) return;
+
+			if (NetworkHandler == null)
+			{
+				foreach (Packet packet in packets) packet?.PutPool();
+				return;
+			}
+
+			MiNET.Plugins.PluginManager plugins = Server?.PluginManager;
+			if (plugins != null)
+			{
+				for (int i = packets.Count - 1; i >= 0; i--)
+				{
+					Packet outgoing = plugins.PluginPacketHandler(packets[i], false, this);
+					if (outgoing == packets[i]) continue;
+
+					packets[i].PutPool();
+					if (outgoing == null) packets.RemoveAt(i);
+					else packets[i] = outgoing;
+				}
+				if (packets.Count == 0) return;
+			}
+
+			NetworkHandler.SendPackets(packets);
 		}
 
 		private object _sendMoveListSync = new object();
@@ -4292,6 +5084,15 @@ namespace MiNET
 			{
 				_chunksUsed.Clear();
 			}
+
+			// Everything will be served afresh, so served-section history would count the entire
+			// re-stream as re-requests and drown the signal it exists for.
+			lock (_subChunksServed) _subChunksServed.Clear();
+
+			// Everything around the player is about to be streamed again, so the adaptor is back where
+			// it was at join: standing in columns the client has not asked about yet, through no fault
+			// of the client's.
+			_adaptiveArmed = false;
 		}
 
 		public void CleanCache(ChunkColumn chunk)
@@ -4353,28 +5154,26 @@ namespace MiNET
 			mcpeAddPlayer.uuid = ClientUuid;
 			mcpeAddPlayer.username = Username;
 			mcpeAddPlayer.runtimeEntityId = EntityId;
-			mcpeAddPlayer.x = KnownPosition.X;
-			mcpeAddPlayer.y = KnownPosition.Y;
-			mcpeAddPlayer.z = KnownPosition.Z;
-			mcpeAddPlayer.speedX = Velocity.X;
-			mcpeAddPlayer.speedY = Velocity.Y;
-			mcpeAddPlayer.speedZ = Velocity.Z;
-			mcpeAddPlayer.yaw = KnownPosition.Yaw;
-			mcpeAddPlayer.headYaw = KnownPosition.HeadYaw;
-			mcpeAddPlayer.pitch = KnownPosition.Pitch;
-			mcpeAddPlayer.gamemode = (int) GameMode;
+			mcpeAddPlayer.position = KnownPosition.ToVector3();
+			mcpeAddPlayer.velocity = Velocity;
+			mcpeAddPlayer.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
+			mcpeAddPlayer.yHeadRotation = KnownPosition.HeadYaw;
+			mcpeAddPlayer.gamemode = (McpeAddPlayer.GameType) GameMode;
 			mcpeAddPlayer.metadata = GetMetadata();
-			mcpeAddPlayer.uniqueId = EntityId;
-			mcpeAddPlayer.permissionLevel = (byte) PermissionLevel;
-			mcpeAddPlayer.commandPermission = (byte) CommandPermission;
 			mcpeAddPlayer.deviceId = PlayerInfo.DeviceId;
-			mcpeAddPlayer.deviceOs = PlayerInfo.DeviceOS;
+			mcpeAddPlayer.buildPlatform = (McpeAddPlayer.BuildPlatform) PlayerInfo.DeviceOS;
 
 			// A spawned player must arrive with its ability layers. This went out with none, where
 			// vanilla BDS 1.26.34 sends two, leaving the receiving client a player it has no base
 			// layer to read walk and fly speed from. The layer is the same one UpdateAbilities
 			// sends for this player, so the two cannot describe the player differently.
-			mcpeAddPlayer.abilities = new List<AbilityLayer> {BuildBaseAbilityLayer()};
+			mcpeAddPlayer.abilitiesData = new SerializedAbilitiesData
+			{
+				targetPlayerRawId = EntityId,
+				playerPermissions = (SerializedAbilitiesData.PlayerPermissionLevel) PermissionLevel,
+				commandPermissions = (SerializedAbilitiesData.CommandPermissionLevel) CommandPermission,
+				layers = new List<AbilityLayer> {BuildBaseAbilityLayer()}
+			};
 
 			//NOT WORKING: Reported to Mojang
 			//if (IsRiding)

@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.IO;
 
 namespace MiNET.Net
 {
@@ -31,15 +32,34 @@ namespace MiNET.Net
 	{
 		public ReadOnlyMemory<byte> payload; // = null;
 
+		/// <summary>
+		///     Sets the payload as a view over a pooled stream and takes ownership of the stream,
+		///     which returns to the pool when this wrapper does.
+		/// </summary>
+		public void SetPayload(MemoryStream pooledStream)
+		{
+			payload = pooledStream.GetBuffer().AsMemory(0, (int) pooledStream.Length);
+			AttachLease(pooledStream);
+		}
+
+		public override void MaterializePooledState()
+		{
+			// The payload may be a view over an attached lease; own it before base disposes them.
+			payload = payload.ToArray();
+			base.MaterializePooledState();
+		}
+
 
 		partial void AfterEncode()
 		{
 			Write(payload);
 		}
 
-		partial void AfterDecode()
-		{
-			payload = ReadReadOnlyMemory(0, true);
-		}
+		// A wrapper is never decoded as a packet. It is what a batch IS, not something a batch can
+		// contain: the transport hands its payload straight to DecodeBatch, which cuts frames out of
+		// it. The only way to reach a decode is a frame inside a batch declaring id 0xfe, a wrapper
+		// nested in a wrapper, which nothing sends and which we do not accept. So there is no
+		// AfterDecode: such a frame fails as an unparseable packet, loudly, instead of being handled
+		// by a path that exists for no caller and would have to copy the batch to be safe.
 	}
 }

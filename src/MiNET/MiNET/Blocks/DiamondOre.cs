@@ -30,7 +30,7 @@ namespace MiNET.Blocks
 {
 	public partial class DiamondOre : Block
 	{
-		public DiamondOre() : base(56)
+		public DiamondOre()
 		{
 		}
 

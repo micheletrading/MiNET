@@ -27,7 +27,7 @@ namespace MiNET.Blocks
 {
 	public partial class Noteblock : Block
 	{
-		public Noteblock() : base(25)
+		public Noteblock()
 		{
 			BlastResistance = 4;
 			Hardness = 0.8f;

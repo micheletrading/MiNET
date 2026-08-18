@@ -33,11 +33,10 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class Flowing : Block
+	public abstract partial class Flowing : Block
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Flowing));
 
-		[StateRange(0, 15)] public virtual int LiquidDepth { get; set; } = 0;
 
 		private int _adjacentSources;
 		private int[] _flowCost = new int[4];
@@ -45,7 +44,7 @@ namespace MiNET.Blocks
 
 		private readonly string _stillName;
 
-		protected Flowing(byte id, string stillName) : base(id)
+		protected Flowing(string stillName)
 		{
 			_stillName = stillName;
 			IsBuildable = false;

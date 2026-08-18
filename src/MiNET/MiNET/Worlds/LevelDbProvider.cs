@@ -34,12 +34,16 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using fNbt;
 using log4net;
+using MiNET.BlockEntities;
 using MiNET.Blocks;
+using MiNET.Blocks.Upgrade;
+using MiNET.BlockEntities.Upgrade;
 using MiNET.LevelDB;
 using MiNET.Utils;
 using MiNET.Utils.IO;
@@ -175,7 +179,12 @@ namespace MiNET.Worlds
 			sw.Stop();
 
 			ChunkColumn chunkColumn = null;
-			if (version != null && version.First() >= 10)
+			// 7 is PMMP's v1_2_0 stamp, which it wrote for years while already writing paletted
+			// sections, so a PocketMine world reads with the same code as a current one: the section
+			// records are version 8, and their keys are the same y mapping (key 2 is index 6, y 32).
+			// Below 7 the sections are block id arrays with meta nibbles, which ParseSection cannot
+			// read, so those columns are still reported rather than handed over to throw.
+			if (version != null && version.First() >= 7)
 			{
 				chunkColumn = new ChunkColumn
 				{
@@ -194,7 +203,11 @@ namespace MiNET.Worlds
 
 					if (sectionBytes == null)
 					{
-						chunkColumn[i]?.PutPool();
+						// Without the false there is a section here by the time we ask: the indexer
+						// builds one to answer the question, and it is built only to be pooled again.
+						// A stored column is mostly absent sections, so this ran about 23 times per
+						// column for nothing.
+						chunkColumn[i, false]?.PutPool();
 						chunkColumn[i] = null;
 						continue;
 					}
@@ -246,9 +259,17 @@ namespace MiNET.Worlds
 						int y = blockEntityTag["y"].IntValue;
 						int z = blockEntityTag["z"].IntValue;
 
+						// Before anything else sees it: the compound read here is what rides inline with
+						// the chunk to the client, so a stack still in its old form would go out as it
+						// was written however many years ago.
+						BlockEntityUpgrader.Upgrade((NbtCompound) blockEntityTag);
+
+						InspectBlockEntity(chunkColumn, coordinates, (NbtCompound) blockEntityTag, x, y, z);
+
 						chunkColumn.SetBlockEntity(new BlockCoordinates(x, y, z), (NbtCompound) blockEntityTag);
 					}
 				}
+
 			}
 
 			if (chunkColumn == null)
@@ -272,9 +293,64 @@ namespace MiNET.Worlds
 				//chunkColumn.NeedSave = isGenerated;
 			}
 
-			//Log.Debug($"Read chunk {coordinates.X}, {coordinates.Z} in {sw.ElapsedMilliseconds} ms. Was generated: {isGenerated}");
-
 			return chunkColumn;
+		}
+
+		/// <summary>
+		///     Reports what a stored block entity actually sits on. Breaking a container removes the
+		///     block but the block entity record is a separate key, so an orphan survives the block
+		///     that owned it and then rides out to the client in the chunk payload. The two failures
+		///     that matter are an entity whose block is gone and an entity filed under the wrong
+		///     chunk; both are logged with the block that is really there, never dropped silently.
+		/// </summary>
+		private static void InspectBlockEntity(ChunkColumn chunkColumn, ChunkCoordinates coordinates, NbtCompound blockEntity, int x, int y, int z)
+		{
+			string id = blockEntity["id"]?.StringValue ?? "<no id>";
+
+			if (x >> 4 != coordinates.X || z >> 4 != coordinates.Z)
+			{
+				Log.Warn($"Block entity {id} at {x},{y},{z} is stored in chunk {coordinates.X},{coordinates.Z} but belongs to {x >> 4},{z >> 4}");
+				return;
+			}
+
+			Block block;
+			try
+			{
+				block = chunkColumn.GetBlockObject(x & 0x0f, y, z & 0x0f);
+			}
+			catch (Exception e)
+			{
+				Log.Warn($"Block entity {id} at {x},{y},{z} sits outside the chunk's subchunk range: {e.Message}");
+				return;
+			}
+
+			// Air and every replaceable block (water and lava among them) can never own a block
+			// entity, so one filed on top of them outlived the block that put it there.
+			if (block == null || block is Air || block.IsReplaceable)
+			{
+				Log.Warn($"Orphan block entity {id} at {x},{y},{z}: the block there is {block?.Name ?? "<null>"}");
+				return;
+			}
+
+			if (BlockEntityFactory.GetBlockEntityById(id) == null)
+			{
+				Log.Warn($"Block entity {id} at {x},{y},{z} on {block.Name} has no type in BlockEntityFactory");
+				return;
+			}
+
+			if (Log.IsDebugEnabled) Log.Debug($"Block entity {id} at {x},{y},{z} on {block.Name}");
+		}
+
+		private static readonly ConcurrentDictionary<string, byte> ReportedBlocks = new ConcurrentDictionary<string, byte>();
+
+		/// <summary>
+		///     A stored block the palette cannot rebuild. Reported once per name and reason, because a
+		///     single missing block covers thousands of palette entries and would otherwise either
+		///     drown the log or, as it did before, say nothing at all while the world lost the block.
+		/// </summary>
+		private static void ReportUnreadableBlock(string name, string reason)
+		{
+			if (ReportedBlocks.TryAdd($"{name}|{reason}", 0)) Log.Warn($"Block {name ?? "<no name>"} read as air: {reason}");
 		}
 
 		/// <summary>
@@ -337,11 +413,24 @@ namespace MiNET.Worlds
 			var reader = new MemoryStreamReader(data);
 
 			int version = reader.ReadByte();
-			if (version != 8 && version != 9) throw new Exception($"Unsupported subchunk version {version}");
 
-			int storageSize = reader.ReadByte();
+			// Before 1.2.13 a section was a block id per cell and a meta nibble beside it, with no
+			// palette at all. Those are the values 0 and 2 through 7; 1 is a single paletted storage
+			// and 8 and 9 are the paletted form with a storage count.
+			if (version == 0 || (version >= 2 && version <= 7))
+			{
+				ParseClassicSection(section, reader);
+				section.MarkBulkLoaded();
+				return;
+			}
+
+			if (version != 1 && version != 8 && version != 9) throw new Exception($"Unsupported subchunk version {version}");
+
+			// A single-storage section states no count, it just is one.
+			int storageSize = version == 1 ? 1 : reader.ReadByte();
 			// Version 9 carries its own signed section index; the caller already knows it.
 			if (version >= 9) reader.ReadByte();
+
 			for (int storage = 0; storage < storageSize; storage++)
 			{
 				bool isNotLoggedStorage = storage == 0;
@@ -350,69 +439,339 @@ namespace MiNET.Worlds
 				bool isRuntime = (paletteAndFlag & 1) != 0;
 				if (isRuntime) throw new Exception("Can't use runtime for persistent storage.");
 				int bitsPerBlock = paletteAndFlag >> 1;
-				int blocksPerWord = (int) Math.Floor(32d / bitsPerBlock);
-				int wordCount = (int) Math.Ceiling(4096d / blocksPerWord);
+
+				// Zero bits is a storage whose every cell is the same block: no index array, and a
+				// palette of exactly one entry that states no count. The cells already read as index
+				// zero, so there is nothing to unpack.
+				int blocksPerWord = bitsPerBlock == 0 ? 0 : (int) Math.Floor(32d / bitsPerBlock);
+				int wordCount = bitsPerBlock == 0 ? 0 : (int) Math.Ceiling(4096d / blocksPerWord);
 
 				long blockIndex = reader.Position;
 				reader.Position += wordCount * 4;
 
-				int paletteSize = reader.ReadInt32();
-				List<int> palette = isNotLoggedStorage ? section.RuntimeIds : section.LoggedRuntimeIds;
-				palette.Clear();
-				for (int j = 0; j < paletteSize; j++)
+				int paletteSize;
+				if (bitsPerBlock == 0)
 				{
-					var file = new NbtFile
-					{
-						BigEndian = false,
-						UseVarInt = false
-					};
-					file.LoadFromStream(reader, NbtCompression.None);
-					var tag = (NbtCompound) file.RootTag;
+					paletteSize = 1;
 
-					Block block = BlockFactory.GetBlockByName(tag["name"].StringValue);
-					if (block != null && block.GetType() != typeof(Block) && !(block is Air))
+					// Some worlds written by PocketMine 4 put a length in front of that single entry
+					// anyway, which is not what vanilla writes. A compound tag starts with 0x0a, so
+					// anything else here is that stray length and is stepped over.
+					long peek = reader.Position;
+					if (reader.ReadByte() != 0x0a)
 					{
-						List<IBlockState> blockState = ReadBlockState(tag);
-						block.SetState(blockState);
+						reader.Position = peek;
+						int strayLength = reader.ReadInt32();
+						if (strayLength != 1) throw new Exception($"Single-entry palette states a length of {strayLength}");
 					}
 					else
 					{
-						block = new Air();
+						reader.Position = peek;
 					}
+				}
+				else
+				{
+					paletteSize = reader.ReadInt32();
+				}
+				List<int> palette = isNotLoggedStorage ? section.RuntimeIds : section.LoggedRuntimeIds;
+				palette.Clear();
 
-					palette.Add(block.GetRuntimeId());
+				// One reader for the whole palette: fNbt hands back a fresh tag tree per load, so the
+				// file object itself is the only thing worth not allocating per entry.
+				var file = new NbtFile
+				{
+					BigEndian = false,
+					UseVarInt = false
+				};
+
+				for (int entry = 0; entry < paletteSize; entry++)
+				{
+					file.LoadFromStream(reader, NbtCompression.None);
+
+					palette.Add(ResolveRuntimeId((NbtCompound) file.RootTag));
 				}
 
 				long nextStore = reader.Position;
-				reader.Position = blockIndex;
 
-				int position = 0;
-				for (int wordIdx = 0; wordIdx < wordCount; wordIdx++)
+				if (wordCount > 0)
 				{
-					uint word = reader.ReadUInt32();
-					for (int block = 0; block < blocksPerWord; block++)
-					{
-						if (position >= 4096) continue; // padding bytes
-
-						int state = (int) ((word >> ((position % blocksPerWord) * bitsPerBlock)) & ((1 << bitsPerBlock) - 1));
-						int x = (position >> 8) & 0xF;
-						int y = position & 0xF;
-						int z = (position >> 4) & 0xF;
-						if (state > palette.Count) Log.Error($"Got wrong state={state} from word. bitsPerBlock={bitsPerBlock}, blocksPerWord={blocksPerWord}, Word={word}");
-
-						if (isNotLoggedStorage)
-						{
-							section.SetBlockIndex(x, y, z, (short) state);
-						}
-						else
-						{
-							section.SetLoggedBlockIndex(x, y, z, (byte) state);
-						}
-						position++;
-					}
+					reader.Position = blockIndex;
+					ReadBlockIndices(reader, section, isNotLoggedStorage, bitsPerBlock, blocksPerWord, wordCount, palette.Count);
+					reader.Position = nextStore;
 				}
-				reader.Position = nextStore;
 			}
+
+			// The arrays were written directly rather than through the per-cell setters, so the dirty
+			// mark and the encode cache have to be seen to once, here.
+			section.MarkBulkLoaded();
+		}
+
+		/// <summary>
+		///     A stored palette entry is a name and its states, which is what the block palette is
+		///     keyed by, so a runtime id is a lookup and nothing more. Building a block instance to ask
+		///     it for its own id, which is what this did, cost a reflection construction, a state
+		///     application and a rebuilt state container for every entry of every section, and the cost
+		///     scaled with palette size rather than with blocks.
+		///     <para>
+		///     A miss means the entry was written by an older Bedrock than the palette we hold, so it
+		///     goes through the upgrade chain and is looked up again. Only if that fails too does it
+		///     fall back to the block class, which tolerates a state that does not match the palette
+		///     exactly, and finally to the unknown block.
+		///     </para>
+		/// </summary>
+		private static int ResolveRuntimeId(NbtCompound tag)
+		{
+			string name = tag["name"]?.StringValue;
+			if (name == null)
+			{
+				ReportUnreadableBlock(null, "palette entry carries no name");
+				return BlockFactory.AirRuntimeId;
+			}
+
+			var container = new BlockStateContainer
+			{
+				Name = name,
+				States = ReadBlockState(tag)
+			};
+
+			if (BlockFactory.BlockStates.TryGetValue(container, out BlockStateContainer match)) return match.RuntimeId;
+
+			return UpgradeAndResolve(tag, name, container.States);
+		}
+
+		/// <summary>
+		///     The slow half, per distinct palette entry that the current palette does not hold. It is
+		///     memoized because a world holds the same handful of old entries in section after section,
+		///     and walking 34 schemas per entry otherwise gets paid thousands of times over.
+		/// </summary>
+		private static int UpgradeAndResolve(NbtCompound tag, string name, List<IBlockState> states)
+		{
+			string key = UpgradeCacheKey(tag, name, states);
+			if (UpgradedRuntimeIds.TryGetValue(key, out int cached)) return cached;
+
+			int runtimeId = Upgrade(tag, name, states);
+			UpgradedRuntimeIds.TryAdd(key, runtimeId);
+
+			return runtimeId;
+		}
+
+		private static int Upgrade(NbtCompound tag, string name, List<IBlockState> states)
+		{
+			if (BlockDataUpgrader.TryUpgrade(tag, out string upgradedName, out List<IBlockState> upgradedStates))
+			{
+				var upgraded = new BlockStateContainer
+				{
+					Name = upgradedName,
+					States = upgradedStates
+				};
+
+				if (BlockFactory.BlockStates.TryGetValue(upgraded, out BlockStateContainer match)) return match.RuntimeId;
+
+				int throughClass = ResolveThroughBlockClass(upgradedName, upgradedStates, name);
+				if (throughClass != UnknownRuntimeId) return throughClass;
+
+				ReportUnreadableBlock(name, $"upgraded to {upgradedName} with ({string.Join(", ", upgradedStates.Select(state => state.Name))}), which is not in the palette");
+				return UnknownRuntimeId;
+			}
+
+			return ResolveThroughBlockClass(name, states, name);
+		}
+
+		/// <summary>
+		///     Unresolvable blocks become minecraft:info_update, the block a client draws for something
+		///     it does not know, and never air. Air is indistinguishable from an empty section, so a
+		///     world that failed to read looks exactly like a world with nothing in it.
+		/// </summary>
+		private static int ResolveThroughBlockClass(string name, List<IBlockState> states, string storedName)
+		{
+			Block block = BlockFactory.GetBlockByName(name);
+			if (block == null || block.GetType() == typeof(Block)) return UnknownRuntimeId;
+			if (block is Air) return BlockFactory.AirRuntimeId;
+
+			block.SetState(states);
+
+			int runtimeId = block.GetRuntimeId();
+			if (runtimeId >= 0) return runtimeId;
+
+			ReportUnreadableBlock(storedName, $"state combination has no palette entry ({string.Join(", ", states.Select(state => state.Name))})");
+			return UnknownRuntimeId;
+		}
+
+		private static string UpgradeCacheKey(NbtCompound tag, string name, List<IBlockState> states)
+		{
+			if (tag["val"] != null) return $"{name}|val={tag["val"].ShortValue}";
+
+			var key = new StringBuilder(name);
+			key.Append('|').Append(tag["version"]?.IntValue ?? 0);
+			foreach (IBlockState state in states)
+			{
+				key.Append('|').Append(state.Name).Append('=');
+				switch (state)
+				{
+					case BlockStateByte value:
+						key.Append(value.Value);
+						break;
+					case BlockStateInt value:
+						key.Append(value.Value);
+						break;
+					case BlockStateString value:
+						key.Append(value.Value);
+						break;
+				}
+			}
+
+			return key.ToString();
+		}
+
+		private static readonly ConcurrentDictionary<string, int> UpgradedRuntimeIds = new();
+
+		private static readonly Lazy<int> UnknownBlockRuntimeId = new(() =>
+		{
+			Block unknown = BlockFactory.GetBlockByName("minecraft:info_update");
+			return unknown == null ? BlockFactory.AirRuntimeId : unknown.GetRuntimeId();
+		});
+
+		private static int UnknownRuntimeId => UnknownBlockRuntimeId.Value;
+
+		/// <summary>
+		///     A section from before palettes: 4096 block ids, then 2048 bytes holding a meta nibble
+		///     each, in the same order the paletted form uses. Each id and meta pair is what the block
+		///     meant in 1.12, so it goes through the same upgrade chain as everything else and the
+		///     palette is built here from what comes back.
+		/// </summary>
+		private static void ParseClassicSection(SubChunk section, MemoryStreamReader reader)
+		{
+			var ids = new byte[4096];
+			var metas = new byte[2048];
+			reader.Read(ids, 0, ids.Length);
+			reader.Read(metas, 0, metas.Length);
+
+			List<int> palette = section.RuntimeIds;
+			palette.Clear();
+			palette.Add(BlockFactory.AirRuntimeId); // Index 0 is air, which is what an empty section reads as.
+
+			var indexByRuntimeId = new Dictionary<int, int> {{BlockFactory.AirRuntimeId, 0}};
+			short[] blocks = section.Blocks;
+
+			for (int position = 0; position < 4096; position++)
+			{
+				int id = ids[position];
+				int meta = (metas[position >> 1] >> ((position & 1) * 4)) & 0xf;
+
+				int runtimeId = LegacyRuntimeId(id, meta);
+				if (!indexByRuntimeId.TryGetValue(runtimeId, out int index))
+				{
+					index = palette.Count;
+					palette.Add(runtimeId);
+					indexByRuntimeId[runtimeId] = index;
+				}
+
+				blocks[position] = (short) index;
+			}
+		}
+
+		/// <summary>
+		///     Memoized because a classic section asks for the same handful of pairs 4096 times, and
+		///     each answer is a table lookup plus a walk through every schema since 1.12.
+		/// </summary>
+		private static int LegacyRuntimeId(int id, int meta)
+		{
+			int key = (id << 4) | meta;
+			if (LegacyRuntimeIds.TryGetValue(key, out int cached)) return cached;
+
+			int runtimeId;
+			if (BlockDataUpgrader.TryUpgradeIdMeta(id, meta, out string name, out List<IBlockState> states))
+			{
+				var container = new BlockStateContainer
+				{
+					Name = name,
+					States = states
+				};
+
+				runtimeId = BlockFactory.BlockStates.TryGetValue(container, out BlockStateContainer match)
+					? match.RuntimeId
+					: ResolveThroughBlockClass(name, states, $"{id}:{meta}");
+			}
+			else
+			{
+				// Nothing in the table for this pair. The R12 map that predates all of this still
+				// answers for some of them, so it gets the last word before the unknown block.
+				uint fromLegacyMap = BlockFactory.GetRuntimeId(id, (byte) meta);
+				runtimeId = fromLegacyMap < BlockFactory.BlockPalette.Count ? (int) fromLegacyMap : UnknownRuntimeId;
+				if (runtimeId == UnknownRuntimeId) ReportUnreadableBlock($"legacy id {id}:{meta}", "no entry in the 1.12 id and meta table");
+			}
+
+			LegacyRuntimeIds.TryAdd(key, runtimeId);
+			return runtimeId;
+		}
+
+		private static readonly ConcurrentDictionary<int, int> LegacyRuntimeIds = new();
+
+		/// <summary>
+		///     The stored index order is <c>(x &lt;&lt; 8) | (z &lt;&lt; 4) | y</c>, which is the
+		///     section's own index order, so the indices go straight into its array. The per-cell
+		///     setter took the position apart into x, y and z, put it back together, and nulled the
+		///     encode cache, 4096 times per section.
+		///     <para>
+		///     The two storages are read by separate loops rather than one loop with a branch in it:
+		///     this runs 4096 times per storage per section, which on a full column is a hundred
+		///     thousand iterations, and a dense world reads thousands of columns per join.
+		///     </para>
+		/// </summary>
+		private static void ReadBlockIndices(MemoryStreamReader reader, SubChunk section, bool isNotLoggedStorage, int bitsPerBlock, int blocksPerWord, int wordCount, int paletteCount)
+		{
+			int mask = (1 << bitsPerBlock) - 1;
+
+			if (isNotLoggedStorage) ReadIndices(reader, section.Blocks, bitsPerBlock, blocksPerWord, wordCount, paletteCount, mask);
+			else ReadLoggedIndices(reader, section.LoggedBlocks, bitsPerBlock, blocksPerWord, wordCount, paletteCount, mask);
+		}
+
+		private static void ReadIndices(MemoryStreamReader reader, short[] blocks, int bitsPerBlock, int blocksPerWord, int wordCount, int paletteCount, int mask)
+		{
+			int position = 0;
+
+			for (int word = 0; word < wordCount; word++)
+			{
+				uint packed = reader.ReadUInt32();
+				int inWord = Math.Min(blocksPerWord, 4096 - position);
+
+				for (int block = 0; block < inWord; block++, position++)
+				{
+					int state = (int) ((packed >> (block * bitsPerBlock)) & mask);
+					blocks[position] = (short) (state < paletteCount ? state : OutOfRange(state, paletteCount, bitsPerBlock, blocksPerWord, packed));
+				}
+
+				if (position >= 4096) break;
+			}
+		}
+
+		private static void ReadLoggedIndices(MemoryStreamReader reader, byte[] loggedBlocks, int bitsPerBlock, int blocksPerWord, int wordCount, int paletteCount, int mask)
+		{
+			int position = 0;
+
+			for (int word = 0; word < wordCount; word++)
+			{
+				uint packed = reader.ReadUInt32();
+				int inWord = Math.Min(blocksPerWord, 4096 - position);
+
+				for (int block = 0; block < inWord; block++, position++)
+				{
+					int state = (int) ((packed >> (block * bitsPerBlock)) & mask);
+					loggedBlocks[position] = (byte) (state < paletteCount ? state : OutOfRange(state, paletteCount, bitsPerBlock, blocksPerWord, packed));
+				}
+
+				if (position >= 4096) break;
+			}
+		}
+
+		/// <summary>
+		///     A palette of N has indices 0..N-1, so N itself is already out of range. The index was
+		///     used regardless of this check before, which put a read past the palette into the chunk.
+		/// </summary>
+		private static int OutOfRange(int state, int paletteCount, int bitsPerBlock, int blocksPerWord, uint word)
+		{
+			Log.Error($"Palette index {state} is outside a palette of {paletteCount}, reading as air. bitsPerBlock={bitsPerBlock}, blocksPerWord={blocksPerWord}, word={word}");
+			return 0;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -849,7 +1208,13 @@ namespace MiNET.Worlds
 			//Log.Debug($"Palette nbt:\n{tag}");
 
 			var states = new List<IBlockState>();
+
+			// Palette entries written before 1.13 carry a numeric "val" instead of a states compound.
+			// The block then keeps its default state, which is wrong for anything with a variant, but
+			// it is a block on the wire rather than a throw that takes the whole chunk read with it.
 			var nbtStates = (NbtCompound) tag["states"];
+			if (nbtStates == null) return states;
+
 			foreach (NbtTag stateTag in nbtStates)
 			{
 				IBlockState state = stateTag.TagType switch

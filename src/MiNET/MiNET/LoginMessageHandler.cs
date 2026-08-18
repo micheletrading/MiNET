@@ -34,20 +34,11 @@ using fNbt;
 using Jose;
 using log4net;
 using MiNET.Net;
-using MiNET.Net.RakNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.IO;
 using MiNET.Utils.Skins;
 using Newtonsoft.Json.Linq;
-using Org.BouncyCastle.Crypto.Agreement;
-using Org.BouncyCastle.Crypto.Engines;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Crypto.Modes;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.X509;
-using SicStream;
 
 namespace MiNET
 {
@@ -56,13 +47,13 @@ namespace MiNET
 		private static readonly ILog Log = LogManager.GetLogger(typeof(LoginMessageHandler));
 
 		private readonly BedrockMessageHandler _bedrockHandler;
-		private readonly RakSession _session;
+		private readonly INetworkHandler _session;
 		private readonly IServerManager _serverManager;
 
 		private object _loginSyncLock = new object();
 		private PlayerInfo _playerInfo = new PlayerInfo();
 
-		public LoginMessageHandler(BedrockMessageHandler bedrockHandler, RakSession session, IServerManager serverManager)
+		public LoginMessageHandler(BedrockMessageHandler bedrockHandler, INetworkHandler session, IServerManager serverManager)
 		{
 			_bedrockHandler = bedrockHandler;
 			_session = session;
@@ -78,7 +69,10 @@ namespace MiNET
 			_playerInfo.ProtocolVersion = message.protocolVersion;
 
 			var settings = McpeNetworkSettings.CreateObject();
-			settings.compressionThreshold = 1;
+			// The same rule both directions: at or below the threshold a batch ships raw under the
+			// 0xff compressor id. Advertising 1 here would order the client to deflate every tiny
+			// input packet it sends us; advertising the real threshold spares both sides.
+			settings.compressionThreshold = Compression.CompressionThresholdBytes;
 			settings.compressionAlgorithm = (ushort) McpeNetworkSettings.Compressionalgorithm.Zlib;
 			settings.clientThrottleEnabled = false;
 			settings.clientThrottleThreshold = 0;
@@ -89,13 +83,9 @@ namespace MiNET
 			// expecting them with the packet after this one. Compression starts with the first
 			// packet after this one, in both directions.
 			var wrapper = McpeWrapper.CreateObject();
-			wrapper.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-			wrapper.payload = Compression.PackPacketsForWrapper([settings]);
-			wrapper.Encode();
+			wrapper.SetPayload(Compression.PackPacketsForWrapper([settings]));
+			wrapper.EncodeAsMemory();
 			_session.SendPacket(wrapper);
-
-			_bedrockHandler.CompressionEnabled = true;
-			_bedrockHandler.CompressionThreshold = 1;
 		}
 
 		public virtual void HandleMcpeLogin(McpeLogin message)
@@ -306,15 +296,19 @@ namespace MiNET
 					if (Log.IsDebugEnabled) Log.Debug($"Certificate JSON:\n{json}");
 
 					// Protocol 1.21.90+ wraps the login identity in an authentication
-					// envelope: {Certificate, AuthenticationType, Token}. The real cert
-					// chain (online auth) lives in Certificate; offline identity is in the
-					// self-signed OIDC Token (protocol 944+), with an empty chain.
+					// envelope: {Certificate, AuthenticationType, Token}. Identity comes from
+					// the Token, which is a PlayFab/OIDC JWT; Certificate carries the legacy
+					// chain, which a real client still sends alongside it.
 					string multiplayerToken = null;
+					// Kept for diagnostics: json is reassigned to the Certificate contents below,
+					// which loses the envelope, and the envelope is what a failed login needs named.
+					string authenticationType = null;
 					if (json["AuthenticationType"] != null)
 					{
 						// 1.21.90+ authentication envelope: {AuthenticationType, Token[, Certificate]}.
 						// Online auth (type 0) omits the cert chain entirely; identity is in the Token.
 						// Offline (type 2) carries an empty chain and our self-signed OIDC Token.
+						authenticationType = (string) json["AuthenticationType"];
 						multiplayerToken = (string) json["Token"];
 						string certificate = (string) json["Certificate"];
 						if (!string.IsNullOrEmpty(certificate)) json = JObject.Parse(certificate);
@@ -326,18 +320,56 @@ namespace MiNET
 					string validationKey = null;
 					string identityPublicKey = null;
 
-					bool offlineChain = chain == null || chain.Count == 0 || string.IsNullOrEmpty((string) chain[0]);
-					if (offlineChain && !string.IsNullOrEmpty(multiplayerToken))
+					// The Token is the identity whenever there is one, chain or no chain. A real
+					// 1.26.40 client authenticating for real (type 0) sends BOTH a Token and a
+					// three-token legacy chain, so gating this on an empty chain sent those logins
+					// down the chain walk, where nothing matches the Mojang root any more and every
+					// token is skipped. Vanilla and gophertunnel both read the token first and only
+					// consult the chain afterwards, for the numeric title id the OIDC token omits,
+					// which is not something we use.
+					if (!string.IsNullOrEmpty(multiplayerToken))
 					{
 						// Identity comes from the Token. Two shapes: our offline OIDC token has
 						// {cpk, xname, identity}; the real client's online token (Full auth) has
-						// {cpk, xname, xid, mid, sub} with no identity GUID.
-						// NOTE: a public server MUST validate this token's signature against the
-						// franchise JWKS (authorization.franchise.minecraft-services.net). We trust
-						// it here for local play.
+						// {cpk, xname, xid, mid, tid, ipt} and carries its identity GUID as leguuid.
+						//
+						// Nothing below proves any of it. The payload is read without checking the
+						// signature, so the gamertag and XUID are whatever the client typed. With
+						// ForceXBLAuthentication on we verify the token against the issuer's
+						// published keys first and refuse the login if it does not hold up; the
+						// claims are then Mojang-issued, and the encryption handshake proves this
+						// connection holds the private half of the cpk they name.
+						if (Config.GetProperty("ForceXBLAuthentication", false))
+						{
+							FranchiseTokenValidator.Identity verified = FranchiseTokenValidator.Validate(multiplayerToken);
+							if (verified?.Xuid == null)
+							{
+								Log.Warn($"Rejecting login from {_session.GetClientEndPoint()}: the multiplayer token is not a valid Xbox Live identity");
+								_session.Disconnect(Config.GetProperty("ForceXBLLogin", "You must authenticate to XBOX Live to join this server."));
+								return;
+							}
+
+							// The identity is genuine; this ties the rest of the login to it. The
+							// client data (skin, device, language) travels in its own document, and
+							// unverified it can be swapped for anything: a captured token would let
+							// someone wear another player's identity with their own everything else.
+							if (!FranchiseTokenValidator.VerifyClientData(skinData, verified.ClientPublicKey))
+							{
+								Log.Warn($"Rejecting login from {_session.GetClientEndPoint()}: client data is not signed by {verified.DisplayName}'s key");
+								_session.Disconnect(Config.GetProperty("ForceXBLLogin", "You must authenticate to XBOX Live to join this server."));
+								return;
+							}
+
+							Log.Info($"Verified Xbox Live identity {verified.DisplayName} (XUID {verified.Xuid})");
+						}
+
 						dynamic tokenPayload = JObject.Parse(JWT.Payload(multiplayerToken));
 						string xuid = (string) tokenPayload.xid;
-						string identity = (string) tokenPayload.identity;
+						// leguuid is the legacy identity UUID a real client's token carries; only
+						// our own offline token writes it as "identity". Reading just the latter
+						// sent every real login down the derive-from-XUID fallback below, giving the
+						// player a UUID that matches neither Mojang's nor any other server's.
+						string identity = (string) tokenPayload.leguuid ?? (string) tokenPayload.identity;
 						if (string.IsNullOrEmpty(identity))
 						{
 							string seed = !string.IsNullOrEmpty(xuid) ? xuid : (string) tokenPayload.mid ?? (string) tokenPayload.sub;
@@ -355,7 +387,10 @@ namespace MiNET
 							}
 						};
 					}
-					else
+					// chain is null whenever the envelope carried no Certificate, which is every
+					// online (type 0) login. Reaching the loop with it null threw before the
+					// identity check below could report anything.
+					else if (chain != null)
 					foreach (JToken token in chain)
 					{
 						IDictionary<string, dynamic> headers = JWT.Headers(token.ToString());
@@ -396,18 +431,19 @@ namespace MiNET
 							Log.Debug("Derived Key is ok");
 						}
 
-						ECPublicKeyParameters x5KeyParam = (ECPublicKeyParameters) PublicKeyFactory.CreateKey(x5u.DecodeBase64());
-						var signParam = new ECParameters
-						{
-							Curve = ECCurve.NamedCurves.nistP384,
-							Q =
-							{
-								X = x5KeyParam.Q.AffineXCoord.GetEncoded(),
-								Y = x5KeyParam.Q.AffineYCoord.GetEncoded()
-							},
-						};
+						// x5u is a DER SubjectPublicKeyInfo, which ECDsa imports directly; the curve and
+						// the point come out of the encoding rather than being restated here.
+						using var x5Key = ECDsa.Create();
+						x5Key.ImportSubjectPublicKeyInfo(x5u.DecodeBase64(), out _);
+						ECParameters signParam = x5Key.ExportParameters(false);
 						signParam.Validate();
 
+						// REFCT: Jose-JWT takes and returns strings, and Newtonsoft deserializes from a
+						// string, so a login chain materializes its base64 and its JSON as strings. Those
+						// are what reach the LOH on a join burst (traced: [LOH] System.String and
+						// [LOH] System.Char[], nothing else). System.Text.Json reads UTF8 straight off a
+						// span (Utf8JsonReader), and Microsoft.IdentityModel.JsonWebTokens is the JWT
+						// reader built on it, so the strings never have to exist.
 						CertificateData data = JWT.Decode<CertificateData>(token.ToString(), ECDsa.Create(signParam));
 
 						// Validate
@@ -451,123 +487,44 @@ namespace MiNET
 						}
 					}
 
-					//TODO: Implement disconnect here
+					// Neither path above produced an identity: an authentication envelope with no
+					// usable chain and no Token lands here, as does a chain whose every token
+					// failed validation. This used to fall straight into the dereference below and
+					// take the decode path down with an NRE, which closed the session telling
+					// neither the client nor the log anything about why.
+					if (_playerInfo.CertificateData?.ExtraData == null)
+					{
+						Log.Warn(
+							$"Rejecting login from {_session.GetClientEndPoint()}: the login carried no readable identity. "
+							+ $"AuthenticationType={authenticationType ?? "<absent>"}, "
+							+ $"Token={(string.IsNullOrEmpty(multiplayerToken) ? "<absent>" : $"{multiplayerToken.Length} chars")}, "
+							+ $"chain={(chain == null ? "<absent>" : $"{chain.Count} token(s)")}");
+
+						_session.Disconnect("Could not read your login identity.");
+						return;
+					}
 
 					{
 						_playerInfo.Username = _playerInfo.CertificateData.ExtraData.DisplayName;
 						_session.Username = _playerInfo.Username;
 						string identity = _playerInfo.CertificateData.ExtraData.Identity;
 
+						// The transport is named rather than inferred: with two of them live, which one a
+						// player arrived on is otherwise only visible as a side effect, such as whether
+						// encryption got negotiated.
+						Log.Info($"Login: {_playerInfo.Username} over {_session.TransportName} from {_session.GetClientEndPoint()} on protocol {_playerInfo.ProtocolVersion}");
 						if (Log.IsDebugEnabled) Log.Debug($"Connecting user {_playerInfo.Username} with identity={identity} on protocol version={_playerInfo.ProtocolVersion}");
 						_playerInfo.ClientUuid = new UUID(identity);
 
-						_bedrockHandler.CryptoContext = new CryptoContext
-						{
-							UseEncryption = Config.GetProperty("UseEncryptionForAll", false) || (Config.GetProperty("UseEncryption", true) && !string.IsNullOrWhiteSpace(_playerInfo.CertificateData.ExtraData.Xuid)),
-						};
-
-						if (_bedrockHandler.CryptoContext.UseEncryption)
-						{
-							// Use bouncy to parse the DER key
-							ECPublicKeyParameters remotePublicKey = (ECPublicKeyParameters)
-								PublicKeyFactory.CreateKey(_playerInfo.CertificateData.IdentityPublicKey.DecodeBase64());
-
-							var b64RemotePublicKey = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(remotePublicKey).GetEncoded().EncodeBase64();
-							Debug.Assert(_playerInfo.CertificateData.IdentityPublicKey == b64RemotePublicKey);
-							Debug.Assert(remotePublicKey.PublicKeyParamSet.Id == "1.3.132.0.34");
-							Log.Debug($"{remotePublicKey.PublicKeyParamSet}");
-
-							var generator = new ECKeyPairGenerator("ECDH");
-							generator.Init(new ECKeyGenerationParameters(remotePublicKey.PublicKeyParamSet, SecureRandom.GetInstance("SHA256PRNG")));
-							var keyPair = generator.GenerateKeyPair();
-
-							ECPublicKeyParameters pubAsyKey = (ECPublicKeyParameters) keyPair.Public;
-							ECPrivateKeyParameters privAsyKey = (ECPrivateKeyParameters) keyPair.Private;
-
-							// Per-session nonce. It seeds the key derivation below and is handed to the client
-							// so it derives the same key. This used to be the literal string "RANDOM SECRET",
-							// which was neither: the same 13 bytes on every MiNET server and every session,
-							// where vanilla sends 16 fresh random bytes. The session key stayed unpredictable
-							// (the ECDH pair above is ephemeral) but a constant here is a MiNET fingerprint on
-							// the wire and gives up the defence in depth a real nonce is there for.
-							byte[] salt = RandomNumberGenerator.GetBytes(16);
-
-							ECDHBasicAgreement agreement = new ECDHBasicAgreement();
-							agreement.Init(keyPair.Private);
-							byte[] secret;
-							using (var sha = SHA256.Create())
-							{
-								secret = sha.ComputeHash(salt.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
-							}
-
-							Debug.Assert(secret.Length == 32);
-
-							if (Log.IsDebugEnabled) Log.Debug($"SECRET KEY (b64):\n{secret.EncodeBase64()}");
-
-							var encryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-							var decryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-							decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-							encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-
-							//IBufferedCipher decryptor = CipherUtilities.GetCipher("AES/CFB8/NoPadding");
-							//decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(16).ToArray()));
-
-							//IBufferedCipher encryptor = CipherUtilities.GetCipher("AES/CFB8/NoPadding");
-							//encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(16).ToArray()));
-
-							_bedrockHandler.CryptoContext.Key = secret;
-							_bedrockHandler.CryptoContext.Decryptor = decryptor;
-							_bedrockHandler.CryptoContext.Encryptor = encryptor;
-
-							var signParam = new ECParameters
-							{
-								Curve = ECCurve.NamedCurves.nistP384,
-								Q =
-								{
-									X = pubAsyKey.Q.AffineXCoord.GetEncoded(),
-									Y = pubAsyKey.Q.AffineYCoord.GetEncoded()
-								}
-							};
-							signParam.D = CryptoUtils.FixDSize(privAsyKey.D.ToByteArrayUnsigned(), signParam.Q.X.Length);
-							signParam.Validate();
-
-							string signedToken = null;
-							//if (_session.Server.IsEdu)
-							//{
-							//	EduTokenManager tokenManager = _session.Server.EduTokenManager;
-							//	signedToken = tokenManager.GetSignedToken(_playerInfo.TenantId);
-							//}
-
-							var signKey = ECDsa.Create(signParam);
-							var b64PublicKey = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(pubAsyKey).GetEncoded().EncodeBase64();
-							// Only the claims vanilla sends. signedToken is Edu-only, and serializing it as an
-							// explicit null put 19 bytes on the wire that BDS never sends. It cannot be left to
-							// the serializer to drop: NewtonsoftMapper does set NullValueHandling.Ignore, but it
-							// installs itself from a static constructor nothing on the server side ever runs, so
-							// jose-jwt's own mapper is what serializes this.
-							var handshakeJson = new Dictionary<string, object> {{"salt", salt.EncodeBase64()}};
-							if (signedToken != null) handshakeJson["signedToken"] = signedToken;
-							string val = JWT.Encode(handshakeJson, signKey, JwsAlgorithm.ES384, new Dictionary<string, object> {{"x5u", b64PublicKey}});
-
-							Log.Debug($"Headers:\n{string.Join(";", JWT.Headers(val))}");
-							Log.Debug($"Return salt:\n{JWT.Payload(val)}");
-							Log.Debug($"JWT:\n{val}");
-
-
-							var response = McpeServerToClientHandshake.CreateObject();
-							response.ForceClear = true; // Must be!
-							response.token = val;
-
-							_session.SendPacket(response);
-
-							if (Log.IsDebugEnabled) Log.Warn($"Encryption enabled for {_session.Username}");
-						}
+						// No application-layer encryption handshake. The transport is DTLS, so the link
+						// is already encrypted, and running Bedrock's AES-CTR over it would encrypt
+						// twice. The ECDH exchange, the ServerToClientHandshake and the ClientToServer
+						// reply it waited for belonged to RakNet, which is gone: the client is told
+						// nothing and the login continues straight to the handshake handler.
 					}
 				}
-				if (!_bedrockHandler.CryptoContext.UseEncryption)
-				{
-					_bedrockHandler.Handler.HandleMcpeClientToServerHandshake(null);
-				}
+
+				_bedrockHandler.Handler.HandleMcpeClientToServerHandshake(null);
 			}
 			catch (Exception e)
 			{
@@ -577,7 +534,7 @@ namespace MiNET
 
 		public void HandleMcpeClientToServerHandshake(McpeClientToServerHandshake message)
 		{
-			Log.Warn($"{(_bedrockHandler.CryptoContext == null ? "C" : $"Encrypted c")}onnection established with {_playerInfo.Username} using MC version {_playerInfo.GameVersion} with protocol version {_playerInfo.ProtocolVersion}");
+			Log.Warn($"Connection established with {_playerInfo.Username} using MC version {_playerInfo.GameVersion} with protocol version {_playerInfo.ProtocolVersion}");
 
 			IServer server = _serverManager.GetServer();
 

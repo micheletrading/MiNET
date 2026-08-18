@@ -4,6 +4,11 @@
     <ApplicationIcon />
     <OutputType>Exe</OutputType>
     <StartupObject>MiNET.ServiceKiller.Emulator</StartupObject>
+    <!-- The old runtimeconfig.template.json wrapped these in its own runtimeOptions object,
+         which the host ignores (double nesting), so the fleet silently ran workstation GC
+         and froze under allocation load. Set the same way MiNET.Console sets them. -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="log4net.xml" />

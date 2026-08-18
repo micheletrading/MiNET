@@ -49,7 +49,7 @@ using MiNET.Crafting;
 using MiNET.Entities;
 using MiNET.Items;
 using MiNET.Net;
-using MiNET.Net.RakNet;
+using MiNET.Net.NetherNet;
 using MiNET.Utils;
 using MiNET.Utils.Cryptography;
 using MiNET.Utils.IO;
@@ -57,13 +57,6 @@ using MiNET.Utils.Metadata;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 using Newtonsoft.Json;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Agreement;
-using Org.BouncyCastle.Crypto.Engines;
-using Org.BouncyCastle.Crypto.Modes;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
-using SicStream;
 
 //[assembly: XmlConfigurator(Watch = true)]
 // This will cause log4net to look for a configuration file
@@ -75,27 +68,59 @@ namespace MiNET.Client
 {
 	public class MiNetClient
 	{
-		private readonly DedicatedThreadPool _threadPool;
 		private static readonly ILog Log = LogManager.GetLogger(typeof(MiNetClient));
 
-		
-		private long _clientGuid;
-
-		public IPEndPoint ClientEndpoint { get; set; }
 		public IPEndPoint ServerEndPoint { get; set; }
 
 		public bool IsEmulator { get; set; }
 
-		public RakConnection Connection { get; private set; }
-		public bool FoundServer => Connection.FoundServer;
+		/// <summary>
+		///     What an emulator bot never reads, skipped before decode (see
+		///     BedrockMessageHandlerBase.DropPacketIds): the entity broadcast traffic (movement,
+		///     actor state, sounds, effects) that scales O(N²) with fleet size and otherwise
+		///     dominates the bot process. The one self-directed loss is MovePlayer position
+		///     corrections, which a load bot ignores anyway. SubChunk responses are NOT dropped
+		///     any more: bots answer their blob announcements (hit/miss) to exercise the real
+		///     miss-payload path, and in cached form the entries are hashes plus trimmings, not
+		///     block data, so the old allocation concern no longer applies.
+		/// </summary>
+		private static readonly HashSet<int> EmulatorDropPacketIds = new()
+		{
+			0x12, // McpeMoveEntity (MoveActorAbsolute)
+			0x13, // McpeMovePlayer
+			0x19, // McpeLevelEvent
+			0x1d, // McpeUpdateAttributes
+			0x27, // McpeSetEntityData
+			0x28, // McpeSetEntityMotion
+			0x2c, // McpeAnimate
+			0x6f, // McpeMoveEntityDelta
+			0x7b, // McpeLevelSoundEvent
+		};
 
-		public RakSession Session => Connection.ConnectionInfo.RakSessions.Values.FirstOrDefault();
-		public bool IsConnected => Session?.State == ConnectionState.Connected;
+		/// <summary>The wrapper-level handler for the active connection. Exposed so the emulator
+		/// can flip its post-spawn receive-and-ack-only mode.</summary>
+		public BedrockMessageHandlerBase WrapperHandler { get; private set; }
+
+		public INetworkHandler Session => _netherNetSession;
+
+		private NetherNetClient _netherNetClient;
+		private NetherNetSession _netherNetSession;
+
+		public bool IsConnected => _netherNetSession != null;
 
 		public Vector3 SpawnPoint { get; set; }
+
+		/// <summary>The level's fixed spawn from StartGame (defaultSpawnBlockPosition), as opposed
+		/// to SpawnPoint which is wherever this player spawned (plugins persist per-player spawns).</summary>
+		public Vector3 WorldSpawn { get; set; }
 		public long EntityId { get; set; }
 		public long NetworkEntityId { get; set; }
-		public int ChunkRadius { get; set; } = 5;
+		/// <summary>
+		///     The radius this client asks for at StartGame. 12 is a real player's setting rather than
+		///     a token one, so the join it produces is the join a server actually has to serve. The bot
+		///     fleet sets its own from the command line and is unaffected by this.
+		/// </summary>
+		public int ChunkRadius { get; set; } = 12;
 
 		public LevelInfo LevelInfo { get; } = new LevelInfo();
 
@@ -109,29 +134,159 @@ namespace MiNET.Client
 		public int ClientId { get; set; }
 
 		public McpePlayStatus.PlayStatus PlayerStatus { get; set; }
-		public bool UseBlobCache { get; set; }
+
+		/// <summary>
+		///     Announce a client-side blob cache at login. On by default because it is not really
+		///     optional: every Mojang client caches, and a MiNET server refuses a client that says it
+		///     does not.
+		/// </summary>
+		public bool UseBlobCache { get; set; } = true;
+
 		public bool BlockNetworkIdsAreHashes { get; set; }
-		public Dictionary<ulong, byte[]> BlobCache { get; set; } = new Dictionary<ulong, byte[]>();
+
+		/// <summary>
+		///     The blob cache and the columns assembled out of it, for both delivery flows. What
+		///     lands here is payloads, not blocks: decoding a section is the consumer's job.
+		/// </summary>
+		public ClientChunkCache ChunkCache { get; } = new ClientChunkCache();
+
+		/// <summary>
+		///     Off (default): cache verdicts and sub-chunk requests answer each LevelChunk
+		///     immediately, which is what the protocol tooling wants. On (the bot fleet): they
+		///     accumulate in the pending queues below and a walker flushes them on its walk
+		///     timer, the way a real client batches its verdicts on its tick.
+		/// </summary>
+		public bool BatchChunkResponses { get; set; }
+
+		/// <summary>
+		///     The last NetworkChunkPublisherUpdate: the acceptance window for incoming chunks.
+		///     Arrivals outside it are in-flight strays from an area the stream moved past and
+		///     are discarded. Distinct from what the client holds, which is the disc around its
+		///     own position.
+		/// </summary>
+		public ChunkCoordinates PublishedCenter { get; set; }
+
+		/// <inheritdoc cref="PublishedCenter" />
+		public int PublishedRadiusChunks { get; set; }
+
+		/// <summary>
+		///     0 (default): request every section up to the column's limit. N: request only the
+		///     top N sections at the column's own limit - the surface band, self-adapting per
+		///     column because the limit rides the highest non-air section (towers raise it,
+		///     ocean columns keep it at sea level).
+		/// </summary>
+		public int RequestTopSections { get; set; }
+
+		public ConcurrentQueue<ulong> PendingBlobHits { get; } = new ConcurrentQueue<ulong>();
+		public ConcurrentQueue<ulong> PendingBlobMisses { get; } = new ConcurrentQueue<ulong>();
+
+		/// <summary>Columns awaiting a batched sub-chunk request: position, highest relative index, dimension.</summary>
+		public ConcurrentQueue<(int X, int Z, int Highest, int Dimension)> PendingSubChunkColumns { get; } = new ConcurrentQueue<(int, int, int, int)>();
+
+		/// <summary>
+		///     The chunk answers this client owes the server: one ClientCacheBlobStatus for the
+		///     pending verdicts (capped at the packet's 4095-id limit, the rest waits for the next
+		///     call) and one SubChunkRequest covering the pending columns' surface bands, offsets
+		///     relative to the first pending column.
+		///     <para>
+		///         With <see cref="BatchChunkResponses" /> on this is a tick job and the caller owns
+		///         the cadence, the way a real client flushes its verdicts per tick; off, the handler
+		///         calls it as each packet lands.
+		///     </para>
+		/// </summary>
+		public void FlushChunkResponses()
+		{
+			var hits = new List<ulong>();
+			var misses = new List<ulong>();
+			while (hits.Count + misses.Count < 4095 && PendingBlobHits.TryDequeue(out ulong hash)) hits.Add(hash);
+			while (hits.Count + misses.Count < 4095 && PendingBlobMisses.TryDequeue(out ulong hash)) misses.Add(hash);
+
+			if (hits.Count + misses.Count > 0)
+			{
+				var status = McpeClientCacheBlobStatus.CreateObject();
+				status.hashHits = hits.ToArray();
+				status.hashMisses = misses.ToArray();
+				SendPacket(status);
+			}
+
+			if (!PendingSubChunkColumns.TryDequeue(out (int X, int Z, int Highest, int Dimension) first)) return;
+
+			var request = McpeSubChunkRequestPacket.CreateObject();
+			request.dimension = first.Dimension;
+			request.originX = first.X;
+			request.originY = 0;
+			request.originZ = first.Z;
+
+			void AddColumn((int X, int Z, int Highest, int Dimension) column)
+			{
+				// Relative index 0 is section y -4, and the highest requestable one is the column's
+				// own limit. RequestTopSections narrows the ask to the top of the column, the band a
+				// real client's view actually covers.
+				int lowest = RequestTopSections > 0 ? Math.Max(0, column.Highest - RequestTopSections + 1) : 0;
+				for (int i = lowest; i <= column.Highest; i++)
+				{
+					request.offsets.Add(new SubChunkPosOffset
+					{
+						subchunkOffsetX = (sbyte) (column.X - first.X),
+						subchunkOffsetY = (sbyte) (i - 4),
+						subchunkOffsetZ = (sbyte) (column.Z - first.Z)
+					});
+				}
+
+				ChunkCache.SectionsRequested(new ChunkCoordinates(column.X, column.Z), column.Highest - lowest + 1);
+			}
+
+			AddColumn(first);
+
+			// More pending columns fold into the same request while they fit the sbyte offset
+			// range around the first one; anything farther waits for the next call.
+			while (request.offsets.Count < 512 && PendingSubChunkColumns.TryPeek(out (int X, int Z, int Highest, int Dimension) next))
+			{
+				if (next.Dimension != first.Dimension || Math.Abs(next.X - first.X) > 120 || Math.Abs(next.Z - first.Z) > 120) break;
+
+				PendingSubChunkColumns.TryDequeue(out next);
+				AddColumn(next);
+			}
+
+			SendPacket(request);
+		}
+
+		/// <summary>
+		///     Position-driven forgetting, identical to the server's prune: what this client knows is
+		///     the disc around its own position and radius, and crossing a chunk boundary forgets
+		///     whatever fell outside. The two sides matching is what makes a re-entered column arrive
+		///     as a fresh skeleton and dance again. The blob cache is untouched, so the re-dance is
+		///     metadata and round trips, never terrain bytes.
+		/// </summary>
+		public void ForgetColumnsOutsideWindow(ChunkCoordinates center) => ChunkCache.Forget(center, ChunkRadius);
 
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
 
+		/// <summary>
+		///     Overrides the ICustomMessageHandler wired onto the session, for callers that need to
+		///     intercept raw frames before client-side dispatch; null keeps the default handler.
+		/// </summary>
+		public Func<INetworkHandler, IMcpeClientMessageHandler, BedrockClientMessageHandler> ClientMessageHandlerFactory { get; set; }
+
+		/// <summary>
+		///     A real Xbox Live identity from <see cref="XboxAuthentication" />. When set, the client
+		///     logs in as that account (AuthenticationType 0) instead of minting an offline identity,
+		///     which is what an online-mode server requires.
+		/// </summary>
+		public XboxIdentity XboxIdentity { get; set; }
+
 		public McpeClientMessageDispatcher MessageDispatcher
 		{
-			get => throw new NotSupportedException("Use Connection.CustomMessageHandlerFactory instead");
-			set => throw new NotSupportedException("Use Connection.CustomMessageHandlerFactory instead");
+			get => throw new NotSupportedException("Use ClientMessageHandlerFactory instead");
+			set => throw new NotSupportedException("Use ClientMessageHandlerFactory instead");
 		}
 
-		public MiNetClient(IPEndPoint endPoint, string username, DedicatedThreadPool threadPool = null)
+		public MiNetClient(IPEndPoint endPoint, string username)
 		{
-			_threadPool = threadPool;
 			Username = username;
 			ClientId = new Random().Next();
 			ServerEndPoint = endPoint;
 			if (ServerEndPoint != null) Log.Info("Connecting to: " + ServerEndPoint);
-			ClientEndpoint = new IPEndPoint(IPAddress.Any, 0);
-			byte[] buffer = new byte[8];
-			new Random().NextBytes(buffer);
-			_clientGuid = BitConverter.ToInt64(buffer, 0);
 		}
 
 		private static bool _cryptoWarmedUp;
@@ -144,38 +299,45 @@ namespace MiNET.Client
 			// First use of the crypto stack costs more than a second in JIT and
 			// static initialization; pay that before connecting instead of inside
 			// the join sequence, where the server drops sessions that stall.
-			var keyPair = CryptoUtils.GenerateClientKey();
-			var agreement = new ECDHBasicAgreement();
-			agreement.Init(keyPair.Private);
-			agreement.CalculateAgreement((ECPublicKeyParameters) keyPair.Public);
-			using var sha = SHA256.Create();
-			sha.ComputeHash(new byte[] {0});
+			using ECDsa key = CryptoUtils.GenerateClientKey();
+			key.SignData(new byte[] {0}, HashAlgorithmName.SHA384);
+			SHA256.HashData(new byte[] {0});
 		}
 
-		public void StartClient()
+		/// <summary>
+		///     Connects over NetherNet: the session is an INetworkHandler, the
+		///     BedrockClientMessageHandler on top of it batches and compresses, and the login
+		///     sequence follows from the handler's Connected().
+		/// </summary>
+		public async Task<bool> ConnectNetherNetAsync(CancellationToken cancellationToken = default)
 		{
 			WarmUpCrypto();
 
-			var greyListManager = new GreyListManager();
-			var motdProvider = new MotdProvider();
+			_netherNetClient = await NetherNetClient.ConnectAsync(
+				ServerEndPoint.Address.ToString(), ServerEndPoint.Port,
+				cancellationToken: cancellationToken, identity: XboxIdentity);
+			_netherNetSession = _netherNetClient.Session;
 
-			Connection = new RakConnection(ClientEndpoint, greyListManager, motdProvider, _threadPool);
-			var handlerFactory = new BedrockClientMessageHandler(Session, MessageHandler ?? new DefaultMessageHandler(this));
-			handlerFactory.ConnectionAction = () => SendRequestNetworkSettings();
-			Connection.CustomMessageHandlerFactory = session => handlerFactory;
+			var handler = ClientMessageHandlerFactory?.Invoke(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this))
+						?? new BedrockClientMessageHandler(_netherNetSession, MessageHandler ?? new DefaultMessageHandler(this));
+			if (IsEmulator) handler.DropPacketIds = EmulatorDropPacketIds;
+			WrapperHandler = handler;
 
-			//TODO: This is bad design, need to refactor this later.
-			greyListManager.ConnectionInfo = Connection.ConnectionInfo;
-			var serverInfo = Connection.ConnectionInfo;
-			serverInfo.MaxNumberOfPlayers = Config.GetProperty("MaxNumberOfPlayers", 10);
-			serverInfo.MaxNumberOfConcurrentConnects = Config.GetProperty("MaxNumberOfConcurrentConnects", serverInfo.MaxNumberOfPlayers);
+			_netherNetSession.CustomMessageHandler = handler;
 
-			Connection.Start();
+			// The data channel opening is the connection, so the sequence starts now.
+			handler.ConnectionAction = () => SendRequestNetworkSettings();
+			handler.Connected();
+
+			return true;
 		}
 
 		public bool StopClient()
 		{
-			Connection.Stop();
+			// Disposing the client closes the session and its socket.
+			_netherNetClient?.Dispose();
+			_netherNetClient = null;
+			_netherNetSession = null;
 			return true;
 		}
 
@@ -183,24 +345,51 @@ namespace MiNET.Client
 		{
 			var packet = McpeRequestNetworkSettings.CreateObject();
 			packet.protocolVersion = McpeProtocolInfo.ProtocolVersion;
-			SendPacket(packet);
+
+			// Pre-wrapped raw, exactly as the server pre-wraps its NetworkSettings reply. This is one
+			// half of the exchange that decides compression, so it cannot carry a compressor id byte:
+			// the receiver has no way to know one is there yet.
+			var wrapper = McpeWrapper.CreateObject();
+			wrapper.SetPayload(Compression.PackPacketsForWrapper([packet]));
+			wrapper.EncodeAsMemory();
+			SendPacket(wrapper);
 		}
 
 		public void SendLogin(string username)
 		{
 			JWT.JsonMapper = new NewtonsoftMapper();
 
-			var clientKey = CryptoUtils.GenerateClientKey();
+			string identityJson;
+			ECDsa clientKey;
 
 			// 1.21.90+ wraps login identity in an authentication envelope; since protocol 944 the
-			// offline identity is an OIDC-style JWT in Token, and the certificate chain is empty.
+			// identity is an OIDC-style JWT in Token rather than a certificate chain.
 			// AuthenticationType: 0 = full auth, 1 = self-signed, 2 = offline.
-			string identityJson = JsonConvert.SerializeObject(new
+			if (XboxIdentity != null)
 			{
-				Certificate = JsonConvert.SerializeObject(new {chain = new[] {""}}),
-				AuthenticationType = 2,
-				Token = CryptoUtils.EncodeOfflineMultiplayerToken(username, clientKey)
-			});
+				// The keypair is not ours to choose here: the token names it in cpk, and the server
+				// keys its handshake on that, so signing the skin with any other key fails the login.
+				clientKey = XboxIdentity.IdentityKey;
+				username = XboxIdentity.DisplayName ?? username;
+
+				// Full auth sends no certificate chain at all; the token is the whole identity.
+				identityJson = JsonConvert.SerializeObject(new
+				{
+					AuthenticationType = 0,
+					Token = XboxIdentity.LoginToken
+				});
+			}
+			else
+			{
+				clientKey = CryptoUtils.GenerateClientKey();
+
+				identityJson = JsonConvert.SerializeObject(new
+				{
+					Certificate = JsonConvert.SerializeObject(new {chain = new[] {""}}),
+					AuthenticationType = 2,
+					Token = CryptoUtils.EncodeOfflineMultiplayerToken(username, clientKey)
+				});
+			}
 
 			byte[] data = CryptoUtils.CompressJwtBytes(Encoding.UTF8.GetBytes(identityJson), CryptoUtils.EncodeSkinJwt(clientKey, username), CompressionLevel.Fastest);
 
@@ -210,62 +399,20 @@ namespace MiNET.Client
 				payload = data
 			};
 
-			var bedrockHandler = (BedrockClientMessageHandler) Session.CustomMessageHandler;
-			bedrockHandler.CryptoContext = new CryptoContext
-			{
-				ClientKey = clientKey,
-				UseEncryption = false,
-			};
-
 			SendPacket(loginPacket);
 		}
 
-		public void InitiateEncryption(byte[] serverKey, byte[] randomKeyToken)
+		/// <summary>
+		///     Answers a server that offered the Bedrock session cipher. Nothing is negotiated: the
+		///     transport is DTLS, so the link is already encrypted and a second cipher would leave the
+		///     peer reading ciphertext it never expected. The reply is still sent, because a server
+		///     that offered the handshake waits for it before continuing the login.
+		/// </summary>
+		public void AcknowledgeHandshake()
 		{
 			try
 			{
-				ECPublicKeyParameters remotePublicKey = (ECPublicKeyParameters)
-					PublicKeyFactory.CreateKey(serverKey);
-
-				//ECDiffieHellmanPublicKey publicKey = CryptoUtils.FromDerEncoded(serverKey);
-				//Log.Debug("ServerKey (b64):\n" + serverKey);
-				//Log.Debug($"Cert:\n{publicKey.ToXmlString()}");
-
-				Log.Debug($"RANDOM TOKEN (raw):\n\n{Encoding.UTF8.GetString(randomKeyToken)}");
-
-				//if (randomKeyToken.Length != 0)
-				//{
-				//	Log.Error("Lenght of random bytes: " + randomKeyToken.Length);
-				//}
-
-				var bedrockHandler = (BedrockClientMessageHandler) Session.CustomMessageHandler;
-
-				var agreement = new ECDHBasicAgreement();
-				agreement.Init(bedrockHandler.CryptoContext.ClientKey.Private);
-				byte[] secret;
-				using (var sha = SHA256.Create())
-				{
-					secret = sha.ComputeHash(randomKeyToken.Concat(agreement.CalculateAgreement(remotePublicKey).ToByteArrayUnsigned()).ToArray());
-				}
-
-				Log.Debug($"SECRET KEY (raw):\n{Encoding.UTF8.GetString(secret)}");
-
-				// Create a decrytor to perform the stream transform.
-				var encryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-				var decryptor = new StreamingSicBlockCipher(new SicBlockCipher(new AesEngine()));
-				decryptor.Init(false, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-				encryptor.Init(true, new ParametersWithIV(new KeyParameter(secret), secret.Take(12).Concat(new byte[] {0, 0, 0, 2}).ToArray()));
-
-				bedrockHandler.CryptoContext = new CryptoContext
-				{
-					Decryptor = decryptor,
-					Encryptor = encryptor,
-					UseEncryption = true,
-					Key = secret
-				};
-
-				McpeClientToServerHandshake magic = new McpeClientToServerHandshake();
-				SendPacket(magic);
+				SendPacket(new McpeClientToServerHandshake());
 			}
 			catch (Exception e)
 			{
@@ -631,63 +778,6 @@ namespace MiNET.Client
 		public ConcurrentDictionary<ChunkCoordinates, ChunkColumn> Chunks { get; } = new ConcurrentDictionary<ChunkCoordinates, ChunkColumn>();
 		public IndentedTextWriter _mobWriter;
 
-		private void SendData(byte[] data, IPEndPoint targetEndpoint)
-		{
-			if (Connection == null) return;
-
-			try
-			{
-				Connection.SendData(data, targetEndpoint);
-			}
-			catch (Exception e)
-			{
-				Log.Debug("Send exception", e);
-			}
-		}
-
-		public void SendUnconnectedPing()
-		{
-			var packet = new UnconnectedPing
-			{
-				pingId = Stopwatch.GetTimestamp() /*incoming.pingId*/,
-				guid = _clientGuid
-			};
-
-			var data = packet.Encode();
-
-			if (ServerEndPoint != null)
-			{
-				SendData(data, ServerEndPoint);
-			}
-			else
-			{
-				SendData(data, new IPEndPoint(IPAddress.Broadcast, 19132));
-			}
-		}
-
-		public void SendConnectedPing()
-		{
-			var packet = new ConnectedPing() {sendpingtime = DateTime.UtcNow.Ticks};
-
-			SendPacket(packet);
-		}
-
-		public void SendConnectedPong(long sendpingtime)
-		{
-			var packet = new ConnectedPong
-			{
-				sendpingtime = sendpingtime,
-				sendpongtime = sendpingtime + 200
-			};
-
-			SendPacket(packet);
-		}
-
-		public void SendOpenConnectionRequest1()
-		{
-			Connection.TryConnect(ServerEndPoint, 1);
-		}
-
 		public void SendPacket(Packet packet)
 		{
 			Session?.SendPacket(packet);
@@ -712,64 +802,31 @@ namespace MiNET.Client
 
 			var movePlayerPacket = McpeMovePlayer.CreateObject();
 			movePlayerPacket.runtimeEntityId = EntityId;
-			movePlayerPacket.x = CurrentLocation.X;
-			movePlayerPacket.y = CurrentLocation.Y;
-			movePlayerPacket.z = CurrentLocation.Z;
-			movePlayerPacket.yaw = CurrentLocation.Yaw;
-			movePlayerPacket.pitch = CurrentLocation.Pitch;
+			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
+			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);
 			movePlayerPacket.headYaw = CurrentLocation.HeadYaw;
-			movePlayerPacket.mode = 1;
+			movePlayerPacket.mode = McpeMovePlayer.PositionMode.Respawn;
 			movePlayerPacket.onGround = false;
 
 			SendPacket(movePlayerPacket);
 		}
 
-		public async Task SendCurrentPlayerPositionAsync()
+		public Task SendCurrentPlayerPositionAsync()
 		{
-			if (CurrentLocation == null) return;
+			if (CurrentLocation == null) return Task.CompletedTask;
 
 			if (CurrentLocation.Y < 0) CurrentLocation.Y = 64f;
 
 			var movePlayerPacket = McpeMovePlayer.CreateObject();
-			movePlayerPacket.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
 			movePlayerPacket.runtimeEntityId = EntityId;
-			movePlayerPacket.x = CurrentLocation.X;
-			movePlayerPacket.y = CurrentLocation.Y;
-			movePlayerPacket.z = CurrentLocation.Z;
-			movePlayerPacket.yaw = CurrentLocation.Yaw;
-			movePlayerPacket.pitch = CurrentLocation.Pitch;
+			movePlayerPacket.position = new Vector3(CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z);
+			movePlayerPacket.rotation = new Vector2(CurrentLocation.Pitch, CurrentLocation.Yaw);
 			movePlayerPacket.headYaw = CurrentLocation.HeadYaw;
-			movePlayerPacket.mode = 1;
+			movePlayerPacket.mode = McpeMovePlayer.PositionMode.Respawn;
 			movePlayerPacket.onGround = false;
 
-			if (Connection.ConnectionInfo.IsEmulator)
-			{
-				//var batch = McpeWrapper.CreateObject();
-				//batch.ReliabilityHeader.Reliability = Reliability.ReliableOrdered;
-				//batch.payload = Compression.CompressPacketsForWrapper(new List<Packet> {movePlayerPacket});
-
-				//Packet message = null;
-				//if (Session.CustomMessageHandler != null) message = Session.CustomMessageHandler.HandleOrderedSend(batch);
-
-				//Reliability reliability = message.ReliabilityHeader.Reliability;
-				//if (reliability == Reliability.Undefined) reliability = Reliability.Reliable; // Questionable practice
-
-				//if (reliability == Reliability.ReliableOrdered) message.ReliabilityHeader.OrderingIndex = Interlocked.Increment(ref Session.OrderingIndex);
-				//await Session.SendPacketAsync(message);
-
-				Session.SendPacket(movePlayerPacket);
-				await Session.SendQueueAsync(0);
-			}
-			else
-			{
-				Session.SendPacket(movePlayerPacket);
-			}
-		}
-
-
-		public void SendDisconnectionNotification()
-		{
-			SendPacket(new DisconnectionNotification());
+			Session.SendPacket(movePlayerPacket);
+			return Task.CompletedTask;
 		}
 	}
 }

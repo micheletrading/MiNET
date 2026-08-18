@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -36,18 +36,18 @@ namespace MiNET.Net
 		public int originY;
 		public int originZ;
 
-		public List<SubChunkPositionOffset> offsets = new List<SubChunkPositionOffset>();
+		public List<SubChunkPosOffset> offsets = new List<SubChunkPosOffset>();
 
 		partial void AfterEncode()
 		{
 			WriteSignedVarInt(dimension);
 
 			WriteUnsignedVarInt((uint) offsets.Count);
-			foreach (SubChunkPositionOffset offset in offsets)
+			foreach (SubChunkPosOffset offset in offsets)
 			{
-				Write((byte) offset.XOffset);
-				Write((byte) offset.YOffset);
-				Write((byte) offset.ZOffset);
+				Write((byte) offset.subchunkOffsetX);
+				Write((byte) offset.subchunkOffsetY);
+				Write((byte) offset.subchunkOffsetZ);
 			}
 
 			// Origin is a little-endian int32 triple, unlike the response's varints.
@@ -61,14 +61,14 @@ namespace MiNET.Net
 			dimension = ReadSignedVarInt();
 
 			uint count = ReadUnsignedVarInt();
-			offsets = new List<SubChunkPositionOffset>((int) count);
+			offsets = new List<SubChunkPosOffset>((int) count);
 			for (uint i = 0; i < count; i++)
 			{
-				offsets.Add(new SubChunkPositionOffset
+				offsets.Add(new SubChunkPosOffset
 				{
-					XOffset = (sbyte) ReadByte(),
-					YOffset = (sbyte) ReadByte(),
-					ZOffset = (sbyte) ReadByte()
+					subchunkOffsetX = (sbyte) ReadByte(),
+					subchunkOffsetY = (sbyte) ReadByte(),
+					subchunkOffsetZ = (sbyte) ReadByte()
 				});
 			}
 

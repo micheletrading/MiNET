@@ -33,7 +33,7 @@ namespace MiNET.Blocks
 {
 	public partial class Loom : Block
 	{
-		public Loom() : base(459)
+		public Loom()
 		{
 		}
 
@@ -46,12 +46,7 @@ namespace MiNET.Blocks
 
 		public override bool Interact(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
-			var containerOpen = McpeContainerOpen.CreateObject();
-			containerOpen.windowId = 24;
-			containerOpen.type = 24;
-			containerOpen.coordinates = blockCoordinates;
-			containerOpen.actorUniqueId = EntityManager.EntityIdSelf;
-			player.SendPacket(containerOpen);
+			player.OpenUiScreen(ScreenKind.Loom, ContainerType.Loom, blockCoordinates);
 
 			return true;
 		}
