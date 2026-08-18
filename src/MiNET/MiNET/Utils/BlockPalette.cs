@@ -50,18 +50,37 @@ namespace MiNET.Utils
 		public byte[] StatesCacheNbt { get; set; }
 		public ItemPickInstance ItemInstance { get; set; }
 
+		/// <summary>
+		///     Name plus the set of states, without regard to the order they are listed in: two lists
+		///     holding the same states are the same block, and a stored world writes them in whatever
+		///     order the version that wrote it used.
+		///     <para>
+		///     Allocation-free on purpose. This runs for every palette entry of every section read off
+		///     disk, and a state list is a handful of entries, so scanning beats building a set.
+		///     </para>
+		/// </summary>
 		protected bool Equals(BlockStateContainer other)
 		{
-			bool result = /*Id == other.Id && */Name == other.Name;
-			if (!result) return false;
+			if (Name != other.Name) return false;
+			if (States.Count != other.States.Count) return false;
 
-			var thisStates = new HashSet<IBlockState>(States);
-			var otherStates = new HashSet<IBlockState>(other.States);
+			for (int i = 0; i < States.Count; i++)
+			{
+				IBlockState state = States[i];
+				bool found = false;
+				for (int j = 0; j < other.States.Count; j++)
+				{
+					if (state.Equals(other.States[j]))
+					{
+						found = true;
+						break;
+					}
+				}
 
-			otherStates.IntersectWith(thisStates);
-			result = otherStates.Count == thisStates.Count;
+				if (!found) return false;
+			}
 
-			return result;
+			return true;
 		}
 
 		public override bool Equals(object obj)
@@ -74,31 +93,18 @@ namespace MiNET.Utils
 
 		public override int GetHashCode()
 		{
-			// Must mirror Equals, which matches on Name + States only (not Id). Including
-			// Id here put equal containers in different buckets, so name-only palette
-			// lookups (e.g. a renamed block whose legacy Id wasn't remapped) missed.
-			var hash = new HashCode();
-			hash.Add(Name);
-			foreach (var state in States)
+			// Mirrors Equals, which is why the states combine with XOR rather than in sequence: order
+			// must not change the result. Hashing them in list order put two containers holding the
+			// same states in different buckets, so whether a palette lookup found its block came down
+			// to the order the world it came from happened to store them in.
+			int hash = Name?.GetHashCode() ?? 0;
+
+			foreach (IBlockState state in States)
 			{
-				switch (state)
-				{
-					case BlockStateByte blockStateByte:
-						hash.Add(blockStateByte);
-						break;
-					case BlockStateInt blockStateInt:
-						hash.Add(blockStateInt);
-						break;
-					case BlockStateString blockStateString:
-						hash.Add(blockStateString);
-						break;
-					default:
-						throw new ArgumentOutOfRangeException(nameof(state));
-				}
+				hash ^= state.GetHashCode();
 			}
 
-			int hashCode = hash.ToHashCode();
-			return hashCode;
+			return hash;
 		}
 
 		public override string ToString()

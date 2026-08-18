@@ -89,6 +89,9 @@ namespace MiNET.Net.Rtc
 		// _peers/_sendAddresses entries behind.
 		private readonly HashSet<IPEndPoint> _knownEndpoints = new();
 
+		/// <summary>Candidates the peer advertised in a family this mux cannot address. See <see cref="AddRemoteCandidate" />.</summary>
+		private readonly List<IPEndPoint> _ignoredCandidates = new();
+
 		private int _closedFlag;
 
 		private string _remoteUfrag;
@@ -116,6 +119,26 @@ namespace MiNET.Net.Rtc
 		internal long ConsentChecksSent => Interlocked.Read(ref _consentChecksSent);
 
 		public IPEndPoint RemoteEndPoint { get; private set; }
+
+		/// <summary>
+		///     Why this session gave up, in the words of whatever gave up. Set before
+		///     <see cref="OnFailed" /> fires, so a subscriber can read it, and readable afterwards by
+		///     anyone holding the session. Null while the session is still healthy.
+		/// </summary>
+		public string FailureReason { get; private set; }
+
+		/// <summary>
+		///     Candidates the peer offered that this mux cannot address, kept rather than counted: a
+		///     caller staring at a failed connect wants to see WHICH addresses were passed over, not
+		///     be told a number. See <see cref="AddRemoteCandidate" />.
+		/// </summary>
+		public IReadOnlyList<IPEndPoint> IgnoredCandidates
+		{
+			get
+			{
+				lock (_gate) return _ignoredCandidates.ToArray();
+			}
+		}
 
 		public event Action<IPEndPoint> OnNominated;
 		public event Action OnFailed;
@@ -158,6 +181,17 @@ namespace MiNET.Net.Rtc
 		{
 			if (_role != IceRole.Controlling) throw new InvalidOperationException("AddRemoteCandidate is only valid for the Controlling role.");
 
+			// A peer advertises candidates in every family it holds, and vanilla holds IPv6. Checking
+			// one this mux cannot address wins nothing: the check cannot leave the socket, and the
+			// candidate would sit in the list being retried for the whole connect. Dropped here, so
+			// the rest of the list is the list we actually work through.
+			if (!_mux.CanSendTo(candidate?.Address))
+			{
+				lock (_gate) _ignoredCandidates.Add(candidate);
+				Log.Info($"Ignoring remote candidate {candidate}: this mux cannot address that family. It stays readable in IgnoredCandidates.");
+				return;
+			}
+
 			// Register on the mux BEFORE the candidate becomes visible to the tick thread: a
 			// binding SUCCESS carries no USERNAME, so it can only route back to us by endpoint.
 			// Adding to _candidates first would let the tick thread send the very first check
@@ -176,6 +210,21 @@ namespace MiNET.Net.Rtc
 		{
 			if (_role != IceRole.Controlling) throw new InvalidOperationException("StartChecks is only valid for the Controlling role.");
 			if (_remoteUfrag == null || _remotePasswordBytes == null) throw new InvalidOperationException("SetRemoteCredentials must be called before StartChecks.");
+
+			// Nothing left to check, so this connect can only end in the give-up timeout. Said now and
+			// plainly, because the alternative is twenty silent seconds and a generic failure.
+			int usable;
+			string ignored;
+			lock (_gate)
+			{
+				usable = _candidates.Count;
+				ignored = string.Join(", ", _ignoredCandidates);
+			}
+
+			if (usable == 0)
+			{
+				Log.Warn($"No usable remote candidate: every address the peer offered ({ignored}) is in a family this mux cannot address.");
+			}
 
 			_checkUsername = _remoteUfrag + ":" + _localUfrag;
 			_checksStartedAtTicks = Environment.TickCount64;
@@ -343,7 +392,7 @@ namespace MiNET.Net.Rtc
 			{
 				if (now - Interlocked.Read(ref _lastSeenTicks) >= ConsentTimeoutMillis)
 				{
-					Fail();
+					Fail($"nothing heard from the nominated pair {RemoteEndPoint} for {ConsentTimeoutMillis}ms (consent timeout)");
 					return;
 				}
 
@@ -365,7 +414,15 @@ namespace MiNET.Net.Rtc
 
 			if (now - _checksStartedAtTicks >= GiveUpAfterMillis)
 			{
-				Fail();
+				int checkedCount;
+				string ignored;
+				lock (_gate)
+				{
+					checkedCount = _candidates.Count;
+					ignored = _ignoredCandidates.Count == 0 ? "none" : string.Join(", ", _ignoredCandidates);
+				}
+
+				Fail($"no answer from any of the {checkedCount} reachable candidate(s) within {GiveUpAfterMillis}ms; candidates passed over as unaddressable: {ignored}");
 				return;
 			}
 
@@ -394,10 +451,14 @@ namespace MiNET.Net.Rtc
 
 			Span<byte> buffer = stackalloc byte[StunMessage.MaxSize];
 			int written = message.WriteTo(buffer, _remotePasswordBytes, true);
-			_mux.Send(candidate.EndPoint, buffer.Slice(0, written));
 
+			// Scheduled before the send, not after: a send that fails still has to back this candidate
+			// off, or it stays due on every tick and the candidates behind it in the list never get
+			// their turn.
 			candidate.NextSendAtTicks = now + candidate.RtoMillis;
 			candidate.RtoMillis = Math.Min(candidate.RtoMillis * 2, MaxRtoMillis);
+
+			_mux.Send(candidate.EndPoint, buffer.Slice(0, written));
 		}
 
 		private void SendConsentCheck(long now)
@@ -451,9 +512,18 @@ namespace MiNET.Net.Rtc
 			OnNominated?.Invoke(endpoint);
 		}
 
-		private void Fail()
+		/// <summary>
+		///     <paramref name="reason" /> is stored before the event fires and outlives it, so a caller
+		///     that only learns about the failure later (a connect that timed out, a session torn down
+		///     while it was elsewhere) can still read what happened instead of being handed a bare
+		///     "it did not work".
+		/// </summary>
+		private void Fail(string reason)
 		{
 			if (Interlocked.CompareExchange(ref _failedFlag, 1, 0) != 0) return;
+
+			FailureReason = reason;
+			Log.Warn($"ICE session failed: {reason}");
 
 			OnFailed?.Invoke();
 		}

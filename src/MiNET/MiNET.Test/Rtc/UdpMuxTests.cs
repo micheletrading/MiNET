@@ -232,5 +232,24 @@ namespace MiNET.Test.Rtc
 				foreach (UdpClient sender in senders) sender.Dispose();
 			}
 		}
+
+		/// <summary>
+		///     A peer advertises candidates in every family it holds, and vanilla holds IPv6. Sending
+		///     to one this socket cannot address raises WSAEAFNOSUPPORT, and every caller of Send is a
+		///     tick or a send path where that exception takes healthy work down with it: an ICE tick
+		///     stops checking the candidates behind it, an SCTP retransmit is lost. So it drops.
+		/// </summary>
+		[TestMethod]
+		public void Send_ToAFamilyThisSocketCannotAddress_DropsInsteadOfThrowing()
+		{
+			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			mux.Start();
+
+			Assert.IsFalse(mux.CanSendTo(IPAddress.IPv6Loopback), "a v4 socket cannot address a v6 peer");
+
+			mux.Send(new IPEndPoint(IPAddress.IPv6Loopback, 19132), new byte[] {1, 2, 3});
+
+			Assert.AreEqual(1, mux.UnreachableFamilyDrops);
+		}
 	}
 }

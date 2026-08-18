@@ -115,7 +115,12 @@ namespace MiNET.Client
 		public Vector3 WorldSpawn { get; set; }
 		public long EntityId { get; set; }
 		public long NetworkEntityId { get; set; }
-		public int ChunkRadius { get; set; } = 5;
+		/// <summary>
+		///     The radius this client asks for at StartGame. 12 is a real player's setting rather than
+		///     a token one, so the join it produces is the join a server actually has to serve. The bot
+		///     fleet sets its own from the command line and is unaffected by this.
+		/// </summary>
+		public int ChunkRadius { get; set; } = 12;
 
 		public LevelInfo LevelInfo { get; } = new LevelInfo();
 
@@ -129,30 +134,21 @@ namespace MiNET.Client
 		public int ClientId { get; set; }
 
 		public McpePlayStatus.PlayStatus PlayerStatus { get; set; }
-		public bool UseBlobCache { get; set; }
+
+		/// <summary>
+		///     Announce a client-side blob cache at login. On by default because it is not really
+		///     optional: every Mojang client caches, and a MiNET server refuses a client that says it
+		///     does not.
+		/// </summary>
+		public bool UseBlobCache { get; set; } = true;
+
 		public bool BlockNetworkIdsAreHashes { get; set; }
 
 		/// <summary>
-		///     Blob hashes this client has already been given. Keys only: the payloads are never read
-		///     back, and holding them would cost a bot its whole terrain in memory for nothing. The key
-		///     is the entire point, because the hit/miss answer is what stops the server resending a
-		///     blob we already have.
-		///     <para>
-		///         Settable and thread-safe so a fleet can point every bot at ONE shared store:
-		///         hashes are content-addressed and client-agnostic, so a shared store makes the
-		///         fleet look like a warm returning population instead of a thousand cold first
-		///         joins. Left alone, each client keeps its own.
-		///     </para>
+		///     The blob cache and the columns assembled out of it, for both delivery flows. What
+		///     lands here is payloads, not blocks: decoding a section is the consumer's job.
 		/// </summary>
-		public ConcurrentDictionary<ulong, byte> KnownBlobs { get; set; } = new ConcurrentDictionary<ulong, byte>();
-
-		/// <summary>
-		///     Columns whose sub-chunks have already been pulled. A skeleton for a column in here needs
-		///     no sub-chunk request: without this the client re-asks for all 24 sections every time the
-		///     server pushes a column it already sent, which is most of the traffic a walking player
-		///     generates.
-		/// </summary>
-		public HashSet<ChunkCoordinates> KnownColumns { get; } = new HashSet<ChunkCoordinates>();
+		public ClientChunkCache ChunkCache { get; } = new ClientChunkCache();
 
 		/// <summary>
 		///     Off (default): cache verdicts and sub-chunk requests answer each LevelChunk
@@ -186,6 +182,83 @@ namespace MiNET.Client
 
 		/// <summary>Columns awaiting a batched sub-chunk request: position, highest relative index, dimension.</summary>
 		public ConcurrentQueue<(int X, int Z, int Highest, int Dimension)> PendingSubChunkColumns { get; } = new ConcurrentQueue<(int, int, int, int)>();
+
+		/// <summary>
+		///     The chunk answers this client owes the server: one ClientCacheBlobStatus for the
+		///     pending verdicts (capped at the packet's 4095-id limit, the rest waits for the next
+		///     call) and one SubChunkRequest covering the pending columns' surface bands, offsets
+		///     relative to the first pending column.
+		///     <para>
+		///         With <see cref="BatchChunkResponses" /> on this is a tick job and the caller owns
+		///         the cadence, the way a real client flushes its verdicts per tick; off, the handler
+		///         calls it as each packet lands.
+		///     </para>
+		/// </summary>
+		public void FlushChunkResponses()
+		{
+			var hits = new List<ulong>();
+			var misses = new List<ulong>();
+			while (hits.Count + misses.Count < 4095 && PendingBlobHits.TryDequeue(out ulong hash)) hits.Add(hash);
+			while (hits.Count + misses.Count < 4095 && PendingBlobMisses.TryDequeue(out ulong hash)) misses.Add(hash);
+
+			if (hits.Count + misses.Count > 0)
+			{
+				var status = McpeClientCacheBlobStatus.CreateObject();
+				status.hashHits = hits.ToArray();
+				status.hashMisses = misses.ToArray();
+				SendPacket(status);
+			}
+
+			if (!PendingSubChunkColumns.TryDequeue(out (int X, int Z, int Highest, int Dimension) first)) return;
+
+			var request = McpeSubChunkRequestPacket.CreateObject();
+			request.dimension = first.Dimension;
+			request.originX = first.X;
+			request.originY = 0;
+			request.originZ = first.Z;
+
+			void AddColumn((int X, int Z, int Highest, int Dimension) column)
+			{
+				// Relative index 0 is section y -4, and the highest requestable one is the column's
+				// own limit. RequestTopSections narrows the ask to the top of the column, the band a
+				// real client's view actually covers.
+				int lowest = RequestTopSections > 0 ? Math.Max(0, column.Highest - RequestTopSections + 1) : 0;
+				for (int i = lowest; i <= column.Highest; i++)
+				{
+					request.offsets.Add(new SubChunkPosOffset
+					{
+						subchunkOffsetX = (sbyte) (column.X - first.X),
+						subchunkOffsetY = (sbyte) (i - 4),
+						subchunkOffsetZ = (sbyte) (column.Z - first.Z)
+					});
+				}
+
+				ChunkCache.SectionsRequested(new ChunkCoordinates(column.X, column.Z), column.Highest - lowest + 1);
+			}
+
+			AddColumn(first);
+
+			// More pending columns fold into the same request while they fit the sbyte offset
+			// range around the first one; anything farther waits for the next call.
+			while (request.offsets.Count < 512 && PendingSubChunkColumns.TryPeek(out (int X, int Z, int Highest, int Dimension) next))
+			{
+				if (next.Dimension != first.Dimension || Math.Abs(next.X - first.X) > 120 || Math.Abs(next.Z - first.Z) > 120) break;
+
+				PendingSubChunkColumns.TryDequeue(out next);
+				AddColumn(next);
+			}
+
+			SendPacket(request);
+		}
+
+		/// <summary>
+		///     Position-driven forgetting, identical to the server's prune: what this client knows is
+		///     the disc around its own position and radius, and crossing a chunk boundary forgets
+		///     whatever fell outside. The two sides matching is what makes a re-entered column arrive
+		///     as a fresh skeleton and dance again. The blob cache is untouched, so the re-dance is
+		///     metadata and round trips, never terrain bytes.
+		/// </summary>
+		public void ForgetColumnsOutsideWindow(ChunkCoordinates center) => ChunkCache.Forget(center, ChunkRadius);
 
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
 

@@ -83,7 +83,9 @@ namespace MiNET.Worlds
 
 		public SubChunk(bool clearBuffers = true)
 		{
-			_runtimeIds = new List<int> {(int) BlockFactory.GetBlockByName("minecraft:air").GetRuntimeId()};
+			// The air runtime id, not a block built to be asked for it. GetBlockByName ends in
+			// Activator.CreateInstance, and this runs for every section that comes into existence.
+			_runtimeIds = new List<int> {BlockFactory.AirRuntimeId};
 				
 			_blocks = ArrayPool<short>.Shared.Rent(4096);
 			_loggedBlocks = ArrayPool<byte>.Shared.Rent(4096);

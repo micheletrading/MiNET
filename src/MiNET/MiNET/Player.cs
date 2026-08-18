@@ -4416,11 +4416,12 @@ namespace MiNET
 				var chunkPosition = new ChunkCoordinates(position);
 				ChunkColumn column = Level.GetChunk(chunkPosition);
 
-				// Same delivery mode as the streamer: skeleton with sub-chunk requests by
-				// default, the cached push form when ChunkCachedPush is on.
 				if (column == null) return;
 
-				McpeLevelChunk chunk = column.CreateLevelChunk();
+				// Pushed, not announced. This is the column the player is standing in during a join
+				// or a teleport, and it has to be there when they arrive rather than after a round
+				// trip they have to wait for.
+				McpeLevelChunk chunk = column.CreateCachedPushChunk();
 				_chunksUsed[chunkPosition] = column.Version;
 
 				SendNetworkChunkPublisherUpdate(position);
@@ -4460,19 +4461,34 @@ namespace MiNET
 				var group = new List<Packet> {CreateNetworkChunkPublisherUpdate(JoinBurstChunkRadius, position ?? KnownPosition)};
 				int groupHashes = 0;
 
-				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, Math.Min(JoinBurstChunkRadius, ChunkRadius), prune: false))
+				// A forced pass is a join or a level change, so it happens once and covers the whole
+				// disc. What it cost is worth saying out loud: at a large view distance this is the
+				// wait a player experiences, and split by phase it says whether the time went into
+				// reading columns or into handing them to the transport.
+				long passStarted = Stopwatch.GetTimestamp();
+				int spawnColumns = 0, streamColumns = 0;
+
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, Math.Min(JoinBurstChunkRadius, ChunkRadius), prune: false, cachedPush: true))
 				{
-					if (chunk != null) group.Add(chunk);
+					if (chunk != null)
+					{
+						group.Add(chunk);
+						spawnColumns++;
+					}
 				}
+
+				long spawnBuilt = Stopwatch.GetTimestamp();
 				SendPackets(group);
+				long spawnSent = Stopwatch.GetTimestamp();
 				group = new List<Packet> {CreateNetworkChunkPublisherUpdate(ChunkRadius, position ?? KnownPosition)};
 
 				// The rest of the disc at the blob-status boundary (see the streamer).
-				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius))
+				foreach ((ChunkCoordinates _, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, cachedPush: true))
 				{
 					if (chunk == null) continue;
 
 					group.Add(chunk);
+					streamColumns++;
 					groupHashes += chunk.cacheMetadata?.Count ?? 0;
 
 					if (groupHashes >= GroupFlushHashes)
@@ -4483,6 +4499,10 @@ namespace MiNET
 					}
 				}
 				if (group.Count > 0) SendPackets(group);
+
+				long passEnded = Stopwatch.GetTimestamp();
+				double Ms(long from, long to) => (to - from) * 1000d / Stopwatch.Frequency;
+				Log.Info($"Forced chunk pass for {Username} on {Level?.LevelId}: radius {ChunkRadius}, spawn block {spawnColumns} columns in {Ms(passStarted, spawnBuilt):F0}ms (send {Ms(spawnBuilt, spawnSent):F0}ms), rest {streamColumns} columns in {Ms(spawnSent, passEnded):F0}ms, total {Ms(passStarted, passEnded):F0}ms");
 			}
 			finally
 			{
@@ -4624,7 +4644,10 @@ namespace MiNET
 				// pushed packet. Pushed columns stay OUT of the request-latency bookkeeping
 				// (groupCoordinates): nothing will ever request them, and stamping them would
 				// false-positive the adaptive radius's never-requested signal.
-				bool pushRim = !spawningPass && ChunkColumn.PushAfterSpawn;
+				// The streamer's own call: a spawning pass leaves the client to ask, because its
+				// request selectivity is what makes a cold horizon bearable, and every pass after
+				// that pushes, because a walking player takes the whole rim anyway.
+				bool pushRim = !spawningPass;
 				foreach ((ChunkCoordinates coordinates, McpeLevelChunk chunk) in Level.GenerateChunks(_currentChunkPosition, _chunksUsed, ChunkRadius, () => KnownPosition, KnownPosition.HeadYaw, cachedPush: pushRim))
 				{
 					if (chunk != null)
@@ -4645,8 +4668,7 @@ namespace MiNET
 
 				FlushGroup();
 
-				// The first sends are done: from the next pass on, this player is in the push
-				// phase (when ChunkPushAfterSpawn says so).
+				// The first sends are done, so from the next pass on this player's rim is pushed.
 				_firstBurstSent = true;
 
 				// A client does not request sub-chunks until it has been told to spawn, so gating the
@@ -4932,7 +4954,12 @@ namespace MiNET
 			metadata[(int) MetadataFlags.NameTag] = new MetadataString(NameTag ?? Username);
 			metadata[(int) MetadataFlags.ButtonText] = new MetadataString(ButtonText ?? string.Empty);
 			metadata[(int) MetadataFlags.PlayerFlags] = new MetadataByte((byte) (IsSleeping ? 0b10 : 0));
-			metadata[(int) MetadataFlags.BedPosition] = new MetadataIntCoordinates((int) SpawnPosition.X, (int) SpawnPosition.Y, (int) SpawnPosition.Z);
+			// A player has no spawn position until the level assigns one, and metadata is broadcast
+			// before that: any throw here takes down the whole wrapper batch it rides in.
+			PlayerLocation bedPosition = SpawnPosition ?? KnownPosition;
+			metadata[(int) MetadataFlags.BedPosition] = bedPosition == null
+				? new MetadataIntCoordinates(0, 0, 0)
+				: new MetadataIntCoordinates((int) bedPosition.X, (int) bedPosition.Y, (int) bedPosition.Z);
 
 			// Players report their bounding box as a single CollisionBox vector3 (width, height, 0)
 			// instead of the generic CollisionBoxWidth/Height floats used by mobs.

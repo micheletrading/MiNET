@@ -47,6 +47,7 @@ namespace MiNET.Plotter
 			server.LevelManager.LevelCreated += (sender, args) =>
 			{
 				Level level = args.Level;
+				if (!PlotterLevelManager.IsPlotWorld(level)) return;
 
 				level.BlockBreak += LevelOnBlockBreak;
 				level.BlockPlace += LevelOnBlockPlace;
@@ -89,7 +90,7 @@ namespace MiNET.Plotter
 		{
 			var player = e.Player;
 			var level = player.Level;
-			if (level.Dimension == Dimension.Overworld)
+			if (level.Dimension == Dimension.Overworld && PlotterLevelManager.IsPlotWorld(level))
 			{
 				PlotterPluginStore store = player.Store<PlotterPluginStore>();
 
@@ -138,6 +139,14 @@ namespace MiNET.Plotter
 					}
 				}
 			}
+			else if (player.IsWorldImmutable)
+			{
+				// The build lock is plot protection, so it must not follow the player out of the plot
+				// world. Without this a visit to someone else's plot leaves every map world read-only.
+				player.IsWorldImmutable = false;
+				player.SendAdventureSettings();
+				player.Store<PlotterPluginStore>().CurrentPlot = null;
+			}
 		}
 
 		private void OnPlayerJoin(object sender, PlayerEventArgs e)
@@ -147,6 +156,10 @@ namespace MiNET.Plotter
 
 		private void SetSpawnPosition(Player player, Level level)
 		{
+			// A plot home is a position in the plot world and means nothing anywhere else. Map worlds
+			// spawn players where their own level.dat says.
+			if (!PlotterLevelManager.IsPlotWorld(level)) return;
+
 			var plotPlayer = _plotManager.GetOrAddPlotPlayer(player);
 			var pos = plotPlayer.LastPosition ?? plotPlayer.Home;
 			if (pos != null)

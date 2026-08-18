@@ -87,6 +87,12 @@ namespace MiNET.ServiceKiller
 				// batched on the walk timer instead of fired per packet.
 				client.BatchChunkResponses = true;
 				client.RequestTopSections = 4;
+				// The one place a bot is not a client: it runs the whole dance and keeps neither the
+				// blob payloads nor the columns they build, because a thousand bots holding a world
+				// each is memory spent on terrain nobody looks at. The hashes stay, since the hit or
+				// miss answer is what the server's cache is measured by.
+				client.ChunkCache.Blobs.KeepPayloads = false;
+				client.ChunkCache.TrackColumns = false;
 				client.ClientId = ClientId;
 
 				// Signaling plus data channel opening is the whole connection; the login

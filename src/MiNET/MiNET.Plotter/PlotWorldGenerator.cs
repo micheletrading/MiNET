@@ -130,11 +130,11 @@ namespace MiNET.Plotter
 			// The runtime id each layer wants, resolved once. Every block already sitting on its
 			// target is skipped, so a clear costs one packet per block that actually changes
 			// instead of one per block in the plot.
-			int bedrockId = new Bedrock().GetRuntimeId();
-			int airId = new Air().GetRuntimeId();
-			int grassId = new GrassBlock().GetRuntimeId();
-			int dirtId = new Dirt().GetRuntimeId();
-			int stoneId = new Stone().GetRuntimeId();
+			int bedrockId = BlockFactory.GetDefaultState("minecraft:bedrock").RuntimeId;
+			int airId = BlockFactory.AirRuntimeId;
+			int grassId = BlockFactory.GetDefaultState("minecraft:grass_block").RuntimeId;
+			int dirtId = BlockFactory.GetDefaultState("minecraft:dirt").RuntimeId;
+			int stoneId = BlockFactory.GetDefaultState("minecraft:stone").RuntimeId;
 
 			for (int x = (int) bbox.Min.X; x < (int) bbox.Max.X + 1; x++)
 			{
