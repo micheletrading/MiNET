@@ -158,6 +158,15 @@ namespace MiNET
 				if (Entity.Level.Difficulty <= Difficulty.Normal && Hearts <= 1) return;
 			}
 
+			if (Entity.Level.Difficulty == Difficulty.Hardcore && cause != DamageCause.Starving)
+			{
+				float multiplier = Entity.Level.HardcoreDamageMultiplier;
+				if (multiplier > 1)
+				{
+					damage = (int) Math.Ceiling(damage * multiplier);
+				}
+			}
+
 			Health -= damage * 10;
 			if (Health < 0)
 			{
@@ -509,9 +518,9 @@ namespace MiNET
 
 			var block = Entity.Level.GetBlock(playerPosition);
 
-			if (block == null || (block.Id != 10 && block.Id != 11)) return false;
-
-			return playerPosition.Y < Math.Floor(playerPosition.Y) + 1 - ((1f / 9f) - 0.1111111);
+			// The block the feet are in is lava, surface included: vanilla burns you the moment
+			// you touch lava, so unlike the water check there is no surface-threshold epsilon.
+			return block != null && (block.Id == 10 || block.Id == 11);
 		}
 
 		private bool IsInOpaque(PlayerLocation playerPosition)

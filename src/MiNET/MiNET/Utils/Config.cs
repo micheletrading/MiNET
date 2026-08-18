@@ -230,6 +230,36 @@ namespace MiNET.Utils
 			}
 		}
 
+		public static float GetProperty(string property, float defaultValue)
+		{
+			try
+			{
+				var value = ReadString(property);
+				if (value == null) return defaultValue;
+
+				return Convert.ToSingle(value, System.Globalization.CultureInfo.InvariantCulture);
+			}
+			catch
+			{
+				return defaultValue;
+			}
+		}
+
+		public static HardcoreDeathPolicy GetProperty(string property, HardcoreDeathPolicy defaultValue)
+		{
+			switch (ReadString(property)?.Trim().ToLowerInvariant())
+			{
+				case "ban":
+					return HardcoreDeathPolicy.Ban;
+				case "spectator":
+					return HardcoreDeathPolicy.Spectator;
+				case "drop":
+					return HardcoreDeathPolicy.Drop;
+				default:
+					return defaultValue;
+			}
+		}
+
 		public static long GetProperty(string property, long defaultValue)
 		{
 			try

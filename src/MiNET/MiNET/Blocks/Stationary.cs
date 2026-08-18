@@ -61,6 +61,17 @@ namespace MiNET.Blocks
 			}
 		}
 
+		/// <summary>
+		///     A placed liquid source flows immediately: without this the still block only converts
+		///     to its flowing half when a NEIGHBOUR changes (DoPhysics), so a source dropped on
+		///     flat ground never spreads. Converting in BlockAdded makes the placement itself the
+		///     disturbance, which is what vanilla does.
+		/// </summary>
+		public override void BlockAdded(Level level)
+		{
+			SetToFlowing(level);
+		}
+
 		private void SetToFlowing(Level world)
 		{
 			Flowing flowingBlock = FlowingCounterpart();

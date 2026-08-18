@@ -115,6 +115,8 @@ namespace MiNET
 					TntExplodes = Config.GetProperty("GameRule.TntExplodes", true),
 					SendCommandfeedback = Config.GetProperty("GameRule.SendCommandfeedback", true),
 					RandomTickSpeed = Config.GetProperty("GameRule.RandomTickSpeed", 3),
+					HardcoreDeathPolicy = Config.GetProperty("Hardcore.DeathPolicy", HardcoreDeathPolicy.Ban),
+					HardcoreDamageMultiplier = Config.GetProperty("Hardcore.DamageMultiplier", 1.3f),
 				};
 				level.Initialize();
 
@@ -365,7 +367,11 @@ namespace MiNET
 			IWorldProvider worldProvider = null;
 			worldProvider = provider ?? new AnvilWorldProvider {MissingChunkProvider = new SuperflatGenerator(Dimension.Overworld)};
 
-			var level = new Level(this, name, worldProvider, EntityManager, gameMode, difficulty, viewDistance);
+			var level = new Level(this, name, worldProvider, EntityManager, gameMode, difficulty, viewDistance)
+			{
+				HardcoreDeathPolicy = Config.GetProperty("Hardcore.DeathPolicy", HardcoreDeathPolicy.Ban),
+				HardcoreDamageMultiplier = Config.GetProperty("Hardcore.DamageMultiplier", 1.3f),
+			};
 			level.Initialize();
 
 			OnLevelCreated(new LevelCancelEventArgs(null, level));
