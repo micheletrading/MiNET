@@ -175,12 +175,12 @@ namespace MiNET.Worlds
 			return _subChunks.Count(s => s != null);
 		}
 
-		public SubChunk GetSubChunk(int by)
+		public SubChunk GetSubChunk(int by, bool generateIfMissing = true)
 		{
 			by >>= 4;
 			by += WorldMinY < 0 ? Math.Abs(WorldMinY >> 4) : 0;
-			
-			return this[Math.Clamp(by, 0, _subChunks.Length - 1)];
+
+			return this[Math.Clamp(by, 0, _subChunks.Length - 1), generateIfMissing];
 		}
 
 		public int GetBlockId(int bx, int by, int bz)
@@ -434,6 +434,12 @@ namespace MiNET.Worlds
 
 		public void RecalcHeight()
 		{
+			// A column with no sections has nothing to measure: every height is zero, which is what
+			// the buffers already hold. Walking it anyway is 256 positions times 24 sections of
+			// stepping over emptiness, and a view distance worth of empty columns is most of what a
+			// map world consists of.
+			if (Count() == 0) return;
+
 			for (int x = 0; x < 16; x++)
 			{
 				for (int z = 0; z < 16; z++)
@@ -452,9 +458,19 @@ namespace MiNET.Worlds
 			// only solid blocks are below it would otherwise never resolve a height at all.
 			for (int y = startY; y >= WorldMinY; y--)
 			{
+				// A section that was never stored is air, and asking for it must not bring it into
+				// being: an empty column has 24 of those, and creating each one to discover it is
+				// empty is the difference between a column costing microseconds and milliseconds.
+				SubChunk missing = GetSubChunk(y, false);
+				if (missing == null)
+				{
+					y = (y >> 4) << 4;
+					continue;
+				}
+
 				if (isInLight)
 				{
-					SubChunk chunk = GetSubChunk(y);
+					SubChunk chunk = missing;
 					if (isInAir && chunk.IsAllAir())
 					{
 						if (chunk.IsDirty) Array.Fill<byte>(chunk._skylight.Data, 0xff);
@@ -496,7 +512,15 @@ namespace MiNET.Worlds
 			for (int y = WorldHeight; y >= WorldMinY; y--)
 			{
 				{
-					SubChunk chunk = GetSubChunk(y);
+					// Same as RecalcHeight: a missing section is air nobody stored, and creating it
+					// to read it is the expensive way to learn nothing.
+					SubChunk chunk = GetSubChunk(y, false);
+					if (chunk == null)
+					{
+						y = (y >> 4) << 4;
+						continue;
+					}
+
 					if (isInAir && chunk.IsAllAir())
 					{
 						if (chunk.IsDirty) Array.Fill<byte>(chunk._skylight.Data, 0xff);
@@ -726,27 +750,13 @@ namespace MiNET.Worlds
 		}
 
 		/// <summary>
-		///     ChunkCachedPush=true in server.conf sends every LevelChunk in the cached push
-		///     form instead of the skeleton plus sub-chunk request flow. One server-wide switch,
-		///     read once at startup, so the two delivery modes can be measured against each other.
+		///     There is no delivery-mode setting. Push and pull are not two configurations of the
+		///     same thing, they are two answers to different situations, and the caller is the only
+		///     one who knows which situation it is in: a join or a teleport wants every column
+		///     complete in one packet, the steady-state rim of a walking player wants the same, and
+		///     a caller that genuinely wants the client to choose what it needs asks for a skeleton.
+		///     So each call site names the form it wants, and there is nothing to misconfigure.
 		/// </summary>
-		public static bool CachedPush { get; set; } = MiNET.Utils.Config.GetProperty("ChunkCachedPush", false);
-
-		/// <summary>
-		///     ChunkPushAfterSpawn=true switches a player's chunk delivery to the cached push
-		///     form once they are spawned: the join burst keeps the pull flow (the client's
-		///     request selectivity is what tames a cold radius-64 disc), and the steady-state
-		///     rim delta, where a walking player takes every column anyway, collapses from
-		///     skeleton+request+response to one pushed packet per column.
-		/// </summary>
-		public static bool PushAfterSpawn { get; set; } = MiNET.Utils.Config.GetProperty("ChunkPushAfterSpawn", false);
-
-		/// <summary>The LevelChunk for this column in whichever delivery mode the server runs.</summary>
-		public McpeLevelChunk CreateLevelChunk()
-		{
-			return CachedPush ? CreateCachedPushChunk() : CreateSkeletonChunk();
-		}
-
 		/// <summary>
 		///     The same chunk with its bulk moved into content-addressed blobs: one per section,
 		///     one for the biomes, leaving only border blocks and block entities inline. A client

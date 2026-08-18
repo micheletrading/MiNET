@@ -238,7 +238,8 @@ namespace MiNET.Worlds
 
 							// Warms the active delivery mode's seed and its blobs beside the
 							// column itself; the packet has to go back, nobody is listening.
-							column.CreateLevelChunk().PutPool();
+							// Warms what a join will send, so the seed built here is the one reused.
+							column.CreateCachedPushChunk().PutPool();
 							Interlocked.Increment(ref loaded);
 						});
 
@@ -1658,13 +1659,12 @@ namespace MiNET.Worlds
 					McpeLevelChunk chunk = null;
 					if (chunkColumn != null)
 					{
-						// Delivery mode: the caller's cachedPush picks the full-hash push form
-						// (steady-state rim delivery, no request round trip); otherwise the
-						// server-wide ChunkCachedPush switch decides between skeleton-plus-request
-						// and push, as before.
 						if (alreadySent && sentVersion == chunkColumn.Version) continue;
 
-						chunk = cachedPush ? chunkColumn.CreateCachedPushChunk() : chunkColumn.CreateLevelChunk();
+						// The caller said which form it wants. Push hands the client every hash the
+						// column has and asks nothing of it; a skeleton announces the biomes and
+						// leaves the client to request the sections it actually needs.
+						chunk = cachedPush ? chunkColumn.CreateCachedPushChunk() : chunkColumn.CreateSkeletonChunk();
 
 						chunksUsed[pair.Key] = chunkColumn.Version;
 					}
