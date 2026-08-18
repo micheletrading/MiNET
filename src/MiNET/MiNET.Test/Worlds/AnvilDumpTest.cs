@@ -142,6 +142,10 @@ namespace MiNET.Test.Worlds
 		{
 			const string worldPath = @"C:\Development\github\MiNET\worlds\Falcon's Rock v2.0.0";
 
+			// The fixture is a large anvil world kept on the original dev machine; without it the
+			// provider has nothing to load and the hashes below would compare empty columns.
+			if (!Directory.Exists(worldPath)) Assert.Inconclusive($"anvil fixture world not present: {worldPath}");
+
 			ulong HashColumn(ChunkColumn column)
 			{
 				ulong hash = 14695981039346656037UL;
