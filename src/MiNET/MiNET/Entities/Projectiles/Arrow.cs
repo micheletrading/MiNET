@@ -49,6 +49,21 @@ namespace MiNET.Entities.Projectiles
 			DespawnOnImpact = false;
 		}
 
+		/// <summary>An arrow loosed by a mob (skeleton archery); the shooter is an entity, not a player.</summary>
+		public Arrow(Entity shooter, Level level, int damage = 4, bool isCritical = false) : base(shooter, EntityType.ShotArrow, level, damage, isCritical)
+		{
+			Width = 0.15;
+			Length = 0.15;
+			Height = 0.15;
+
+			Gravity = 0.05;
+			Drag = 0.01;
+
+			HealthManager.IsInvulnerable = true;
+			Ttl = 1200;
+			DespawnOnImpact = false;
+		}
+
 		protected override void OnHitBlock(Block blockCollided)
 		{
 			IsCritical = false;
