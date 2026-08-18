@@ -47,8 +47,18 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Blocks\Data\r12_to_current_block_map.bin" />
+    <!-- The block state upgrade schemas, verbatim from pmmp/BedrockBlockUpgradeSchema. Each file is
+         one version step and they are applied in name order, so the set is embedded whole. -->
+    <EmbeddedResource Include="Blocks\Data\BlockStateUpgradeSchema\*.json" />
+    <!-- The id and meta tables from the same repo, one per era. Block items carried blockstate
+         NBT from 1.9 while chunk blocks only did from 1.12, so an item stack and a stored block
+         with the same id and meta convert through different tables. -->
+    <EmbeddedResource Include="Blocks\Data\BlockStateUpgradeSchema\*.bin" />
     <EmbeddedResource Include="Items\Data\item_id_map.json" />
     <EmbeddedResource Include="Items\Data\r16_to_current_item_map.json" />
+    <!-- The item id and meta upgrade schemas, verbatim from pmmp/BedrockItemUpgradeSchema.
+         Same shape as the block ones: one file per version step, applied in name order. -->
+    <EmbeddedResource Include="Items\Data\ItemUpgradeSchema\*.json" />
     <EmbeddedResource Include="Items\Data\creative_groups.json" />
     <EmbeddedResource Include="Data\entity_properties.json" />
     <EmbeddedResource Include="Data\jigsaw_structures.json" />
