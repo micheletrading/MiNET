@@ -98,6 +98,10 @@ namespace MiNET
 		public bool UseCreativeInventory { get; set; } = true;
 		public bool IsConnected { get; set; }
 		public CertificateData CertificateData { get; set; }
+		/// <summary>Died while the level is in hardcore mode; the death policy applies at respawn.</summary>
+		public bool HardcoreDead { get; set; }
+		/// <summary>Identity used for the hardcore ban list: XUID when authenticated, username otherwise.</summary>
+		public string HardcoreBanKey => CertificateData?.ExtraData?.Xuid ?? Username;
 		public string Username { get; set; }
 		public string DisplayName { get; set; }
 		public long ClientId { get; set; }
@@ -1251,6 +1255,13 @@ namespace MiNET
 					return;
 				}
 
+				if (HardcoreManager.IsHardcore(Level) && HardcoreManager.IsBanned(HardcoreBanKey))
+				{
+					Log.Warn($"Rejected {Username}: banned on hardcore world {Level.LevelName}");
+					Disconnect("You died in hardcore mode. This is a permanent ban.");
+					return;
+				}
+
 				OnPlayerJoining(new PlayerEventArgs(this));
 
 				SpawnPosition = (PlayerLocation) (SpawnPosition ?? Level.SpawnPoint).Clone();
@@ -1700,6 +1711,17 @@ namespace MiNET
 				// The client tears its own window down when the player dies, so this is the server
 				// catching up rather than telling it anything.
 				ReleaseScreen();
+
+				if (HardcoreDead && HardcoreManager.IsHardcore(Level))
+				{
+					if (Level.HardcoreDeathPolicy == HardcoreDeathPolicy.Ban)
+					{
+						Disconnect("You died in hardcore mode. This is a permanent ban.");
+						return;
+					}
+
+					SetGameMode(GameMode.Spectator);
+				}
 
 				HealthManager.ResetHealth();
 
@@ -4107,7 +4129,10 @@ namespace MiNET
 				seed = (ulong) Level.Seed,
 				generatorType = (LevelSettings.GeneratorType) Level.GeneratorType,
 				gameType = (LevelSettings.GameType) GameMode,
-				gameDifficulty = (LevelSettings.GameDifficulty) Level.Difficulty,
+				// Hardcore is difficulty 4 server-side, but the wire difficulty enum stops at 3
+				// (Hard): vanilla sends Hard plus the isHardcore flag, never the out-of-range value.
+				gameDifficulty = (LevelSettings.GameDifficulty) (Level.Difficulty == Difficulty.Hardcore ? Difficulty.Hard : Level.Difficulty),
+				isHardcore = Level.Difficulty == Difficulty.Hardcore,
 				// The LEVEL spawn, not this player's: SpawnPosition is per-player and plugins
 				// (Plotter) persist it, so it is wherever this player last was. Vanilla puts the
 				// world's fixed spawn block here.
@@ -4889,6 +4914,15 @@ namespace MiNET
 			{
 				Player player = HealthManager.LastDamageSource as Player;
 				BroadcastDeathMessage(player, HealthManager.LastDamageCause);
+
+				if (HardcoreManager.IsHardcore(Level) && Level.HardcoreDeathPolicy != HardcoreDeathPolicy.Drop)
+				{
+					HardcoreDead = true;
+					if (Level.HardcoreDeathPolicy == HardcoreDeathPolicy.Ban)
+					{
+						HardcoreManager.Ban(HardcoreBanKey);
+					}
+				}
 			}
 		}
 

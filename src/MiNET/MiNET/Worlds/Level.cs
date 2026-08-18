@@ -89,6 +89,10 @@ namespace MiNET.Worlds
 		public bool IsSurvival => GameMode == GameMode.Survival;
 		public bool HaveDownfall { get; set; }
 		public Difficulty Difficulty { get; set; }
+		/// <summary>Hardcore death handling for this level (only consulted when <see cref="Difficulty" /> is Hardcore).</summary>
+		public HardcoreDeathPolicy HardcoreDeathPolicy { get; set; } = HardcoreDeathPolicy.Ban;
+		/// <summary>Hardcore damage scaling, applied to all damage except starvation.</summary>
+		public float HardcoreDamageMultiplier { get; set; } = 1.3f;
 		public bool AutoSmelt { get; set; } = false;
 		/// <summary>Ticks on the level clock. Stored by <see cref="Clock" />; this is a shorthand for it.</summary>
 		public long WorldTime

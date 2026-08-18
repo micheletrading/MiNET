@@ -42,6 +42,13 @@ Players may be on the server. Never `Stop-Process` it: a killed process never re
 everything built since the last save interval is lost, and anyone connected is dropped with no
 warning. Stop it through the remote console instead.
 
+**Before every start/restart, print the change list.** List what was changed since the last start
+(one line per change, with file paths), what the automated verification showed (build, tests,
+parity runs), and what the HUMAN should test on a real client afterwards. The manual test
+checklist for UHC work lives in `docs/uhc-hardcore-mode.md#manual-test-checklist`; extend the
+checklist when a change adds a client-visible behaviour. The list is not optional: without it the
+operator does not know what the new build is supposed to do differently.
+
 After every code change, this exact loop, nothing else:
 
 1. `MiNET.Console remote restart`, always. It transfers everyone to
