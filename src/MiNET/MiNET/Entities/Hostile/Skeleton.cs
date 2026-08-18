@@ -45,10 +45,10 @@ namespace MiNET.Entities.Hostile
 
 			ItemInHand = ItemFactory.GetItemByName("bow");
 
-			//TargetBehaviors.Add(new HurtByTargetBehaviorNew(this));
-			//TargetBehaviors.Add(new FindAttackableTargetBehavior(this, 16));
+			TargetBehaviors.Add(new HurtByTargetBehavior(this));
+			TargetBehaviors.Add(new FindAttackableTargetBehavior(this, 16));
 
-			//Behaviors.Add(new MeleeAttackBehavior(this, 1.0, 16));
+			Behaviors.Add(new RangedAttackBehavior(this));
 			Behaviors.Add(new WanderBehavior(this, 1.0));
 			Behaviors.Add(new LookAtPlayerBehavior(this, 8.0));
 			Behaviors.Add(new RandomLookaroundBehavior(this));

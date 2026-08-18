@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -41,7 +41,7 @@ namespace MiNET.Entities.Projectiles
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Projectile));
 
-		public Player Shooter { get; set; }
+		public Entity Shooter { get; set; }
 		public int Ttl { get; set; } = 0;
 		public bool DespawnOnImpact { get; set; } = true;
 		public int Damage { get; set; }
@@ -51,7 +51,7 @@ namespace MiNET.Entities.Projectiles
 
 		public bool BroadcastMovement { get; set; } = false;
 
-		protected Projectile(Player shooter, EntityType entityTypeId, Level level, int damage, bool isCritical = false) : base(entityTypeId, level)
+		protected Projectile(Entity shooter, EntityType entityTypeId, Level level, int damage, bool isCritical = false) : base(entityTypeId, level)
 		{
 			Shooter = shooter;
 			Damage = damage;
@@ -289,11 +289,11 @@ namespace MiNET.Entities.Projectiles
 
 			LastSentPosition = (PlayerLocation) KnownPosition.Clone(); // Used for delta
 
-			if (Shooter != null && IsCritical)
+			if (Shooter is Player shooterPlayer && IsCritical)
 			{
 				var particle = new CriticalParticle(Level);
 				particle.Position = KnownPosition.ToVector3();
-				particle.Spawn(new[] {Shooter});
+				particle.Spawn(new[] {shooterPlayer});
 			}
 		}
 
