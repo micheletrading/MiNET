@@ -32,14 +32,26 @@ using MiNET.Worlds;
 
 namespace MiNET.Items
 {
-	public class ItemBucket : Item
+	public partial class ItemBucket : Item
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(ItemBucket));
+
+		public ItemBucket() : this(0)
+		{
+		}
 
 		public ItemBucket(short metadata) : base("minecraft:bucket", metadata)
 		{
 			MaxStackSize = 1;
 			FuelEfficiency = (short) (Metadata == 10 ? 1000 : 0);
+		}
+
+		/// <summary>Pours a liquid block at the clicked position, the shared pour for the legacy
+		/// metadata bucket and the flattened minecraft:lava_bucket / minecraft:water_bucket items.</summary>
+		public static void Pour(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords, string liquid)
+		{
+			var itemBlock = new ItemBlock(BlockFactory.GetBlockByName(liquid));
+			itemBlock.PlaceBlock(world, player, blockCoordinates, face, faceCoords);
 		}
 
 		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
@@ -56,8 +68,7 @@ namespace MiNET.Items
 
 			if (liquid != null)
 			{
-				var itemBlock = new ItemBlock(BlockFactory.GetBlockByName(liquid));
-				itemBlock.PlaceBlock(world, player, blockCoordinates, face, faceCoords);
+				Pour(world, player, blockCoordinates, face, faceCoords, liquid);
 			}
 			else if (Metadata == 0) // Empty bucket
 			{
@@ -85,6 +96,24 @@ namespace MiNET.Items
 			}
 
 			FuelEfficiency = (short) (Metadata == 10 ? 1000 : 0);
+		}
+	}
+
+	/// <summary>The flattened lava bucket pours like the legacy metadata form (ItemBucket metadata 10).</summary>
+	public partial class ItemLavaBucket : Item
+	{
+		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
+		{
+			ItemBucket.Pour(world, player, blockCoordinates, face, faceCoords, "minecraft:flowing_lava");
+		}
+	}
+
+	/// <summary>The flattened water bucket pours like the legacy metadata form (ItemBucket metadata 8).</summary>
+	public partial class ItemWaterBucket : Item
+	{
+		public override void PlaceBlock(Level world, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoords)
+		{
+			ItemBucket.Pour(world, player, blockCoordinates, face, faceCoords, "minecraft:flowing_water");
 		}
 	}
 }

@@ -152,6 +152,15 @@ namespace MiNET.Items
 				if (map.TryGetValue(oldKey, out Type existing)) map.TryAdd(newKey, existing);
 			}
 
+			// A bucket's contents are legacy metadata (8 water, 10 lava) that flattening split
+			// into distinct identities; alias the typed class under the variants so the give/use
+			// paths land on ItemBucket (which knows how to pour) under the flattened name.
+			if (map.TryGetValue("bucket", out Type bucketType))
+			{
+				map.TryAdd("waterbucket", bucketType);
+				map.TryAdd("lavabucket", bucketType);
+			}
+
 			return map;
 		});
 
@@ -164,6 +173,14 @@ namespace MiNET.Items
 		{
 			if (string.IsNullOrEmpty(name)) return new ItemAir();
 			if (name.IndexOf(':') < 0) name = "minecraft:" + name;
+
+			// Flattening split a bucket's contents into distinct items: resolve the legacy
+			// metadata (8 water, 10 lava) to the current identity so the wire id and the
+			// typed class agree (give with data, world-load leftovers).
+			if (NormalizeItemKey(name) == "bucket" && metadata is 8 or 10)
+			{
+				name = metadata == 8 ? "minecraft:water_bucket" : "minecraft:lava_bucket";
+			}
 
 			Item custom = CustomItemFactory?.GetItem(name, metadata, count);
 			if (custom != null) return custom;
