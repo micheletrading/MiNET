@@ -108,11 +108,11 @@ namespace MiNET.Entities.Behaviors
 				}
 			}
 
-			var block = level.GetBlock(coord);
-			var blockUp = level.GetBlock(coord.BlockUp());
-			var blockUpUp = level.GetBlock(coord.BlockUp().BlockUp());
+			bool blockStops = MovementRules.Blocks(level.GetRuntimeIdAt(coord));
+			bool blockUpStops = MovementRules.Blocks(level.GetRuntimeIdAt(coord.BlockUp()));
+			bool blockUpUpStops = MovementRules.Blocks(level.GetRuntimeIdAt(coord.BlockUp().BlockUp()));
 
-			var colliding = block.IsSolid || (_entity.Height >= 1 && blockUp.IsSolid);
+			var colliding = blockStops || (_entity.Height >= 1 && blockUpStops);
 			if (!colliding && !entityCollide)
 			{
 				var velocity = direction * speedFactor;
@@ -128,7 +128,7 @@ namespace MiNET.Entities.Behaviors
 			}
 			else
 			{
-				if (!entityCollide && !blockUp.IsSolid && !(_entity.Height > 1 && blockUpUp.IsSolid) && level.Random.Next(4) != 0)
+				if (!entityCollide && !blockUpStops && !(_entity.Height > 1 && blockUpUpStops) && level.Random.Next(4) != 0)
 				{
 					//Log.Debug($"Block ahead: {block}, jumping");
 					_entity.Velocity = new Vector3(0, 0.42f, 0);

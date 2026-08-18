@@ -196,6 +196,11 @@ namespace MiNET.Net.NetherNet
 			// when nothing was configured.
 			_mux = new UdpMux(new IPEndPoint(_endPoint.Address, PortMapping.BindPort ?? 0));
 
+			// The first-contact admission budget, sized here because this layer owns the config.
+			// Each joining client burns one admission per advertised candidate its checks arrive
+			// through, so the bound scales with candidate count times expected concurrent players.
+			UdpMux.MaxUnknownEndpointAdmissions = Config.GetProperty("Mux.MaxUnknownEndpointAdmissions", UdpMux.MaxUnknownEndpointAdmissions);
+
 			// Server-list discovery, if the host wired it up: the mux answers RakNet unconnected
 			// pings on the gameplay port so a NetherNet-only server still shows a status line in
 			// the client's server tab. Discovery reaches this port only when the gameplay UDP is

@@ -76,10 +76,13 @@ namespace MiNET.Client
 
 		/// <summary>
 		///     What an emulator bot never reads, skipped before decode (see
-		///     BedrockMessageHandlerBase.DropPacketIds): SubChunk block data, and the entity
-		///     broadcast traffic (movement, actor state, sounds, effects) that scales O(N²) with
-		///     fleet size and otherwise dominates the bot process. The one self-directed loss is
-		///     MovePlayer position corrections, which a load bot ignores anyway.
+		///     BedrockMessageHandlerBase.DropPacketIds): the entity broadcast traffic (movement,
+		///     actor state, sounds, effects) that scales O(N²) with fleet size and otherwise
+		///     dominates the bot process. The one self-directed loss is MovePlayer position
+		///     corrections, which a load bot ignores anyway. SubChunk responses are NOT dropped
+		///     any more: bots answer their blob announcements (hit/miss) to exercise the real
+		///     miss-payload path, and in cached form the entries are hashes plus trimmings, not
+		///     block data, so the old allocation concern no longer applies.
 		/// </summary>
 		private static readonly HashSet<int> EmulatorDropPacketIds = new()
 		{
@@ -92,7 +95,6 @@ namespace MiNET.Client
 			0x2c, // McpeAnimate
 			0x6f, // McpeMoveEntityDelta
 			0x7b, // McpeLevelSoundEvent
-			0xae, // McpeSubChunkPacket
 		};
 
 		/// <summary>The wrapper-level handler for the active connection. Exposed so the emulator
@@ -129,7 +131,61 @@ namespace MiNET.Client
 		public McpePlayStatus.PlayStatus PlayerStatus { get; set; }
 		public bool UseBlobCache { get; set; }
 		public bool BlockNetworkIdsAreHashes { get; set; }
-		public Dictionary<ulong, byte[]> BlobCache { get; set; } = new Dictionary<ulong, byte[]>();
+
+		/// <summary>
+		///     Blob hashes this client has already been given. Keys only: the payloads are never read
+		///     back, and holding them would cost a bot its whole terrain in memory for nothing. The key
+		///     is the entire point, because the hit/miss answer is what stops the server resending a
+		///     blob we already have.
+		///     <para>
+		///         Settable and thread-safe so a fleet can point every bot at ONE shared store:
+		///         hashes are content-addressed and client-agnostic, so a shared store makes the
+		///         fleet look like a warm returning population instead of a thousand cold first
+		///         joins. Left alone, each client keeps its own.
+		///     </para>
+		/// </summary>
+		public ConcurrentDictionary<ulong, byte> KnownBlobs { get; set; } = new ConcurrentDictionary<ulong, byte>();
+
+		/// <summary>
+		///     Columns whose sub-chunks have already been pulled. A skeleton for a column in here needs
+		///     no sub-chunk request: without this the client re-asks for all 24 sections every time the
+		///     server pushes a column it already sent, which is most of the traffic a walking player
+		///     generates.
+		/// </summary>
+		public HashSet<ChunkCoordinates> KnownColumns { get; } = new HashSet<ChunkCoordinates>();
+
+		/// <summary>
+		///     Off (default): cache verdicts and sub-chunk requests answer each LevelChunk
+		///     immediately, which is what the protocol tooling wants. On (the bot fleet): they
+		///     accumulate in the pending queues below and a walker flushes them on its walk
+		///     timer, the way a real client batches its verdicts on its tick.
+		/// </summary>
+		public bool BatchChunkResponses { get; set; }
+
+		/// <summary>
+		///     The last NetworkChunkPublisherUpdate: the acceptance window for incoming chunks.
+		///     Arrivals outside it are in-flight strays from an area the stream moved past and
+		///     are discarded. Distinct from what the client holds, which is the disc around its
+		///     own position.
+		/// </summary>
+		public ChunkCoordinates PublishedCenter { get; set; }
+
+		/// <inheritdoc cref="PublishedCenter" />
+		public int PublishedRadiusChunks { get; set; }
+
+		/// <summary>
+		///     0 (default): request every section up to the column's limit. N: request only the
+		///     top N sections at the column's own limit - the surface band, self-adapting per
+		///     column because the limit rides the highest non-air section (towers raise it,
+		///     ocean columns keep it at sea level).
+		/// </summary>
+		public int RequestTopSections { get; set; }
+
+		public ConcurrentQueue<ulong> PendingBlobHits { get; } = new ConcurrentQueue<ulong>();
+		public ConcurrentQueue<ulong> PendingBlobMisses { get; } = new ConcurrentQueue<ulong>();
+
+		/// <summary>Columns awaiting a batched sub-chunk request: position, highest relative index, dimension.</summary>
+		public ConcurrentQueue<(int X, int Z, int Highest, int Dimension)> PendingSubChunkColumns { get; } = new ConcurrentQueue<(int, int, int, int)>();
 
 		public IMcpeClientMessageHandler MessageHandler { get; set; }
 

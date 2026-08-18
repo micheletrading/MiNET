@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using MiNET.Client;
@@ -34,71 +35,50 @@ namespace MiNET.ServiceKiller
 {
 	/// <summary>
 	///     One bot's walk as a step function the shared <see cref="WalkClock" /> drives, carrying
-	///     the state the old per-bot thread kept in locals. The path is unchanged: walk home to the
-	///     level spawn first (plugins persist positions, so bots rejoin scattered), then corkscrew
-	///     between the spawn and a fixed height above it for the rest of the run. Step math is
-	///     elapsed-time based, so the pace along the path is exactly vanilla walking speed whatever
-	///     cadence the clock drives this walker at.
+	///     the state the old per-bot thread kept in locals. The path itself is a pluggable
+	///     <see cref="IWalkPath" /> (--walker selects it per run); this class owns everything
+	///     around the path: the clock cadence, the chunk verdict flushing and the sliding-window
+	///     forgetting. Step math is elapsed-time based, so the pace along the path is exactly
+	///     vanilla walking speed whatever cadence the clock drives this walker at.
 	/// </summary>
 	public class BotWalker
 	{
-		private const float WalkSpeed = 4.317f; // vanilla walking, blocks per second
-		private const float Height = 50f;
-		private const double ClimbPerRevolution = 4.0; // a walkable ramp, ~12.5 turns to the top
-
-		private enum WalkState
-		{
-			Approach,
-			Helix
-		}
+		public const float WalkSpeed = 4.317f; // vanilla walking, blocks per second
 
 		private readonly MiNetClient _client;
 		private readonly Emulator _emulator;
 		private readonly TimeSpan _timeToRun;
-		private readonly Random _random;
+		private readonly IWalkPath _path;
 		private readonly Stopwatch _runningTime = Stopwatch.StartNew();
 
-		private WalkState _state = WalkState.Approach;
-		private Vector3 _worldSpawn;
 		private Vector3 _lastPosition;
+		private ChunkCoordinates _lastChunkPos;
 		private readonly Vector2 _forward = new Vector2(0, 1);
 		private long _tick = 1;
 		private float _lastYaw;
 		private TimeSpan _lastSent;
 		private long _nextDueTick;
 
-		// Helix parameters, computed on the transition out of Approach, where the anchor position
-		// is finally known.
-		private float _radius;
-		private double _climbSlope;
-		private double _stepPerAngle;
-		private double _floorAngle;
-		private double _topAngle;
-		private double _startBearing;
-		private float _axisX;
-		private float _axisZ;
-		private double _angle;
-		private int _direction = 1;
-
 		public string Name { get; }
 
 		/// <summary>This walker's cadence in clock ticks, fixed per bot at construction from the configured range, so the fleet keeps its heterogeneous send rates.</summary>
 		public int IntervalTicks { get; }
 
-		public BotWalker(MiNetClient client, Emulator emulator, TimeSpan timeToRun, string name, int ranMin, int ranMax, Random random)
+		public BotWalker(MiNetClient client, Emulator emulator, TimeSpan timeToRun, string name, int ranMin, int ranMax, Random random, IWalkPath path)
 		{
 			_client = client;
 			_emulator = emulator;
 			_timeToRun = timeToRun;
 			Name = name;
-			_random = random;
+			_path = path;
 
 			int intervalMillis = ranMin == ranMax ? ranMin : random.Next(ranMin, ranMax);
 			IntervalTicks = Math.Max(1, intervalMillis / WalkClock.TickPeriodMillis);
 
 			PlayerLocation start = client.CurrentLocation;
 			_lastPosition = new Vector3(start.X, start.Y, start.Z);
-			_worldSpawn = client.WorldSpawn != default ? client.WorldSpawn : _lastPosition;
+			Vector3 worldSpawn = client.WorldSpawn != default ? client.WorldSpawn : _lastPosition;
+			_path.Init(_lastPosition, worldSpawn, random);
 			_lastSent = _runningTime.Elapsed;
 		}
 
@@ -117,72 +97,84 @@ namespace MiNET.ServiceKiller
 
 			_nextDueTick = clockTick + IntervalTicks;
 
-			switch (_state)
+			// The chunk answers ride the walk timer: one batched cache status and one batched
+			// sub-chunk request per step, the way a real client flushes its verdicts per tick
+			// instead of answering every LevelChunk the instant it lands.
+			FlushChunkResponses();
+
+			// Position-driven forgetting, IDENTICAL to the server's prune: what the client
+			// knows is the disc around its current position and radius, and crossing a chunk
+			// boundary forgets whatever fell outside. The two sides matching is what makes a
+			// re-entered column arrive as a fresh skeleton and dance again.
+			var chunkPos = new ChunkCoordinates((int) _lastPosition.X >> 4, (int) _lastPosition.Z >> 4);
+			if (chunkPos != _lastChunkPos)
 			{
-				case WalkState.Approach:
+				_lastChunkPos = chunkPos;
+				lock (_client.KnownColumns)
 				{
-					Vector3 toSpawn = _worldSpawn - _lastPosition;
-					float distance = toSpawn.Length();
-					if (distance < 0.5f)
-					{
-						InitHelix();
-						_state = WalkState.Helix;
-						return true;
-					}
-
-					float step = Math.Min(distance, WalkSpeed * NextStepSeconds());
-					SendStep(_lastPosition + toSpawn * (step / distance));
-					return true;
-				}
-
-				case WalkState.Helix:
-				{
-					_angle += _direction * WalkSpeed * NextStepSeconds() / _stepPerAngle;
-
-					// Ceiling reached: turn around and retrace. Floor reached: head back up. Only
-					// the direction flips; the position is never clamped.
-					if (_direction > 0 && _angle >= _topAngle) _direction = -1;
-					else if (_direction < 0 && _angle <= _floorAngle) _direction = 1;
-
-					float x = _axisX + (float) (_radius * Math.Cos(_angle + _startBearing));
-					float z = _axisZ + (float) (_radius * Math.Sin(_angle + _startBearing));
-					float y = (float) (_helixCenterY + _climbSlope * _angle);
-					SendStep(new Vector3(x, y, z));
-					return true;
+					_client.KnownColumns.RemoveWhere(c => c.DistanceTo(chunkPos) > _client.ChunkRadius);
 				}
 			}
 
-			return false;
+			SendStep(_path.Next(_lastPosition, NextStepSeconds()));
+			return true;
 		}
 
-		private float _helixCenterY;
-
-		private void InitHelix()
+		/// <summary>
+		///     One ClientCacheBlobStatus for the pending verdicts (capped at the packet's 4095-id
+		///     limit; the rest waits for the next step) and one SubChunkRequest covering the
+		///     pending columns' surface bands, offsets relative to the first pending column.
+		/// </summary>
+		private void FlushChunkResponses()
 		{
-			PlayerLocation center = _client.CurrentLocation;
-			_radius = _random.Next(5, 20);
-			_climbSlope = ClimbPerRevolution / (2 * Math.PI); // dy/dAngle, constant
-			// Constant because the ramp is linear: |dPos/dAngle| = sqrt(radius^2 + slope^2).
-			_stepPerAngle = Math.Sqrt(_radius * _radius + _climbSlope * _climbSlope);
+			var hits = new List<ulong>();
+			var misses = new List<ulong>();
+			while (hits.Count + misses.Count < 4095 && _client.PendingBlobHits.TryDequeue(out ulong hash)) hits.Add(hash);
+			while (hits.Count + misses.Count < 4095 && _client.PendingBlobMisses.TryDequeue(out ulong hash)) misses.Add(hash);
 
-			// The band is absolute, anchored on the level spawn: floor at the spawn itself,
-			// ceiling at Height above it. The approach ends within half a block of the spawn,
-			// so these angles only square up the turnarounds.
-			_floorAngle = (_worldSpawn.Y - center.Y) / _climbSlope;
-			_topAngle = (_worldSpawn.Y + Height - center.Y) / _climbSlope;
+			if (hits.Count + misses.Count > 0)
+			{
+				var status = McpeClientCacheBlobStatus.CreateObject();
+				status.hashHits = hits.ToArray();
+				status.hashMisses = misses.ToArray();
+				_client.SendPacket(status);
+			}
 
-			// The helix axis sits one radius to the side, so the path's first position (angle 0)
-			// is exactly where the bot stands. Without this the first input teleports the bot
-			// sideways onto the circle, which reads as a jump the moment it starts moving.
-			// The side is a random bearing per bot: with a fixed one, every circle leaves the
-			// spawn in the same direction and the fleet braids into a single visible rope.
-			_startBearing = _random.NextDouble() * 2 * Math.PI;
-			_axisX = center.X - _radius * (float) Math.Cos(_startBearing);
-			_axisZ = center.Z - _radius * (float) Math.Sin(_startBearing);
-			_helixCenterY = center.Y;
+			if (!_client.PendingSubChunkColumns.TryDequeue(out (int X, int Z, int Highest, int Dimension) first)) return;
 
-			_angle = 0.0;
-			_direction = 1;
+			var request = McpeSubChunkRequestPacket.CreateObject();
+			request.dimension = first.Dimension;
+			request.originX = first.X;
+			request.originY = 0;
+			request.originZ = first.Z;
+
+			void AddColumn((int X, int Z, int Highest, int Dimension) column)
+			{
+				int lowest = _client.RequestTopSections > 0 ? Math.Max(0, column.Highest - _client.RequestTopSections + 1) : 0;
+				for (int i = lowest; i <= column.Highest; i++)
+				{
+					request.offsets.Add(new SubChunkPosOffset
+					{
+						subchunkOffsetX = (sbyte) (column.X - first.X),
+						subchunkOffsetY = (sbyte) (i - 4),
+						subchunkOffsetZ = (sbyte) (column.Z - first.Z)
+					});
+				}
+			}
+
+			AddColumn(first);
+
+			// More pending columns fold into the same request while they fit the sbyte offset
+			// range around the first one; anything farther waits for the next step.
+			while (request.offsets.Count < 512 && _client.PendingSubChunkColumns.TryPeek(out (int X, int Z, int Highest, int Dimension) next))
+			{
+				if (next.Dimension != first.Dimension || Math.Abs(next.X - first.X) > 120 || Math.Abs(next.Z - first.Z) > 120) break;
+
+				_client.PendingSubChunkColumns.TryDequeue(out next);
+				AddColumn(next);
+			}
+
+			_client.SendPacket(request);
 		}
 
 		/// <summary>

@@ -414,19 +414,31 @@ namespace MiNET
 
 			if (IsInWater(Entity.KnownPosition))
 			{
-				Entity.IsInWater = true;
-
-				Air--;
-				if (Air <= 0)
+				// Broadcast on the wet/dry TRANSITION and on damage ticks only. An unconditional
+				// broadcast here is one SetEntityData to every player on the level, per submerged
+				// entity, per tick: at fleet scale that alone was a measurable share of the tick.
+				if (!Entity.IsInWater)
 				{
-					if (Math.Abs(Air) % 10 == 0)
-					{
-						TakeHit(null, 1, DamageCause.Drowning);
-						Entity.BroadcastSetEntityData();
-					}
+					Entity.IsInWater = true;
+					Entity.BroadcastSetEntityData();
 				}
 
-				Entity.BroadcastSetEntityData();
+				// Only entities that can actually drown run the air counter. A creative player's
+				// air never moves, so their metadata stays stable and the broadcast hash gate
+				// holds; without this, Air ticking down made every submerged entity a genuine
+				// metadata change every tick, forever.
+				if (Entity is not Player player || player.GameMode == GameMode.Survival)
+				{
+					Air--;
+					if (Air <= 0)
+					{
+						if (Math.Abs(Air) % 10 == 0)
+						{
+							TakeHit(null, 1, DamageCause.Drowning);
+							Entity.BroadcastSetEntityData();
+						}
+					}
+				}
 			}
 			else
 			{
@@ -521,8 +533,6 @@ namespace MiNET
 
 		public bool IsInWater(PlayerLocation playerPosition)
 		{
-			if (playerPosition.Y < 0 || playerPosition.Y > 255) return false;
-
 			float y = playerPosition.Y + 1.62f;
 
 			BlockCoordinates waterPos = new BlockCoordinates
@@ -532,50 +542,38 @@ namespace MiNET
 				Z = (int) Math.Floor(playerPosition.Z)
 			};
 
-			var block = Entity.Level.GetBlock(waterPos);
-
-			if (block == null || !(block is Water or FlowingWater)) return false;
+			int runtimeId = Entity.Level.GetRuntimeIdAt(waterPos);
+			if (!BlockFactory.Is<Water>(runtimeId) && !BlockFactory.Is<FlowingWater>(runtimeId)) return false;
 
 			return y < Math.Floor(y) + 1 - ((1f / 9f) - 0.1111111);
 		}
 
 		public bool IsStandingInWater(PlayerLocation playerPosition)
 		{
-			if (playerPosition.Y < 0 || playerPosition.Y > 255) return false;
-
-			var block = Entity.Level.GetBlock(playerPosition);
-
-			if (block == null || !(block is Water or FlowingWater)) return false;
+			int runtimeId = Entity.Level.GetRuntimeIdAt((BlockCoordinates) playerPosition);
+			if (!BlockFactory.Is<Water>(runtimeId) && !BlockFactory.Is<FlowingWater>(runtimeId)) return false;
 
 			return playerPosition.Y < Math.Floor(playerPosition.Y) + 1 - ((1f / 9f) - 0.1111111);
 		}
 
 		private bool IsInLava(PlayerLocation playerPosition)
 		{
-			if (playerPosition.Y < 0 || playerPosition.Y > 255) return false;
-
-			var block = Entity.Level.GetBlock(playerPosition);
+			int runtimeId = Entity.Level.GetRuntimeIdAt((BlockCoordinates) playerPosition);
 
 			// The block the feet are in is lava, surface included: vanilla burns you the moment
 			// you touch lava, so unlike the water check there is no surface-threshold epsilon.
-			return block is Lava or FlowingLava;
+			return BlockFactory.Is<Lava>(runtimeId) || BlockFactory.Is<FlowingLava>(runtimeId);
 		}
 
 		private bool IsInOpaque(PlayerLocation playerPosition)
 		{
-			if (playerPosition.Y < 0 || playerPosition.Y > 255) return false;
-
 			BlockCoordinates solidPos = (BlockCoordinates) playerPosition;
 			if (Entity.Height >= 1)
 			{
 				solidPos.Y += 1;
 			}
 
-			var block = Entity.Level.GetBlock(solidPos);
-
-			if (block == null) return false;
-
-			return !block.IsTransparent;
+			return !Entity.Level.IsTransparent(solidPos);
 		}
 
 		public static string GetDescription(Enum value)

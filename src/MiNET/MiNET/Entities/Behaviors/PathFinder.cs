@@ -178,7 +178,7 @@ namespace MiNET.Entities.Behaviors
 
 			do
 			{
-				if (level.GetBlock(rayPos).IsSolid)
+				if (MovementRules.Blocks(level.GetRuntimeIdAt(rayPos)))
 				{
 					return false;
 				}
@@ -286,13 +286,6 @@ namespace MiNET.Entities.Behaviors
 
 	public class BlockDiagonalNeighborProvider : INeighborProvider
 	{
-		/// <summary>Fences block movement; post-flattening they are separate blocks per wood type.</summary>
-		private static bool IsFence(Block block)
-		{
-			string name = block?.Name;
-			return name != null && (name.EndsWith("_fence") || name == "minecraft:nether_brick_fence");
-		}
-
 		private static readonly ILog Log = LogManager.GetLogger(typeof(BlockDiagonalNeighborProvider));
 
 		private readonly CachedBlockAccess _level;
@@ -375,12 +368,6 @@ namespace MiNET.Entities.Behaviors
 					}
 					else
 					{
-						// Check block collision box, not hit box
-						if (IsFence(_level.GetBlock(coord)))
-						{
-							continue;
-						}
-
 						Block blockUp = _level.GetBlock(coord.BlockUp());
 						if (IsBlocked(blockUp))
 						{
@@ -498,18 +485,9 @@ namespace MiNET.Entities.Behaviors
 
 		private bool IsBlocked(Block block)
 		{
-			if (block == null || block.IsSolid)
-			{
-				if (block is DoorBase door)
-				{
-					//Log.Warn($"Found door at {block.Coordinates} and it OpenBit set to {door.OpenBit}");
-					return !door.OpenBit;
-				}
+			if (block == null) return true;
 
-				return true;
-			}
-
-			return false;
+			return MovementRules.Blocks(block.GetRuntimeId());
 		}
 
 		private void CheckDiagonals(Block block, HashSet<Tile> list)
@@ -613,18 +591,9 @@ namespace MiNET.Entities.Behaviors
 		private bool IsBlocked(BlockCoordinates coord)
 		{
 			var block = _level.GetBlock(coord);
+			if (block == null) return true;
 
-			if (block == null || block.IsSolid)
-			{
-				if (block is DoorBase door)
-				{
-					//Log.Warn($"Found door at {coord} and it OpenBit set to {door.OpenBit}");
-					return !door.OpenBit;
-				}
-
-				return true;
-			}
-			return false;
+			return MovementRules.Blocks(block.GetRuntimeId());
 		}
 	}
 

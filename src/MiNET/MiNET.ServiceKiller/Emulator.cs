@@ -59,6 +59,8 @@ namespace MiNET.ServiceKiller
 		private static int RequestChunkRadius = 5;
 		private static bool ConcurrentSpawn = true;
 		private static int ConcurrentBatchSize = 5;
+		private static string Walker = "helix";
+		private static int WalkBounds = 800;
 
 		public AutoResetEvent ConcurrentSpawnWaitHandle = new AutoResetEvent(false);
 
@@ -68,6 +70,12 @@ namespace MiNET.ServiceKiller
 		public WalkClock WalkClock { get; } = new WalkClock();
 
 		private static int NameOffset = 0;
+
+		/// <summary>One fresh path per bot from the run's --walker choice; paths carry per-bot state.</summary>
+		public static IWalkPath CreateWalkPath()
+		{
+			return string.Equals(Walker, "waypoints", StringComparison.OrdinalIgnoreCase) ? new WaypointPath(WalkBounds) : new HelixPath();
+		}
 
 		/// <summary>
 		/// </summary>
@@ -83,6 +91,12 @@ namespace MiNET.ServiceKiller
 		/// <param name="sendIntervalMin">Lower bound (ms) of each bot's fixed movement-send cadence; with max, the per-bot interval is drawn once from this range. Higher = fewer packets = less CPU on both ends.</param>
 		/// <param name="sendIntervalMax">Upper bound (ms) of the cadence range.</param>
 		/// <param name="port">Signaling port to aim at. 19132 is the server port; a parking or side server may be elsewhere.</param>
+		/// <param name="walker">
+		///     Path shape for every bot: helix (the historical default, whole fleet corkscrewing in
+		///     one dense cluster at spawn) or waypoints (wander the map inside --walk-bounds, with
+		///     shared hubs where routes cross). Runs are only comparable to runs with the same walker.
+		/// </param>
+		/// <param name="walkBounds">waypoints only: radius in blocks of the wander disc around the level spawn.</param>
 		/// <param name="host">
 		///     Server to connect to. Loopback keeps the bots on the same machine, which is fast but
 		///     makes every send also pay the receiving side's delivery on the same box, so the CPU
@@ -90,7 +104,7 @@ namespace MiNET.ServiceKiller
 		///     (yodamine.com) sends the traffic out to the router and back, a real network path,
 		///     which is what a measurement run wants.
 		/// </param>
-		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "nethernet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100, string host = "127.0.0.1", int port = 19132)
+		private static void Main(int numberOfBots = 500, int durationOfConnection = 900, bool concurrentSpawn = true, int batchSize = 5, int chunkRadius = 5, int processorAffinity = 0, string transport = "nethernet", int nameOffset = 0, bool auto = false, int sendIntervalMin = 40, int sendIntervalMax = 100, string host = "127.0.0.1", int port = 19132, string walker = "helix", int walkBounds = 800)
 		{
 			NumberOfBots = numberOfBots;
 			DurationOfConnection = TimeSpan.FromSeconds(durationOfConnection);
@@ -100,10 +114,18 @@ namespace MiNET.ServiceKiller
 			NameOffset = nameOffset;
 			RanSleepMin = sendIntervalMin;
 			RanSleepMax = sendIntervalMax;
+			Walker = walker;
+			WalkBounds = walkBounds;
 
 			if (!string.Equals(transport, "nethernet", StringComparison.OrdinalIgnoreCase))
 			{
 				Console.WriteLine($"Unknown transport '{transport}': nethernet is the only transport (RakNet was removed).");
+				return;
+			}
+
+			if (!string.Equals(walker, "helix", StringComparison.OrdinalIgnoreCase) && !string.Equals(walker, "waypoints", StringComparison.OrdinalIgnoreCase))
+			{
+				Console.WriteLine($"Unknown walker '{walker}': expected helix or waypoints.");
 				return;
 			}
 

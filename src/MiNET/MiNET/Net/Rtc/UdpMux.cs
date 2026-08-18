@@ -64,7 +64,13 @@ namespace MiNET.Net.Rtc
 		// A defense-in-depth ceiling on first-contact admissions across every ufrag combined,
 		// independent of the per-ufrag cap above; RemovePeer decrements this as sessions end, so a
 		// long-lived server's churn never erodes the budget left for new joins.
-		internal const int MaxUnknownEndpointAdmissions = 4096;
+		// Settable (NetherNetListener seeds it from Mux.MaxUnknownEndpointAdmissions in the config;
+		// this layer stays config-free) because every joining client burns one admission per source
+		// address its ICE checks arrive from, one per advertised server candidate, and only the
+		// nominated one is returned on disconnect today. At three candidates the default budget
+		// stalls new joins near 1365 concurrent sessions on a loopback fleet. Releasing the
+		// non-nominated admissions at nomination is the real fix and is still owed.
+		internal static int MaxUnknownEndpointAdmissions { get; set; } = 4096;
 
 		private readonly Socket _socket;
 		private readonly CancellationTokenSource _cancellation = new();

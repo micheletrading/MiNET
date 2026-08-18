@@ -23,6 +23,7 @@
 
 #endregion
 
+using System.Collections.Generic;
 using System.Net;
 using MiNET.Net;
 
@@ -55,6 +56,13 @@ namespace MiNET
 		void Disconnect(string reason, bool sendDisconnect = true);
 
 		void SendPacket(Packet packet);
+
+		// The list form of SendPacket: the packets travel to the transport as one unit, so they
+		// drain together and normally share one wrapper. Other queued traffic may still bundle
+		// alongside; the promise is only that the list is never split. The callee takes ownership
+		// of the list and its packets.
+		void SendPackets(List<Packet> packets);
+
 		void SendDirectPacket(Packet packet);
 		IPEndPoint GetClientEndPoint();
 		long GetNetworkNetworkIdentifier();

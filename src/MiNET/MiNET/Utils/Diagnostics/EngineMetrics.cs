@@ -267,6 +267,12 @@ namespace MiNET.Utils.Diagnostics
 		private static readonly Histogram<double> ChunkRequestLatency = Meter.CreateHistogram<double>(
 			"chunk.request.latency", "ms", "From pushing a column's skeleton to the client asking for its first sub-chunk. This is the client's own turnaround, the half of the pipeline we do not control and could not previously see.");
 
+		private static readonly Counter<long> BlobCacheHashes = Meter.CreateCounter<long>(
+			"chunk.blobcache.hashes", "{hash}", "Client blob-cache reports by status: hit (the client already held the blob), miss (it asked for the bytes), unresolved (a missed hash no longer in the store, which strands the chunk). Cache hit ratio = hit / (hit + miss).");
+
+		private static readonly Counter<long> SubChunkReRequests = Meter.CreateCounter<long>(
+			"chunk.subchunk.rerequests", "{section}", "Sub-chunk requests for a section this player was already served. The client only re-asks after a fresh skeleton re-marks the column, so each one is a section the client evicted and came back for.");
+
 		private static readonly Histogram<int> ChunkNeverRequested = Meter.CreateHistogram<int>(
 			"chunk.never.requested", "{column}", "Columns whose skeleton was pushed and which the client has still not asked a single sub-chunk for. A hole in the world looks exactly like this.");
 
@@ -288,6 +294,13 @@ namespace MiNET.Utils.Diagnostics
 		public static void SubChunkResult(string result) => SubChunkResults.Add(1, new KeyValuePair<string, object>("result", result));
 
 		public static void SubChunkBytes(int bytes) => SubChunkResponseBytes.Record(bytes);
+
+		public static void BlobCacheReport(string status, int count)
+		{
+			if (count > 0) BlobCacheHashes.Add(count, new KeyValuePair<string, object>("status", status));
+		}
+
+		public static void SubChunkReRequested() => SubChunkReRequests.Add(1);
 
 		// The tick-stall suspects. All low-rate, so a histogram per event costs nothing worth counting,
 		// and a regression in any of them shows up here before it shows up as a tick overrun.
@@ -321,5 +334,36 @@ namespace MiNET.Utils.Diagnostics
 			BroadcastBytes.Record(bytes, tags);
 			BroadcastBuild.Record((Stopwatch.GetTimestamp() - startedAt) * 1_000_000d / Stopwatch.Frequency, tags);
 		}
+
+		private static readonly Histogram<double> RelevanceMatrixTime = Meter.CreateHistogram<double>(
+			"relevance.matrix.time", "us", "Time to rebuild the relevance bit matrix for one level tick, spent on the tick thread.");
+
+		private static readonly Histogram<long> RelevancePairs = Meter.CreateHistogram<long>(
+			"relevance.pairs", "{pair}", "Set bits in the relevance matrix after one compute. Directed, so a mutual pair counts twice.");
+
+		private static readonly Counter<long> RelevanceTransitions = Meter.CreateCounter<long>(
+			"relevance.transitions", "{transition}", "Directed enter/leave pairs the matrix emitted; each is one entity spawn or despawn on one client.");
+
+		private static readonly Histogram<int> BroadcastGroups = Meter.CreateHistogram<int>(
+			"broadcast.groups", "{group}", "Distinct recipient groups (visible-set hashes) that sent in one culled movement broadcast; each group is one compression pass.");
+
+		private static readonly Histogram<int> BroadcastRecipients = Meter.CreateHistogram<int>(
+			"broadcast.recipients", "{player}", "Recipients of one culled broadcast group's shared batch.");
+
+		/// <summary>
+		///     One call per culled movement broadcast, after the matrix pass and the transition
+		///     stream are done. <paramref name="startedAt" /> is a
+		///     <see cref="Stopwatch.GetTimestamp" /> reading from before the matrix update began.
+		/// </summary>
+		public static void RecordRelevance(long startedAt, long pairs, int transitions, in TagList tags)
+		{
+			RelevanceMatrixTime.Record((Stopwatch.GetTimestamp() - startedAt) * 1_000_000d / Stopwatch.Frequency, tags);
+			RelevancePairs.Record(pairs, tags);
+			if (transitions > 0) RelevanceTransitions.Add(transitions, tags);
+		}
+
+		public static void RecordBroadcastGroups(int groups, in TagList tags) => BroadcastGroups.Record(groups, tags);
+
+		public static void RecordBroadcastRecipients(int recipients, in TagList tags) => BroadcastRecipients.Record(recipients, tags);
 	}
 }

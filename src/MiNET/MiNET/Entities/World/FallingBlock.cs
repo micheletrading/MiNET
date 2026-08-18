@@ -185,7 +185,7 @@ namespace MiNET.Entities.World
 				var check = new BlockCoordinates(KnownPosition);
 				for (int i = 0; i < distance; i++)
 				{
-					if (Level.GetBlock(check).IsSolid)
+					if (Level.IsSolid(check))
 					{
 						_checkPosition = false;
 						KnownPosition = check.BlockUp();

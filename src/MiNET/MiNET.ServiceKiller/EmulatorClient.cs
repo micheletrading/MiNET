@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Numerics;
@@ -46,6 +47,7 @@ namespace MiNET.ServiceKiller
 		public int ChunkRadius { get; set; }
 
 		private static readonly ILog Log = LogManager.GetLogger(typeof(EmulatorClient));
+
 		public IPEndPoint EndPoint { get; }
 
 		public Emulator Emulator { get; private set; }
@@ -75,7 +77,16 @@ namespace MiNET.ServiceKiller
 				var client = new MiNetClient(EndPoint, Name);
 				client.ChunkRadius = ChunkRadius;
 				client.IsEmulator = true;
-				client.UseBlobCache = false;
+				// Like every real client, and not optional: the server refuses a client that says it
+				// does not cache. A bot that lies about this is testing a path no player takes.
+				client.UseBlobCache = true;
+				// Bots mimic a real client's chunk manners: cold cache (every join pays full
+				// price, which is what a load test should stress), only the surface band of
+				// sections requested (the top of each column, where a real client's view lives:
+				// towers and boats ride the column's own limit), and verdicts plus requests
+				// batched on the walk timer instead of fired per packet.
+				client.BatchChunkResponses = true;
+				client.RequestTopSections = 4;
 				client.ClientId = ClientId;
 
 				// Signaling plus data channel opening is the whole connection; the login
@@ -102,10 +113,12 @@ namespace MiNET.ServiceKiller
 				Emulator.ConcurrentSpawnWaitHandle.Set();
 				Console.WriteLine($"Client {Name} spawned, emulating...");
 
-				// Everything the bot needed to hear (login, chunks, spawn) has been heard. From here
-				// it only receives: incoming batches are dropped whole before decrypt and
-				// decompress. Transport-level teardown still lands, so IsConnected stays honest.
-				client.WrapperHandler.IgnoreIncoming = true;
+				// The bot stays listening after spawn: the chunk dance (skeletons at the rim,
+				// sub-chunk responses, blob announcements) continues for as long as it walks, and
+				// answering it is the whole point of mimicking a real client. The old deaf mode
+				// (IgnoreIncoming, batches dropped before decrypt) made bots pure senders and
+				// silently killed every post-spawn chunk flow. Fleet-scale noise is still cheap:
+				// the broadcast spam is dropped pre-decode via DropPacketIds.
 
 				// Hold the walk until the join burst has drained: subchunk responses keep streaming
 				// in after spawn, and a bot that walks while its socket is drowning stutters and
@@ -121,7 +134,7 @@ namespace MiNET.ServiceKiller
 				// sleeping thread per bot is tens of thousands of scheduler wakes per second at
 				// fleet scale, and that scheduling was measured to dwarf the actual protocol work.
 				// Registration is the handoff; this spawn thread's job ends here.
-				Emulator.WalkClock.Register(new BotWalker(client, Emulator, TimeToRun, Name, RanMin, RanMax, Random));
+				Emulator.WalkClock.Register(new BotWalker(client, Emulator, TimeToRun, Name, RanMin, RanMax, Random, Emulator.CreateWalkPath()));
 			}
 			catch (Exception e)
 			{

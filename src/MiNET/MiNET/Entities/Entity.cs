@@ -540,7 +540,7 @@ namespace MiNET.Entities
 			if (Level.Dimension == Dimension.Overworld && Level.NetherLevel == null) return false;
 			if (Level.Dimension == Dimension.Nether && Level.OverworldLevel == null) return false;
 
-			return Level.GetBlock(KnownPosition + new Vector3(0, 0.3f, 0)) is Portal;
+			return BlockFactory.Is<Portal>(Level.GetRuntimeIdAt((BlockCoordinates) (KnownPosition + new Vector3(0, 0.3f, 0))));
 		}
 
 		public virtual void OnTick(Entity[] entities)
@@ -648,6 +648,8 @@ namespace MiNET.Entities
 		{
 		}
 
+		private ulong _lastBroadcastMetadataHash;
+
 		public virtual void BroadcastSetEntityData()
 		{
 			BroadcastSetEntityData(GetMetadata());
@@ -655,6 +657,21 @@ namespace MiNET.Entities
 
 		public virtual void BroadcastSetEntityData(MetadataDictionary metadata)
 		{
+			// Callers fire this on every suspicion of change (the health branches do, per damage
+			// tick, for anything standing in water or stone), and GetMetadata is virtual, so no
+			// caller can know whether anything actually changed. The hash gate makes the spray
+			// free: only a payload that differs from the last one broadcast leaves the entity.
+			ulong hash;
+			using (System.IO.MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
+			{
+				var writer = new System.IO.BinaryWriter(stream);
+				metadata.WriteTo(writer);
+				writer.Flush();
+				hash = System.IO.Hashing.XxHash64.HashToUInt64(new ReadOnlySpan<byte>(stream.GetBuffer(), 0, (int) stream.Length));
+			}
+			if (hash == _lastBroadcastMetadataHash) return;
+			_lastBroadcastMetadataHash = hash;
+
 			McpeSetEntityData mcpeSetEntityData = McpeSetEntityData.CreateObject();
 			mcpeSetEntityData.runtimeEntityId = EntityId;
 			mcpeSetEntityData.metadata = metadata;
@@ -891,7 +908,7 @@ namespace MiNET.Entities
 
 			do
 			{
-				if (Level.GetBlock(rayPos).IsSolid)
+				if (Level.IsSolid(rayPos))
 				{
 					//Log.Debug($"{GetType()} can not see target");
 					//BroadcastEntityEvent();
