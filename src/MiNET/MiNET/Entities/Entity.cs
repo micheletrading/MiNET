@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -141,6 +141,9 @@ namespace MiNET.Entities
 			RiderMinRotation = 59,
 			AlwaysShowNameTag = 81,
 
+			// The item an entity is holding in use; the client plays the use animation off it.
+			UsingItemProperty = 48,
+
 			EntityFlags2 = 92, // same treatment as 0 flags, perhaps
 
 			ButtonText = 100,
@@ -163,6 +166,10 @@ namespace MiNET.Entities
 			metadata[(int) MetadataFlags.MaxAir] = new MetadataShort(HealthManager.MaxAir);
 			metadata[(int) MetadataFlags.CollisionBoxWidth] = new MetadataFloat(Width); // Collision box height
 			metadata[(int) MetadataFlags.CollisionBoxHeight] = new MetadataFloat(Height); // Collision box width
+			if (UsingItem != null && !UsingItem.IsAir)
+			{
+				metadata[(int) MetadataFlags.UsingItemProperty] = new MetadataItem(UsingItem);
+			}
 			metadata[(int) MetadataFlags.RiderSeatPosition] = new MetadataVector3(RiderSeatPosition);
 			metadata[(int) MetadataFlags.RiderRotationLocked] = new MetadataByte(RiderRotationLocked);
 			metadata[(int) MetadataFlags.RiderMaxRotation] = new MetadataFloat(RiderMaxRotation);
@@ -298,6 +305,9 @@ namespace MiNET.Entities
 		public bool IsRiding { get; set; }
 		public bool IsSprinting { get; set; }
 		public bool IsUsingItem { get; set; }
+		/// <summary>The item the entity is holding in use (metadata property 48): the client plays
+		/// the item-use animation (e.g. the skeleton's bow draw) only when this carries the item.</summary>
+		public Item UsingItem { get; set; }
 		public bool IsInvisible { get; set; }
 		public bool IsTempted { get; set; }
 		public bool IsInLove { get; set; }

@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -39,7 +39,9 @@ namespace MiNET.Entities.Hostile
 		{
 			Width = Length = 0.6;
 			Height = 1.95;
-			NoAi = true;
+			// The client plays the bow draw/shoot animation only when the mob is not flagged NoAi;
+			// the server-side archery behaviour is independent of the flag.
+			NoAi = false;
 
 			AttackDamage = 4;
 

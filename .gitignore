@@ -228,3 +228,4 @@ src/MiNET/TestPlugin/StarterKitPlugin.cs
 # server.conf itself stays tracked: it is the documented default and holds nothing private.
 server.*.conf
 *.server.conf
+docs/

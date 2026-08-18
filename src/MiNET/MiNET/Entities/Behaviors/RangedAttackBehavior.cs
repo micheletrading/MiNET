@@ -60,16 +60,27 @@ namespace MiNET.Entities.Behaviors
 		public override void OnTick(Entity[] entities)
 		{
 			Entity target = _entity.Target;
-			if (target == null || target.HealthManager.IsDead) return;
+			if (target == null || target.HealthManager.IsDead)
+			{
+				SetCharging(false);
+				return;
+			}
 
 			float distance = (float) _entity.DistanceTo(target);
-			if (distance > 16 || !_entity.CanSee(target)) return;
+			if (distance > 16 || !_entity.CanSee(target))
+			{
+				SetCharging(false);
+				return;
+			}
 
 			// Face the target while it is in bow range.
 			Vector3 direction = target.KnownPosition.ToVector3() - _entity.KnownPosition.ToVector3();
 			float yaw = (float) (Math.Atan2(direction.X, direction.Z) * 180.0 / Math.PI);
 			_entity.KnownPosition.Yaw = yaw;
 			_entity.KnownPosition.HeadYaw = yaw;
+
+			// Draw the bow: the client plays the draw animation off the using-item/charged flags.
+			SetCharging(true);
 
 			if (_cooldown > 0)
 			{
@@ -89,7 +100,21 @@ namespace MiNET.Entities.Behaviors
 			};
 			arrow.SpawnEntity();
 
+			// Release the bow: the flags drop so the client plays the release and rests.
+			SetCharging(false);
+
 			_cooldown = 20; // one arrow per second, vanilla cadence
+		}
+
+		private void SetCharging(bool charging)
+		{
+			if (_entity.IsCharged == charging) return;
+
+			// The client plays the skeleton's bow draw off the charged flag (bit 34) alone - the
+			// vanilla BDS capture toggles ONLY that bit around each shot (no using-item flag, no
+			// item property), so mirror exactly that.
+			_entity.IsCharged = charging;
+			_entity.BroadcastSetEntityData();
 		}
 	}
 }
