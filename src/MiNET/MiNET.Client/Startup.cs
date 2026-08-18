@@ -52,6 +52,112 @@ namespace MiNET.Client
 		// ReSharper disable once InconsistentNaming
 		private const string MiNET = "\r\n __   __  ___   __    _  _______  _______ \r\n|  |_|  ||   | |  |  | ||       ||       |\r\n|       ||   | |   |_| ||    ___||_     _|\r\n|       ||   | |       ||   |___   |   |  \r\n|       ||   | |  _    ||    ___|  |   |  \r\n| ||_|| ||   | | | |   ||   |___   |   |  \r\n|_|   |_||___| |_|  |__||_______|  |___|  \r\n";
 
+		/// <summary>
+		///     What the join burst actually delivered. Columns and blobs both count: the announcement
+		///     flow only ever names blobs by hash, so a client holding columns with no sections in
+		///     them has answered verdicts for terrain it never resolved. Waits for the stream to go
+		///     quiet first, since the burst keeps arriving after spawn.
+		/// </summary>
+		private static void ReportChunkCache(MiNetClient client)
+		{
+			// Done means every announced blob is held AND no new column has arrived for a moment.
+			// Payloads settle long after the columns that announced them, and columns keep arriving
+			// after the last payload of the previous batch, so either test alone reports a client
+			// that is still mid-stream. Anything short of that runs the clock out and is reported as
+			// it stands.
+			int columns = 0, quiet = 0;
+			for (int i = 0; i < 60 && client.IsConnected; i++)
+			{
+				Thread.Sleep(500);
+				int next = client.ChunkCache.Columns.Count;
+				bool settled = next > 0 && next == columns && client.ChunkCache.Blobs.PayloadCount == client.ChunkCache.Blobs.Count;
+				columns = next;
+				if (settled && ++quiet >= 3) break;
+				if (!settled) quiet = 0;
+			}
+
+			int complete = 0, sections = 0, biomes = 0, pulled = 0, pushed = 0, legacy = 0;
+			var pushedColumns = new List<ChunkCoordinates>();
+			foreach (CachedChunkColumn column in client.ChunkCache.Columns)
+			{
+				if (column.IsComplete) complete++;
+				sections += column.Sections.Count;
+				if (column.Biomes != null) biomes++;
+
+				switch (column.Delivery)
+				{
+					case ChunkDelivery.Pull: pulled++; break;
+					case ChunkDelivery.Push:
+						pushed++;
+						pushedColumns.Add(column.Coordinates);
+						break;
+					default: legacy++; break;
+				}
+			}
+
+			// The coordinates, not just the count: whether the server sent exactly the columns that
+			// entered the view and nothing else is a question about the set.
+			if (pushedColumns.Count > 0)
+			{
+				pushedColumns.Sort((a, b) => a.X == b.X ? a.Z.CompareTo(b.Z) : a.X.CompareTo(b.X));
+				Console.WriteLine($"Pushed columns: {string.Join(" ", pushedColumns.Select(c => $"{c.X},{c.Z}"))}");
+			}
+
+			// Anything still queued here was never asked for: verdicts and requests only leave on a
+			// flush, and a flush only happens when a packet arrives, so a leftover at rest is a
+			// column that will never complete.
+			int owed = client.PendingBlobHits.Count + client.PendingBlobMisses.Count + client.PendingSubChunkColumns.Count;
+
+			string report = $"Chunk cache: {columns} columns ({complete} complete, {biomes} with biomes, {pulled} pulled, {pushed} pushed, {legacy} legacy), {sections} sections, {client.ChunkCache.Blobs.PayloadCount} of {client.ChunkCache.Blobs.Count} blobs held, {owed} answers still queued";
+			Console.WriteLine(report);
+			Log.Info(report);
+		}
+
+		/// <summary>
+		///     Walks the bot in +X at vanilla walking speed, one PlayerAuthInput per tick, which is the
+		///     only movement packet the 1.26 server reads. Sixteen blocks is one chunk border, and a
+		///     border crossing is what makes the server stream the next ring.
+		/// </summary>
+		private static void WalkForward(MiNetClient client, int blocks)
+		{
+			const float speed = 4.317f; // vanilla walking, blocks per second
+			var forward = new Vector2(0, 1);
+
+			PlayerLocation start = client.CurrentLocation;
+			var position = new Vector3(start.X, start.Y, start.Z);
+			int ticks = (int) (blocks / speed * 20);
+
+			Log.Info($"Walking {blocks} blocks in +X from {position} over {ticks} ticks");
+
+			for (int i = 0; i < ticks; i++)
+			{
+				Vector3 previous = position;
+				position = position with {X = position.X + speed / 20f};
+
+				var input = McpePlayerAuthInput.CreateObject();
+				input.playerRotation = new Vector2(0, 90);
+				input.playerHeadRotation = 90;
+				input.position = position;
+				input.moveVector = forward;
+				input.inputData = AuthInputFlags.WalkForwards;
+				input.inputMode = McpePlayerAuthInput.InputMode.Mouse;
+				input.playMode = McpePlayerAuthInput.ClientPlayMode.Normal;
+				input.newInteractionModel = McpePlayerAuthInput.NewInteractionModel.Touch;
+				input.interactRotation = new Vector2(0, 90);
+				input.clientTick = i;
+				input.posDelta = position - previous;
+				input.analogMoveVector = forward;
+				input.rawMoveVector = forward;
+				input.cameraOrientation = new Vector3(0, 90, 0);
+				client.SendPacket(input);
+
+				client.CurrentLocation = new PlayerLocation(position, 90, 90, 0);
+				Thread.Sleep(50);
+			}
+
+			Log.Info($"Walk finished at {position}");
+		}
+
 		/// <summary>Places one of every block that keeps a block entity, in a line beside the bot, by
 		/// asking the server to do it. Nothing is read back here: the server sends the block entity
 		/// data by itself, and BedrockTraceHandler prints the tag it arrives in.</summary>
@@ -223,6 +329,11 @@ namespace MiNET.Client
 			}
 
 			var client = new MiNetClient(target, username);
+
+			// MINET_RADIUS overrides the view distance this bot asks for. Large radii are the
+			// interesting case: one ClientCacheBlobStatus carries at most 4095 ids, so a join wide
+			// enough to announce more than that is where the client's own flushing has to hold up.
+			if (int.TryParse(Environment.GetEnvironmentVariable("MINET_RADIUS"), out int radius) && radius > 0) client.ChunkRadius = radius;
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 19132), "TheGrey");
 			//var client = new MiNetClient(new IPEndPoint(Dns.GetHostEntry("test.pmmp.io").AddressList[0], 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Parse("192.168.0.4"), 19162), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
@@ -231,9 +342,10 @@ namespace MiNET.Client
 			//var client = new MiNetClient(new IPEndPoint(IPAddress.Loopback, 19132), "TheGrey", new DedicatedThreadPool(new DedicatedThreadPoolSettings(Environment.ProcessorCount)));
 
 			client.MessageHandler = new BedrockTraceHandler(client);
-			// MINET_BLOB_CACHE=1 makes the bot announce ClientCacheStatus enabled, the way every
-			// real client does; vanilla then serves blob-addressed chunks. Off keeps the plain flow.
-			client.UseBlobCache = Environment.GetEnvironmentVariable("MINET_BLOB_CACHE") == "1";
+			// The bot announces ClientCacheStatus enabled, the way every real client does, and both
+			// servers then serve blob-addressed chunks. MINET_BLOB_CACHE=0 says no instead, which
+			// puts BDS back on the plain inline flow; MiNET refuses a client that says it.
+			client.UseBlobCache = Environment.GetEnvironmentVariable("MINET_BLOB_CACHE") != "0";
 
 			// MINET_XBL=1 logs in with a real Xbox Live account instead of an offline identity, which
 			// is what an online-mode server requires. The first run prints a code to enter in a
@@ -270,6 +382,18 @@ namespace MiNET.Client
 			Console.WriteLine("Waiting for spawn...");
 			client.PlayerStatusChangedWaitHandle.WaitOne();
 			Console.WriteLine("... spawned");
+
+			ReportChunkCache(client);
+
+			// MINET_WALK=<blocks> walks the bot that far in +X and reports again. The server serves
+			// the spawn burst as skeletons and switches to pushed columns for the rim once a player
+			// is moving, so standing still shows only half of what a client has to handle.
+			string walk = Environment.GetEnvironmentVariable("MINET_WALK");
+			if (!string.IsNullOrWhiteSpace(walk) && int.TryParse(walk, out int walkBlocks))
+			{
+				WalkForward(client, walkBlocks);
+				ReportChunkCache(client);
+			}
 
 			client.HasSpawned = true;
 

@@ -99,40 +99,32 @@ namespace MiNET.Client
 
 		public override void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
-			// Blob hashes on subchunk entries need answering just like the ones on a LevelChunk, or
-			// the server has no reason to send the blobs and we never see their contents. We hold
-			// no blob storage, so everything is a miss, which is also what a real client reports
-			// the first time it meets a world.
-			if (message.cacheEnabled)
-			{
-				var misses = message.subchunkData
-					.Where(entry => entry.blobId != null)
-					.Select(entry => entry.blobId.Value)
-					.Where(hash => hash != 0)
-					.Distinct()
-					.ToArray();
+			// The verdicts and the section payloads belong to the client's chunk cache, which holds
+			// what arrives instead of answering blind misses for bytes it then drops.
+			base.HandleMcpeSubChunkPacket(message);
 
-				if (misses.Length > 0)
-				{
-					var status = McpeClientCacheBlobStatus.CreateObject();
-					status.hashHits = Array.Empty<ulong>();
-					status.hashMisses = misses;
-					Client.SendPacket(status);
-				}
-			}
-
-			// The blob reply above is the only part of this packet a bot needs. Parsing the block
-			// storage is trace/verification work, and at fleet scale it is what melts the emulator
-			// process (measured ~14 cores and 0.9 s/s GC pause on a 200-bot join burst).
+			// Everything below is trace/verification work, and at fleet scale it is what melts the
+			// emulator process (measured ~14 cores and 0.9 s/s GC pause on a 200-bot join burst).
 			if (Client.IsEmulator) return;
 
-			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0;
+			int success = 0, allAir = 0, other = 0, parsedOk = 0, parseFail = 0, cached = 0;
 			foreach (SubChunkPacketData entry in message.subchunkData)
 			{
 				switch ((SubChunkPacketData.SubchunkRequestResult) entry.subchunkRequestResult)
 				{
 					case SubChunkPacketData.SubchunkRequestResult.Success:
 						success++;
+
+						// Cached, the section is a hash and its bytes arrive later in a
+						// ClientCacheMissResponse; serializedSubChunk carries the block entities
+						// instead, so there is nothing here to parse. MINET_BLOB_CACHE=0 puts the
+						// payload back in the packet, which is the mode this check is for.
+						if (message.cacheEnabled)
+						{
+							cached++;
+							break;
+						}
+
 						if (ClientUtils.TryParseSubChunkPayload(entry.serializedSubChunk, Client.BlockNetworkIdsAreHashes)) parsedOk++;
 						else parseFail++;
 						if (!Client.BlockNetworkIdsAreHashes) DumpPositionalIds(message, entry);
@@ -148,7 +140,7 @@ namespace MiNET.Client
 
 			if (System.Threading.Interlocked.Increment(ref _subChunkPacketsLogged) <= 5 || parseFail > 0)
 			{
-				Log.Warn($"SubChunk response: origin=({message.centerPos.subchunkPositionX},{message.centerPos.subchunkPositionY},{message.centerPos.subchunkPositionZ}) entries={message.subchunkData.Count} success={success} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
+				Log.Warn($"SubChunk response: origin=({message.centerPos.subchunkPositionX},{message.centerPos.subchunkPositionY},{message.centerPos.subchunkPositionZ}) entries={message.subchunkData.Count} success={success} cached={cached} parsedOk={parsedOk} parseFail={parseFail} allAir={allAir} other={other} positionalCells={_positionalCells}");
 			}
 		}
 
@@ -380,10 +372,10 @@ namespace MiNET.Client
 
 		public override void HandleMcpeStartGame(McpeStartGame message)
 		{
-			Client.EntityId = message.runtimeEntityId;
-			Client.NetworkEntityId = message.entityIdSelf;
-			Client.SpawnPoint = new PlayerLocation(message.position.X, message.position.Y, message.position.Z);
-			Client.CurrentLocation = new PlayerLocation(Client.SpawnPoint, message.rotation.X, message.rotation.X, message.rotation.Y);
+			// Identity, spawn, the chunk-radius request and the loading screen are protocol
+			// behaviour and live in the base handler, which asks for the radius this client was
+			// configured with. This override only reports what arrived.
+			base.HandleMcpeStartGame(message);
 
 			Log.Warn($"Got position from startgame packet: {Client.CurrentLocation}");
 			Log.Warn($"StartGame: blockNetworkIdsAreHashes={message.blockNetworkIdsAreHashes}, position={message.position}");
@@ -410,28 +402,6 @@ namespace MiNET.Client
 			}
 
 			LogGamerules(message.settings.gamerules);
-
-			Client.LevelInfo.LevelName = "Default";
-			Client.LevelInfo.Version = 19133;
-			Client.LevelInfo.GameType = (int) message.settings.gameType;
-
-			{
-				var packet = McpeRequestChunkRadius.CreateObject();
-				Client.ChunkRadius = 5;
-				packet.chunkRadius = Client.ChunkRadius;
-				packet.maxRadius = 32;
-
-				Client.SendPacket(packet);
-			}
-
-			// A real client opens its loading screen right after requesting the chunk radius
-			// (captured live); the matching type 2 close is sent on PlayStatus(3).
-			{
-				var loadingScreen = McpeServerBoundLoadingScreen.CreateObject();
-				loadingScreen.type = 1;
-				loadingScreen.loadingScreenId = null;
-				Client.SendPacket(loadingScreen);
-			}
 		}
 
 		public override void HandleMcpeAddPlayer(McpeAddPlayer message)

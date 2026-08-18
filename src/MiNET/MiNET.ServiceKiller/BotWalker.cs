@@ -100,81 +100,19 @@ namespace MiNET.ServiceKiller
 			// The chunk answers ride the walk timer: one batched cache status and one batched
 			// sub-chunk request per step, the way a real client flushes its verdicts per tick
 			// instead of answering every LevelChunk the instant it lands.
-			FlushChunkResponses();
+			_client.FlushChunkResponses();
 
-			// Position-driven forgetting, IDENTICAL to the server's prune: what the client
-			// knows is the disc around its current position and radius, and crossing a chunk
-			// boundary forgets whatever fell outside. The two sides matching is what makes a
-			// re-entered column arrive as a fresh skeleton and dance again.
+			// The client's sliding window follows the walk, which is what keeps it identical to
+			// the server's prune.
 			var chunkPos = new ChunkCoordinates((int) _lastPosition.X >> 4, (int) _lastPosition.Z >> 4);
 			if (chunkPos != _lastChunkPos)
 			{
 				_lastChunkPos = chunkPos;
-				lock (_client.KnownColumns)
-				{
-					_client.KnownColumns.RemoveWhere(c => c.DistanceTo(chunkPos) > _client.ChunkRadius);
-				}
+				_client.ForgetColumnsOutsideWindow(chunkPos);
 			}
 
 			SendStep(_path.Next(_lastPosition, NextStepSeconds()));
 			return true;
-		}
-
-		/// <summary>
-		///     One ClientCacheBlobStatus for the pending verdicts (capped at the packet's 4095-id
-		///     limit; the rest waits for the next step) and one SubChunkRequest covering the
-		///     pending columns' surface bands, offsets relative to the first pending column.
-		/// </summary>
-		private void FlushChunkResponses()
-		{
-			var hits = new List<ulong>();
-			var misses = new List<ulong>();
-			while (hits.Count + misses.Count < 4095 && _client.PendingBlobHits.TryDequeue(out ulong hash)) hits.Add(hash);
-			while (hits.Count + misses.Count < 4095 && _client.PendingBlobMisses.TryDequeue(out ulong hash)) misses.Add(hash);
-
-			if (hits.Count + misses.Count > 0)
-			{
-				var status = McpeClientCacheBlobStatus.CreateObject();
-				status.hashHits = hits.ToArray();
-				status.hashMisses = misses.ToArray();
-				_client.SendPacket(status);
-			}
-
-			if (!_client.PendingSubChunkColumns.TryDequeue(out (int X, int Z, int Highest, int Dimension) first)) return;
-
-			var request = McpeSubChunkRequestPacket.CreateObject();
-			request.dimension = first.Dimension;
-			request.originX = first.X;
-			request.originY = 0;
-			request.originZ = first.Z;
-
-			void AddColumn((int X, int Z, int Highest, int Dimension) column)
-			{
-				int lowest = _client.RequestTopSections > 0 ? Math.Max(0, column.Highest - _client.RequestTopSections + 1) : 0;
-				for (int i = lowest; i <= column.Highest; i++)
-				{
-					request.offsets.Add(new SubChunkPosOffset
-					{
-						subchunkOffsetX = (sbyte) (column.X - first.X),
-						subchunkOffsetY = (sbyte) (i - 4),
-						subchunkOffsetZ = (sbyte) (column.Z - first.Z)
-					});
-				}
-			}
-
-			AddColumn(first);
-
-			// More pending columns fold into the same request while they fit the sbyte offset
-			// range around the first one; anything farther waits for the next step.
-			while (request.offsets.Count < 512 && _client.PendingSubChunkColumns.TryPeek(out (int X, int Z, int Highest, int Dimension) next))
-			{
-				if (next.Dimension != first.Dimension || Math.Abs(next.X - first.X) > 120 || Math.Abs(next.Z - first.Z) > 120) break;
-
-				_client.PendingSubChunkColumns.TryDequeue(out next);
-				AddColumn(next);
-			}
-
-			_client.SendPacket(request);
 		}
 
 		/// <summary>

@@ -151,7 +151,19 @@ namespace MiNET.Net.NetherNet
 
 				// ICE checks, DTLS and SCTP all happen here; the reliable channel's DCEP ACK is the
 				// only signal that the whole stack, channels included, actually came up.
-				if (!await peer.WaitForTransportAsync(TransportTimeout)) throw new IOException($"NetherNet transport to {host}:{port} did not come up within {TransportTimeout.TotalSeconds:0}s");
+				// The caller gets what actually happened, not just that it did not work: which pair
+				// ICE gave up on, and which of the peer's addresses were passed over because this
+				// socket cannot reach that family. Without this the two are indistinguishable, and
+				// they need opposite fixes.
+				if (!await peer.WaitForTransportAsync(TransportTimeout))
+				{
+					string ignored = peer.IgnoredCandidates.Count == 0 ? "none" : string.Join(", ", peer.IgnoredCandidates);
+					throw new IOException(
+						$"NetherNet transport to {host}:{port} did not come up within {TransportTimeout.TotalSeconds:0}s. " +
+						$"ICE: {peer.TransportFailureReason ?? "still checking, no verdict yet"}. " +
+						$"Candidates this socket could not address: {ignored}. " +
+						$"Datagrams dropped for the same reason: {mux.UnreachableFamilyDrops}.");
+				}
 				await WithCancellation(channelOpen.Task, cancellationToken);
 
 				IPEndPoint remote = ResolveRemote(host, port);

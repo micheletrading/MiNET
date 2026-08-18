@@ -24,6 +24,7 @@
 #endregion
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -133,6 +134,70 @@ namespace MiNET.Test.Rtc
 			await Task.Delay(TimeSpan.FromSeconds(6));
 
 			Assert.AreEqual(sentAtDispose, client.ConsentChecksSent, "consent checks kept advancing after Dispose");
+		}
+
+		/// <summary>
+		///     What BDS actually offers: candidates in both families, IPv6 among them, to a mux bound
+		///     v4. The unusable one must not cost us the connection, and the order it arrives in must
+		///     not matter, so it is deliberately first here. Left in the list it would throw on every
+		///     tick, and because a throw aborts the candidate loop, the reachable candidate behind it
+		///     would never be checked at all.
+		/// </summary>
+		[TestMethod]
+		public async Task UnreachableFamilyCandidate_DoesNotCostTheReachableOne()
+		{
+			using var serverMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			using var clientMux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+
+			string serverUfrag = IceSession.NewUfrag(), serverPwd = IceSession.NewPassword();
+			string clientUfrag = IceSession.NewUfrag(), clientPwd = IceSession.NewPassword();
+
+			var server = new IceSession(serverMux, IceRole.ControlledLite, serverUfrag, serverPwd);
+			server.SetRemoteCredentials(clientUfrag, clientPwd);
+			serverMux.RegisterUfrag(serverUfrag, _ => server);
+
+			var client = new IceSession(clientMux, IceRole.Controlling, clientUfrag, clientPwd);
+			client.SetRemoteCredentials(serverUfrag, serverPwd);
+			clientMux.RegisterUfrag(clientUfrag, _ => client);
+
+			var clientNominated = new TaskCompletionSource<IPEndPoint>(TaskCreationOptions.RunContinuationsAsynchronously);
+			client.OnNominated += ep => clientNominated.TrySetResult(ep);
+
+			serverMux.Start();
+			clientMux.Start();
+
+			client.AddRemoteCandidate(new IPEndPoint(IPAddress.IPv6Loopback, serverMux.LocalEndPoint.Port));
+			client.AddRemoteCandidate(serverMux.LocalEndPoint);
+			client.StartChecks();
+
+			IPEndPoint nominated = await clientNominated.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+			Assert.AreEqual(serverMux.LocalEndPoint.Port, nominated.Port);
+			Assert.AreEqual(0, clientMux.UnreachableFamilyDrops, "the unusable candidate should never have reached the socket at all");
+		}
+
+		/// <summary>
+		///     Passing over a candidate must never be silent. A consumer whose connect fails has to be
+		///     able to tell "the peer only offered addresses I cannot reach" from "the peer never
+		///     answered", because those need opposite fixes, so the addresses that were skipped stay
+		///     readable on the session rather than living only in a log line.
+		/// </summary>
+		[TestMethod]
+		public void SkippedCandidates_StayVisibleToTheCaller()
+		{
+			using var mux = new UdpMux(new IPEndPoint(IPAddress.Loopback, 0));
+			mux.Start();
+
+			var client = new IceSession(mux, IceRole.Controlling, IceSession.NewUfrag(), IceSession.NewPassword());
+			client.SetRemoteCredentials(IceSession.NewUfrag(), IceSession.NewPassword());
+
+			var unreachable = new IPEndPoint(IPAddress.IPv6Loopback, 19132);
+			client.AddRemoteCandidate(unreachable);
+
+			CollectionAssert.Contains(client.IgnoredCandidates.ToArray(), unreachable, "a skipped candidate has to be reportable, not just logged");
+			Assert.IsNull(client.FailureReason, "nothing has failed yet; the session is still waiting on its give-up timer");
+
+			client.Dispose();
 		}
 	}
 }

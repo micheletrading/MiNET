@@ -102,6 +102,8 @@ namespace MiNET.Net.Rtc
 		private Action _sharedTickHandler;
 		private long _droppedDatagrams;
 		private long _dispatchFailures;
+		private long _unreachableFamilyDrops;
+		private int _unreachableFamilyWarned;
 		private long _admittedEndpointCount;
 		private long _admissionCapDrops;
 		private int _started;
@@ -127,7 +129,28 @@ namespace MiNET.Net.Rtc
 		/// </summary>
 		public long AdmissionCapDrops => Interlocked.Read(ref _admissionCapDrops);
 
+		/// <summary>
+		///     Datagrams dropped because the destination is in an address family this socket cannot
+		///     send to. See <see cref="CanSendTo" />.
+		/// </summary>
+		public long UnreachableFamilyDrops => Interlocked.Read(ref _unreachableFamilyDrops);
+
 		public event Action OnTick;
+
+		/// <summary>
+		///     Whether this socket can address that peer at all. A v4 socket cannot send to a v6
+		///     destination and the other way round; a dual-mode v6 socket reaches both, because a v4
+		///     destination is sent as its mapped form. The peers we talk to advertise candidates in
+		///     whichever families they hold, so a mixed list is normal and the unreachable half is
+		///     simply not ours to use.
+		/// </summary>
+		public bool CanSendTo(IPAddress address)
+		{
+			if (address == null) return false;
+			if (address.AddressFamily == _socket.AddressFamily) return true;
+
+			return _socket.AddressFamily == AddressFamily.InterNetworkV6 && _socket.DualMode && address.AddressFamily == AddressFamily.InterNetwork;
+		}
 
 		/// <summary>
 		///     Answers a non-STUN datagram from an unknown endpoint. Returns the reply to send, or
@@ -216,6 +239,21 @@ namespace MiNET.Net.Rtc
 
 		public void Send(IPEndPoint to, ReadOnlySpan<byte> datagram)
 		{
+			// A destination this socket cannot address is a drop, never a throw. Every caller here is
+			// a send or a tick path, and the family of a peer's candidate is not something they chose
+			// or can do anything about: SendTo would raise WSAEAFNOSUPPORT, which unwinds an ICE tick
+			// or an SCTP retransmit and takes the healthy work in it down as well.
+			if (!CanSendTo(to?.Address))
+			{
+				Interlocked.Increment(ref _unreachableFamilyDrops);
+				if (Interlocked.Exchange(ref _unreachableFamilyWarned, 1) == 0)
+				{
+					Log.Warn($"Dropping datagrams to {to}: this mux is bound {_socket.AddressFamily} and cannot address that family. Further drops are counted in UnreachableFamilyDrops.");
+				}
+
+				return;
+			}
+
 			// The counting point transport.datagrams.out names: one call here is one sendto, so this
 			// number is directly comparable against the kernel's own UDP send counter. That comparison
 			// is the calibration - if the two disagree on an otherwise idle box, this seam moved.

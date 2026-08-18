@@ -368,29 +368,23 @@ namespace MiNET.Client
 		}
 
 		/// <summary>
-		///     Skeleton chunk: the payload is biomes only and block data has to be asked for a
-		///     section at a time. Highest requestable relative index is subChunkCount in limited
-		///     mode; relative index 0 is section y -4. RequestTopSections narrows the ask to the
-		///     top of the column, the band a real client's view actually covers.
+		///     Queues the verdicts owed for a batch of announced hashes, and sends them straight
+		///     away unless the consumer batches on its own tick.
 		/// </summary>
-		protected void SendSubChunkRequest(McpeLevelChunk message)
+		private void AnswerVerdicts(List<ulong> hits, List<ulong> misses)
 		{
-			int highest = message.clientRequestSubchunkLimit ?? 23;
-			int lowest = Client.RequestTopSections > 0 ? Math.Max(0, highest - Client.RequestTopSections + 1) : 0;
+			foreach (ulong hash in hits) Client.PendingBlobHits.Enqueue(hash);
+			foreach (ulong hash in misses) Client.PendingBlobMisses.Enqueue(hash);
 
-			var request = McpeSubChunkRequestPacket.CreateObject();
-			request.dimension = message.dimension;
-			request.originX = message.chunkPosition.x;
-			request.originY = 0;
-			request.originZ = message.chunkPosition.z;
-			for (int i = lowest; i <= highest; i++)
-			{
-				request.offsets.Add(new SubChunkPosOffset {subchunkOffsetX = 0, subchunkOffsetY = (sbyte) (i - 4), subchunkOffsetZ = 0});
-			}
-
-			Client.SendPacket(request);
+			if (!Client.BatchChunkResponses) Client.FlushChunkResponses();
 		}
 
+		/// <summary>
+		///     A column in any of its three forms: legacy push (everything inline), cached push
+		///     (every section announced by hash) and the skeleton the join burst uses (biomes only,
+		///     block data asked for a section at a time). The cache sorts out which one this is,
+		///     answers for the hashes it announces, and holds what arrives.
+		/// </summary>
 		public virtual void HandleMcpeLevelChunk(McpeLevelChunk message)
 		{
 			// The publisher's acceptance window, first thing and cheap: "this is the area I
@@ -402,60 +396,21 @@ namespace MiNET.Client
 				if (arrived.DistanceTo(Client.PublishedCenter) > Client.PublishedRadiusChunks) return;
 			}
 
-			if (message.cacheEnabled)
-			{
-				// Report hits and misses against the hashes we have been given before. A miss is
-				// answered with the full blob, so a client that never remembers its hashes misses on
-				// everything for ever and the cache does nothing but add a round trip.
-				var hits = new List<ulong>();
-				var misses = new List<ulong>();
+			var hits = new List<ulong>();
+			var misses = new List<ulong>();
 
-				foreach (ulong hash in message.cacheMetadata)
-				{
-					if (Client.KnownBlobs.ContainsKey(hash)) hits.Add(hash);
-					else misses.Add(hash);
-				}
+			// The sub-chunks are asked for once per column. A real client keeps what it was sent;
+			// re-asking for all 24 sections every time the server re-pushes a column is what made a
+			// walking bot pull its whole surroundings again on every chunk boundary it crossed.
+			bool needsRequest = Client.ChunkCache.OnLevelChunk(message, hits, misses);
 
-				// Recorded on the way out: a miss is about to be answered with the blob, and after
-				// that we hold it.
-				foreach (ulong hash in misses) Client.KnownBlobs.TryAdd(hash, 0);
+			AnswerVerdicts(hits, misses);
 
-				if (Client.BatchChunkResponses)
-				{
-					// Verdicts ride the walk timer, the way a real client batches on its tick.
-					foreach (ulong hash in hits) Client.PendingBlobHits.Enqueue(hash);
-					foreach (ulong hash in misses) Client.PendingBlobMisses.Enqueue(hash);
-				}
-				else
-				{
-					var status = McpeClientCacheBlobStatus.CreateObject();
-					status.hashHits = hits.ToArray();
-					status.hashMisses = misses.ToArray();
-					Client.SendPacket(status);
-				}
-			}
+			if (!needsRequest) return;
 
-			// The hash on a cached LevelChunk covers the column's biome blob only, so the subchunks
-			// still have to be requested exactly as in the uncached case - but only once per column.
-			// A real client keeps what it was sent; re-asking for all 24 sections every time the
-			// server re-pushes a column is what made a walking bot pull its whole surroundings again
-			// on every chunk boundary it crossed.
-			var coordinates = new ChunkCoordinates(message.chunkPosition.x, message.chunkPosition.z);
-			lock (Client.KnownColumns)
-			{
-				if (!Client.KnownColumns.Add(coordinates)) return;
-			}
+			Client.PendingSubChunkColumns.Enqueue((message.chunkPosition.x, message.chunkPosition.z, message.clientRequestSubchunkLimit.Value, message.dimension));
 
-			if (message.clientRequestSubchunkLimit == null) return;
-
-			if (Client.BatchChunkResponses)
-			{
-				Client.PendingSubChunkColumns.Enqueue((message.chunkPosition.x, message.chunkPosition.z, message.clientRequestSubchunkLimit.Value, message.dimension));
-			}
-			else
-			{
-				SendSubChunkRequest(message);
-			}
+			if (!Client.BatchChunkResponses) Client.FlushChunkResponses();
 		}
 
 		public virtual void HandleMcpeSetCommandsEnabled(McpeSetCommandsEnabled message)
@@ -745,8 +700,14 @@ namespace MiNET.Client
 		{
 		}
 
+		/// <summary>
+		///     The bytes behind the hashes we reported as missing. This is where terrain actually
+		///     arrives in both cached flows, so a client that drops these has announced chunks it can
+		///     never draw.
+		/// </summary>
 		public virtual void HandleMcpeClientCacheMissResponse(McpeClientCacheMissResponse message)
 		{
+			Client.ChunkCache.OnBlobPayloads(message.blobs);
 		}
 
 		public virtual void HandleMcpeEducationSettings(McpeEducationSettings message)
@@ -828,41 +789,19 @@ namespace MiNET.Client
 		/// <inheritdoc />
 		public virtual void HandleMcpeSubChunkPacket(McpeSubChunkPacket message)
 		{
-			// The response's entries announce section blobs by hash exactly like a cached
-			// LevelChunk announces the biome blob, and they get the same verdicts: a cold
-			// client misses and the server answers with the payload, which is most of the
-			// terrain bandwidth a real join costs. Ignoring these made a bot's chunk flow
-			// end at the announce and never exercise the miss-response path at all.
-			if (!message.cacheEnabled || message.subchunkData == null) return;
-
+			// The answers to what this client asked for. Cache-enabled, the entries announce section
+			// blobs by hash exactly like a cached LevelChunk announces the biome blob, and they get
+			// the same verdicts: a cold client misses and the server answers with the payload, which
+			// is most of the terrain bandwidth a real join costs. Uncached, the section payload is in
+			// the entry itself.
 			var hits = new List<ulong>();
 			var misses = new List<ulong>();
 
-			foreach (SubChunkPacketData entry in message.subchunkData)
-			{
-				// All-air and rejected entries carry no blob.
-				if (entry.blobId is not ulong blobId) continue;
-
-				if (Client.KnownBlobs.ContainsKey(blobId)) hits.Add(blobId);
-				else misses.Add(blobId);
-			}
-
-			foreach (ulong hash in misses) Client.KnownBlobs.TryAdd(hash, 0);
+			Client.ChunkCache.OnSubChunkResponse(message, hits, misses);
 
 			if (hits.Count + misses.Count == 0) return;
 
-			if (Client.BatchChunkResponses)
-			{
-				foreach (ulong hash in hits) Client.PendingBlobHits.Enqueue(hash);
-				foreach (ulong hash in misses) Client.PendingBlobMisses.Enqueue(hash);
-			}
-			else
-			{
-				var status = McpeClientCacheBlobStatus.CreateObject();
-				status.hashHits = hits.ToArray();
-				status.hashMisses = misses.ToArray();
-				Client.SendPacket(status);
-			}
+			AnswerVerdicts(hits, misses);
 		}
 
 		/// <inheritdoc />

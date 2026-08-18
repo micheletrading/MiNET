@@ -57,18 +57,6 @@ namespace MiNET.Console
 			Log.Info($"Server told us to do {message.chunkRadius} chunk radius");
 		}
 
-		public override void HandleMcpePlayStatus(McpePlayStatus message)
-		{
-			base.HandleMcpePlayStatus(message);
-
-			if (Client.PlayerStatus == McpePlayStatus.PlayStatus.LoginSuccess && Client.UseBlobCache)
-			{
-				var packet = McpeClientCacheStatus.CreateObject();
-				packet.enabled = Client.UseBlobCache;
-				Client.SendPacket(packet);
-			}
-		}
-
 		public override void HandleMcpeStartGame(McpeStartGame message)
 		{
 			Client.EntityId = message.runtimeEntityId;

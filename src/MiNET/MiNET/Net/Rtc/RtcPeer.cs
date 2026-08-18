@@ -26,6 +26,7 @@
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -633,6 +634,16 @@ namespace MiNET.Net.Rtc
 
 			OnTransportClosed?.Invoke();
 		}
+
+		/// <summary>
+		///     Why the transport gave up, straight from the ICE session, or null while it is healthy.
+		///     A transport that dies does so on its own threads, long after the call that started it
+		///     returned, so the reason has to be readable rather than thrown.
+		/// </summary>
+		public string TransportFailureReason => _ice.FailureReason;
+
+		/// <inheritdoc cref="IceSession.IgnoredCandidates" />
+		public IReadOnlyList<IPEndPoint> IgnoredCandidates => _ice.IgnoredCandidates;
 
 		/// <summary>
 		///     Resolves once ICE has nominated a pair and the DTLS handshake that nomination kicked
