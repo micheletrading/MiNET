@@ -42,6 +42,13 @@ Players may be on the server. Never `Stop-Process` it: a killed process never re
 everything built since the last save interval is lost, and anyone connected is dropped with no
 warning. Stop it through the remote console instead.
 
+**Testing loop: use ParityLab, never ad-hoc servers or one-off bot scripts.** The standard
+pipeline is `parity run --capability <id> --server minet` in `K:\mcbe\parity` with
+`PARITY_MINET_REPO` (server build) and `PARITY_CLIENT_REPO` (bot client; parity-lineage clone).
+The UHC suite is the `mechanics.hardcore` capability. The parity bot speaks RakNet, so the
+modernized dev master (NetherNet-only) is verified by unit tests + real-client sessions until the
+bot bridge exists (see `docs/uhc-implementation-plan.md`).
+
 **Before every start/restart, print the change list.** List what was changed since the last start
 (one line per change, with file paths), what the automated verification showed (build, tests,
 parity runs), and what the HUMAN should test on a real client afterwards. The manual test
