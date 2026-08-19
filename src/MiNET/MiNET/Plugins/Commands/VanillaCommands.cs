@@ -620,6 +620,14 @@ namespace MiNET.Plugins.Commands
 		}
 
 		[Command]
+		public string GameRule(Player player, GameRulesEnum rule, int value)
+		{
+			player.Level.SetGameRule(rule, value);
+			player.Level.BroadcastGameRules();
+			return $"{player.Username} set {rule.ToString().ToLower()} to {value}.";
+		}
+
+		[Command]
 		public string Daylock(Player player, bool value)
 		{
 			Level level = player.Level;
