@@ -266,7 +266,11 @@ namespace MiNET.Entities.Projectiles
 		/// </summary>
 		private void BroadcastMoveAndMotion()
 		{
-			if (new Random().Next(5) == 0)
+			// The first broadcast must always carry the motion: the client drives the
+			// projectile's flight from SetEntityMotion, and a spawn that never sends it leaves
+			// the arrow invisible (rendered at the eye, never flying). The random gate was
+			// originally a debug throttle; it only applies after the first motion went out.
+			if (LastSentPosition == null || new Random().Next(5) == 0)
 			{
 				McpeSetEntityMotion motions = McpeSetEntityMotion.CreateObject();
 				motions.runtimeEntityId = EntityId;

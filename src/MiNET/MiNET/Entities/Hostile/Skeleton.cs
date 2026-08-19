@@ -39,9 +39,18 @@ namespace MiNET.Entities.Hostile
 		{
 			Width = Length = 0.6;
 			Height = 1.95;
-			// The client plays the bow draw/shoot animation only when the mob is not flagged NoAi;
-			// the server-side archery behaviour is independent of the flag.
+			// The client plays the bow draw/shoot animation from its own local AI only when the
+			// mob is not flagged NoAi; the server-side archery behaviour is independent of the flag.
 			NoAi = false;
+
+			// Baseline flags mirror a vanilla BDS skeleton exactly (verified capture: bits 19, 22,
+			// 35, 48, 49 = CAN_CLIMB, WALKER, BREATHING, HAS_COLLISION, HAS_GRAVITY). Vanilla never
+			// sets ANGRY (25) on a shooting skeleton, and never emits a charge/draw flag around
+			// the shot - the client animates the draw from its own simulation.
+			CanClimb = true;
+			IsWalker = true;
+			HasCollision = true;
+			IsAffectedByGravity = true;
 
 			AttackDamage = 4;
 
@@ -82,6 +91,25 @@ namespace MiNET.Entities.Hostile
 			armorEquipment.leggings =Leggings;
 			armorEquipment.boots = Boots;
 			Level.RelayBroadcast(armorEquipment);
+		}
+
+		/// <summary>
+		///     Vanilla BDS never sets the Angry flag (bit 25) on a skeleton that targets and shoots
+		///     a player (verified capture), so the skeleton stays off it even while hostile.
+		/// </summary>
+		protected override void UpdateAngryForTarget(Entity target)
+		{
+			IsAngry = false;
+		}
+
+		/// <summary>
+		///     A skeleton with a target is a ranged attacker: it must carry the
+		///     FACING_TARGET_TO_RANGE_ATTACK extended flag (bit 88, second flags long) or the
+		///     client's skeleton.attack controller plays the melee arm swing instead of the bow.
+		/// </summary>
+		protected override void UpdateRangeAttackForTarget(Entity target)
+		{
+			IsFacingTargetToRangeAttack = target != null && !target.HealthManager.IsDead;
 		}
 
 		public override void OnTick(Entity[] entities)

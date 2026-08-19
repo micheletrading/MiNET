@@ -120,6 +120,8 @@ namespace MiNET.Entities
 			HideNameTag = 3,
 			NameTag = 4,
 			Owner = 5,
+			Target = 6, // the runtime entity id of the entity's attack target; the client's
+			            // query.has_target (which drives the skeleton's bow draw) reads this.
 			AvailableAir = 7,
 			PotionColor = 8,
 			EatingHaystack = 16,
@@ -178,6 +180,14 @@ namespace MiNET.Entities
 			// is built to read for this property.
 			metadata[(int) MetadataFlags.RiderMinRotation] = new MetadataByte((byte) RiderMinRotation);
 			metadata[(int) MetadataFlags.AlwaysShowNameTag] = new MetadataByte(IsAlwaysShowName);
+
+			// The second flags long (bits 64-127), e.g. FACING_TARGET_TO_RANGE_ATTACK (88) for
+			// ranged attackers; the client reads those from metadata key 92.
+			BitArray flags2 = GetFlags2();
+			byte[] flags2Bytes = new byte[8];
+			flags2.CopyTo(flags2Bytes, 0);
+			metadata[(int) MetadataFlags.EntityFlags2] = new MetadataLong(BitConverter.ToInt64(flags2Bytes, 0));
+
 			return metadata;
 		}
 
@@ -346,6 +356,14 @@ namespace MiNET.Entities
 		public bool IsAffectedByGravity { get; set; }
 		public bool IsWasdControlled { get; set; }
 		public bool CanPowerJump { get; set; }
+
+		/// <summary>
+		///     Bit 88 in the SECOND flags long (metadata key 92, EntityFlags2): the client's
+		///     skeleton.attack animation controller plays the melee swing only when the mob has a
+		///     target AND this bit is unset - a ranged attacker (skeleton with bow) must carry it
+		///     or the client plays the arm swing instead of the bow draw.
+		/// </summary>
+		public bool IsFacingTargetToRangeAttack { get; set; }
 
 		public enum DataFlags
 		{
@@ -545,6 +563,18 @@ namespace MiNET.Entities
 			return bits;
 		}
 
+		/// <summary>
+		///     The SECOND flags long (metadata key 92, EntityFlags2), carrying flag bits 64-127.
+		///     The client's skeleton.attack controller reads FACING_TARGET_TO_RANGE_ATTACK (88)
+		///     from here; a ranged attacker must set it or the client plays the melee swing.
+		/// </summary>
+		protected virtual BitArray GetFlags2()
+		{
+			BitArray bits = new BitArray(64);
+			bits[(int) DataFlags.FacingTargetToRangeAttack - 64] = IsFacingTargetToRangeAttack;
+			return bits;
+		}
+
 		protected virtual bool DetectInPortal()
 		{
 			if (Level.Dimension == Dimension.Overworld && Level.NetherLevel == null) return false;
@@ -576,6 +606,11 @@ namespace MiNET.Entities
 
 		public virtual void SpawnToPlayers(Player[] players)
 		{
+			Level.RelayBroadcast(players, BuildAddEntityPacket(GetMetadata()));
+		}
+
+		protected virtual McpeAddEntity BuildAddEntityPacket(MetadataDictionary metadata)
+		{
 			var addEntity = McpeAddEntity.CreateObject();
 			addEntity.entityType = EntityTypeId;
 			addEntity.entityIdSelf = EntityId;
@@ -584,11 +619,11 @@ namespace MiNET.Entities
 			addEntity.rotation = new Vector2(KnownPosition.Pitch, KnownPosition.Yaw);
 			addEntity.yHeadRotation = KnownPosition.HeadYaw;
 			addEntity.yBodyRotation = KnownPosition.HeadYaw;
-			addEntity.metadata = GetMetadata();
+			addEntity.metadata = metadata;
 			addEntity.velocity = Velocity;
 			addEntity.attributes = GetEntityAttributes();
 
-			Level.RelayBroadcast(players, addEntity);
+			return addEntity;
 		}
 
 		public virtual EntityAttributes GetEntityAttributes()
@@ -658,7 +693,7 @@ namespace MiNET.Entities
 		{
 		}
 
-		private ulong _lastBroadcastMetadataHash;
+		protected ulong _lastBroadcastMetadataHash;
 
 		public virtual void BroadcastSetEntityData()
 		{
@@ -671,21 +706,31 @@ namespace MiNET.Entities
 			// tick, for anything standing in water or stone), and GetMetadata is virtual, so no
 			// caller can know whether anything actually changed. The hash gate makes the spray
 			// free: only a payload that differs from the last one broadcast leaves the entity.
-			ulong hash;
+			ulong hash = HashMetadata(metadata);
+			if (hash == _lastBroadcastMetadataHash) return;
+			_lastBroadcastMetadataHash = hash;
+
+			RelaySetEntityData(metadata, null);
+		}
+
+		protected static ulong HashMetadata(MetadataDictionary metadata)
+		{
 			using (System.IO.MemoryStream stream = MiNetServer.MemoryStreamManager.GetStream())
 			{
 				var writer = new System.IO.BinaryWriter(stream);
 				metadata.WriteTo(writer);
 				writer.Flush();
-				hash = System.IO.Hashing.XxHash64.HashToUInt64(new ReadOnlySpan<byte>(stream.GetBuffer(), 0, (int) stream.Length));
+				return System.IO.Hashing.XxHash64.HashToUInt64(new ReadOnlySpan<byte>(stream.GetBuffer(), 0, (int) stream.Length));
 			}
-			if (hash == _lastBroadcastMetadataHash) return;
-			_lastBroadcastMetadataHash = hash;
+		}
 
+		protected void RelaySetEntityData(MetadataDictionary metadata, Player[] recipients)
+		{
 			McpeSetEntityData mcpeSetEntityData = McpeSetEntityData.CreateObject();
 			mcpeSetEntityData.runtimeEntityId = EntityId;
 			mcpeSetEntityData.metadata = metadata;
-			Level?.RelayBroadcast(mcpeSetEntityData);
+			if (recipients == null) Level?.RelayBroadcast(mcpeSetEntityData);
+			else Level?.RelayBroadcast(recipients, mcpeSetEntityData);
 		}
 
 		public virtual void BroadcastEntityEvent()

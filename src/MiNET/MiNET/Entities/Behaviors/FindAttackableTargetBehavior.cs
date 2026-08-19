@@ -69,6 +69,11 @@ namespace MiNET.Entities.Behaviors
 			return true;
 		}
 
+		/// <summary>
+		///     The range at which a player is first detected. Invisibility shortens it hard:
+		///     vanilla detects a fully invisible (no armor) player at 7% of the normal range,
+		///     17.5% per armor piece worn, never below 2 blocks; sneaking stacks at 80%.
+		/// </summary>
 		private double GetTargetDistance(Player player)
 		{
 			double distance = _targetDistance;
@@ -76,6 +81,18 @@ namespace MiNET.Entities.Behaviors
 			if (player.IsSneaking)
 			{
 				distance *= 0.8;
+			}
+
+			if (player.IsInvisible)
+			{
+				int armorPieces = 0;
+				if (!player.Inventory.Helmet.IsAir) armorPieces++;
+				if (!player.Inventory.Chest.IsAir) armorPieces++;
+				if (!player.Inventory.Leggings.IsAir) armorPieces++;
+				if (!player.Inventory.Boots.IsAir) armorPieces++;
+
+				distance *= armorPieces == 0 ? 0.07 : 0.175 * armorPieces;
+				distance = Math.Max(2, distance);
 			}
 
 			return distance;
@@ -104,7 +121,10 @@ namespace MiNET.Entities.Behaviors
 			}
 			else
 			{
-				if (_entity.DistanceTo(target) > GetTargetDistance((Player) target))
+				// Once detected, vanilla treats the target as if it were not invisible: the mob
+				// keeps the aggro until the target leaves the NORMAL range, not the reduced
+				// detection range (the invisibility/sneak reduction applies to detection only).
+				if (_entity.DistanceTo(target) > _targetDistance)
 				{
 					return false;
 				}
@@ -161,7 +181,7 @@ namespace MiNET.Entities.Behaviors
 					p.Value != _entity
 					&& p.Value is TEntity
 					&& !p.Value.HealthManager.IsDead
-					&& _entity.DistanceTo(p.Value) < _targetDistance).Value as TEntity;
+					&& _entity.DistanceTo(p.Value) < GetTargetDistance(p.Value)).Value as TEntity;
 
 			if (target == null)
 			{
@@ -177,6 +197,32 @@ namespace MiNET.Entities.Behaviors
 		public override void OnStart()
 		{
 			_targetUnseenTicks = 0;
+		}
+
+		/// <summary>
+		///     Invisibility shortens the detection range the same way it does for players: 7% of
+		///     the normal range with no armor, 17.5% per armor piece, never below 2 blocks.
+		/// </summary>
+		private double GetTargetDistance(Entity target)
+		{
+			double distance = _targetDistance;
+
+			if (target.IsInvisible)
+			{
+				int armorPieces = 0;
+				if (target is Mob mob)
+				{
+					if (!mob.Helmet.IsAir) armorPieces++;
+					if (!mob.Chest.IsAir) armorPieces++;
+					if (!mob.Leggings.IsAir) armorPieces++;
+					if (!mob.Boots.IsAir) armorPieces++;
+				}
+
+				distance *= armorPieces == 0 ? 0.07 : 0.175 * armorPieces;
+				distance = Math.Max(2, distance);
+			}
+
+			return distance;
 		}
 
 		public override bool CanContinue()

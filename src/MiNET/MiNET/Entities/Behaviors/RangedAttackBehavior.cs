@@ -33,9 +33,12 @@ using MiNET.Worlds;
 namespace MiNET.Entities.Behaviors
 {
 	/// <summary>
-	///     Ranged attack for mobs with a bow: faces the target, looses an arrow every N ticks.
+	///     Ranged attack for mobs with a bow: turns to face the target (the client renders the
+	///     skeleton looking at the player it is shooting) and looses an arrow every N ticks.
 	///     The arrow flies the direct line from the shooter's eye to the target's chest with a
-	///     small arc, the same shape the vanilla skeleton's arrows take at this range.
+	///     small arc. No charge/draw metadata is broadcast around the shot: the client animates
+	///     the bow from its own local AI once it knows the target (TARGET_EID, key 6) and the
+	///     range-attack extended flag (bit 88, key 92) are set.
 	/// </summary>
 	public class RangedAttackBehavior : BehaviorBase
 	{
@@ -62,25 +65,29 @@ namespace MiNET.Entities.Behaviors
 			Entity target = _entity.Target;
 			if (target == null || target.HealthManager.IsDead)
 			{
-				SetCharging(false);
 				return;
 			}
 
 			float distance = (float) _entity.DistanceTo(target);
 			if (distance > 16 || !_entity.CanSee(target))
 			{
-				SetCharging(false);
 				return;
 			}
 
-			// Face the target while it is in bow range.
-			Vector3 direction = target.KnownPosition.ToVector3() - _entity.KnownPosition.ToVector3();
-			float yaw = (float) (Math.Atan2(direction.X, direction.Z) * 180.0 / Math.PI);
+			// Face the target, same convention as LookAtPlayerBehavior (yaw = atan2(-dx, dz)).
+			var dx = target.KnownPosition.X - _entity.KnownPosition.X;
+			var dz = target.KnownPosition.Z - _entity.KnownPosition.Z;
+			float yaw = (float) (Math.Atan2(-dx, dz) * 180.0 / Math.PI);
 			_entity.KnownPosition.Yaw = yaw;
 			_entity.KnownPosition.HeadYaw = yaw;
+			_entity.EntityDirection = yaw;
 
-			// Draw the bow: the client plays the draw animation off the using-item/charged flags.
-			SetCharging(true);
+			// Aim the head at the target's chest, like vanilla skeletons do.
+			double bDiff = Math.Sqrt((dx * dx) + (dz * dz));
+			double dy = (_entity.KnownPosition.Y + _entity.Height) - (target.KnownPosition.Y + 1.2);
+			_entity.KnownPosition.Pitch = (float) (Math.Atan(dy / (bDiff)) * 180.0 / Math.PI);
+
+			_entity.BroadcastMove(true);
 
 			if (_cooldown > 0)
 			{
@@ -97,24 +104,15 @@ namespace MiNET.Entities.Behaviors
 			{
 				KnownPosition = new PlayerLocation(eye, 0, 0, 0),
 				Velocity = aim,
+				// Client-side the arrow flies from its motion; without this flag no
+				// SetEntityMotion/MoveEntityDelta ever leaves the server and nothing renders.
+				BroadcastMovement = true,
 			};
+			arrow.KnownPosition.Yaw = (float) arrow.Velocity.GetYaw();
+			arrow.KnownPosition.Pitch = (float) arrow.Velocity.GetPitch();
 			arrow.SpawnEntity();
 
-			// Release the bow: the flags drop so the client plays the release and rests.
-			SetCharging(false);
-
 			_cooldown = 20; // one arrow per second, vanilla cadence
-		}
-
-		private void SetCharging(bool charging)
-		{
-			if (_entity.IsCharged == charging) return;
-
-			// The client plays the skeleton's bow draw off the charged flag (bit 34) alone - the
-			// vanilla BDS capture toggles ONLY that bit around each shot (no using-item flag, no
-			// item property), so mirror exactly that.
-			_entity.IsCharged = charging;
-			_entity.BroadcastSetEntityData();
 		}
 	}
 }

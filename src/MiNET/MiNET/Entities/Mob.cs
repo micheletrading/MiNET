@@ -34,6 +34,7 @@ using MiNET.Entities.Behaviors;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Utils;
+using MiNET.Utils.Metadata;
 using MiNET.Utils.Skins;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
@@ -90,12 +91,103 @@ namespace MiNET.Entities
 
 			Target = target;
 
+			UpdateAngryForTarget(target);
+			UpdateRangeAttackForTarget(target);
+
+			BroadcastSetEntityData();
+		}
+
+		/// <summary>
+		///     Most mobs carry the Angry flag (bit 25) while they have a target, but not all:
+		///     a vanilla BDS skeleton shooting at a player never sets it (verified in the BDS
+		///     capture). Mobs that must not emit it override this.
+		/// </summary>
+		protected virtual void UpdateAngryForTarget(Entity target)
+		{
 			if (target != null && !IsTamed && !target.HealthManager.IsDead)
 				IsAngry = true;
 			else
 				IsAngry = false;
+		}
 
-			BroadcastSetEntityData();
+		/// <summary>
+		///     Ranged attackers mirror the target into FACING_TARGET_TO_RANGE_ATTACK (extended
+		///     flag bit 88, second flags long): the client's skeleton.attack controller plays the
+		///     melee swing only when a target exists and this bit is unset, so a bow user must
+		///     carry it or the client plays the arm swing instead of the draw.
+		/// </summary>
+		protected virtual void UpdateRangeAttackForTarget(Entity target)
+		{
+			IsFacingTargetToRangeAttack = false;
+		}
+
+		public override MetadataDictionary GetMetadata()
+		{
+			MetadataDictionary metadata = base.GetMetadata();
+
+			// TARGET_EID (key 6): the client's query.has_target (which drives the skeleton's
+			// bow draw animation) reads this. Zero when the mob has no target.
+			metadata[(int) MetadataFlags.Target] = new MetadataLong(Target?.EntityId ?? 0);
+
+			return metadata;
+		}
+
+		public override void BroadcastSetEntityData(MetadataDictionary metadata)
+		{
+			if (Target is Player targetPlayer)
+			{
+				// The target player's own client knows that player as EntityIdSelf (2), every
+				// other client knows them by their server-assigned EntityId, so the target key
+				// must be re-written per recipient. The gate hashes the common payload (target
+				// key stripped) so both variants leave when anything else changes.
+				ulong hash = HashMetadata(metadata);
+				if (hash == _lastBroadcastMetadataHash) return;
+				_lastBroadcastMetadataHash = hash;
+
+				Player[] all = Level?.GetAllPlayers() ?? Array.Empty<Player>();
+				Player[] others = all.Where(p => p != targetPlayer).ToArray();
+
+				RelaySetEntityData(metadata, others);
+
+				MetadataDictionary selfMetadata = new MetadataDictionary();
+				foreach (KeyValuePair<int, MetadataEntry> entry in metadata._entries)
+				{
+					selfMetadata[entry.Key] = entry.Value;
+				}
+				selfMetadata[(int) MetadataFlags.Target] = new MetadataLong(EntityManager.EntityIdSelf);
+				RelaySetEntityData(selfMetadata, new[] {targetPlayer});
+
+				return;
+			}
+
+			base.BroadcastSetEntityData(metadata);
+		}
+
+		public override void SpawnToPlayers(Player[] players)
+		{
+			if (Target is Player targetPlayer)
+			{
+				Player[] others = players.Where(p => p != targetPlayer).ToArray();
+				if (others.Length > 0)
+				{
+					Level.RelayBroadcast(others, BuildAddEntityPacket(GetMetadata()));
+				}
+
+				if (players.Contains(targetPlayer))
+				{
+					MetadataDictionary selfMetadata = new MetadataDictionary();
+					foreach (KeyValuePair<int, MetadataEntry> entry in GetMetadata()._entries)
+					{
+						selfMetadata[entry.Key] = entry.Value;
+					}
+					selfMetadata[(int) MetadataFlags.Target] = new MetadataLong(EntityManager.EntityIdSelf);
+					Level.RelayBroadcast(new[] {targetPlayer}, BuildAddEntityPacket(selfMetadata));
+				}
+
+				return;
+			}
+
+			base.SpawnToPlayers(players);
 		}
 
 		public static double ClampDegrees(double degrees)

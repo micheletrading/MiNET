@@ -5120,8 +5120,8 @@ namespace MiNET
 
 			if (HealthManager.IsDead)
 			{
-				Player player = HealthManager.LastDamageSource as Player;
-				BroadcastDeathMessage(player, HealthManager.LastDamageCause);
+				Entity killer = HealthManager.LastDamageSource;
+				BroadcastDeathMessage(killer, HealthManager.LastDamageCause);
 
 				if (HardcoreManager.IsHardcore(Level) && Level.HardcoreDeathPolicy != HardcoreDeathPolicy.Drop)
 				{
@@ -5152,9 +5152,23 @@ namespace MiNET
 			}
 		}
 
-		public virtual void BroadcastDeathMessage(Player player, DamageCause lastDamageCause)
+		public virtual void BroadcastDeathMessage(Entity killer, DamageCause lastDamageCause)
 		{
-			string deathMessage = string.Format(HealthManager.GetDescription(lastDamageCause), Username, player == null ? "" : player.Username);
+			string killerName = "";
+			if (killer is Player player)
+			{
+				killerName = player.Username;
+			}
+			else if (killer != null)
+			{
+				// Mobs get their display name, like vanilla: "was shot by Skeleton".
+				string typeId = killer.EntityTypeId ?? "";
+				int colon = typeId.LastIndexOf(':');
+				if (colon >= 0 && colon + 1 < typeId.Length) typeId = typeId.Substring(colon + 1);
+				if (typeId.Length > 0) killerName = char.ToUpper(typeId[0]) + typeId.Substring(1);
+			}
+
+			string deathMessage = string.Format(HealthManager.GetDescription(lastDamageCause), Username, killerName);
 			Level.BroadcastMessage(deathMessage, type: MessageType.Raw);
 			Log.Debug(deathMessage);
 		}
