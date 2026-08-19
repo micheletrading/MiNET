@@ -244,9 +244,9 @@ namespace MiNET.Items
 	public class ItemSweetBerries : Item { public ItemSweetBerries() : base("minecraft:sweet_berries") {} }
 	public class ItemCookedRabbit : Item { public ItemCookedRabbit() : base("minecraft:cooked_rabbit") {} }
 	public class ItemRabbitStew : Item { public ItemRabbitStew() : base("minecraft:rabbit_stew") {} }
-	public class ItemPumpkinSeeds : Item { public ItemPumpkinSeeds() : base("minecraft:pumpkin_seeds") {} }
+	public class ItemPumpkinSeeds : ItemBlock { public ItemPumpkinSeeds() : base("minecraft:pumpkin_seeds") { Block = BlockFactory.GetBlockByName("minecraft:pumpkin_stem"); } }
 	public class ItemCommandBlockMinecart : Item { public ItemCommandBlockMinecart() : base("minecraft:command_block_minecart") {} }
-	public class ItemMelonSeeds : Item { public ItemMelonSeeds() : base("minecraft:melon_seeds") {} }
+	public class ItemMelonSeeds : ItemBlock { public ItemMelonSeeds() : base("minecraft:melon_seeds") { Block = BlockFactory.GetBlockByName("minecraft:melon_stem"); } }
 	public class ItemNetherWart : Item { public ItemNetherWart() : base("minecraft:nether_wart") {} }
 	public class ItemMusicDiscStrad : Item { public ItemMusicDiscStrad() : base("minecraft:music_disc_strad") {} }
 	public class ItemBowl : Item { public ItemBowl() : base("minecraft:bowl") {} }
