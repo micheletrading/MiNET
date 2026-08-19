@@ -39,6 +39,38 @@ namespace MiNET.Blocks
 
 		public Farmland() : base(60)
 		{
+			// The generated data marks farmland non-solid because it is not a full cube, but
+			// vanilla farmland is dirt-material: water cannot flow through it and mobs stand on
+			// it. Non-solid here let water replace the farmland outright (tilled land next to a
+			// water bucket vanished and the water spread through the field) and let mobs sink.
+			IsSolid = true;
+		}
+
+		/// <summary>
+		///     Farmland trampling (vanilla: on land, random &lt; fallDistance - 0.5, so a one-block
+		///     jump tramples half the time): reverts the farmland to dirt and pops off any stem
+		///     on top, which drops its seeds.
+		/// </summary>
+		public static bool Trample(Level level, BlockCoordinates feetCoordinates, double fallDistance)
+		{
+			if (fallDistance <= 0.5) return false;
+
+			Block block = level.GetBlock(feetCoordinates);
+			if (block is not Farmland) block = level.GetBlock(feetCoordinates.BlockDown());
+			if (block is not Farmland) return false;
+
+			if (level.Random.NextDouble() >= fallDistance - 0.5) return false;
+
+			BlockCoordinates coordinates = block.Coordinates;
+			level.SetBlock(new Dirt {Coordinates = coordinates});
+
+			Block above = level.GetBlock(coordinates.BlockUp());
+			if (above is MelonStem or PumpkinStem)
+			{
+				level.BreakBlock(null, above);
+			}
+
+			return true;
 		}
 
 		public override Item[] GetDrops(Item tool)

@@ -23,6 +23,7 @@
 
 #endregion
 
+using MiNET.Items;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
@@ -40,6 +41,11 @@ namespace MiNET.Blocks
 		{
 			Block under = world.GetBlock(Coordinates.BlockDown());
 			return under is Farmland;
+		}
+
+		public override Item[] GetDrops(Item tool)
+		{
+			return new[] {ItemFactory.GetItemByName("minecraft:melon_seeds")};
 		}
 
 		public override void OnTick(Level level, bool isRandom)
@@ -62,6 +68,11 @@ namespace MiNET.Blocks
 		{
 			Block under = world.GetBlock(Coordinates.BlockDown());
 			return under is Farmland;
+		}
+
+		public override Item[] GetDrops(Item tool)
+		{
+			return new[] {ItemFactory.GetItemByName("minecraft:pumpkin_seeds")};
 		}
 
 		public override void OnTick(Level level, bool isRandom)

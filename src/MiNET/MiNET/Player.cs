@@ -2348,6 +2348,10 @@ namespace MiNET
 		public double CurrentSpeed { get; private set; } = 0;
 		public double StartFallY { get; private set; } = 0;
 
+		// Highest feet position while airborne on the PlayerAuthInput path; the fall apex the
+		// farmland trample hook measures its landing from. Reset to the landing position.
+		private double _authStartFallY;
+
 		protected virtual bool AcceptPlayerMove(McpeMovePlayer message, bool isOnGround, bool isFlyingHorizontally)
 		{
 			return true;
@@ -2502,12 +2506,32 @@ namespace MiNET
 
 			// The input flags carry collision state directly; vertical collision while not
 			// jumping is standing on ground.
+			bool wasOnGround = IsOnGround;
 			IsOnGround = (message.InputFlags & AuthInputFlags.VerticalCollision) != 0;
 
 			if (!IsGliding) HungerManager.Move(Vector3.Distance(new Vector3(KnownPosition.X, 0, KnownPosition.Z), new Vector3(newPosition.X, 0, newPosition.Z)));
 
 			KnownPosition = newPosition;
 			LastUpdatedTime = DateTime.UtcNow;
+
+			// Farmland trampling rides the ground-contact edge, the same way fall damage used
+			// to ride MovePlayer's: track the fall apex while airborne and, on landing, trample
+			// the farmland under the feet with the vanilla (fallDistance - 0.5) chance.
+			// Walking off a ledge onto farmland tramples it, sneaking skips it, and a gliding
+			// player never sets vertical collision so never lands on farmland.
+			if (!IsOnGround)
+			{
+				if (KnownPosition.Y > _authStartFallY) _authStartFallY = KnownPosition.Y;
+			}
+			else if (!wasOnGround && !IsSneaking && !IsFlying)
+			{
+				double fall = _authStartFallY - KnownPosition.Y;
+				if (fall > 0.5)
+				{
+					Farmland.Trample(Level, new BlockCoordinates(KnownPosition), fall);
+				}
+				_authStartFallY = KnownPosition.Y;
+			}
 
 			// Keep chunk streaming following the player; this used to hang off MovePlayer,
 			// which the 1.26 client no longer sends. SendChunksForKnownPosition self-guards

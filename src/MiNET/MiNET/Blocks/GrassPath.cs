@@ -31,6 +31,9 @@ namespace MiNET.Blocks
 	{
 		public GrassPath() : base(198)
 		{
+			// Same generated-data artifact as farmland: dirt path is not a full cube but is
+			// dirt-material, so it must block water and carry mobs (see Farmland's ctor).
+			IsSolid = true;
 		}
 
 		public override Item[] GetDrops(Item tool)

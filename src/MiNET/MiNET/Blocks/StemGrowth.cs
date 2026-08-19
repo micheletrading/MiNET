@@ -141,7 +141,10 @@ namespace MiNET.Blocks
 				if (!(sideBlock is Air)) continue;
 
 				Block sideBelow = level.GetBlock(side.BlockDown());
-				if (!(sideBelow is Dirt || sideBelow is Farmland)) continue;
+				// The vanilla minecraft:dirt tag (the fruit's allowed ground) includes dirt,
+				// coarse dirt, farmland, grass, moss, podzol, mycelium and mud.
+				if (!(sideBelow is Dirt || sideBelow is Farmland || sideBelow is GrassBlock ||
+				      sideBelow is MossBlock || sideBelow is Podzol || sideBelow is Mycelium)) continue;
 
 				Block fruit = BlockFactory.GetBlockByName(fruitBlockName);
 				fruit.Coordinates = side;
