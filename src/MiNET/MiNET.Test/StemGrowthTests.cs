@@ -26,6 +26,7 @@
 using System;
 using System.IO;
 using MiNET.Blocks;
+using MiNET.Items;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
@@ -100,6 +101,21 @@ namespace MiNET.Test
 			}
 
 			Assert.IsTrue(fruitPlaced, "a full-grown stem must place its fruit on an adjacent dirt cell");
+		}
+
+		[TestMethod]
+		public void Melon_seeds_are_an_item_block_that_plants_the_stem()
+		{
+			// The seeds used to be a plain Item: using them did nothing and the client consumed
+			// the stack ("I plant the seeds, at some point they disappear"). They must plant the
+			// stem block, exactly like wheat seeds plant wheat.
+			var seeds = (ItemBlock) ItemFactory.GetItemByName("minecraft:melon_seeds");
+			Assert.IsNotNull(seeds.Block, "melon seeds must carry the stem block");
+			Assert.AreEqual("minecraft:melon_stem", seeds.Block.Name);
+
+			var pumpkin = (ItemBlock) ItemFactory.GetItemByName("minecraft:pumpkin_seeds");
+			Assert.IsNotNull(pumpkin.Block, "pumpkin seeds must carry the stem block");
+			Assert.AreEqual("minecraft:pumpkin_stem", pumpkin.Block.Name);
 		}
 
 		private static Level CreateLevel()

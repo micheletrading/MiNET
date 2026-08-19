@@ -23,6 +23,7 @@
 
 #endregion
 
+using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
 namespace MiNET.Blocks
@@ -35,6 +36,12 @@ namespace MiNET.Blocks
 	/// </summary>
 	public partial class MelonStem
 	{
+		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
+		{
+			Block under = world.GetBlock(Coordinates.BlockDown());
+			return under is Farmland;
+		}
+
 		public override void OnTick(Level level, bool isRandom)
 		{
 			if (!isRandom) return;
@@ -51,6 +58,12 @@ namespace MiNET.Blocks
 	/// <summary>Pumpkin stems grow identically to melon stems; only the fruit differs.</summary>
 	public partial class PumpkinStem
 	{
+		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
+		{
+			Block under = world.GetBlock(Coordinates.BlockDown());
+			return under is Farmland;
+		}
+
 		public override void OnTick(Level level, bool isRandom)
 		{
 			if (!isRandom) return;
