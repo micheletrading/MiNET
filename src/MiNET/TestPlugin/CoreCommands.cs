@@ -86,6 +86,34 @@ namespace TestPlugin
 		//    return packet;
 		//}
 
+		[Command(Name = "kit", Description = "Gives a test kit. Available: farmer (hoe, melon/pumpkin seeds, water bucket)")]
+		public void KitCommand(Player player, string kit)
+		{
+			switch (kit.ToLowerInvariant())
+			{
+				case "farmer":
+				case "zappatore":
+				{
+					(string name, short meta, int count)[] items =
+					{
+						("minecraft:iron_hoe", 0, 1),
+						("minecraft:melon_seeds", 0, 64),
+						("minecraft:pumpkin_seeds", 0, 64),
+						("minecraft:water_bucket", 0, 1),
+					};
+					foreach (var item in items)
+					{
+						player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName(item.name, item.meta, item.count), true);
+					}
+					player.SendMessage("Kit farmer (zappatore) dato: zappa di ferro, semi di melone e zucca, secchio d'acqua.");
+					break;
+				}
+				default:
+					player.SendMessage("Kit non trovato. Disponibili: farmer");
+					break;
+			}
+		}
+
 		[Command(Name = "bossbar")]
 		public void BossbarCommand(Player player)
 		{
