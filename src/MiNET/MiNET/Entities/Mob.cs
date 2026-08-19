@@ -297,6 +297,14 @@ namespace MiNET.Entities
 					block = Level.GetBlock(block.Coordinates.BlockUp());
 				}
 
+				// Trample farmland under the mob on landing (vanilla: random < fallDistance - 0.5)
+				float impactSpeed = Velocity.Y;
+				if (impactSpeed < 0)
+				{
+					double fallDistance = (impactSpeed * impactSpeed) / (2 * Gravity);
+					Farmland.Trample(Level, new BlockCoordinates(KnownPosition), fallDistance);
+				}
+
 				//KnownPosition.Y = (float) (Math.Floor(KnownPosition.Y));
 				Velocity *= new Vector3(0, 1, 0);
 			}

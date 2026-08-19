@@ -118,6 +118,69 @@ namespace MiNET.Test
 			Assert.AreEqual("minecraft:pumpkin_stem", pumpkin.Block.Name);
 		}
 
+		[TestMethod]
+		public void Full_grown_stem_places_fruit_on_adjacent_grass()
+		{
+			// The vanilla minecraft:dirt tag (the fruit's allowed ground) includes grass, so a
+			// stem planted in a field grows a melon on the grass beside it.
+			Level level = CreateLevel();
+			BlockCoordinates stemPos = new BlockCoordinates(0, 4, 0);
+			level.SetBlock(new Farmland {Coordinates = stemPos.BlockDown()});
+			foreach (BlockCoordinates side in new[] {stemPos.BlockWest(), stemPos.BlockEast(), stemPos.BlockSouth(), stemPos.BlockNorth()})
+			{
+				level.SetBlock(new GrassBlock {Coordinates = side.BlockDown()});
+			}
+
+			int newAge = StemGrowth.OnRandomTick(level, stemPos, StemGrowth.MaxAge, "minecraft:melon_block");
+
+			Assert.AreEqual(StemGrowth.MaxAge, newAge, "a full-grown stem stays full-grown");
+
+			bool fruitPlaced = false;
+			foreach (BlockCoordinates side in new[] {stemPos.BlockWest(), stemPos.BlockEast(), stemPos.BlockSouth(), stemPos.BlockNorth()})
+			{
+				if (level.GetBlock(side) is MelonBlock)
+				{
+					fruitPlaced = true;
+					break;
+				}
+			}
+
+			Assert.IsTrue(fruitPlaced, "a full-grown stem must place its fruit on adjacent grass");
+		}
+
+		[TestMethod]
+		public void Landing_on_farmland_tramples_it_to_dirt_and_pops_the_stem()
+		{
+			Level level = CreateLevel();
+			BlockCoordinates farmlandPos = new BlockCoordinates(0, 4, 0);
+			level.SetBlock(new Farmland {Coordinates = farmlandPos});
+			level.SetBlock(new MelonStem {Coordinates = farmlandPos.BlockUp()});
+
+			// Force the chance: fallDistance 2 always tramples (random < 1.5).
+			bool trampled = Farmland.Trample(level, farmlandPos.BlockUp(), 2.0);
+
+			Assert.IsTrue(trampled, "a heavy landing must trample farmland");
+			Assert.IsTrue(level.GetBlock(farmlandPos) is Dirt, "trampled farmland becomes dirt");
+			Assert.IsTrue(level.GetBlock(farmlandPos.BlockUp()) is Air, "the stem on top pops off");
+
+			level.SetBlock(new Farmland {Coordinates = farmlandPos});
+			level.SetBlock(new PumpkinStem {Coordinates = farmlandPos.BlockUp()});
+			Assert.IsFalse(Farmland.Trample(level, farmlandPos.BlockUp(), 0.3), "a short hop must not trample");
+			Assert.IsTrue(level.GetBlock(farmlandPos) is Farmland, "farmland survives a short hop");
+		}
+
+		[TestMethod]
+		public void Farmland_and_grass_path_are_solid()
+		{
+			// Generated block data marks both non-solid because they are not full cubes, but
+			// vanilla farmland/path are dirt-material: they block water flow and carry mobs.
+			// A non-solid farmland made water replace the block outright (tilled land next to a
+			// water bucket turned to water and the water spread through the field), which also
+			// starved adjacent stems of fruit ground.
+			Assert.IsTrue(new Farmland().IsSolid, "farmland must block fluids and support mobs");
+			Assert.IsTrue(new GrassPath().IsSolid, "dirt path must block fluids and support mobs");
+		}
+
 		private static Level CreateLevel()
 		{
 			string dir = Path.Combine(Path.GetTempPath(), "minet-stem-test-" + Guid.NewGuid().ToString("N"));
