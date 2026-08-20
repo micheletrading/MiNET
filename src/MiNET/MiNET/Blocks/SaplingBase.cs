@@ -45,8 +45,9 @@ namespace MiNET.Blocks
 			FuelEfficiency = 5;
 		}
 
-		/// <summary>The wood type, from the block's own name: minecraft:birch_sapling gives birch.</summary>
-		protected string WoodType => Name.Replace("minecraft:", "").Replace("_sapling", "");
+		/// <summary>The wood type, from the block's own name: minecraft:birch_sapling gives birch,
+		/// minecraft:mangrove_propagule gives mangrove (Bedrock's mangrove "sapling" id).</summary>
+		protected string WoodType => Name.Replace("minecraft:", "").Replace("_sapling", "").Replace("_propagule", "");
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
 		{
@@ -159,7 +160,7 @@ namespace MiNET.Blocks
 				if (!complete) continue;
 				if (!isNorthWest) return;
 
-				var generator = new DarkOakTreeGenerator();
+				LiteralTreeGenerator generator = WoodType == "pale_oak" ? new PaleOakTreeGenerator() : new DarkOakTreeGenerator();
 				if (generator.Generate(level, corner))
 				{
 					for (int dx = 0; dx < 2; dx++)

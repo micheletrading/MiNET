@@ -38,6 +38,10 @@ namespace MiNET.Blocks
 	{
 		protected abstract (int X, int Y, int Z, string Block)[] Shape { get; }
 
+		/// <summary>Maps a captured cell's block name to the generator's own wood type (the pale
+		/// oak shape was captured from a dark oak and carries dark_oak_* cell names).</summary>
+		protected virtual string MapBlock(string block) => block;
+
 		public bool Generate(Level level, BlockCoordinates origin)
 		{
 			if (origin.Y < 1 || origin.Y + 24 > 256) return false;
@@ -48,11 +52,11 @@ namespace MiNET.Blocks
 				// The captured cell already carries the full block name (oak_leaves,
 				// mangrove_roots, vine, moss_carpet, mangrove_propagule); the vine/moss cases
 				// are shared blocks, everything else is prefixed by the wood type.
-				string fullName = block switch
+				string fullName = MapBlock(block) switch
 				{
 					"vine" => "minecraft:vine",
 					"moss_carpet" => "minecraft:moss_carpet",
-					_ => $"minecraft:{block}",
+					_ => $"minecraft:{MapBlock(block)}",
 				};
 				Block b = BlockFactory.GetBlockByName(fullName);
 				if (b == null) return false;
@@ -1533,6 +1537,7 @@ namespace MiNET.Blocks
 	}
 
 }
+
 
 
 
