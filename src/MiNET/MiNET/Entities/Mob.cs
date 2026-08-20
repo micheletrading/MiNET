@@ -31,6 +31,7 @@ using System.Text;
 using log4net;
 using MiNET.Blocks;
 using MiNET.Entities.Behaviors;
+using MiNET.Entities.Hostile;
 using MiNET.Items;
 using MiNET.Net;
 using MiNET.Utils;
@@ -211,6 +212,19 @@ namespace MiNET.Entities
 				{
 					double fallDistance = (impactSpeed * impactSpeed) / (2 * Gravity);
 					Farmland.Trample(Level, new BlockCoordinates(KnownPosition), fallDistance);
+
+					// Hostile-mob fall damage (vanilla: ceil(fallDistance) - 3). Verified
+					// against BDS 2026-08-20: a zombie dies from a 30-block fall (27 damage >
+					// 20 hp) while cows survive the same fall - passives take no fall damage
+					// on Bedrock. The player path already has this in Player.cs.
+					if (this is HostileMob && HealthManager != null)
+					{
+						int damage = (int) Math.Ceiling(fallDistance) - 3;
+						if (damage > 0)
+						{
+							HealthManager.TakeHit(null, damage, DamageCause.Fall);
+						}
+					}
 				}
 
 				//KnownPosition.Y = (float) (Math.Floor(KnownPosition.Y));
