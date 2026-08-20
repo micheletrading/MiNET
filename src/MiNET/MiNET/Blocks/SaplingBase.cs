@@ -121,8 +121,8 @@ namespace MiNET.Blocks
 
 				if (generator == null) return;
 
-				level.SetAir(Coordinates);
-
+				// The trunk cell at (0,0,0) replaces the sapling; no SetAir first, so a failed
+				// generate never leaves a sapling floating on a partial trunk.
 				if (!generator.Generate(level, Coordinates))
 				{
 					level.SetBlock(this);
@@ -161,20 +161,13 @@ namespace MiNET.Blocks
 				if (!isNorthWest) return;
 
 				LiteralTreeGenerator generator = WoodType == "pale_oak" ? new PaleOakTreeGenerator() : new DarkOakTreeGenerator();
-				if (generator.Generate(level, corner))
-				{
-					for (int dx = 0; dx < 2; dx++)
-					{
-						for (int dz = 0; dz < 2; dz++)
-						{
-							level.SetAir(corner + new BlockCoordinates(dx, 0, dz));
-						}
-					}
-				}
+				// No SetAir of the four saplings afterwards: the 2x2 trunk's bottom layer
+				// occupies exactly those cells, and clearing them left the trunk base hollow
+				// ("the base looks cut off").
+				generator.Generate(level, corner);
 				return;
 			}
 		}
 	}
 }
-
 

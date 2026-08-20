@@ -120,7 +120,7 @@ namespace TestPlugin
 				// them so every placed sapling reaches the observer.
 				System.Threading.Thread.Sleep(100);
 			}
-			player.SendMessage($"Piazzate {placed}/15 piantine.");
+			player.SendMessage($"Placed {placed}/15 saplings.");
 		}
 
 		[Command(Name = "kit", Description = "Gives a test kit. Available: farmer (hoe, melon/pumpkin seeds, water bucket)")]
@@ -142,7 +142,7 @@ namespace TestPlugin
 					{
 						player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName(item.name, item.meta, item.count), true);
 					}
-					player.SendMessage("Kit farmer (zappatore) dato: zappa di ferro, semi di melone e zucca, secchio d'acqua.");
+					player.SendMessage("Farmer kit given: iron hoe, melon and pumpkin seeds, water bucket.");
 					break;
 				}
 				default:
@@ -1966,6 +1966,7 @@ namespace TestPlugin
 		}
 	}
 }
+
 
 
 
