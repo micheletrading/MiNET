@@ -30,6 +30,7 @@
 // byte-identical to real BDS trees. Coordinates are relative to the sapling
 // (dark oak / pale oak: relative to the 2x2 patch's north-west corner).
 using System;
+using System.Linq;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
@@ -47,7 +48,17 @@ namespace MiNET.Blocks
 			if (!(level.GetBlock(origin.BlockDown()) is GrassBlock or Dirt or Farmland or Podzol)) return false;
 
 			(int X, int Y, int Z, string Block)[] shape = Variants[new Random().Next(Variants.Length)];
-			foreach (var (dx, dy, dz, block) in shape)
+
+			// Trunk cells first, canopy after: a failure midway must never leave a trunkless
+			// stump (the sapling base looked "cut off" when a partial shape was committed).
+			foreach (var (dx, dy, dz, block) in shape.Where(c => c.Block.EndsWith("_log")))
+			{
+				Block b = BlockFactory.GetBlockByName("minecraft:" + MapBlock(block));
+				if (b == null) continue;
+				b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
+				level.SetBlock(b, true, false);
+			}
+			foreach (var (dx, dy, dz, block) in shape.Where(c => !c.Block.EndsWith("_log")))
 			{
 				string fullName = MapBlock(block) switch
 				{
@@ -56,9 +67,16 @@ namespace MiNET.Blocks
 					_ => "minecraft:" + MapBlock(block),
 				};
 				Block b = BlockFactory.GetBlockByName(fullName);
-				if (b == null) return false;
+				if (b == null) continue;
 				b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
 				level.SetBlock(b, true, false);
+			}
+
+			// Shapes that do not cover the sapling cell (the mangrove's propagule cell is air
+			// after growth in BDS) must still consume the sapling.
+			if (!shape.Any(c => c.X == 0 && c.Y == 0 && c.Z == 0))
+			{
+				level.SetAir(origin);
 			}
 
 			return true;

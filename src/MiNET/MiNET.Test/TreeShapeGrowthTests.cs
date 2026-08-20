@@ -58,6 +58,12 @@ namespace MiNET.Test
 				}
 
 				Assert.IsTrue(grew, $"{wood} sapling must grow");
+				// The trunk base covers the sapling cell; the mangrove's propagule cell is air
+				// after growth in BDS (its trunk starts above the roots).
+				if (wood == "mangrove")
+					Assert.IsTrue(level.GetBlock(4, 3, 0) is Air, $"{wood} propagule cell must be consumed");
+				else
+					Assert.IsTrue(!(level.GetBlock(4, 3, 0) is Air), $"{wood} base must cover the sapling cell");
 				int trunkY = wood == "mangrove" ? 5 : 1; // the mangrove trunk sits above its roots
 				Assert.IsTrue(level.GetBlock(4, 4 + trunkY, 0) is LogBase, $"{wood} trunk must appear above the sapling");
 			}
@@ -110,6 +116,8 @@ namespace MiNET.Test
 		}
 	}
 }
+
+
 
 
 

@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -105,7 +105,7 @@ namespace TestPlugin
 					{
 						player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName(item.name, item.meta, item.count), true);
 					}
-					player.SendMessage("Kit farmer (zappatore) dato: zappa di ferro, semi di melone e zucca, secchio d'acqua.");
+					player.SendMessage("Farmer kit given: iron hoe, melon and pumpkin seeds, water bucket.");
 					break;
 				}
 				case "tree":
@@ -131,11 +131,11 @@ namespace TestPlugin
 					{
 						player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName(item.name, item.meta, item.count), true);
 					}
-					player.SendMessage("Kit alberi dato: tutte le piantine (x4), bone meal, ascia di ferro. Quercia scura e pallida: pianta un quadrato 2x2 della stessa piantina.");
+					player.SendMessage("Tree kit given: all saplings (x4), bone meal, iron axe. Dark oak and pale oak: plant a 2x2 square of the same sapling.");
 					break;
 				}
 				default:
-					player.SendMessage("Kit non trovato. Disponibili: farmer, tree");
+					player.SendMessage("Kit not found. Available: farmer, tree");
 					break;
 			}
 		}
@@ -873,7 +873,7 @@ namespace TestPlugin
 		[Command(Name = "twitter")]
 		public void Twitter(Player player)
 		{
-			player.Level.BroadcastMessage("§6Twitter @NiclasOlofsson", type: MessageType.Raw);
+			player.Level.BroadcastMessage("§6X(former Twitter) @NiclasOlofsson", type: MessageType.Raw);
 			player.Level.BroadcastMessage("§5twitch.tv/gurunx", type: MessageType.Raw);
 		}
 
