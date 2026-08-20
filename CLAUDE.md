@@ -18,6 +18,13 @@ Every difference between what vanilla BDS puts on the wire and what MiNET puts o
 
 The division of labour: the diff enumerates EVERY divergence with its field, offset, and both values; classifying one as acceptable is Niclas's call, not Claude's. Stating a hypothesis about a difference is fine ("this is probably world state") as long as the difference is still listed and still counted. Building a catalogue of which divergences are genuinely benign is a goal of this work, so each ruling gets recorded here or in the effort memory with the reason and the evidence. Until a difference has been explicitly ruled benign, it is an open defect.
 
+## When a mechanic misbehaves, look it up before hypothesizing a bug
+
+When a block/gameplay behaviour is not what you expect (a block does not grow, does not spread, does not damage, ...), consult minecraft.wiki (and the parity agent's own sources) BEFORE calling it a BDS bug or a missing MiNET feature. Game-mechanics VALUES come from minecraft.wiki (per the reference trust order in the Protocol layer section); a behaviour that matches documented vanilla mechanics is a correct oracle, not a defect, and the correct response is to match it in MiNET and record the ruling. Empirical confirmation of the documented arrangement is required before changing scenarios or implementations (the parity run dirs' world db is readable with the minet-probe tool for exactly this).
+
+Rulings recorded so far:
+- Dark oak and pale oak saplings (Java and Bedrock/BDS alike) grow ONLY from a 2x2 patch of four saplings of the same type; a single sapling never grows (not even with bone meal). Headroom: ~7 free blocks above; Bedrock additionally needs a clear 6x6 column. No biome restriction (plains works). Verified empirically 2026-08-20: single dark_oak/pale_oak saplings stayed age 0 across 8+ BDS runs and isolated positions; 2x2 patches grew into 8-tall 2x2-trunk trees. The other seven types (oak, birch, spruce, jungle, acacia, cherry, mangrove) grow from a single sapling.
+
 ## Commands
 
 ```bash

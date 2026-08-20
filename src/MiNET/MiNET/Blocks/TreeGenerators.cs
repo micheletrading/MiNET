@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -48,9 +48,7 @@ namespace MiNET.Blocks
 			_log = log;
 			_leave = leave;
 			_minTreeHeight = minTreeHeight;
-		}
-
-		public bool Generate(Level level, BlockCoordinates position)
+		}		public bool Generate(Level level, BlockCoordinates position)
 		{
 			var rand = new Random();
 			int height = rand.Next(3) + _minTreeHeight;
@@ -158,4 +156,15 @@ namespace MiNET.Blocks
 			}
 		}
 	}
+
+	/// <summary>
+	///     Shared shape helpers for the per-type generators below. The shapes mirror what the
+	///     BDS 1.26.40.8 oracle actually grew (captured in the parity run dirs' world db,
+	///     2026-08-20): spruce = tall trunk + cone, jungle = tall + wide flat canopy, acacia =
+	///     forked trunk + wide flat top, cherry = small blob, dark oak / pale oak = 2x2 trunk +
+	///     wide canopy (Bedrock grows them only from a 2x2 patch of four saplings), mangrove =
+	///     tall trunk + wide flat canopy with surface roots.
+	/// </summary>
 }
+
+

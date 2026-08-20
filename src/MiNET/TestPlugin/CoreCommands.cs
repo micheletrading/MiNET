@@ -86,7 +86,7 @@ namespace TestPlugin
 		//    return packet;
 		//}
 
-		[Command(Name = "kit", Description = "Gives a test kit. Available: farmer (hoe, melon/pumpkin seeds, water bucket)")]
+		[Command(Name = "kit", Description = "Gives a test kit. Available: farmer (hoe, melon/pumpkin seeds, water bucket), tree (all saplings + bone meal)")]
 		public void KitCommand(Player player, string kit)
 		{
 			switch (kit.ToLowerInvariant())
@@ -108,8 +108,34 @@ namespace TestPlugin
 					player.SendMessage("Kit farmer (zappatore) dato: zappa di ferro, semi di melone e zucca, secchio d'acqua.");
 					break;
 				}
+				case "tree":
+				case "albero":
+				{
+					// One sapling per wood type (dark oak and pale oak grow only from a 2x2
+					// patch of four saplings - plant a square), plus bone meal to force growth.
+					(string name, short meta, int count)[] items =
+					{
+						("minecraft:oak_sapling", 0, 4),
+						("minecraft:birch_sapling", 0, 4),
+						("minecraft:spruce_sapling", 0, 4),
+						("minecraft:jungle_sapling", 0, 4),
+						("minecraft:acacia_sapling", 0, 4),
+						("minecraft:dark_oak_sapling", 0, 4),
+						("minecraft:cherry_sapling", 0, 4),
+						("minecraft:pale_oak_sapling", 0, 4),
+						("minecraft:mangrove_propagule", 0, 4),
+						("minecraft:bone_meal", 0, 64),
+						("minecraft:iron_axe", 0, 1),
+					};
+					foreach (var item in items)
+					{
+						player.Inventory.SetFirstEmptySlot(ItemFactory.GetItemByName(item.name, item.meta, item.count), true);
+					}
+					player.SendMessage("Kit alberi dato: tutte le piantine (x4), bone meal, ascia di ferro. Quercia scura e pallida: pianta un quadrato 2x2 della stessa piantina.");
+					break;
+				}
 				default:
-					player.SendMessage("Kit non trovato. Disponibili: farmer");
+					player.SendMessage("Kit non trovato. Disponibili: farmer, tree");
 					break;
 			}
 		}
