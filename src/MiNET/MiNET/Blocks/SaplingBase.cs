@@ -45,8 +45,9 @@ namespace MiNET.Blocks
 			FuelEfficiency = 5;
 		}
 
-		/// <summary>The wood type, from the block's own name: minecraft:birch_sapling gives birch.</summary>
-		protected string WoodType => Name.Replace("minecraft:", "").Replace("_sapling", "");
+		/// <summary>The wood type, from the block's own name: minecraft:birch_sapling gives birch,
+		/// minecraft:mangrove_propagule gives mangrove (Bedrock's mangrove "sapling" id).</summary>
+		protected string WoodType => Name.Replace("minecraft:", "").Replace("_sapling", "").Replace("_propagule", "");
 
 		protected override bool CanPlace(Level world, Player player, BlockCoordinates blockCoordinates, BlockCoordinates targetCoordinates, BlockFace face)
 		{
@@ -92,17 +93,29 @@ namespace MiNET.Blocks
 			var lightLevel = level.GetSubtractedLight(Coordinates);
 			if (lightLevel >= 9 && new Random().Next(7) == 0)
 			{
-				// The log and leaves come straight off the wood type. Only oak and birch ever had a
-				// working generator; the rest were commented out on the legacy class and are left
-				// that way rather than quietly gaining trees they never grew.
+				// The log and leaves come straight off the wood type.
 				Block log = BlockFactory.GetBlockByName($"minecraft:{WoodType}_log");
 				Block leaves = BlockFactory.GetBlockByName($"minecraft:{WoodType}_leaves");
 				if (log == null || leaves == null) return;
 
-				SmallTreeGenerator generator = WoodType switch
+				// Bedrock grows dark oak and pale oak ONLY from a 2x2 patch of four saplings
+				// of the same type (verified against the BDS oracle 2026-08-20); the north-west
+				// sapling of the patch performs the growth and consumes all four.
+				if (WoodType is "dark_oak" or "pale_oak")
 				{
-					"oak" => new SmallTreeGenerator(log, leaves, 4),
-					"birch" => new SmallTreeGenerator(log, leaves, 5),
+					TryGrowPatchTree(level, log, leaves);
+					return;
+				}
+
+				LiteralTreeGenerator generator = WoodType switch
+				{
+					"oak" => new OakTreeGenerator(),
+					"birch" => new BirchTreeGenerator(),
+					"spruce" => new SpruceTreeGenerator(),
+					"jungle" => new JungleTreeGenerator(),
+					"acacia" => new AcaciaTreeGenerator(),
+					"cherry" => new CherryTreeGenerator(),
+					"mangrove" => new MangroveTreeGenerator(),
 					_ => null,
 				};
 
@@ -116,5 +129,52 @@ namespace MiNET.Blocks
 				}
 			}
 		}
+
+		private void TryGrowPatchTree(Level level, Block log, Block leaves)
+		{
+			// Find the 2x2 patch this sapling belongs to: all four cells must hold the same
+			// sapling type. Only the north-west sapling grows, and only when the other three
+			// are present.
+			foreach (BlockCoordinates corner in new[]
+			         {
+				         Coordinates + new BlockCoordinates(-1, 0, -1),
+				         Coordinates,
+				         Coordinates + new BlockCoordinates(0, 0, -1),
+				         Coordinates + new BlockCoordinates(-1, 0, 0),
+			         })
+			{
+				bool isNorthWest = corner == Coordinates;
+				bool complete = true;
+				for (int dx = 0; dx < 2 && complete; dx++)
+				{
+					for (int dz = 0; dz < 2 && complete; dz++)
+					{
+						Block block = level.GetBlock(corner + new BlockCoordinates(dx, 0, dz));
+						if (!(block is SaplingBase sapling) || sapling.WoodType != WoodType)
+						{
+							complete = false;
+						}
+					}
+				}
+
+				if (!complete) continue;
+				if (!isNorthWest) return;
+
+				LiteralTreeGenerator generator = WoodType == "pale_oak" ? new PaleOakTreeGenerator() : new DarkOakTreeGenerator();
+				if (generator.Generate(level, corner))
+				{
+					for (int dx = 0; dx < 2; dx++)
+					{
+						for (int dz = 0; dz < 2; dz++)
+						{
+							level.SetAir(corner + new BlockCoordinates(dx, 0, dz));
+						}
+					}
+				}
+				return;
+			}
+		}
 	}
 }
+
+

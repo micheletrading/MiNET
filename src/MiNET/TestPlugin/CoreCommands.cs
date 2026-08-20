@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -85,6 +85,43 @@ namespace TestPlugin
 		//    Log.Warn($"Sent packet: {packet.GetType().Name}");
 		//    return packet;
 		//}
+
+		[Command(Name = "treegrowth", Description = "Places all nine test saplings (single types + dark/pale oak 2x2 patches + mangrove) relative to the player, for the tree-growth parity scenario")]
+		public void TreeGrowthCommand(Player player)
+		{
+			BlockCoordinates feet = new BlockCoordinates(player.KnownPosition);
+			(string block, int x, int z)[] positions =
+			{
+				("minecraft:oak_sapling", 4, 0),
+				("minecraft:birch_sapling", 10, 0),
+				("minecraft:spruce_sapling", 16, 0),
+				("minecraft:jungle_sapling", 22, 0),
+				("minecraft:acacia_sapling", 28, 0),
+				("minecraft:dark_oak_sapling", 30, 6),
+				("minecraft:dark_oak_sapling", 31, 6),
+				("minecraft:dark_oak_sapling", 30, 7),
+				("minecraft:dark_oak_sapling", 31, 7),
+				("minecraft:cherry_sapling", 36, 6),
+				("minecraft:pale_oak_sapling", 40, 6),
+				("minecraft:pale_oak_sapling", 41, 6),
+				("minecraft:pale_oak_sapling", 40, 7),
+				("minecraft:pale_oak_sapling", 41, 7),
+				("minecraft:mangrove_propagule", 20, -10),
+			};
+			int placed = 0;
+			foreach (var (block, x, z) in positions)
+			{
+				Block b = BlockFactory.GetBlockByName(block);
+				if (b == null) { Log.Warn($"treegrowth: null block {block}"); continue; }
+				b.Coordinates = new BlockCoordinates(feet.X + x, feet.Y - 1, feet.Z + z);
+				player.Level.SetBlock(b, true, false);
+				placed++;
+				// The parity client misses updates when many SetBlocks land in one batch; space
+				// them so every placed sapling reaches the observer.
+				System.Threading.Thread.Sleep(100);
+			}
+			player.SendMessage($"Piazzate {placed}/15 piantine.");
+		}
 
 		[Command(Name = "kit", Description = "Gives a test kit. Available: farmer (hoe, melon/pumpkin seeds, water bucket)")]
 		public void KitCommand(Player player, string kit)
@@ -847,8 +884,8 @@ namespace TestPlugin
 		[Command(Name = "twitter")]
 		public void Twitter(Player player)
 		{
-			player.Level.BroadcastMessage("§6Twitter @NiclasOlofsson", type: MessageType.Raw);
-			player.Level.BroadcastMessage("§5twitch.tv/gurunx", type: MessageType.Raw);
+			player.Level.BroadcastMessage("�6Twitter @NiclasOlofsson", type: MessageType.Raw);
+			player.Level.BroadcastMessage("�5twitch.tv/gurunx", type: MessageType.Raw);
 		}
 
 		[Command(Name = "pi")]
@@ -1929,3 +1966,6 @@ namespace TestPlugin
 		}
 	}
 }
+
+
+
