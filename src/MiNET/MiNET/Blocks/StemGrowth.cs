@@ -78,8 +78,18 @@ namespace MiNET.Blocks
 				result += farmland.MoisturizedAmount > 0 ? 3 : 1;
 			}
 
-			bool xRow = false;
-			bool zRow = false;
+			// The crop sitting on this farmland cell; neighbours of the SAME crop type form the
+			// rows that vanilla uses to judge the arrangement. An arrangement is improper when
+			// rows cross (the crop has same-type neighbours on BOTH axes, or a diagonal
+			// neighbour); a single straight row is never improper.
+			// (The old code compared the neighbour against the farmland below - never equal, so
+			// the penalty never fired - and its row bookkeeping flagged a straight row with 3+
+			// crops as improper too. BDS: a 6-crop row reaches ~3.2 avg growth vs ~2.5 for a 2x3
+			// crossed block at 1000 ticks; MiNET with the fixed rule must reproduce that order.)
+			Block crop = level.GetBlock(coordinates);
+
+			bool hasXNeighbour = false;
+			bool hasZNeighbour = false;
 			bool improperArrangement = false;
 
 			for (int dx = -1; dx <= 1; dx++)
@@ -99,17 +109,17 @@ namespace MiNET.Blocks
 					if (!improperArrangement)
 					{
 						Block nextCrop = level.GetBlock(new BlockCoordinates(coordinates.X + dx, coordinates.Y, coordinates.Z + dz));
-						if (nextCrop.GetType() == below.GetType())
+						if (nextCrop.GetType() == crop.GetType())
 						{
-							if (dx == 0 && zRow) improperArrangement = true;
-							else if (dx != 0 && dz != 0) improperArrangement = true;
-							else if (dz == 0 && xRow) improperArrangement = true;
-							else if (dx == 0) zRow = true;
-							else if (dz == 0) xRow = true;
+							if (dx != 0 && dz != 0) improperArrangement = true;
+							else if (dz == 0) hasXNeighbour = true;
+							else hasZNeighbour = true;
 						}
 					}
 				}
 			}
+
+			if (hasXNeighbour && hasZNeighbour) improperArrangement = true;
 
 			if (improperArrangement) result /= 2;
 
