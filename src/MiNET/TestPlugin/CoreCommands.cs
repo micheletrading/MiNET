@@ -86,6 +86,35 @@ namespace TestPlugin
 		//    return packet;
 		//}
 
+		[Command(Name = "croprot", Description = "Places the crop-row test layout (6 melon stems in a row + 6 in a 2x3 crossed block) relative to the player, for the crop-rows parity scenario")]
+		public void CropRowsCommand(Player player)
+		{
+			BlockCoordinates feet = new BlockCoordinates(player.KnownPosition);
+			int ground = feet.Y - 1;
+			for (int dx = 4; dx <= 9; dx++)
+			{
+				Block farmland = BlockFactory.GetBlockByName("minecraft:farmland");
+				farmland.Coordinates = new BlockCoordinates(feet.X + dx, ground, feet.Z + 0);
+				player.Level.SetBlock(farmland, true, false);
+				Block stem = BlockFactory.GetBlockByName("minecraft:melon_stem");
+				stem.Coordinates = new BlockCoordinates(feet.X + dx, ground + 1, feet.Z + 0);
+				player.Level.SetBlock(stem, true, false);
+			}
+			for (int dx = 12; dx <= 13; dx++)
+			{
+				for (int dz = 0; dz <= 2; dz++)
+				{
+					Block farmland = BlockFactory.GetBlockByName("minecraft:farmland");
+					farmland.Coordinates = new BlockCoordinates(feet.X + dx, ground, feet.Z + dz);
+					player.Level.SetBlock(farmland, true, false);
+					Block stem = BlockFactory.GetBlockByName("minecraft:melon_stem");
+					stem.Coordinates = new BlockCoordinates(feet.X + dx, ground + 1, feet.Z + dz);
+					player.Level.SetBlock(stem, true, false);
+				}
+			}
+			player.SendMessage("Crop-row layout placed (6 row + 6 2x3 stems).");
+		}
+
 		[Command(Name = "treegrowth", Description = "Places all nine test saplings (single types + dark/pale oak 2x2 patches + mangrove) relative to the player, for the tree-growth parity scenario")]
 		public void TreeGrowthCommand(Player player)
 		{
