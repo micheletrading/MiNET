@@ -36,7 +36,6 @@ namespace MiNET.Blocks
 {
 	public abstract class LiteralTreeGenerator : TreeGeneratorBase
 	{
-		protected abstract string Prefix { get; }
 		protected abstract (int X, int Y, int Z, string Block)[] Shape { get; }
 
 		public bool Generate(Level level, BlockCoordinates origin)
@@ -46,14 +45,14 @@ namespace MiNET.Blocks
 
 			foreach (var (dx, dy, dz, block) in Shape)
 			{
-				// vine and moss_carpet are shared blocks (no per-type prefix); the mangrove
-				// propagule is its own id on the wire.
+				// The captured cell already carries the full block name (oak_leaves,
+				// mangrove_roots, vine, moss_carpet, mangrove_propagule); the vine/moss cases
+				// are shared blocks, everything else is prefixed by the wood type.
 				string fullName = block switch
 				{
 					"vine" => "minecraft:vine",
 					"moss_carpet" => "minecraft:moss_carpet",
-					"propagule" => "minecraft:mangrove_propagule",
-					_ => $"minecraft:{Prefix}_{block}",
+					_ => $"minecraft:{block}",
 				};
 				Block b = BlockFactory.GetBlockByName(fullName);
 				if (b == null) return false;
@@ -68,7 +67,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for oak (captured 2026-08-20).</summary>
 	public class OakTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "oak";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-2, 2, -1, "oak_leaves"),
@@ -136,7 +134,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for birch (captured 2026-08-20).</summary>
 	public class BirchTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "birch";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-2, 4, -1, "birch_leaves"),
@@ -206,7 +203,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for spruce (captured 2026-08-20).</summary>
 	public class SpruceTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "spruce";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-3, 2, -2, "spruce_leaves"),
@@ -328,7 +324,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for jungle (captured 2026-08-20).</summary>
 	public class JungleTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "jungle";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-2, 2, -2, "jungle_leaves"),
@@ -400,7 +395,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for acacia (captured 2026-08-20).</summary>
 	public class AcaciaTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "acacia";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-3, 6, -1, "acacia_leaves"),
@@ -499,7 +493,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for dark_oak (captured 2026-08-20).</summary>
 	public class DarkOakTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "dark_oak";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-2, 8, -1, "dark_oak_leaves"),
@@ -674,7 +667,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for cherry (captured 2026-08-20).</summary>
 	public class CherryTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "cherry";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-3, 6, -4, "cherry_leaves"),
@@ -869,7 +861,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for pale_oak (captured 2026-08-20).</summary>
 	public class PaleOakTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "pale_oak";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-2, 7, -1, "pale_oak_leaves"),
@@ -1033,7 +1024,6 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shape for mangrove (captured 2026-08-20).</summary>
 	public class MangroveTreeGenerator : LiteralTreeGenerator
 	{
-		protected override string Prefix => "mangrove";
 		protected override (int X, int Y, int Z, string Block)[] Shape { get; } =
 		{
 				(-4, 0, -2, "vine"),
@@ -1543,5 +1533,8 @@ namespace MiNET.Blocks
 	}
 
 }
+
+
+
 
 
