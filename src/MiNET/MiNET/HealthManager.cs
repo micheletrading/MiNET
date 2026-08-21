@@ -524,6 +524,10 @@ namespace MiNET
 					{
 						TakeHit(null, 1, DamageCause.FireTick);
 					}
+					// Fire deals 1 damage per second outside a fire block (wiki: Fire page,
+					// Burning); the generic 10-tick damage cooldown would make it 2/s because
+					// daylight Ignite keeps FireTick at a multiple of 20 every tick.
+					CooldownTick = 20;
 					//Entity.BroadcastSetEntityData();
 				}
 
