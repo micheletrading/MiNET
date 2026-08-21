@@ -23,6 +23,7 @@
 
 #endregion
 
+using MiNET.Blocks;
 using MiNET.Entities.Behaviors;
 using MiNET.Worlds;
 
@@ -48,6 +49,38 @@ namespace MiNET.Entities.Hostile
 			Behaviors.Add(new WanderBehavior(this, 1.0));
 			Behaviors.Add(new LookAtPlayerBehavior(this, 8.0));
 			Behaviors.Add(new RandomLookaroundBehavior(this));
+		}
+
+		private int _teleportCooldown;
+
+		public override void OnTick(Entity[] entities)
+		{
+			base.OnTick(entities);
+
+			if (--_teleportCooldown > 0) return;
+
+			// Sunlight teleports the enderman away (vanilla: they never burn, they flee the
+			// light); BDS oracle 2026-08-21: a daylight enderman moves away from spawn while
+			// the MiNET leg one stayed put.
+			Block block = Level.GetBlock(KnownPosition);
+			if (!(block is Water) && !(block is FlowingWater) && block.SkyLight > 7 && (Level.CurrentWorldCycleTime < 12566 || Level.CurrentWorldCycleTime > 23450))
+			{
+				TeleportRandom();
+			}
+		}
+
+		private void TeleportRandom()
+		{
+			_teleportCooldown = 40;
+
+			var random = Level.Random;
+			double dx = (random.NextDouble() * 2 - 1) * 32;
+			double dz = (random.NextDouble() * 2 - 1) * 32;
+			KnownPosition.X += (float) dx;
+			KnownPosition.Z += (float) dz;
+
+			BroadcastMove();
+			BroadcastMotion();
 		}
 	}
 }
