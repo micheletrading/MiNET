@@ -104,7 +104,10 @@ namespace MiNET.Particles
 		Bleach = 64,
 		DragonDestroyBlock = 65,
 		MyceliumDust = 66,
+		/// <summary>The vanilla name is CropGrowth; this entry kept its wire id (67) under a
+		/// historical name and is aliased below.</summary>
 		FallingBorderDust = 67,
+		CropGrowth = 67,
 		CampfireSmoke = 68,
 		CampfireSmokeTall = 69,
 		DragonBreathFire = 70,

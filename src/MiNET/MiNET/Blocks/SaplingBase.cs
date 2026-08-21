@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -62,7 +62,7 @@ namespace MiNET.Blocks
 
 		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
-			if (player.Inventory.GetItemInHand() is ItemDye inHand && inHand.Metadata == 15)
+			if (player.Inventory.GetItemInHand() is ItemBoneMeal || (player.Inventory.GetItemInHand() is ItemDye inHand && inHand.Metadata == 15))
 			{
 				var random = new Random();
 				for (int i = 0; i < 3; i++)

@@ -42,7 +42,7 @@ namespace MiNET.Blocks
 		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
 			var itemInHand = player.Inventory.GetItemInHand();
-			if (Growth < MaxGrowth && itemInHand is ItemDye && itemInHand.Metadata == 15 && new Random().NextDouble() > 0.25)
+			if (Growth < MaxGrowth && (itemInHand is ItemBoneMeal || (itemInHand is ItemDye && itemInHand.Metadata == 15)) && new Random().NextDouble() > 0.25)
 			{
 				Growth++;
 				level.SetBlock(this);
