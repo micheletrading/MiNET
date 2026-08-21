@@ -60,7 +60,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for oak (4 captured variants).</summary>
 	public class OakTreeGenerator : LiteralTreeGenerator
 	{
-				protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+						protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -865,7 +865,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for jungle (4 captured variants).</summary>
 	public class JungleTreeGenerator : LiteralTreeGenerator
 	{
-				protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+						protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -3306,7 +3306,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for mangrove (4 captured variants).</summary>
 	public class MangroveTreeGenerator : LiteralTreeGenerator
 	{
-				protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+						protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
