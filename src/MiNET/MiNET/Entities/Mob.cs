@@ -217,11 +217,16 @@ namespace MiNET.Entities
 					// mobs take 1 per block beyond their safe_fall_distance, and passives are
 					// NOT exempt - a cow takes 26 damage from a 29-block fall. The player path
 					// already has this in Player.cs - this closes the mob half.
+					// The landing hit must not be absorbed by the damage cooldown: a mob
+					// burning in daylight keeps CooldownTick armed from fire ticks, which
+					// silently nullified the fall damage (zombie survives a drop by day, dies
+					// by night - reported live 2026-08-21).
 					if (HealthManager != null)
 					{
 						int damage = (int) Math.Ceiling(fallDistance) - 3;
 						if (damage > 0)
 						{
+							HealthManager.CooldownTick = 0;
 							HealthManager.TakeHit(null, damage, DamageCause.Fall);
 						}
 					}
