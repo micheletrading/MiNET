@@ -78,6 +78,7 @@ namespace MiNET.Blocks
 				particleEvent.position = blockCoordinates;
 				particleEvent.data = 0;
 				level.RelayBroadcast(particleEvent);
+				player.ConsumeItemInHand();
 
 				return true;
 			}
@@ -126,6 +127,7 @@ namespace MiNET.Blocks
 				particleEvent.position = blockCoordinates;
 				particleEvent.data = 0;
 				level.RelayBroadcast(particleEvent);
+				player.ConsumeItemInHand();
 
 				return true;
 			}

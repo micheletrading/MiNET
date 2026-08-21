@@ -3775,8 +3775,25 @@ namespace MiNET
 			HandleTransactionRecords(transaction.actions);
 		}
 
-		protected virtual void HandleItemUseTransaction(ItemUseInventoryTransaction transaction)
+		/// <summary>Consumes one item from the hand (bone meal, splash potions, ...). Creative does not consume.</summary>
+		public void ConsumeItemInHand()
 		{
+			if (GameMode == GameMode.Creative) return;
+
+			Item item = Inventory.GetItemInHand();
+			if (item is ItemAir) return;
+			if (item.Count > 1)
+			{
+				item.Count--;
+			}
+			else
+			{
+				Inventory.Slots[Inventory.InHandSlot] = new ItemAir();
+			}
+			SendPlayerInventory();
+		}
+
+		protected virtual void HandleItemUseTransaction(ItemUseInventoryTransaction transaction)		{
 			var itemInHand = Inventory.GetItemInHand();
 			Log.Debug($"PLACEDBG actionType={transaction.actionType} position={transaction.position} face={transaction.face} item={itemInHand.Name} fromPos={transaction.fromPosition} clickPos={transaction.clickPosition} targetBlockId={transaction.targetBlockId} slot={transaction.slot} trigger={transaction.triggerType}");
 

@@ -181,6 +181,7 @@ namespace MiNET.Blocks
 					}
 				}
 
+				player.ConsumeItemInHand();
 				return true;
 			}
 

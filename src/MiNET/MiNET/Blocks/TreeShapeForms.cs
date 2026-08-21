@@ -38,64 +38,20 @@ namespace MiNET.Blocks
 {
 	public abstract class LiteralTreeGenerator : TreeGeneratorBase
 	{
-		protected abstract (int X, int Y, int Z, string Block)[][] Variants { get; }
+		protected internal abstract (int X, int Y, int Z, string Block)[][] Variants { get; }
 
 		protected virtual string MapBlock(string block) => block;
 
-		public bool Generate(Level level, BlockCoordinates origin)
+		public override bool Generate(Level level, BlockCoordinates origin)
 		{
 			if (origin.Y < 1 || origin.Y + 24 > 256) return false;
 			if (!(level.GetBlock(origin.BlockDown()) is GrassBlock or Dirt or Farmland or Podzol)) return false;
 
 			(int X, int Y, int Z, string Block)[] shape = Variants[new Random().Next(Variants.Length)];
 
-			// Trunk cells first, canopy after: a failure midway must never leave a trunkless
-			// stump (the sapling base looked "cut off" when a partial shape was committed).
-			// broadcast=true (first bool): every cell reaches the client as an UpdateBlock.
-			// applyPhysics=false (second bool): the BlockUpdate of a leaf would set update_bit,
-			// changing the runtime id to one the client does not render (leaves invisible).
-			foreach (var (dx, dy, dz, block) in shape.Where(c => c.Block.EndsWith("_log")))
-			{
-				Block b = BlockFactory.GetBlockByName("minecraft:" + MapBlock(block));
-				if (b == null) continue;
-				b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
-				level.SetBlock(b, true, false);
-			}
-			foreach (var (dx, dy, dz, block) in shape.Where(c => !c.Block.EndsWith("_log")))
-			{
-				// "vine:N" carries the captured attachment bits; plain "vine" falls back to 1.
-				string rawBlock = MapBlock(block);
-				int vineBits = 0;
-				if (rawBlock.StartsWith("vine:"))
-				{
-					int.TryParse(rawBlock.Substring(5), out vineBits);
-					rawBlock = "vine";
-				}
-				string fullName = rawBlock switch
-				{
-					"vine" => "minecraft:vine",
-					"moss_carpet" => "minecraft:moss_carpet",
-					_ => "minecraft:" + rawBlock,
-				};
-				Block b = BlockFactory.GetBlockByName(fullName);
-				if (b == null) continue;
-				b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
-				// Vines carry their attachment direction (captured from BDS). A vine with 0
-				// bits has no faces to render; fall back to the "north" bit for old shapes.
-				if (b is Vine vine)
-				{
-					vine.VineDirectionBits = vineBits > 0 ? vineBits : 1;
-					log4net.LogManager.GetLogger(typeof(LiteralTreeGenerator)).Warn($"TREE VINE bits={vine.VineDirectionBits} rt={vine.GetRuntimeId()} back={BlockFactory.GetBlockByRuntimeId(vine.GetRuntimeId())?.Name}");
-				}
-				level.SetBlock(b, true, false);
-			}
-
-			// Shapes that do not cover the sapling cell (the mangrove's propagule cell is air
-			// after growth in BDS) must still consume the sapling.
-			if (!shape.Any(c => c.X == 0 && c.Y == 0 && c.Z == 0))
-			{
-				level.SetAir(origin);
-			}
+			// Placement (trunk-first, broadcast, applyPhysics=false, vine bits, sapling
+			// consumption) is shared with the parametric generators.
+			TreeShapePlacer.Place(level, origin, shape.Select(c => (c.X, c.Y, c.Z, MapBlock(c.Block))), shape.Any(c => c.X == 0 && c.Y == 0 && c.Z == 0));
 
 			return true;
 		}
@@ -104,7 +60,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for oak (4 captured variants).</summary>
 	public class OakTreeGenerator : LiteralTreeGenerator
 	{
-				protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+				protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -377,7 +333,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for birch (4 captured variants).</summary>
 	public class BirchTreeGenerator : LiteralTreeGenerator
 	{
-		protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+		protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -785,7 +741,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for spruce (4 captured variants).</summary>
 	public class SpruceTreeGenerator : LiteralTreeGenerator
 	{
-		protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+		protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -1531,7 +1487,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for jungle (4 captured variants).</summary>
 	public class JungleTreeGenerator : LiteralTreeGenerator
 	{
-				protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+				protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -2287,7 +2243,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for acacia (4 captured variants).</summary>
 	public class AcaciaTreeGenerator : LiteralTreeGenerator
 	{
-		protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+		protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -2962,7 +2918,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for dark_oak (4 captured variants).</summary>
 	public class DarkOakTreeGenerator : LiteralTreeGenerator
 	{
-		protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+		protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -3320,7 +3276,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for cherry (4 captured variants).</summary>
 	public class CherryTreeGenerator : LiteralTreeGenerator
 	{
-		protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+		protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -4374,7 +4330,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for pale_oak (4 captured variants).</summary>
 	public class PaleOakTreeGenerator : LiteralTreeGenerator
 	{
-		protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+		protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{
@@ -4738,7 +4694,7 @@ namespace MiNET.Blocks
 	/// <summary>Exact BDS-grown shapes for mangrove (4 captured variants).</summary>
 	public class MangroveTreeGenerator : LiteralTreeGenerator
 	{
-				protected override (int X, int Y, int Z, string Block)[][] Variants { get; } =
+				protected internal override (int X, int Y, int Z, string Block)[][] Variants { get; } =
 		{
 			new (int X, int Y, int Z, string Block)[]
 			{

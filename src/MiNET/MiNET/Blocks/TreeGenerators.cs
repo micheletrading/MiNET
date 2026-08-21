@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -31,6 +31,8 @@ namespace MiNET.Blocks
 {
 	public abstract class TreeGeneratorBase
 	{
+		public abstract bool Generate(Level level, BlockCoordinates position);
+
 		protected bool CanGrowInto(Block material)
 		{
 			return material is Air || material is LeavesBase || material is GrassBlock || material is Dirt || material is LogBase || material is SaplingBase || material is Vine;
@@ -48,7 +50,7 @@ namespace MiNET.Blocks
 			_log = log;
 			_leave = leave;
 			_minTreeHeight = minTreeHeight;
-		}		public bool Generate(Level level, BlockCoordinates position)
+		}		public override bool Generate(Level level, BlockCoordinates position)
 		{
 			var rand = new Random();
 			int height = rand.Next(3) + _minTreeHeight;

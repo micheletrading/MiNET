@@ -79,6 +79,7 @@ namespace MiNET.Blocks
 				if (random.NextDouble() < 0.45)
 				{
 					OnTick(level, true);
+					player.ConsumeItemInHand();
 					return true;
 				}
 			}
@@ -107,17 +108,34 @@ namespace MiNET.Blocks
 					return;
 				}
 
-				LiteralTreeGenerator generator = WoodType switch
+				TreeGeneratorBase generator = WoodType switch
 				{
-					"oak" => new OakTreeGenerator(),
-					"birch" => new BirchTreeGenerator(),
-					"spruce" => new SpruceTreeGenerator(),
-					"jungle" => new JungleTreeGenerator(),
-					"acacia" => new AcaciaTreeGenerator(),
-					"cherry" => new CherryTreeGenerator(),
-					"mangrove" => new MangroveTreeGenerator(),
+					"oak" => new ParametricOakTreeGenerator(),
+					"birch" => new ParametricBirchTreeGenerator(),
+					"spruce" => new ParametricSpruceTreeGenerator(),
+					"jungle" => new ParametricJungleTreeGenerator(),
+					"acacia" => new ParametricAcaciaTreeGenerator(),
+					"cherry" => new ParametricCherryTreeGenerator(),
+					"mangrove" => new ParametricMangroveTreeGenerator(),
 					_ => null,
 				};
+
+				// Parametric trees are the default; ParametricTrees=false in server.conf falls
+				// back to the literal BDS-captured shapes (byte-identical per variant).
+				if (generator is ParametricTreeGenerator && !Utils.Config.GetProperty("ParametricTrees", true))
+				{
+					generator = WoodType switch
+					{
+						"oak" => new OakTreeGenerator(),
+						"birch" => new BirchTreeGenerator(),
+						"spruce" => new SpruceTreeGenerator(),
+						"jungle" => new JungleTreeGenerator(),
+						"acacia" => new AcaciaTreeGenerator(),
+						"cherry" => new CherryTreeGenerator(),
+						"mangrove" => new MangroveTreeGenerator(),
+						_ => null,
+					};
+				}
 
 				if (generator == null) return;
 
@@ -160,7 +178,9 @@ namespace MiNET.Blocks
 				if (!complete) continue;
 				if (!isNorthWest) return;
 
-				LiteralTreeGenerator generator = WoodType == "pale_oak" ? new PaleOakTreeGenerator() : new DarkOakTreeGenerator();
+				TreeGeneratorBase generator = WoodType == "pale_oak"
+					? (Utils.Config.GetProperty("ParametricTrees", true) ? new ParametricPaleOakTreeGenerator() : new PaleOakTreeGenerator())
+					: (Utils.Config.GetProperty("ParametricTrees", true) ? new ParametricDarkOakTreeGenerator() : new DarkOakTreeGenerator());
 				// No SetAir of the four saplings afterwards: the 2x2 trunk's bottom layer
 				// occupies exactly those cells, and clearing them left the trunk base hollow
 				// ("the base looks cut off").

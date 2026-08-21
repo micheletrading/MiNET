@@ -24,7 +24,9 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using MiNET.Blocks;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
@@ -64,7 +66,10 @@ namespace MiNET.Test
 					Assert.IsTrue(level.GetBlock(4, 3, 0) is Air, $"{wood} propagule cell must be consumed");
 				else
 					Assert.IsTrue(!(level.GetBlock(4, 3, 0) is Air), $"{wood} base must cover the sapling cell");
-				int trunkY = wood == "mangrove" ? 5 : 1; // the mangrove trunk sits above its roots
+				// The mangrove trunk starts 4 above the propagule in the literal shapes (roots
+				// fill 1..3); the parametric family starts at 1 but always reaches 4 (min height
+				// 4), so rel 4 is the single cell both families guarantee as log.
+				int trunkY = wood == "mangrove" ? 4 : 1;
 				Assert.IsTrue(level.GetBlock(4, 4 + trunkY, 0) is LogBase, $"{wood} trunk must appear above the sapling");
 
 				int leafCount = 0;
@@ -89,6 +94,70 @@ namespace MiNET.Test
 					}
 				}
 				Assert.IsTrue(leafCount > 0, $"{wood} must produce leaves");
+			}
+		}
+
+		[TestMethod]
+		public void Parametric_trees_fall_back_to_literals_when_disabled()
+		{
+			var originalProvider = Config.Provider;
+			try
+			{
+				Config.Provider = new TestConfigProvider(new Dictionary<string, string> {["ParametricTrees"] = "false"});
+				for (int i = 0; i < 12; i++)
+				{
+					Level level = CreateLevel();
+					var sapling = (SaplingBase) BlockFactory.GetBlockByName("minecraft:oak_sapling");
+					sapling.Coordinates = new BlockCoordinates(4, 3, 0);
+					level.SetBlock(sapling);
+
+					bool grew = false;
+					for (int t = 0; t < 200 && !grew; t++)
+					{
+						sapling.OnTick(level, true);
+						grew = level.GetBlock(4, 3, 0) is not SaplingBase;
+					}
+
+					Assert.IsTrue(grew, "oak sapling must grow with ParametricTrees=false");
+
+					var grown = new HashSet<(int X, int Y, int Z, string Block)>();
+					for (int dx = -8; dx <= 8; dx++)
+					for (int dy = -2; dy <= 20; dy++)
+					for (int dz = -8; dz <= 8; dz++)
+					{
+						Block b = level.GetBlock(4 + dx, 3 + dy, dz);
+						if (b is Air or GrassBlock or Dirt or Bedrock) continue;
+						if (b is SaplingBase) continue;
+						grown.Add((dx, dy, dz, Normalize(b.Name)));
+					}
+
+					// With the flag off the growth must be byte-identical to one of the four
+					// captured literal variants. Variants list both the top log and the leaf that
+					// overwrites it; collapse to final state (logs first, then leaves) like the
+					// placer does.
+					bool matchesVariant = new OakTreeGenerator().Variants.Any(v =>
+					{
+						var final = new Dictionary<(int X, int Y, int Z), string>();
+						foreach (var c in v)
+							if (c.Block.EndsWith("_log")) final[(c.X, c.Y, c.Z)] = Normalize(c.Block);
+						foreach (var c in v)
+							if (!c.Block.EndsWith("_log")) final[(c.X, c.Y, c.Z)] = Normalize(c.Block);
+						return final.Select(kv => (kv.Key.X, kv.Key.Y, kv.Key.Z, kv.Value)).ToHashSet().SetEquals(grown);
+					});
+					Assert.IsTrue(matchesVariant, $"grown shape must be one of the literal variants, got {grown.Count} cells: {string.Join(",", grown.OrderBy(c => c.Y).ThenBy(c => c.X).ThenBy(c => c.Z))} / variants: " + string.Join(" | ", new OakTreeGenerator().Variants.Select((v, vi) =>
+					{
+						var final = new Dictionary<(int X, int Y, int Z), string>();
+						foreach (var c in v)
+							if (c.Block.EndsWith("_log")) final[(c.X, c.Y, c.Z)] = Normalize(c.Block);
+						foreach (var c in v)
+							if (!c.Block.EndsWith("_log")) final[(c.X, c.Y, c.Z)] = Normalize(c.Block);
+						return $"v{vi}({final.Count}):" + string.Join(",", final.OrderBy(kv => kv.Key.Y).ThenBy(kv => kv.Key.X).ThenBy(kv => kv.Key.Z).Select(kv => $"({kv.Key.X},{kv.Key.Y},{kv.Key.Z},{kv.Value})"));
+					})));
+				}
+			}
+			finally
+			{
+				Config.Provider = originalProvider;
 			}
 		}
 
@@ -120,6 +189,32 @@ namespace MiNET.Test
 				Assert.IsTrue(level.GetBlock(4, 4, 4) is LogBase, $"{wood} trunk must appear above the patch corner");
 				Assert.IsTrue(level.GetBlock(4, 4, 4).Name == $"minecraft:{wood}_log",
 					$"{wood} trunk must be {wood} log, got {level.GetBlock(4, 4, 4).Name}");
+			}
+		}
+
+		private static string Normalize(string blockName)
+		{
+			string name = blockName.Replace("minecraft:", "");
+			int colon = name.IndexOf(':');
+			return colon >= 0 ? name.Substring(0, colon) : name;
+		}
+
+		private sealed class TestConfigProvider : ConfigProvider
+		{
+			private readonly Dictionary<string, string> _values;
+
+			public TestConfigProvider(Dictionary<string, string> values)
+			{
+				_values = values;
+			}
+
+			protected override void OnInitialize()
+			{
+			}
+
+			public override string ReadString(string property)
+			{
+				return _values.TryGetValue(property, out string value) ? value : null;
 			}
 		}
 
