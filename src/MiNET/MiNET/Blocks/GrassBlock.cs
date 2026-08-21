@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -41,7 +41,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public partial class GrassBlock : Block
 	{
-		public GrassBlock() : base(2)
+		public GrassBlock()
 		{
 		}
 
@@ -93,12 +93,12 @@ namespace MiNET.Blocks
 		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
 			var itemInHand = player.Inventory.GetItemInHand();
-			if (itemInHand is ItemDye && itemInHand.Metadata == 15)
+			if ((itemInHand is ItemBoneMeal || (itemInHand is ItemDye && itemInHand.Metadata == 15)))
 			{
 				// If bone meal is used on a grass block, 0-8(double) tall grass, 8-24 grass and 0-8 flowers form on the
 				// targeted block and on randomly-selected adjacent grass blocks up to 7 blocks away (taxicab distance).
 				// The flowers that appear are dependent on the biome, meaning that in order to obtain specific flowers,
-				// the player must travel to biomes where the flowers are found naturally. See Flower § Flower biomes
+				// the player must travel to biomes where the flowers are found naturally. See Flower Â§ Flower biomes
 				// for more information.
 				//TODO: Grow grass and flowers randomly
 				int grassPlanted = 0;

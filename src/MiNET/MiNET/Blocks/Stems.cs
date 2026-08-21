@@ -1,4 +1,4 @@
-#region LICENSE
+﻿#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -23,7 +23,11 @@
 
 #endregion
 
+using System;
+using System.Numerics;
 using MiNET.Items;
+using MiNET.Net;
+using MiNET.Particles;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
@@ -59,6 +63,27 @@ namespace MiNET.Blocks
 				level.SetBlock(this);
 			}
 		}
+
+		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
+		{
+			var itemInHand = player.Inventory.GetItemInHand();
+			if (Growth < StemGrowth.MaxAge && (itemInHand is ItemBoneMeal || (itemInHand is ItemDye && itemInHand.Metadata == 15)))
+			{
+				Growth += (byte) new Random().Next(2, 6);
+				if (Growth > StemGrowth.MaxAge) Growth = StemGrowth.MaxAge;
+				level.SetBlock(this);
+
+				McpeLevelEvent particleEvent = McpeLevelEvent.CreateObject();
+				particleEvent.eventId = (int) LevelEventType.ParticleLegacyEvent | (int) ParticleType.CropGrowth;
+				particleEvent.position = blockCoordinates;
+				particleEvent.data = 0;
+				level.RelayBroadcast(particleEvent);
+
+				return true;
+			}
+
+			return false;
+		}
 	}
 
 	/// <summary>Pumpkin stems grow identically to melon stems; only the fruit differs.</summary>
@@ -85,6 +110,27 @@ namespace MiNET.Blocks
 				Growth = newAge;
 				level.SetBlock(this);
 			}
+		}
+
+		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
+		{
+			var itemInHand = player.Inventory.GetItemInHand();
+			if (Growth < StemGrowth.MaxAge && (itemInHand is ItemBoneMeal || (itemInHand is ItemDye && itemInHand.Metadata == 15)))
+			{
+				Growth += (byte) new Random().Next(2, 6);
+				if (Growth > StemGrowth.MaxAge) Growth = StemGrowth.MaxAge;
+				level.SetBlock(this);
+
+				McpeLevelEvent particleEvent = McpeLevelEvent.CreateObject();
+				particleEvent.eventId = (int) LevelEventType.ParticleLegacyEvent | (int) ParticleType.CropGrowth;
+				particleEvent.position = blockCoordinates;
+				particleEvent.data = 0;
+				level.RelayBroadcast(particleEvent);
+
+				return true;
+			}
+
+			return false;
 		}
 	}
 }

@@ -27,33 +27,40 @@ using System;
 using System.Numerics;
 using log4net;
 using MiNET.Items;
+using MiNET.Net;
+using MiNET.Particles;
 using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract class Crops : Block
+	public abstract partial class Crops : Block
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Crops));
 
-		[StateRange(0, 7)] public virtual int Growth { get; set; } = 0;
 
 		protected byte MaxGrowth { get; set; } = 7;
 
-		protected Crops(byte id) : base(id)
+		protected Crops()
 		{
 		}
 
 		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
 			var itemInHand = player.Inventory.GetItemInHand();
-			if (Growth < MaxGrowth && itemInHand is ItemDye && itemInHand.Metadata == 15)
+			if (Growth < MaxGrowth && (itemInHand is ItemBoneMeal || (itemInHand is ItemDye && itemInHand.Metadata == 15)))
 			{
 				Growth += (byte) new Random().Next(2, 6);
 				if (Growth > MaxGrowth) Growth = MaxGrowth;
 
 				level.SetBlock(this);
+
+				McpeLevelEvent particleEvent = McpeLevelEvent.CreateObject();
+				particleEvent.eventId = (int) LevelEventType.ParticleLegacyEvent | (int) ParticleType.CropGrowth;
+				particleEvent.position = blockCoordinates;
+				particleEvent.data = 0;
+				level.RelayBroadcast(particleEvent);
 
 				return true;
 			}
