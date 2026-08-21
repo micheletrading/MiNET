@@ -51,14 +51,15 @@ namespace MiNET.Blocks
 
 			// Trunk cells first, canopy after: a failure midway must never leave a trunkless
 			// stump (the sapling base looked "cut off" when a partial shape was committed).
-			// applyPhysics=false: the BlockUpdate of a leaf sets update_bit, which changes the
-			// runtime id to one the client does not render (leaves invisible - reported live).
+			// broadcast=true (first bool): every cell reaches the client as an UpdateBlock.
+			// applyPhysics=false (second bool): the BlockUpdate of a leaf would set update_bit,
+			// changing the runtime id to one the client does not render (leaves invisible).
 			foreach (var (dx, dy, dz, block) in shape.Where(c => c.Block.EndsWith("_log")))
 			{
 				Block b = BlockFactory.GetBlockByName("minecraft:" + MapBlock(block));
 				if (b == null) continue;
 				b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
-				level.SetBlock(b, false, false);
+				level.SetBlock(b, true, false);
 			}
 			foreach (var (dx, dy, dz, block) in shape.Where(c => !c.Block.EndsWith("_log")))
 			{
@@ -75,7 +76,7 @@ namespace MiNET.Blocks
 				// render (client shows nothing - reported live). Vanilla vines always attach
 				// to something: give them the "up" bit as the minimal attachment.
 				if (b is Vine vine) vine.VineDirectionBits = 1;
-				level.SetBlock(b, false, false);
+				level.SetBlock(b, true, false);
 			}
 
 			// Shapes that do not cover the sapling cell (the mangrove's propagule cell is air
