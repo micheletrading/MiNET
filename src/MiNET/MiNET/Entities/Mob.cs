@@ -305,11 +305,11 @@ namespace MiNET.Entities
 					double fallDistance = (impactSpeed * impactSpeed) / (2 * Gravity);
 					Farmland.Trample(Level, new BlockCoordinates(KnownPosition), fallDistance);
 
-					// Hostile-mob fall damage (vanilla: ceil(fallDistance) - 3). Verified
-					// against BDS 2026-08-20: a zombie dies from a 30-block fall (27 damage >
-					// 20 hp) while cows survive the same fall - passives take no fall damage
-					// on Bedrock. The player path already has this in Player.cs.
-					if (this is HostileMob && HealthManager != null)
+					// Mob fall damage (vanilla: ceil(fallDistance) - 3; per minecraft.wiki most
+					// mobs take 1 per block beyond their safe_fall_distance, and passives are
+					// NOT exempt - a cow takes 26 damage from a 29-block fall. The player path
+					// already has this in Player.cs - this closes the mob half.
+					if (HealthManager != null)
 					{
 						int damage = (int) Math.Ceiling(fallDistance) - 3;
 						if (damage > 0)
