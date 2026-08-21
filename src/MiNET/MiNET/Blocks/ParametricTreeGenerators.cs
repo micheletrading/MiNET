@@ -130,21 +130,22 @@ namespace MiNET.Blocks
 		protected virtual bool IsBigFootprint => false;
 
 		/// <summary>Full Chebyshev square of the given radius; every corner cell (|dx|==r==|dz|)
-		/// is dropped with probability `prune`, matching BDS's per-corner random drops. Layers
-		/// below `trunkTop` skip the trunk footprint (BDS keeps the trunk visible through the
-		/// canopy); layers at or above the trunk top cover it (the trunk's top log becomes a
-		/// leaf, exactly like the captured shapes).</summary>
-		protected void AddLeafLayer(List<(int X, int Y, int Z, string Block)> cells, Random random, int y, int radius, int trunkTop, double prune = 0.5)
+		/// is dropped with probability `prune`, matching BDS's per-corner random drops. Layers at
+		/// or below `trunkTop` skip the trunk footprint (BDS keeps the top log visible); layers
+		/// above the trunk top cover it (the leaf sits one above the top log, exactly like the
+		/// captured shapes).</summary>
+		protected void AddLeafLayer(List<(int X, int Y, int Z, string Block)> cells, Random random, int y, int radius, int trunkTop, double prune = 0.5, HashSet<(int Y, int X, int Z)>? exclude = null)
 		{
 			if (y < 0) return;
-			bool belowTop = y < trunkTop;
+			bool atOrBelowTop = y <= trunkTop;
 			for (int dx = -radius; dx <= radius; dx++)
 			{
 				for (int dz = -radius; dz <= radius; dz++)
 				{
 					bool corner = Math.Abs(dx) == radius && Math.Abs(dz) == radius;
 					if (corner && random.NextDouble() < prune) continue;
-					if (belowTop && ((!IsBigFootprint && dx == 0 && dz == 0) || (IsBigFootprint && dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1))) continue;
+					if (atOrBelowTop && ((!IsBigFootprint && dx == 0 && dz == 0) || (IsBigFootprint && dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1))) continue;
+					if (exclude != null && exclude.Contains((y, dx, dz))) continue;
 					cells.Add((dx, y, dz, Wood + "_leaves"));
 				}
 			}
@@ -287,14 +288,21 @@ namespace MiNET.Blocks
 				int length = 2 + random.Next(3);
 				for (int i = 1; i <= length; i++)
 				{
-					cells.Add((dx * i, forkTop - 1 + i, dz * i, "acacia_log"));
+					cells.Add((dx * i, height - 1 + i, dz * i, "acacia_log"));
 				}
 				forkTop = Math.Max(forkTop, height - 1 + length);
 			}
 
-			AddLeafLayer(cells, random, forkTop - 1, 3, height - 1);
-			AddLeafLayer(cells, random, forkTop, 4, height - 1);
-			AddLeafLayer(cells, random, forkTop + 1, 3, height - 1);
+			// The BDS canopy sits on the fork: 5 layers above the trunk top (captured deltas
+			// 0..5 with radii 3-7; the middle two are the widest). The fork logs stay visible
+			// through the canopy, so leaf layers skip the fork cells.
+			int trunkTop = height - 1;
+			var forkCells = cells.Where(c => c.Block == "acacia_log" && (c.X != 0 || c.Z != 0)).Select(c => (c.Y, c.X, c.Z)).ToHashSet();
+			AddLeafLayer(cells, random, trunkTop + 1, 3, trunkTop, 0.4, forkCells);
+			AddLeafLayer(cells, random, trunkTop + 2, 3, trunkTop, 0.4, forkCells);
+			AddLeafLayer(cells, random, trunkTop + 3, 4, trunkTop, 0.4, forkCells);
+			AddLeafLayer(cells, random, trunkTop + 4, 4, trunkTop, 0.4, forkCells);
+			AddLeafLayer(cells, random, trunkTop + 5, 3, trunkTop, 0.5, forkCells);
 			return cells;
 		}
 	}
@@ -307,7 +315,7 @@ namespace MiNET.Blocks
 
 		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
 		{
-			int height = 4 + random.Next(4);
+			int height = 6 + random.Next(2);
 			var cells = new List<(int X, int Y, int Z, string Block)>();
 			for (int y = 0; y < height; y++) cells.Add((0, y, 0, "cherry_log"));
 
@@ -317,26 +325,26 @@ namespace MiNET.Blocks
 			var directions = new[] {(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)};
 			foreach (var (dx, dz) in directions.OrderBy(_ => random.Next()).Take(branches))
 			{
-				int length = 2 + random.Next(3);
+				int length = 2 + random.Next(2);
 				for (int i = 1; i <= length; i++)
 				{
-					cells.Add((dx * i, top - 2 + i, dz * i, "cherry_log"));
+					cells.Add((dx * i, top - 1 + i, dz * i, "cherry_log"));
 				}
-				branchTop = Math.Max(branchTop, top - 2 + length);
+				branchTop = Math.Max(branchTop, top - 1 + length);
 			}
 
 			for (int delta = -2; delta <= 5; delta++)
 			{
 				int radius = delta switch
 				{
-					-2 => 3 + random.Next(2),
-					-1 => 4 + random.Next(2),
-					0 => 4 + random.Next(2),
-					1 => 3 + random.Next(2),
-					2 => 3 + random.Next(2),
-					3 => 3 + random.Next(2),
-					4 => 3 + random.Next(2),
-					_ => 2 + random.Next(2),
+					-2 => 4 + random.Next(2),
+					-1 => 5 + random.Next(2),
+					0 => 5 + random.Next(2),
+					1 => 4 + random.Next(2),
+					2 => 4 + random.Next(2),
+					3 => 4 + random.Next(2),
+					4 => 4 + random.Next(2),
+					_ => 3 + random.Next(2),
 				};
 				AddLeafLayer(cells, random, branchTop + delta - 2, radius, top, 0.4);
 			}
@@ -369,12 +377,12 @@ namespace MiNET.Blocks
 			{
 				if (random.NextDouble() < 0.75)
 				{
-					int length = 2 + random.Next(3);
+					int length = 1 + random.Next(3);
 					int outX = cx == 0 ? -1 : 1;
 					int outZ = cz == 0 ? -1 : 1;
 					for (int i = 1; i <= length; i++)
 					{
-						cells.Add((cx + outX * i, top - 2 + i, cz + outZ * i, "dark_oak_log"));
+						cells.Add((cx + outX * i, top - 3 + i, cz + outZ * i, "dark_oak_log"));
 					}
 				}
 			}
@@ -446,13 +454,14 @@ namespace MiNET.Blocks
 			// Trunk sits above the propagule (whose cell stays air after growth, like BDS).
 			for (int y = 1; y <= height; y++) cells.Add((0, y, 0, "mangrove_log"));
 
-			// Aerial root chains: diagonal logs climbing outward from the lower trunk.
-			int chains = 2 + random.Next(2);
+			// Aerial root chains: diagonal logs climbing outward from the lower trunk, staying
+			// within the trunk height (the captured small trees have no chains above the top).
+			int chains = 3 + random.Next(3);
 			var directions = new[] {(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)};
 			foreach (var (dx, dz) in directions.OrderBy(_ => random.Next()).Take(chains))
 			{
-				int length = 3 + random.Next(4);
 				int startY = 2 + random.Next(3);
+				int length = Math.Min(3 + random.Next(4), Math.Max(1, height - startY + 2));
 				for (int i = 0; i < length; i++)
 				{
 					cells.Add((dx * i, startY + i, dz * i, "mangrove_log"));
@@ -465,13 +474,16 @@ namespace MiNET.Blocks
 			AddLeafLayer(cells, random, top - 1, 6, top);
 			AddLeafLayer(cells, random, top, random.NextDouble() < 0.5 ? 7 : 5, top);
 
-			// Vine curtains from the canopy edges.
-			int vines = 3 + random.Next(4);
-			for (int i = 0; i < vines; i++)
+			// Vine curtains from the canopy edges, hanging most of the way to the ground like
+			// the captured trees (90-650 vine cells per tree).
+			foreach (var (vx, vy, vz) in cells.Where(c => c.Block == "mangrove_leaves" && (c.Y == top - 3 || c.Y == top - 2))
+				         .Select(c => (c.X, c.Y, c.Z)).ToList())
 			{
-				int vx = random.Next(-3, 4);
-				int vz = random.Next(-3, 4);
-				AddVineColumn(cells, random, vx, top - random.Next(0, 2), vz, random.Next(4, 12));
+				if (Math.Abs(vx) < 4 && Math.Abs(vz) < 4) continue;
+				if (random.NextDouble() < 0.4)
+				{
+					AddVineColumn(cells, random, vx, vy, vz, Math.Max(4, random.Next(vy - 8, vy)));
+				}
 			}
 			return cells;
 		}

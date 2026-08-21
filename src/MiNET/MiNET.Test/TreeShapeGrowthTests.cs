@@ -119,6 +119,7 @@ namespace MiNET.Test
 					}
 
 					Assert.IsTrue(grew, "oak sapling must grow with ParametricTrees=false");
+					Console.WriteLine($"DEBUG sapling.Coordinates={sapling.Coordinates} levelBlock={level.GetBlock(4, 3, 0)?.Name}");
 
 					var grown = new HashSet<(int X, int Y, int Z, string Block)>();
 					for (int dx = -8; dx <= 8; dx++)
@@ -144,14 +145,17 @@ namespace MiNET.Test
 							if (!c.Block.EndsWith("_log")) final[(c.X, c.Y, c.Z)] = Normalize(c.Block);
 						return final.Select(kv => (kv.Key.X, kv.Key.Y, kv.Key.Z, kv.Value)).ToHashSet().SetEquals(grown);
 					});
-					Assert.IsTrue(matchesVariant, $"grown shape must be one of the literal variants, got {grown.Count} cells: {string.Join(",", grown.OrderBy(c => c.Y).ThenBy(c => c.X).ThenBy(c => c.Z))} / variants: " + string.Join(" | ", new OakTreeGenerator().Variants.Select((v, vi) =>
+					Assert.IsTrue(matchesVariant, $"grown shape must be one of the literal variants, got {grown.Count} cells: " + string.Join(" | ", new OakTreeGenerator().Variants.Select((v, vi) =>
 					{
 						var final = new Dictionary<(int X, int Y, int Z), string>();
 						foreach (var c in v)
 							if (c.Block.EndsWith("_log")) final[(c.X, c.Y, c.Z)] = Normalize(c.Block);
 						foreach (var c in v)
 							if (!c.Block.EndsWith("_log")) final[(c.X, c.Y, c.Z)] = Normalize(c.Block);
-						return $"v{vi}({final.Count}):" + string.Join(",", final.OrderBy(kv => kv.Key.Y).ThenBy(kv => kv.Key.X).ThenBy(kv => kv.Key.Z).Select(kv => $"({kv.Key.X},{kv.Key.Y},{kv.Key.Z},{kv.Value})"));
+						var vSet = final.Select(kv => (kv.Key.X, kv.Key.Y, kv.Key.Z, kv.Value)).ToHashSet();
+						var missing = vSet.Except(grown).OrderBy(c => c).ToList();
+						var extra = grown.Except(vSet).OrderBy(c => c).ToList();
+						return $"v{vi}: missing[{string.Join(",", missing)}] extra[{string.Join(",", extra)}]";
 					})));
 				}
 			}
@@ -205,7 +209,7 @@ namespace MiNET.Test
 
 			public TestConfigProvider(Dictionary<string, string> values)
 			{
-				_values = values;
+				_values = new Dictionary<string, string>(values, StringComparer.OrdinalIgnoreCase);
 			}
 
 			protected override void OnInitialize()
@@ -214,6 +218,8 @@ namespace MiNET.Test
 
 			public override string ReadString(string property)
 			{
+				// Config lowercases the property name before asking; the DefaultConfigProvider
+				// lowercases keys on load, so lookups must be case-insensitive.
 				return _values.TryGetValue(property, out string value) ? value : null;
 			}
 		}
