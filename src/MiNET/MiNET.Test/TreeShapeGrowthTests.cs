@@ -66,6 +66,24 @@ namespace MiNET.Test
 					Assert.IsTrue(!(level.GetBlock(4, 3, 0) is Air), $"{wood} base must cover the sapling cell");
 				int trunkY = wood == "mangrove" ? 5 : 1; // the mangrove trunk sits above its roots
 				Assert.IsTrue(level.GetBlock(4, 4 + trunkY, 0) is LogBase, $"{wood} trunk must appear above the sapling");
+
+				int leafCount = 0;
+				for (int dx = 0; dx < 9; dx++)
+				for (int dy = 2; dy < 12; dy++)
+				for (int dz = -8; dz < 9; dz++)
+				{
+					Block b = level.GetBlock(dx, dy, dz);
+					if (b is LeavesBase)
+					{
+						leafCount++;
+						int rt = b.GetRuntimeId();
+						Block back = BlockFactory.GetBlockByRuntimeId(rt);
+						Assert.IsTrue(back is LeavesBase, $"{wood} leaf runtime {rt} must round-trip to a leaf, got {back?.Name ?? "null"}");
+					}
+					if (b is Vine vine)
+						Assert.IsTrue(vine.VineDirectionBits > 0, $"{wood} vine must carry direction bits");
+				}
+				Assert.IsTrue(leafCount > 0, $"{wood} must produce leaves (cell 4,9,0 = {level.GetBlock(4, 9, 0)?.Name ?? "null"})");
 			}
 		}
 
