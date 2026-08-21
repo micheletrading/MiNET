@@ -129,7 +129,8 @@ namespace MiNET.Entities
 			{
 				if (!entity.Value.CanDespawn) continue;
 
-				if (Level.Players.Count(player => player.Value.IsSpawned && Vector3.Distance(entity.Value.KnownPosition, player.Value.KnownPosition) < 128) == 0)
+				// Presence-based (not IsSpawned): a joining player must hold mobs alive.
+				if (Level.Players.Count(player => Vector3.Distance(entity.Value.KnownPosition, player.Value.KnownPosition) < 128) == 0)
 				{
 					if (Log.IsDebugEnabled)
 						Log.Debug($"Despawned entity because no players within 128 blocks distance");
@@ -143,7 +144,8 @@ namespace MiNET.Entities
 		{
 			if (Level.Dimension != Dimension.Overworld) return;
 
-			if (Level.Players.Count(player => player.Value.IsSpawned && Vector3.Distance(packCoord, player.Value.KnownPosition) < 24) != 0)
+			// Presence-based (not IsSpawned): a joining player suppresses natural spawns too.
+			if (Level.Players.Count(player => Vector3.Distance(packCoord, player.Value.KnownPosition) < 24) != 0)
 			{
 				//if (Log.IsDebugEnabled)
 				//	Log.Debug($"Can't spawn entity because players within 24 blocks distance: {blockCoordinates}");

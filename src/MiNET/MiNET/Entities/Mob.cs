@@ -153,7 +153,10 @@ namespace MiNET.Entities
 			bool noPlayersWithin32 = false;
 			if (Level.EnableChunkTicking && DespawnIfNotSeenPlayer)
 			{
-				if (Level.Players.Count(player => player.Value.IsSpawned && Vector3.Distance(KnownPosition, player.Value.KnownPosition) < 128) == 0)
+				// Presence-based, not IsSpawned-based: a player who just joined (spawn handshake
+				// still in flight) is present and must hold mobs alive. Gating on IsSpawned
+				// despawned everything summoned during the join window (parity bot joins ~5s).
+				if (Level.Players.Count(player => Vector3.Distance(KnownPosition, player.Value.KnownPosition) < 128) == 0)
 				{
 					if (Log.IsDebugEnabled)
 						Log.Debug($"Despawn because didn't see any players within 128 blocks.");
@@ -163,7 +166,7 @@ namespace MiNET.Entities
 				}
 				if (DateTime.UtcNow - LastSeenPlayerTimer > TimeSpan.FromSeconds(30))
 				{
-					if (Level.Players.Count(player => player.Value.IsSpawned && Vector3.Distance(KnownPosition, player.Value.KnownPosition) < 32) == 0)
+					if (Level.Players.Count(player => Vector3.Distance(KnownPosition, player.Value.KnownPosition) < 32) == 0)
 					{
 						if (Level.Random.Next(800) == 0)
 						{
