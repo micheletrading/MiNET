@@ -3203,6 +3203,24 @@ namespace MiNET
 			HandleTransactionRecords(transaction.TransactionRecords);
 		}
 
+		/// <summary>Consumes one item from the hand (bone meal, splash potions, ...). Creative does not consume.</summary>
+		public void ConsumeItemInHand()
+		{
+			if (GameMode == GameMode.Creative) return;
+
+			Item item = Inventory.GetItemInHand();
+			if (item is ItemAir) return;
+			if (item.Count > 1)
+			{
+				item.Count--;
+			}
+			else
+			{
+				Inventory.Slots[Inventory.InHandSlot] = new ItemAir();
+			}
+			SendPlayerInventory();
+		}
+
 		protected virtual void HandleItemUseTransaction(ItemUseTransaction transaction)
 		{
 			var itemInHand = Inventory.GetItemInHand();

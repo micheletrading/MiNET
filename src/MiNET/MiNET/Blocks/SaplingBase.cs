@@ -1,4 +1,4 @@
-﻿#region LICENSE
+#region LICENSE
 
 // The contents of this file are subject to the Common Public Attribution
 // License Version 1.0. (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public abstract partial class SaplingBase : Block
 	{
-		protected SaplingBase()
+		protected SaplingBase(int id) : base(id)
 		{
 			FuelEfficiency = 5;
 		}
@@ -79,6 +79,7 @@ namespace MiNET.Blocks
 				if (random.NextDouble() < 0.45)
 				{
 					OnTick(level, true);
+					player.ConsumeItemInHand();
 					return true;
 				}
 			}
@@ -170,3 +171,4 @@ namespace MiNET.Blocks
 		}
 	}
 }
+

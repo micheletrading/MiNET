@@ -35,14 +35,15 @@ using MiNET.Worlds;
 
 namespace MiNET.Blocks
 {
-	public abstract partial class Crops : Block
+	public abstract class Crops : Block
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Crops));
 
+		[StateRange(0, 7)] public virtual int Growth { get; set; } = 0;
 
 		protected byte MaxGrowth { get; set; } = 7;
 
-		protected Crops()
+		protected Crops(byte id) : base(id)
 		{
 		}
 
@@ -57,10 +58,11 @@ namespace MiNET.Blocks
 				level.SetBlock(this);
 
 				McpeLevelEvent particleEvent = McpeLevelEvent.CreateObject();
-				particleEvent.eventId = (int) LevelEventType.ParticleLegacyEvent | (int) ParticleType.CropGrowth;
+				particleEvent.eventId = 0x4000 | (int) ParticleType.CropGrowth;
 				particleEvent.position = blockCoordinates;
 				particleEvent.data = 0;
 				level.RelayBroadcast(particleEvent);
+				player.ConsumeItemInHand();
 
 				return true;
 			}

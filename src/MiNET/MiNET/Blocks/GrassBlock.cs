@@ -41,7 +41,7 @@ namespace MiNET.Blocks
 	/// </summary>
 	public partial class GrassBlock : Block
 	{
-		public GrassBlock()
+		public GrassBlock() : base(2)
 		{
 		}
 
@@ -93,7 +93,7 @@ namespace MiNET.Blocks
 		public override bool Interact(Level level, Player player, BlockCoordinates blockCoordinates, BlockFace face, Vector3 faceCoord)
 		{
 			var itemInHand = player.Inventory.GetItemInHand();
-			if ((itemInHand is ItemBoneMeal || (itemInHand is ItemDye && itemInHand.Metadata == 15)))
+			if (itemInHand is ItemBoneMeal || (itemInHand is ItemDye && itemInHand.Metadata == 15))
 			{
 				// If bone meal is used on a grass block, 0-8(double) tall grass, 8-24 grass and 0-8 flowers form on the
 				// targeted block and on randomly-selected adjacent grass blocks up to 7 blocks away (taxicab distance).
@@ -181,8 +181,9 @@ namespace MiNET.Blocks
 					}
 				}
 
-				return true;
-			}
+						player.ConsumeItemInHand();
+						return true;
+				}
 
 			return false; // not handled
 		}

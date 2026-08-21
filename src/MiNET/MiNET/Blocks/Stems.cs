@@ -74,10 +74,11 @@ namespace MiNET.Blocks
 				level.SetBlock(this);
 
 				McpeLevelEvent particleEvent = McpeLevelEvent.CreateObject();
-				particleEvent.eventId = (int) LevelEventType.ParticleLegacyEvent | (int) ParticleType.CropGrowth;
+				particleEvent.eventId = 0x4000 | (int) ParticleType.CropGrowth;
 				particleEvent.position = blockCoordinates;
 				particleEvent.data = 0;
 				level.RelayBroadcast(particleEvent);
+				player.ConsumeItemInHand();
 
 				return true;
 			}
@@ -122,10 +123,11 @@ namespace MiNET.Blocks
 				level.SetBlock(this);
 
 				McpeLevelEvent particleEvent = McpeLevelEvent.CreateObject();
-				particleEvent.eventId = (int) LevelEventType.ParticleLegacyEvent | (int) ParticleType.CropGrowth;
+				particleEvent.eventId = 0x4000 | (int) ParticleType.CropGrowth;
 				particleEvent.position = blockCoordinates;
 				particleEvent.data = 0;
 				level.RelayBroadcast(particleEvent);
+				player.ConsumeItemInHand();
 
 				return true;
 			}

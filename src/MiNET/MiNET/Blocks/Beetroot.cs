@@ -34,7 +34,7 @@ namespace MiNET.Blocks
 {
 	public partial class Beetroot : Crops
 	{
-		public Beetroot()
+		public Beetroot() : base(244)
 		{
 			MaxGrowth = 4;
 		}
@@ -46,6 +46,7 @@ namespace MiNET.Blocks
 			{
 				Growth++;
 				level.SetBlock(this);
+				player.ConsumeItemInHand();
 
 				return true;
 			}
