@@ -27,6 +27,7 @@ using System;
 using System.Numerics;
 using MiNET.Items;
 using MiNET.Particles;
+using MiNET.Utils;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
@@ -76,6 +77,14 @@ namespace MiNET.Blocks
 					particle.Spawn();
 				}
 
+				// Creative bone meal grows the tree INSTANTLY (one click, no random rolls).
+				// Survival keeps the vanilla-ish chance: 45% per click to trigger a growth tick.
+				if (player.GameMode == GameMode.Creative)
+				{
+					TryGrow(level);
+					return true;
+				}
+
 				if (random.NextDouble() < 0.45)
 				{
 					OnTick(level, true);
@@ -94,61 +103,96 @@ namespace MiNET.Blocks
 			var lightLevel = level.GetSubtractedLight(Coordinates);
 			if (lightLevel >= 9 && new Random().Next(7) == 0)
 			{
-				// The log and leaves come straight off the wood type.
-				Block log = BlockFactory.GetBlockByName($"minecraft:{WoodType}_log");
-				Block leaves = BlockFactory.GetBlockByName($"minecraft:{WoodType}_leaves");
-				if (log == null || leaves == null) return;
-
-				// Bedrock grows dark oak and pale oak ONLY from a 2x2 patch of four saplings
-				// of the same type (verified against the BDS oracle 2026-08-20); the north-west
-				// sapling of the patch performs the growth and consumes all four.
-				if (WoodType is "dark_oak" or "pale_oak")
-				{
-					TryGrowPatchTree(level, log, leaves);
-					return;
-				}
-
-				TreeGeneratorBase generator = WoodType switch
-				{
-					"oak" => new ParametricOakTreeGenerator(),
-					"birch" => new ParametricBirchTreeGenerator(),
-					"spruce" => new ParametricSpruceTreeGenerator(),
-					"jungle" => new ParametricJungleTreeGenerator(),
-					"acacia" => new ParametricAcaciaTreeGenerator(),
-					"cherry" => new ParametricCherryTreeGenerator(),
-					"mangrove" => new ParametricMangroveTreeGenerator(),
-					_ => null,
-				};
-
-				// Parametric trees are the default; ParametricTrees=false in server.conf falls
-				// back to the literal BDS-captured shapes (byte-identical per variant).
-				if (generator is ParametricTreeGenerator && !Utils.Config.GetProperty("ParametricTrees", true))
-				{
-					generator = WoodType switch
-					{
-						"oak" => new OakTreeGenerator(),
-						"birch" => new BirchTreeGenerator(),
-						"spruce" => new SpruceTreeGenerator(),
-						"jungle" => new JungleTreeGenerator(),
-						"acacia" => new AcaciaTreeGenerator(),
-						"cherry" => new CherryTreeGenerator(),
-						"mangrove" => new MangroveTreeGenerator(),
-						_ => null,
-					};
-				}
-
-				if (generator == null) return;
-
-				// The trunk cell at (0,0,0) replaces the sapling; no SetAir first, so a failed
-				// generate never leaves a sapling floating on a partial trunk.
-				if (!generator.Generate(level, Coordinates))
-				{
-					level.SetBlock(this);
-				}
+				TryGrow(level);
 			}
 		}
 
-		private void TryGrowPatchTree(Level level, Block log, Block leaves)
+		/// <summary>Grows the tree unconditionally (the random-tick gates live in OnTick). In
+		/// creative, bone meal calls this directly: one click, instant growth.</summary>
+		private void TryGrow(Level level)
+		{
+			// The log and leaves come straight off the wood type.
+			Block log = BlockFactory.GetBlockByName($"minecraft:{WoodType}_log");
+			Block leaves = BlockFactory.GetBlockByName($"minecraft:{WoodType}_leaves");
+			if (log == null || leaves == null) return;
+
+			// Bedrock grows dark oak and pale oak ONLY from a 2x2 patch of four saplings
+			// of the same type (verified against the BDS oracle 2026-08-20); the north-west
+			// sapling of the patch performs the growth and consumes all four. Spruce and
+			// jungle are patch-only for their GIANT variants (M3/M4): a complete 2x2 patch
+			// grows it; a lone sapling (or an incomplete patch) falls through to the normal
+			// 1x1 growth.
+			if (WoodType is "dark_oak" or "pale_oak")
+			{
+				TryGrowPatchTree(level, log, leaves);
+				return;
+			}
+			if (WoodType is "spruce" or "jungle" && TryGrowPatchTree(level, log, leaves))
+			{
+				return;
+			}
+
+			TreeGeneratorBase generator = WoodType switch
+			{
+				"oak" => new ParametricOakTreeGenerator(),
+				"birch" => new ParametricBirchTreeGenerator(),
+				"spruce" => new ParametricSpruceTreeGenerator(),
+				"jungle" => new ParametricJungleTreeGenerator(),
+				"acacia" => new ParametricAcaciaTreeGenerator(),
+				"cherry" => new ParametricCherryTreeGenerator(),
+				"mangrove" => new ParametricMangroveTreeGenerator(),
+				_ => null,
+			};
+
+			// Parametric trees are the default; ParametricTrees=false in server.conf falls
+			// back to the literal BDS-captured shapes (byte-identical per variant).
+			if (generator is EmpiricalTreeGenerator && !Utils.Config.GetProperty("ParametricTrees", true))
+			{
+				generator = WoodType switch
+				{
+					"oak" => new OakTreeGenerator(),
+					"birch" => new BirchTreeGenerator(),
+					"spruce" => new SpruceTreeGenerator(),
+					"jungle" => new JungleTreeGenerator(),
+					"acacia" => new AcaciaTreeGenerator(),
+					"cherry" => new CherryTreeGenerator(),
+					"mangrove" => new MangroveTreeGenerator(),
+					_ => null,
+				};
+			}
+
+			// TreeGenerator=procedural in server.conf switches woods that HAVE a procedural
+			// model to it (birch, oak, spruce today; more as the milestones land). The default
+			// is procedural since M1 passed the gate on the untouched test set (plan §3.1);
+			// "template" restores the empirical generator.
+			if (generator is EmpiricalTreeGenerator && Utils.Config.GetProperty("TreeGenerator", "procedural") == "procedural")
+			{
+				generator = WoodType switch
+				{
+					"birch" => ProceduralTreeParams.For("birch") != null ? new ProceduralBirchTreeGenerator() : generator,
+					"oak" => ProceduralTreeParams.For("oak") != null ? new ProceduralOakTreeGenerator() : generator,
+					"spruce" => ProceduralTreeParams.For("spruce") != null ? new ProceduralSpruceTreeGenerator() : generator,
+					"jungle" => ProceduralTreeParams.For("jungle") != null ? new ProceduralJungleTreeGenerator() : generator,
+					_ => generator,
+				};
+			}
+
+			if (generator == null) return;
+
+			// The trunk cell at (0,0,0) replaces the sapling; no SetAir first, so a failed
+			// generate never leaves a sapling floating on a partial trunk.
+			if (!generator.Generate(level, Coordinates))
+			{
+				level.SetBlock(this);
+			}
+		}
+
+		/// <summary>Grows the 2x2 patch tree if this sapling is part of a complete 2x2 patch.
+		/// Returns true when a complete patch was found: either this (north-west) sapling grew
+		/// it, or the north-west sapling of that patch will (this one must NOT grow normally —
+		/// the giant's trunk occupies its cell). Dark/pale oak are patch-only: false means
+		/// nothing grows. Spruce falls through to the normal 1x1 growth on false.</summary>
+		private bool TryGrowPatchTree(Level level, Block log, Block leaves)
 		{
 			// Find the 2x2 patch this sapling belongs to: all four cells must hold the same
 			// sapling type. Only the north-west sapling grows, and only when the other three
@@ -176,7 +220,31 @@ namespace MiNET.Blocks
 				}
 
 				if (!complete) continue;
-				if (!isNorthWest) return;
+				if (!isNorthWest) return true;
+
+				// Spruce/jungle patches grow the giant via the procedural generator (the
+				// empirical spec has no 2x2 variant; with the empirical-only configs a
+				// patch simply does not grow, like a failed vanilla giant check).
+				if (WoodType is "spruce" or "jungle")
+				{
+					if (ProceduralTreeParams.For(WoodType) != null
+					    && Utils.Config.GetProperty("TreeGenerator", "procedural") == "procedural")
+					{
+						ProceduralVariantTreeGenerator giant = WoodType == "spruce"
+							? new ProceduralSpruceTreeGenerator {ForceVariant = "giant"}
+							: new ProceduralJungleTreeGenerator {ForceVariant = "giant"};
+						bool grew = giant.Generate(level, corner);
+						if (!grew)
+						{
+							// Failed preflight (space/bounds): the patch is complete but not
+							// growable now — mark it handled so NO 1x1 fallthrough happens;
+							// the saplings stay and the NW one retries on a later tick, like
+							// a failed vanilla giant check.
+							Console.WriteLine($"[SaplingBase] {WoodType} giant preflight failed at {corner}; patch retries later");
+						}
+					}
+					return true;
+				}
 
 				TreeGeneratorBase generator = WoodType == "pale_oak"
 					? (Utils.Config.GetProperty("ParametricTrees", true) ? new ParametricPaleOakTreeGenerator() : new PaleOakTreeGenerator())
@@ -185,8 +253,9 @@ namespace MiNET.Blocks
 				// occupies exactly those cells, and clearing them left the trunk base hollow
 				// ("the base looks cut off").
 				generator.Generate(level, corner);
-				return;
+				return true;
 			}
+			return false;
 		}
 	}
 }

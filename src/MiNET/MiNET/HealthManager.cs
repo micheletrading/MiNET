@@ -405,7 +405,9 @@ namespace MiNET
 				return;
 			}
 
-			if (Entity.KnownPosition.Y < 0 && !IsDead)
+			// Void below the world floor, not below 0: 1.18+ worlds (BDS flat starts at y=-64)
+			// have terrain below 0, and killing there made the capture worlds unplayable.
+			if (Entity.KnownPosition.Y < ChunkColumn.WorldMinY && !IsDead)
 			{
 				CooldownTick = 0;
 				TakeHit(null, 300, DamageCause.Void);

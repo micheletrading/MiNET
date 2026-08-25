@@ -25,7 +25,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using MiNET.Utils.Vectors;
 using MiNET.Worlds;
 
@@ -39,68 +43,115 @@ namespace MiNET.Blocks
 	/// </summary>
 	public static class TreeShapePlacer
 	{
-		public static void Place(Level level, BlockCoordinates origin, IEnumerable<(int X, int Y, int Z, string Block)> shape, bool coversSaplingCell)
+	public static void Place(Level level, BlockCoordinates origin, IEnumerable<(int X, int Y, int Z, string Block)> shape, bool coversSaplingCell)
+	{
+		var cells = shape.ToList();
+
+		// "log:x"/"log:z" carry the pillar axis of horizontal branch segments (BDS puts
+		// pillar_axis on every log; y is the generated default and stays implicit, so only
+		// x/z travel in the cell string). Parsed before the log/leaf split: the raw name
+		// decides the class, the suffix the state.
+		var parsed = cells.Select(c =>
 		{
-			var cells = shape.ToList();
-
-			foreach (var (dx, dy, dz, block) in cells.Where(c => c.Block.EndsWith("_log")))
+			string raw = c.Block;
+			string axis = "y";
+			if (raw.EndsWith("_log:x") || raw.EndsWith("_log:z"))
 			{
-				Block b = BlockFactory.GetBlockByName("minecraft:" + block);
-				if (b == null) continue;
-				b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
-				level.SetBlock(b, true, false);
+				axis = raw.Substring(raw.Length - 1);
+				raw = raw.Substring(0, raw.Length - 2);
 			}
+			return (c.X, c.Y, c.Z, Raw: raw, Axis: axis);
+		}).ToList();
 
-			foreach (var (dx, dy, dz, block) in cells.Where(c => !c.Block.EndsWith("_log")))
-			{
-				string rawBlock = block;
-				int vineBits = 0;
-				if (rawBlock.StartsWith("vine:"))
-				{
-					int.TryParse(rawBlock.Substring(5), out vineBits);
-					rawBlock = "vine";
-				}
-				string fullName = rawBlock switch
-				{
-					"vine" => "minecraft:vine",
-					"moss_carpet" => "minecraft:moss_carpet",
-					_ => "minecraft:" + rawBlock,
-				};
-				Block b = BlockFactory.GetBlockByName(fullName);
-				if (b == null) continue;
-				b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
-				// Vines carry their attachment direction. A vine with 0 bits has no faces to
-				// render; fall back to the "north" bit.
-				if (b is Vine vine)
-				{
-					vine.VineDirectionBits = vineBits > 0 ? vineBits : 1;
-				}
-				level.SetBlock(b, true, false);
-			}
-
-			if (!coversSaplingCell)
-			{
-				level.SetAir(origin);
-			}
+		foreach (var (dx, dy, dz, raw, axis) in parsed.Where(c => c.Raw.EndsWith("_log")))
+		{
+			Block b = BlockFactory.GetBlockByName("minecraft:" + raw);
+			if (b == null) continue;
+			b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
+			if (b is LogBase log) log.PillarAxis = axis;
+			level.SetBlock(b, true, false);
 		}
+
+		foreach (var (dx, dy, dz, block, _) in parsed.Where(c => !c.Raw.EndsWith("_log")))
+		{
+			string rawBlock = block;
+			int vineBits = 0;
+			if (rawBlock.StartsWith("vine:"))
+			{
+				int.TryParse(rawBlock.Substring(5), out vineBits);
+				rawBlock = "vine";
+			}
+			string fullName = rawBlock switch
+			{
+				"vine" => "minecraft:vine",
+				"moss_carpet" => "minecraft:moss_carpet",
+				"mangrove_propagule:hanging" => "minecraft:mangrove_propagule",
+				_ => "minecraft:" + rawBlock,
+			};
+			Block b = BlockFactory.GetBlockByName(fullName);
+			if (b == null) continue;
+			b.Coordinates = origin + new BlockCoordinates(dx, dy, dz);
+			// Vines carry their attachment direction. A vine with 0 bits has no faces to
+			// render; fall back to the "north" bit.
+			if (b is Vine vine)
+			{
+				vine.VineDirectionBits = vineBits > 0 ? vineBits : 1;
+			}
+			// Hanging mangrove propagules (the fruit) keep their hanging state.
+			if (b is MangrovePropagule propagule && rawBlock == "mangrove_propagule:hanging")
+			{
+				propagule.Hanging = true;
+			}
+			level.SetBlock(b, true, false);
+		}
+
+		if (!coversSaplingCell)
+		{
+			level.SetAir(origin);
+		}
+	}
+	}
+
+	/// <summary>Empirical tree spec: the distributions fitted from the BDS captures (see
+	/// minet-fit; data in Blocks/Data/tree-shape-specs.json).</summary>
+	public sealed class TreeTypeSpec
+	{
+		public required int Samples { get; init; }
+		public required bool BigFootprint { get; init; }
+		public required int SaplingOffsetY { get; init; }
+		public required List<(int Height, int Weight)> HeightPmf { get; init; }
+		public required List<string> Blocks { get; init; }
+		public required List<TreeTemplate> Templates { get; init; }
+		public required Dictionary<int, List<TreeTemplate>> TemplatesByHeight { get; init; }
+	}
+
+	/// <summary>A captured tree's whole non-trunk structure (branches, canopy, roots), relative
+	/// to the tree's own trunk top. Sampled as a unit and rotated, so every correlation between
+	/// the fork, the canopy center and the silhouette is preserved.</summary>
+	public sealed class TreeTemplate
+	{
+		public required int Weight { get; init; }
+		public required List<(int X, int Y, int Z, int Block)> Cells { get; init; }
 	}
 
 	/// <summary>
-	///     Parametric tree generator: shapes are computed from random parameters fitted to the
-	///     BDS 1.26.40.8 oracle captures (43 trees across 5 parity runs, 2026-08-21; see
-	///     K:\mcbe\go-tools\minet-fit). Height is drawn from the observed PMF, canopy layers
-	///     use the observed per-layer radii, and canopy corners are pruned with probability 0.5
-	///     exactly like BDS's own random draws. Vines and branch logs follow the per-type
-	///     presence rates. The output is the same cell vocabulary the literal generators emit,
-	///     so the placement pipeline is shared.
+	///     Data-driven generative tree model: the trunk height is drawn from the observed PMF,
+	///     the trunk column is rebuilt, and the whole captured non-trunk structure (a sampled
+	///     template) is placed on it with a random 4-fold rotation. Vines use the observed
+	///     per-column model. The output cell vocabulary is the same as the literal generators,
+	///     so placement is shared. Fitted on 2170 BDS-grown trees (26 mass-capture runs,
+	///     2026-08-21); data in Blocks/Data/tree-shape-specs.json.
 	/// </summary>
-	public abstract class ParametricTreeGenerator : TreeGeneratorBase
+	public class EmpiricalTreeGenerator : TreeGeneratorBase
 	{
-		protected abstract string Wood { get; }
+		private readonly TreeTypeSpec _spec;
 
-		protected abstract List<(int X, int Y, int Z, string Block)> BuildShape(Random random);
+		public EmpiricalTreeGenerator(TreeTypeSpec spec)
+		{
+			_spec = spec;
+		}
 
-		/// <summary>True when the shape covers the sapling cell with its trunk base.</summary>
+		protected virtual string Wood => "?";
 		protected virtual bool CoversSaplingCell => true;
 
 		public override bool Generate(Level level, BlockCoordinates origin)
@@ -108,384 +159,239 @@ namespace MiNET.Blocks
 			if (origin.Y < 1 || origin.Y + 24 > 256) return false;
 			if (!(level.GetBlock(origin.BlockDown()) is GrassBlock or Dirt or Farmland or Podzol)) return false;
 
-			List<(int X, int Y, int Z, string Block)> shape = BuildShape(new Random());
+			var shape = BuildShape(new Random());
 			TreeShapePlacer.Place(level, origin, shape, CoversSaplingCell);
 			return true;
 		}
 
-		/// <summary>Weighted height draw from the observed BDS PMF.</summary>
-		protected static int DrawHeight(Random random, params (int Height, int Weight)[] pmf)
+		private List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
 		{
-			int total = pmf.Sum(p => p.Weight);
-			int roll = random.Next(total);
-			foreach (var (height, weight) in pmf)
-			{
-				if (roll < weight) return height;
-				roll -= weight;
-			}
-			return pmf[^1].Height;
-		}
-
-		/// <summary>True when the tree's trunk footprint is the 2x2 square (dark/pale oak).</summary>
-		protected virtual bool IsBigFootprint => false;
-
-		/// <summary>Full Chebyshev square of the given radius; every corner cell (|dx|==r==|dz|)
-		/// is dropped with probability `prune`, matching BDS's per-corner random drops. Layers at
-		/// or below `trunkTop` skip the trunk footprint (BDS keeps the top log visible); layers
-		/// above the trunk top cover it (the leaf sits one above the top log, exactly like the
-		/// captured shapes).</summary>
-		protected void AddLeafLayer(List<(int X, int Y, int Z, string Block)> cells, Random random, int y, int radius, int trunkTop, double prune = 0.5, HashSet<(int Y, int X, int Z)>? exclude = null)
-		{
-			if (y < 0) return;
-			bool atOrBelowTop = y <= trunkTop;
-			for (int dx = -radius; dx <= radius; dx++)
-			{
-				for (int dz = -radius; dz <= radius; dz++)
-				{
-					bool corner = Math.Abs(dx) == radius && Math.Abs(dz) == radius;
-					if (corner && random.NextDouble() < prune) continue;
-					if (atOrBelowTop && ((!IsBigFootprint && dx == 0 && dz == 0) || (IsBigFootprint && dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1))) continue;
-					if (exclude != null && exclude.Contains((y, dx, dz))) continue;
-					cells.Add((dx, y, dz, Wood + "_leaves"));
-				}
-			}
-		}
-
-		/// <summary>Vine curtain: a column of N vine cells below the given point, each carrying a
-		/// random cardinal attachment bit (1|2|4|8), like the captured BDS vines.</summary>
-		protected void AddVineColumn(List<(int X, int Y, int Z, string Block)> cells, Random random, int x, int y, int z, int length)
-		{
-			int[] bits = {1, 2, 4, 8, 1 | 2, 1 | 4, 2 | 4, 1 | 8, 4 | 8, 2 | 8};
-			for (int i = 0; i < length; i++)
-			{
-				cells.Add((x, y - i, z, "vine:" + bits[random.Next(bits.Length)]));
-			}
-		}
-	}
-
-	/// <summary>Oak: trunk 4-6 (PMF 4:1, 5:3, 6:1), blob canopy of 4 layers (r2, r2, r1, r1) above
-	/// the trunk top, corner pruning 0.5. Fitted from 5 BDS captures.</summary>
-	public class ParametricOakTreeGenerator : ParametricTreeGenerator
-	{
-		protected override string Wood => "oak";
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = DrawHeight(random, (4, 1), (5, 3), (6, 1));
 			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++) cells.Add((0, y, 0, "oak_log"));
+			int offset = _spec.SaplingOffsetY;
 
-			int top = height - 1;
-			AddLeafLayer(cells, random, top - 2, 2, top);
-			AddLeafLayer(cells, random, top - 1, 2, top);
-			AddLeafLayer(cells, random, top, 1, top);
-			AddLeafLayer(cells, random, top + 1, 1, top);
-			return cells;
-		}
-	}
-
-	/// <summary>Birch: trunk 5-6 (PMF 5:1, 6:4), canopy of 5 layers (r2, r2, r2, r1, r1).</summary>
-	public class ParametricBirchTreeGenerator : ParametricTreeGenerator
-	{
-		protected override string Wood => "birch";
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = DrawHeight(random, (5, 1), (6, 4));
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++) cells.Add((0, y, 0, "birch_log"));
-
-			int top = height - 1;
-			AddLeafLayer(cells, random, top - 3, 2, top);
-			AddLeafLayer(cells, random, top - 2, 2, top);
-			AddLeafLayer(cells, random, top - 1, 2, top);
-			AddLeafLayer(cells, random, top, 1, top);
-			AddLeafLayer(cells, random, top + 1, 1, top);
-			return cells;
-		}
-	}
-
-	/// <summary>Spruce: trunk 4-9 (PMF 4:1, 7:3, 9:1), cone of 10 layers (r2 at the bottom
-	/// tapering to r1 at the top, the occasional r3 at mid-height), sparse vines.</summary>
-	public class ParametricSpruceTreeGenerator : ParametricTreeGenerator
-	{
-		protected override string Wood => "spruce";
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = DrawHeight(random, (4, 1), (7, 3), (9, 1));
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++) cells.Add((0, y, 0, "spruce_log"));
-
-			int top = height - 1;
-			AddLeafLayer(cells, random, top - 6, 2, top);
-			AddLeafLayer(cells, random, top - 5, 1, top);
-			AddLeafLayer(cells, random, top - 4, random.NextDouble() < 0.3 ? 3 : 2, top);
-			AddLeafLayer(cells, random, top - 3, 2, top);
-			AddLeafLayer(cells, random, top - 2, 2, top);
-			AddLeafLayer(cells, random, top - 1, 2, top);
-			AddLeafLayer(cells, random, top, 1, top);
-			AddLeafLayer(cells, random, top + 1, 1, top, 0.5);
-			AddLeafLayer(cells, random, top + 2, 1, top, 0.5);
-			AddLeafLayer(cells, random, top + 3, 1, top, 0.7);
-
-			if (random.NextDouble() < 0.2)
+			// 1. Trunk height from the PMF, restricted to heights with an EXACT template bucket.
+			// A mismatched template (nearest-bucket fallback) shifts its low cells below the
+			// surface: the underground trees. The clean-isolation dataset has no pollution, so
+			// the whole height range stays drawable.
+			int minWeight = 1;
+			var heights = _spec.HeightPmf.Where(p => p.Weight >= minWeight).ToList();
+			if (_spec.TemplatesByHeight.Count > 0)
 			{
-				AddVineColumn(cells, random, 1, top - 1, 1, random.Next(3, 9));
+				var exact = heights.Where(p => _spec.TemplatesByHeight.ContainsKey(p.Height)).ToList();
+				if (exact.Count > 0) heights = exact;
 			}
-			return cells;
-		}
-	}
-
-	/// <summary>Jungle: trunk 5-10 (PMF 5:1, 7:2, 8:1, 10:1), flat canopy of 4 layers; the bottom
-	/// layer is r4 in 40% of trees (the wide flat canopy), vines in 80%.</summary>
-	public class ParametricJungleTreeGenerator : ParametricTreeGenerator
-	{
-		protected override string Wood => "jungle";
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = DrawHeight(random, (5, 1), (7, 2), (8, 1), (10, 1));
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++) cells.Add((0, y, 0, "jungle_log"));
-
-			int top = height - 1;
-			AddLeafLayer(cells, random, top - 2, random.NextDouble() < 0.4 ? 4 : 2, top);
-			AddLeafLayer(cells, random, top - 1, 2, top);
-			int topRadius = random.NextDouble() switch { < 0.2 => 3, < 0.4 => 2, _ => 1 };
-			AddLeafLayer(cells, random, top, topRadius, top);
-			AddLeafLayer(cells, random, top + 1, 1, top);
-
-			if (random.NextDouble() < 0.8)
-			{
-				int count = random.Next(2, 5);
-				for (int i = 0; i < count; i++)
-				{
-					AddVineColumn(cells, random, random.Next(-2, 3), top - random.Next(0, 2), random.Next(-2, 3), random.Next(3, 12));
-				}
-			}
-			return cells;
-		}
-	}
-
-	/// <summary>Acacia: trunk 3-5, forked top with 2-3 diagonal branch chains reaching 2-4 above
-	/// the trunk, flat canopy (r3, r4, r3) on the fork.</summary>
-	public class ParametricAcaciaTreeGenerator : ParametricTreeGenerator
-	{
-		protected override string Wood => "acacia";
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = 3 + random.Next(3);
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++) cells.Add((0, y, 0, "acacia_log"));
-
-			int forkTop = height - 1;
-			int branches = 2 + random.Next(2);
-			var directions = new[] {(1, 0), (-1, 0), (0, 1), (0, -1)};
-			foreach (var (dx, dz) in directions.OrderBy(_ => random.Next()).Take(branches))
-			{
-				int length = 2 + random.Next(3);
-				for (int i = 1; i <= length; i++)
-				{
-					cells.Add((dx * i, height - 1 + i, dz * i, "acacia_log"));
-				}
-				forkTop = Math.Max(forkTop, height - 1 + length);
-			}
-
-			// The BDS canopy sits on the fork: 5 layers above the trunk top (captured deltas
-			// 0..5 with radii 3-7; the middle two are the widest). The fork logs stay visible
-			// through the canopy, so leaf layers skip the fork cells.
+			if (heights.Count == 0) heights = _spec.HeightPmf;
+			int height = Math.Max(2, heights[DrawWeighted(random, heights.Select(h => (h, h.Weight)).ToList())].Height);
 			int trunkTop = height - 1;
-			var forkCells = cells.Where(c => c.Block == "acacia_log" && (c.X != 0 || c.Z != 0)).Select(c => (c.Y, c.X, c.Z)).ToHashSet();
-			AddLeafLayer(cells, random, trunkTop + 1, 3, trunkTop, 0.4, forkCells);
-			AddLeafLayer(cells, random, trunkTop + 2, 3, trunkTop, 0.4, forkCells);
-			AddLeafLayer(cells, random, trunkTop + 3, 4, trunkTop, 0.4, forkCells);
-			AddLeafLayer(cells, random, trunkTop + 4, 4, trunkTop, 0.4, forkCells);
-			AddLeafLayer(cells, random, trunkTop + 5, 3, trunkTop, 0.5, forkCells);
+
+			// 2. Trunk footprint column(s), base at origin + SaplingOffsetY (BDS starts the
+			// trunk at the sapling cell; the mangrove trunk sits one above the propagule).
+			// The block under the sapling is converted to dirt the way BDS does (grass,
+			// mycelium or moss become dirt; never a log).
+			int footprint = _spec.BigFootprint ? 2 : 1;
+			for (int y = 0; y < height; y++)
+			for (int dx = 0; dx < footprint; dx++)
+			for (int dz = 0; dz < footprint; dz++)
+				cells.Add((dx, y + offset, dz, Wood + "_log"));
+			for (int dx = 0; dx < footprint; dx++)
+			for (int dz = 0; dz < footprint; dz++)
+				cells.Add((dx, -1, dz, "dirt"));
+
+			// 3. The whole captured non-trunk structure: sample a template and rotate it.
+			// The template is drawn from the bucket matching the drawn H — the height draw above
+			// guarantees an exact bucket, so no cross-height fallback (which would push the
+			// template's low cells below the surface). Template cells are relative to the
+			// template tree's trunk top; the generated trunk top is (H-1), so they land at
+			// (H-1) + y. Cells below the world floor are dropped (the mangrove's deep roots and
+			// low vine skirts legitimately sit BELOW the surface and are kept), and the trunk
+			// span is never overwritten.
+			List<TreeTemplate>? candidates = null;
+			if (_spec.TemplatesByHeight.TryGetValue(height, out var byHeight) && byHeight.Count > 0)
+				candidates = byHeight;
+			if (candidates == null) candidates = _spec.Templates;
+			if (candidates.Count > 0)
+			{
+				TreeTemplate template = candidates[DrawWeighted(random, candidates.Select(t => (t, t.Weight)).ToList())];
+			int k = random.Next(4);
+			foreach (var (x, y, z, blockIdx) in template.Cells)
+			{
+				// Below the world floor only: the mangrove's deep roots and low vine
+				// skirts legitimately sit BELOW the surface (y<0) and must not be dropped.
+				int wy = trunkTop + offset + y;
+				if (wy < ChunkColumn.WorldMinY) continue;
+				int wx = RotateX(x, z, k);
+				int wz = RotateZ(x, z, k);
+				// Defensive: never overwrite the trunk column (the fit excludes those cells).
+				if (wx >= 0 && wx < footprint && wz >= 0 && wz < footprint && wy - offset >= 0 && wy - offset < height) continue;
+				cells.Add((wx, wy, wz, RotateAxis(k, _spec.Blocks[blockIdx])));
+			}
+			}
+
 			return cells;
+		}
+
+		private static int RotateX(int x, int z, int k) => k switch
+		{
+			1 => -z,
+			2 => -x,
+			3 => z,
+			_ => x,
+		};
+
+		private static int RotateZ(int x, int z, int k) => k switch
+		{
+			1 => x,
+			2 => -z,
+			3 => -x,
+			_ => z,
+		};
+
+		// A 90/270-degree rotation swaps the log's horizontal axis; y (the trunk axis) is
+		// unchanged. "log:x"/"log:z" cells keep their suffix, everything else passes through.
+		private static string RotateAxis(int k, string block)
+		{
+			if (k != 1 && k != 3) return block;
+			if (block.EndsWith("_log:x")) return block.Substring(0, block.Length - 1) + "z";
+			if (block.EndsWith("_log:z")) return block.Substring(0, block.Length - 1) + "x";
+			return block;
+		}
+
+		private static int DrawWeighted<T>(Random random, List<(T Item, int Weight)> weighted)
+		{
+			int total = weighted.Sum(w => w.Weight);
+			int roll = random.Next(total);
+			for (int i = 0; i < weighted.Count; i++)
+			{
+				if (roll < weighted[i].Weight) return i;
+				roll -= weighted[i].Weight;
+			}
+			return weighted.Count - 1;
 		}
 	}
 
-	/// <summary>Cherry: trunk 4-7, 2-4 diagonal branch chains reaching 2-4 above the trunk top,
-	/// blob canopy r3-5 spanning trunk top -2 .. +5.</summary>
-	public class ParametricCherryTreeGenerator : ParametricTreeGenerator
+	/// <summary>Spec loader: reads Blocks/Data/tree-shape-specs.json (generated by minet-fit from
+	/// the BDS captures; regenerated whenever the capture dataset grows).</summary>
+	public static class TreeShapeSpecs
 	{
-		protected override string Wood => "cherry";
+		private static readonly Lazy<Dictionary<string, TreeTypeSpec>> Specs = new(Load);
 
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
+		public static TreeTypeSpec For(string wood)
 		{
-			int height = 6 + random.Next(2);
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++) cells.Add((0, y, 0, "cherry_log"));
+			return Specs.Value.TryGetValue(wood, out var spec) ? spec : throw new InvalidOperationException($"no tree spec for {wood}");
+		}
 
-			int top = height - 1;
-			int branchTop = top;
-			int branches = 2 + random.Next(3);
-			var directions = new[] {(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)};
-			foreach (var (dx, dz) in directions.OrderBy(_ => random.Next()).Take(branches))
+		private static Dictionary<string, TreeTypeSpec> Load()
+		{
+			using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(typeof(TreeShapeSpecs).Namespace + ".Data.tree-shape-specs.json")
+				?? throw new InvalidOperationException("embedded tree-shape-specs.json missing");
+			using var reader = new StreamReader(stream);
+			var root = JsonNode.Parse(reader.ReadToEnd())!.AsObject();
+			var result = new Dictionary<string, TreeTypeSpec>();
+			foreach (var (wood, node) in root)
 			{
-				int length = 2 + random.Next(2);
-				for (int i = 1; i <= length; i++)
+				var spec = node!.AsObject();
+				result[wood] = new TreeTypeSpec
 				{
-					cells.Add((dx * i, top - 1 + i, dz * i, "cherry_log"));
-				}
-				branchTop = Math.Max(branchTop, top - 1 + length);
-			}
-
-			for (int delta = -2; delta <= 5; delta++)
-			{
-				int radius = delta switch
-				{
-					-2 => 4 + random.Next(2),
-					-1 => 5 + random.Next(2),
-					0 => 5 + random.Next(2),
-					1 => 4 + random.Next(2),
-					2 => 4 + random.Next(2),
-					3 => 4 + random.Next(2),
-					4 => 4 + random.Next(2),
-					_ => 3 + random.Next(2),
+					Samples = spec["samples"]!.GetValue<int>(),
+					BigFootprint = spec["bigFootprint"]!.GetValue<bool>(),
+					// BDS starts the trunk AT the sapling position (rel 0); the block under
+					// the sapling is converted to dirt (verified in the clean-50 captures:
+					// grass at sapling-1 becomes dirt, never a log). The mangrove trunk rises
+					// from the roots one above the propagule. (The old -1 reading put the
+					// trunk one below the sapling: "trunk in the ground", user-visible.)
+					SaplingOffsetY = spec["mangrove"]!.GetValue<bool>() ? 1 : 0,
+					HeightPmf = spec["heightPmf"]!.AsObject()
+						.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
+						.ToList(),
+					Blocks = spec["blocks"]!.AsArray().Select(b => b!.GetValue<string>()).ToList(),
+					Templates = spec["templates"]!.AsArray()
+						.Select(t => new TreeTemplate
+						{
+							Weight = t!["weight"]!.GetValue<int>(),
+							Cells = t["cells"]!.AsArray()
+								.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>(), c[3]!.GetValue<int>()))
+								.ToList(),
+						})
+						.ToList(),
+					TemplatesByHeight = spec["templatesByHeight"]!.AsObject()
+						.ToDictionary(
+							kv => int.Parse(kv.Key),
+							kv => kv.Value!.AsArray()
+								.Select(t => new TreeTemplate
+								{
+									Weight = t!["weight"]!.GetValue<int>(),
+									Cells = t["cells"]!.AsArray()
+										.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>(), c[3]!.GetValue<int>()))
+										.ToList(),
+								})
+								.ToList()),
 				};
-				AddLeafLayer(cells, random, branchTop + delta - 2, radius, top, 0.4);
 			}
-			return cells;
+			return result;
 		}
 	}
 
-	/// <summary>Dark oak: 2x2 trunk 7-8 (PMF 7:1, 8:4), 3-4 branch clusters from the top corners,
-	/// flat canopy r4-r5 with r2 top layer.</summary>
-	public class ParametricDarkOakTreeGenerator : ParametricTreeGenerator
+	/// <summary>Oak: empirical spec (281 captured trees).</summary>
+	public class ParametricOakTreeGenerator : EmpiricalTreeGenerator
 	{
+		public ParametricOakTreeGenerator() : base(TreeShapeSpecs.For("oak")) { }
+		protected override string Wood => "oak";
+	}
+
+	/// <summary>Birch: empirical spec (283 captured trees).</summary>
+	public class ParametricBirchTreeGenerator : EmpiricalTreeGenerator
+	{
+		public ParametricBirchTreeGenerator() : base(TreeShapeSpecs.For("birch")) { }
+		protected override string Wood => "birch";
+	}
+
+	/// <summary>Spruce: empirical spec (281 captured trees).</summary>
+	public class ParametricSpruceTreeGenerator : EmpiricalTreeGenerator
+	{
+		public ParametricSpruceTreeGenerator() : base(TreeShapeSpecs.For("spruce")) { }
+		protected override string Wood => "spruce";
+	}
+
+	/// <summary>Jungle: empirical spec (279 captured trees).</summary>
+	public class ParametricJungleTreeGenerator : EmpiricalTreeGenerator
+	{
+		public ParametricJungleTreeGenerator() : base(TreeShapeSpecs.For("jungle")) { }
+		protected override string Wood => "jungle";
+	}
+
+	/// <summary>Acacia: empirical spec (279 captured trees).</summary>
+	public class ParametricAcaciaTreeGenerator : EmpiricalTreeGenerator
+	{
+		public ParametricAcaciaTreeGenerator() : base(TreeShapeSpecs.For("acacia")) { }
+		protected override string Wood => "acacia";
+	}
+
+	/// <summary>Cherry: empirical spec (248 captured trees).</summary>
+	public class ParametricCherryTreeGenerator : EmpiricalTreeGenerator
+	{
+		public ParametricCherryTreeGenerator() : base(TreeShapeSpecs.For("cherry")) { }
+		protected override string Wood => "cherry";
+	}
+
+	/// <summary>Dark oak: empirical spec (190 captured trees, 2x2 footprint).</summary>
+	public class ParametricDarkOakTreeGenerator : EmpiricalTreeGenerator
+	{
+		public ParametricDarkOakTreeGenerator() : base(TreeShapeSpecs.For("dark_oak")) { }
 		protected override string Wood => "dark_oak";
-
-		protected override bool IsBigFootprint => true;
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = DrawHeight(random, (7, 1), (8, 4));
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++)
-			{
-				for (int dx = 0; dx < 2; dx++)
-				for (int dz = 0; dz < 2; dz++)
-					cells.Add((dx, y, dz, "dark_oak_log"));
-			}
-
-			int top = height - 1;
-			var corners = new[] {(0, 0), (1, 0), (0, 1), (1, 1)};
-			foreach (var (cx, cz) in corners.OrderBy(_ => random.Next()))
-			{
-				if (random.NextDouble() < 0.75)
-				{
-					int length = 1 + random.Next(3);
-					int outX = cx == 0 ? -1 : 1;
-					int outZ = cz == 0 ? -1 : 1;
-					for (int i = 1; i <= length; i++)
-					{
-						cells.Add((cx + outX * i, top - 3 + i, cz + outZ * i, "dark_oak_log"));
-					}
-				}
-			}
-
-			AddLeafLayer(cells, random, top - 2, 4, top);
-			AddLeafLayer(cells, random, top - 1, 5, top);
-			AddLeafLayer(cells, random, top, 5, top);
-			AddLeafLayer(cells, random, top + 1, 4, top);
-			AddLeafLayer(cells, random, top + 2, 2, top);
-			return cells;
-		}
 	}
 
-	/// <summary>Pale oak: 2x2 trunk 6-9 (PMF 6:1, 7:2, 9:1), flat canopy r5-r4-r2.</summary>
-	public class ParametricPaleOakTreeGenerator : ParametricTreeGenerator
+	/// <summary>Pale oak: empirical spec (104 captured trees, 2x2 footprint).</summary>
+	public class ParametricPaleOakTreeGenerator : EmpiricalTreeGenerator
 	{
+		public ParametricPaleOakTreeGenerator() : base(TreeShapeSpecs.For("pale_oak")) { }
 		protected override string Wood => "pale_oak";
-
-		protected override bool IsBigFootprint => true;
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = DrawHeight(random, (6, 1), (7, 2), (9, 1));
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-			for (int y = 0; y < height; y++)
-			{
-				for (int dx = 0; dx < 2; dx++)
-				for (int dz = 0; dz < 2; dz++)
-					cells.Add((dx, y, dz, "pale_oak_log"));
-			}
-
-			int top = height - 1;
-			AddLeafLayer(cells, random, top - 1, 5, top);
-			AddLeafLayer(cells, random, top, 5, top);
-			AddLeafLayer(cells, random, top + 1, 4, top);
-			AddLeafLayer(cells, random, top + 2, 2, top);
-			return cells;
-		}
 	}
 
-	/// <summary>Mangrove: trunk 4-14 (PMF 4:1, 6:1, 10:1, 14:2), surface root ring of
-	/// mangrove_roots at and below ground level, 2-3 aerial root chains (diagonal logs) up the
-	/// trunk, wide canopy r5-7, heavy vine curtains, moss_carpet on the roots.</summary>
-	public class ParametricMangroveTreeGenerator : ParametricTreeGenerator
+	/// <summary>Mangrove: empirical spec (225 captured trees; roots, aerial chains, heavy vines).</summary>
+	public class ParametricMangroveTreeGenerator : EmpiricalTreeGenerator
 	{
+		public ParametricMangroveTreeGenerator() : base(TreeShapeSpecs.For("mangrove")) { }
 		protected override string Wood => "mangrove";
-
 		protected override bool CoversSaplingCell => false;
-
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(Random random)
-		{
-			int height = DrawHeight(random, (4, 1), (6, 1), (10, 1), (14, 2));
-			var cells = new List<(int X, int Y, int Z, string Block)>();
-
-			// Surface roots: ring around the propagule at and below ground level.
-			for (int dx = -4; dx <= 4; dx++)
-			{
-				for (int dz = -4; dz <= 4; dz++)
-				{
-					int dist = Math.Max(Math.Abs(dx), Math.Abs(dz));
-					if (dist < 2 || dist > 4) continue;
-					if (random.NextDouble() < 0.5) continue;
-					cells.Add((dx, -1, dz, "mangrove_roots"));
-					if (random.NextDouble() < 0.6) cells.Add((dx, 0, dz, "mangrove_roots"));
-					if (random.NextDouble() < 0.15) cells.Add((dx, -1, dz, "moss_carpet"));
-				}
-			}
-
-			// Trunk sits above the propagule (whose cell stays air after growth, like BDS).
-			for (int y = 1; y <= height; y++) cells.Add((0, y, 0, "mangrove_log"));
-
-			// Aerial root chains: diagonal logs climbing outward from the lower trunk, staying
-			// within the trunk height (the captured small trees have no chains above the top).
-			int chains = 3 + random.Next(3);
-			var directions = new[] {(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)};
-			foreach (var (dx, dz) in directions.OrderBy(_ => random.Next()).Take(chains))
-			{
-				int startY = 2 + random.Next(3);
-				int length = Math.Min(3 + random.Next(4), Math.Max(1, height - startY + 2));
-				for (int i = 0; i < length; i++)
-				{
-					cells.Add((dx * i, startY + i, dz * i, "mangrove_log"));
-				}
-			}
-
-			int top = height;
-			AddLeafLayer(cells, random, top - 3, 6, top);
-			AddLeafLayer(cells, random, top - 2, 6, top);
-			AddLeafLayer(cells, random, top - 1, 6, top);
-			AddLeafLayer(cells, random, top, random.NextDouble() < 0.5 ? 7 : 5, top);
-
-			// Vine curtains from the canopy edges, hanging most of the way to the ground like
-			// the captured trees (90-650 vine cells per tree).
-			foreach (var (vx, vy, vz) in cells.Where(c => c.Block == "mangrove_leaves" && (c.Y == top - 3 || c.Y == top - 2))
-				         .Select(c => (c.X, c.Y, c.Z)).ToList())
-			{
-				if (Math.Abs(vx) < 4 && Math.Abs(vz) < 4) continue;
-				if (random.NextDouble() < 0.4)
-				{
-					AddVineColumn(cells, random, vx, vy, vz, Math.Max(4, random.Next(vy - 8, vy)));
-				}
-			}
-			return cells;
-		}
 	}
 }

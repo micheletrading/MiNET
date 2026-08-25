@@ -67,110 +67,91 @@ namespace MiNET
 			Level level = Levels.FirstOrDefault(l => l.LevelId.Equals(name, StringComparison.InvariantCultureIgnoreCase));
 			if (level == null)
 			{
-				GameMode gameMode = Config.GetProperty("GameMode", GameMode.Survival);
-				// Peaceful is the vanilla default, and what the other level-creation path below uses.
-				Difficulty difficulty = Config.GetProperty("Difficulty", Difficulty.Peaceful);
-				int viewDistance = Config.GetProperty("ViewDistance", 11);
-
-				IWorldProvider worldProvider = null;
-
-				// LevelDB by default: it is Bedrock's own format, it persists blocks as name plus
-				// states so identity survives a palette change, and it is the only provider here
-				// that can save. Anvil remains for reading old Java maps and refuses to write.
-				switch (Config.GetProperty("WorldProvider", "leveldb").ToLower().Trim())
-				{
-					case "leveldb":
-						worldProvider = new LevelDbProvider()
-						{
-							MissingChunkProvider = Generator,
-						};
-						break;
-					case "cool":
-						worldProvider = new CoolWorldProvider();
-						break;
-					case "experimental":
-						worldProvider = new ExperimentalWorldProvider();
-						break;
-					case "anvil":
-					case "flat":
-					case "flatland":
-					default:
-						worldProvider = new AnvilWorldProvider
-						{
-							MissingChunkProvider = Generator,
-							ReadSkyLight = !Config.GetProperty("CalculateLights", false),
-							ReadBlockLight = !Config.GetProperty("CalculateLights", false),
-						};
-						break;
-				}
-
-				level = new Level(this, name, worldProvider, EntityManager, gameMode, difficulty, viewDistance)
-				{
-					EnableBlockTicking = Config.GetProperty("EnableBlockTicking", false),
-					EnableChunkTicking = Config.GetProperty("EnableChunkTicking", false),
-					SaveInterval = Config.GetProperty("Save.Interval", 300),
-					UnloadInterval = Config.GetProperty("Unload.Interval", 0),
-
-					DrowningDamage = Config.GetProperty("GameRule.DrowningDamage", true),
-					CommandblockOutput = Config.GetProperty("GameRule.CommandblockOutput", true),
-					DoTiledrops = Config.GetProperty("GameRule.DoTiledrops", true),
-					DoMobloot = Config.GetProperty("GameRule.DoMobloot", true),
-					KeepInventory = Config.GetProperty("GameRule.KeepInventory", true),
-					DoDaylightcycle = Config.GetProperty("GameRule.DoDaylightcycle", true),
-					DoMobspawning = Config.GetProperty("GameRule.DoMobspawning", true),
-					DoEntitydrops = Config.GetProperty("GameRule.DoEntitydrops", true),
-					DoFiretick = Config.GetProperty("GameRule.DoFiretick", true),
-					DoWeathercycle = Config.GetProperty("GameRule.DoWeathercycle", true),
-					Pvp = Config.GetProperty("GameRule.Pvp", true),
-					Falldamage = Config.GetProperty("GameRule.Falldamage", true),
-					Firedamage = Config.GetProperty("GameRule.Firedamage", true),
-					Mobgriefing = Config.GetProperty("GameRule.Mobgriefing", true),
-					ShowCoordinates = Config.GetProperty("GameRule.ShowCoordinates", true),
-					NaturalRegeneration = Config.GetProperty("GameRule.NaturalRegeneration", true),
-					TntExplodes = Config.GetProperty("GameRule.TntExplodes", true),
-					SendCommandfeedback = Config.GetProperty("GameRule.SendCommandfeedback", true),
-					RandomTickSpeed = Config.GetProperty("GameRule.RandomTickSpeed", 3),
-					HardcoreDeathPolicy = Config.GetProperty("Hardcore.DeathPolicy", HardcoreDeathPolicy.Ban),
-					HardcoreDamageMultiplier = Config.GetProperty("Hardcore.DamageMultiplier", 1.3f),
-				};
-				level.Initialize();
-
-				//if (Config.GetProperty("CalculateLights", false))
-				//{
-				//	{
-				//		AnvilWorldProvider wp = level.WorldProvider as AnvilWorldProvider;
-				//		if (wp != null)
-				//		{
-				//			wp.Locked = true;
-				////			wp.PruneAir();
-				////			wp.MakeAirChunksAroundWorldToCompensateForBadRendering();
-				//			Stopwatch sw = new Stopwatch();
-
-				//			var chunkCount = 0;
-				//			sw.Restart();
-				//			SkyLightCalculations.Calculate(level);
-				//			sw.Stop();
-				//			chunkCount = wp._chunkCache.Where(chunk => chunk.Value != null).ToArray().Length;
-				//			Log.Debug($"Recalculated sky light for {chunkCount} chunks, {chunkCount * 16 * 16 * 256} blocks. Time {sw.ElapsedMilliseconds}ms");
-
-				//			int count = wp.LightSources.Count;
-				//			sw.Restart();
-				//			RecalculateBlockLight(level, wp);
-
-				//			chunkCount = wp._chunkCache.Where(chunk => chunk.Value != null).ToArray().Length;
-				//			Log.Debug($"Recalculated sky and block light for {chunkCount} chunks, {chunkCount * 16 * 16 * 256} blocks and {count} light sources. Time {sw.ElapsedMilliseconds}ms. Touched {BlockLightCalculations.touches}");
-
-				//			wp.Locked = false;
-				//		}
-				//	}
-				//}
-
-				Levels.Add(level);
-
-				OnLevelCreated(new LevelCancelEventArgs(null, level));
+				level = CreateLevel(name, null);
 			}
 
 			return level;
+		}
+
+		/// <summary>Creates a level from the given provider (the config's default world provider
+		/// when null) and registers it. Public so plugins/hosts can host extra worlds (e.g. the
+		/// tree-capture worlds switched with /world).</summary>
+		public virtual Level CreateLevel(string name, IWorldProvider worldProvider)
+		{
+			GameMode gameMode = Config.GetProperty("GameMode", GameMode.Survival);
+			// Peaceful is the vanilla default, and what the other level-creation path below uses.
+			Difficulty difficulty = Config.GetProperty("Difficulty", Difficulty.Peaceful);
+			int viewDistance = Config.GetProperty("ViewDistance", 11);
+
+			worldProvider ??= BuildDefaultWorldProvider();
+
+			Level level = new Level(this, name, worldProvider, EntityManager, gameMode, difficulty, viewDistance)
+			{
+				EnableBlockTicking = Config.GetProperty("EnableBlockTicking", false),
+				EnableChunkTicking = Config.GetProperty("EnableChunkTicking", false),
+				SaveInterval = Config.GetProperty("Save.Interval", 300),
+				UnloadInterval = Config.GetProperty("Unload.Interval", 0),
+
+				DrowningDamage = Config.GetProperty("GameRule.DrowningDamage", true),
+				CommandblockOutput = Config.GetProperty("GameRule.CommandblockOutput", true),
+				DoTiledrops = Config.GetProperty("GameRule.DoTiledrops", true),
+				DoMobloot = Config.GetProperty("GameRule.DoMobloot", true),
+				KeepInventory = Config.GetProperty("GameRule.KeepInventory", true),
+				DoDaylightcycle = Config.GetProperty("GameRule.DoDaylightcycle", true),
+				DoMobspawning = Config.GetProperty("GameRule.DoMobspawning", true),
+				DoEntitydrops = Config.GetProperty("GameRule.DoEntitydrops", true),
+				DoFiretick = Config.GetProperty("GameRule.DoFiretick", true),
+				DoWeathercycle = Config.GetProperty("GameRule.DoWeathercycle", true),
+				Pvp = Config.GetProperty("GameRule.Pvp", true),
+				Falldamage = Config.GetProperty("GameRule.Falldamage", true),
+				Firedamage = Config.GetProperty("GameRule.Firedamage", true),
+				Mobgriefing = Config.GetProperty("GameRule.Mobgriefing", true),
+				ShowCoordinates = Config.GetProperty("GameRule.ShowCoordinates", true),
+				NaturalRegeneration = Config.GetProperty("GameRule.NaturalRegeneration", true),
+				TntExplodes = Config.GetProperty("GameRule.TntExplodes", true),
+				SendCommandfeedback = Config.GetProperty("GameRule.SendCommandfeedback", true),
+				RandomTickSpeed = Config.GetProperty("GameRule.RandomTickSpeed", 3),
+				HardcoreDeathPolicy = Config.GetProperty("Hardcore.DeathPolicy", HardcoreDeathPolicy.Ban),
+				HardcoreDamageMultiplier = Config.GetProperty("Hardcore.DamageMultiplier", 1.3f),
+			};
+			level.Initialize();
+
+			Levels.Add(level);
+
+			OnLevelCreated(new LevelCancelEventArgs(null, level));
+
+			return level;
+		}
+
+		/// <summary>The default world provider for this server: LevelDB (Bedrock's own format) by
+		/// default; Anvil for reading old Java maps; the config's WorldProvider key selects.</summary>
+		private IWorldProvider BuildDefaultWorldProvider()
+		{
+			// LevelDB by default: it is Bedrock's own format, it persists blocks as name plus
+			// states so identity survives a palette change, and it is the only provider here
+			// that can save. Anvil remains for reading old Java maps and refuses to write.
+			switch (Config.GetProperty("WorldProvider", "leveldb").ToLower().Trim())
+			{
+				case "leveldb":
+					return new LevelDbProvider
+					{
+						MissingChunkProvider = Generator,
+					};
+				case "cool":
+					return new CoolWorldProvider();
+				case "experimental":
+					return new ExperimentalWorldProvider();
+				case "anvil":
+				case "flat":
+				case "flatland":
+				default:
+					return new AnvilWorldProvider
+					{
+						MissingChunkProvider = Generator,
+						ReadSkyLight = !Config.GetProperty("CalculateLights", false),
+						ReadBlockLight = !Config.GetProperty("CalculateLights", false),
+					};
+			}
 		}
 
 		public static void RecalculateBlockLight(Level level, AnvilWorldProvider wp)
@@ -373,7 +354,7 @@ namespace MiNET
 			return null;
 		}
 
-		public virtual Level CreateLevel(string name, IWorldProvider provider)
+		public override Level CreateLevel(string name, IWorldProvider provider)
 		{
 			GameMode gameMode = Config.GetProperty("GameMode", GameMode.Survival);
 			Difficulty difficulty = Config.GetProperty("Difficulty", Difficulty.Peaceful);
