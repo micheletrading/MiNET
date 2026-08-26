@@ -667,8 +667,9 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin);
 			ulong hash = Fnv1a(cells);
-			// Registered 2026-08-26 with the M5 heavy-data fit (870 acacia train trees).
-			Assert.AreEqual(0xF82B8EBFE7747B9CUL, hash, "seed 1 acacia shape hash");
+			// Registered 2026-08-26 with the M5 heavy-data fit; re-registered the same day
+			// when the canopy became PER-CHAIN chapel lobes (the classic acacia cappella).
+			Assert.AreEqual(0x2D50F72CBC8C4DFCUL, hash, "seed 1 acacia shape hash");
 		}
 
 		[TestMethod]

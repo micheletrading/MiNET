@@ -456,26 +456,26 @@ namespace MiNET.Blocks
 		}
 	}
 
-	/// <summary>Acacia (plan §5.5, M5): skeleton-first — a trunk column (colH 1-7, mode 4-5)
+	/// <summary>Acacia (plan §5.5, M5): skeleton-first — a trunk column (colH 1-8, mode 4-5)
 	/// plus CARDINAL CHAINS forking from the trunk top: diagonal chains (one cell per y
 	/// step, elevation 1, the wiki's "diagonal trunk") and vertical chains (the straight
 	/// continuation). The chains carry the pillar axis y like the trunk (183/183 captured
-	/// branch logs). The FLAT canopy is the per-(colH) leaf layer profile anchored at the
-	/// whole-tree top (2-4 layers; the small 2-layer and the big 3-4-layer canopies ride
-	/// the same profile via the per-layer latent density). The chains are joint
-	/// (attachment, endpoint) tuples — no templates. Fitted from the 42 clean-50 acacias,
-	/// re-fitted on the 12 acacia-heavy runs (M5).</summary>
+	/// branch logs). EACH CHAIN ENDPOINT carries its own small flat-topped canopy — the
+	/// classic acacia "cappella" (dy 0: a r2 disc, dy 1: a smaller disc, dy -1..-3: sparse
+	/// underskirt) — so a tree with a second, lower branch shows a second, lower chapel.
+	/// The lobe profile is GLOBAL (the chapel is the same shape for every branch); the
+	/// chains are joint (attachment, endpoint) tuples — no templates.</summary>
 	public sealed class AcaciaProceduralModel
 	{
 		public required int SaplingOffsetY { get; init; }
 		public required List<(int Height, int Weight)> HeightPmf { get; init; }
 		public required Dictionary<int, List<(int Count, int Weight)>> ChainCountPmf { get; init; }
 		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTuples { get; init; }
-		public required Dictionary<int, List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>> Canopy { get; init; }
+		public required List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)> Lobe { get; init; }
 
 		public int SampleHeight(ITreeRng rng)
 		{
-			var drawable = HeightPmf.Where(p => Canopy.ContainsKey(p.Height) && ChainCountPmf.ContainsKey(p.Height)).ToList();
+			var drawable = HeightPmf.Where(p => ChainCountPmf.ContainsKey(p.Height) && ChainTuples.ContainsKey(p.Height)).ToList();
 			if (drawable.Count == 0) drawable = HeightPmf;
 			int total = drawable.Sum(p => p.Weight);
 			int roll = rng.Next(total);
@@ -793,21 +793,16 @@ namespace MiNET.Blocks
 					.ToList();
 			}
 
-			var canopy = new Dictionary<int, List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>>();
-			if (spec["canopy"] is JsonObject canopySpec)
+			var canopy = new List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>();
+			if (spec["lobe"] is JsonObject lobeSpec)
 			{
-				foreach (var (heightKey, layers) in canopySpec)
+				foreach (var (deltaKey, layer) in lobeSpec)
 				{
-					var layersList = new List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>();
-					foreach (var (deltaKey, layer) in layers!.AsObject())
-					{
-						var cellList = layer!["cells"]!.AsArray()
-							.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>()))
-							.Select(c => (X: c.Item1, Z: c.Item2, Weight: c.Item3))
-							.ToList();
-						layersList.Add((int.Parse(deltaKey), layer["p"]?.GetValue<int>() ?? 100, cellList));
-					}
-					canopy[int.Parse(heightKey)] = layersList;
+					var cellList = layer!["cells"]!.AsArray()
+						.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>()))
+						.Select(c => (X: c.Item1, Z: c.Item2, Weight: c.Item3))
+						.ToList();
+					canopy.Add((int.Parse(deltaKey), layer["p"]?.GetValue<int>() ?? 100, cellList));
 				}
 			}
 
@@ -819,7 +814,7 @@ namespace MiNET.Blocks
 					.ToList(),
 				ChainCountPmf = chains,
 				ChainTuples = chainTuples,
-				Canopy = canopy,
+				Lobe = canopy.OrderBy(l => l.Delta).ToList(),
 			};
 		}
 
@@ -1291,7 +1286,7 @@ namespace MiNET.Blocks
 			cells.Add((0, -1, 0, "dirt"));
 
 			var trunk = cells.Where(c => c.Block.EndsWith("_log")).Select(c => (c.X, c.Y, c.Z)).ToList();
-			var chainEnds = new List<(int X, int Z)>();
+			var chainEnds = new List<(int X, int Y, int Z)>();
 
 			// The cardinal chains forking from the trunk top: the joint (attachment,
 			// endpoint) tuples sampled per chain, emitted as 1-cell-per-y paths.
@@ -1333,59 +1328,49 @@ namespace MiNET.Blocks
 						cells.Add((x, y, z, "acacia_log"));
 						trunk.Add((x, y, z));
 					}
-					chainEnds.Add((edx, edz));
+					chainEnds.Add((edx, ey, edz));
 				}
 				}
 			}
 
-			// The flat canopy anchored at the whole-tree top AND the chain endpoints'
-			// CENTROID (the multi-canopy lobes sit over the fork's endpoint cluster, not the
-			// trunk — captured layer offsets 1.5-2.1). The deep layers (d-1..d-5) are
-			// ALL-OR-NOTHING per tree — each layer rolls its fitted presence first, then
-			// draws its cells densely (the presence-conditional weights); the top layers
-			// (d0/d1) are present in every captured tree.
-			int wholeTop = cells.Where(c => c.Block.EndsWith("_log")).Max(c => c.Y);
-			if (Model.Canopy.TryGetValue(height, out var layers))
+			// The chapel lobes: EACH chain endpoint carries its own small flat-topped
+			// canopy — the classic acacia "cappella" (the dy 0 disc, the dy 1 top, the
+			// sparse underskirt) — so a second, lower branch shows a second, lower chapel.
+			// The lobe profile is global (the same shape for every branch); each layer
+			// rolls its fitted presence, then draws its cells densely (the
+			// presence-conditional weights).
+			if (Model.Lobe.Count > 0)
 			{
 				var placed = new List<(int X, int Y, int Z)>();
 				var logCells = cells.Where(c => c.Block.EndsWith("_log")).Select(c => (c.X, c.Y, c.Z)).ToList();
-				// The chain endpoints: the farthest log cell of each chain (the last cell
-				// of each sampled path — track them while building).
-				double centerX = 0, centerZ = 0;
-				int nEnds = chainEnds.Count;
-				if (nEnds > 0)
+				foreach (var (ex, ey, ez) in chainEnds)
 				{
-					centerX = chainEnds.Average(e => e.X);
-					centerZ = chainEnds.Average(e => e.Z);
-				}
-				foreach (var (delta, presence, profileCells) in layers)
-				{
-					if (rng.Next(100) >= presence) continue;
-					double latent = 0.7 + rng.NextDouble() * 0.6;
-					int wy = wholeTop + delta;
-					// The short trees' deep layers can reach the GROUND (the rel -1 dirt
-					// cell) — the captured canopies never sit at the ground, skip below it.
-					if (wy < 0) continue;
-					// The captured present layers are SOLID correlated blobs (component
-					// count 1.0; the per-cell union weights underfill by 15-40%) — the
-					// 100%-presence top layers draw their dense core deterministically
-					// (>= 50), the all-or-nothing deep layers draw nearly full.
-					double boost = presence >= 100 ? 1.25 : 1.6;
-					foreach (var (dx, dz, weight) in profileCells)
+					foreach (var (delta, presence, profileCells) in Model.Lobe)
 					{
-						if (weight >= 50 && presence >= 100 || rng.NextDouble() < Math.Min(1.0, weight / 100.0 * latent * boost))
-							placed.Add(((int) Math.Round(centerX + dx), wy, (int) Math.Round(centerZ + dz)));
+						if (rng.Next(100) >= presence) continue;
+						double latent = 0.7 + rng.NextDouble() * 0.6;
+						int wy = ey + delta;
+						// The short trees' deep layers can reach the GROUND (the rel -1
+						// dirt cell) — the captured canopies never sit at the ground.
+						if (wy < 0) continue;
+						// The captured lobes are SOLID blobs — the 100%-presence layers
+						// draw their dense core deterministically (>= 50), the sparse
+						// underskirt layers draw nearly full when present.
+						double boost = presence >= 100 ? 1.25 : 1.6;
+						foreach (var (dx, dz, weight) in profileCells)
+						{
+							if (weight >= 50 && presence >= 100 || rng.NextDouble() < Math.Min(1.0, weight / 100.0 * latent * boost))
+								placed.Add((ex + dx, wy, ez + dz));
+						}
 					}
 				}
-				var kept = ProfileCanopy.Connect(placed, logCells);
-				// The captured layers are SOLID blobs (component count 1.0) — fill the
-				// enclosed horizontal gaps the sparse draws leave (plan §4.5 step 4).
-				cells.AddRange(kept.Select(c => (c.X, c.Y, c.Z, "acacia_leaves")));
+				cells.AddRange(ProfileCanopy.Connect(placed, logCells).Select(c => (c.X, c.Y, c.Z, "acacia_leaves")));
 			}
 			return cells;
 		}
 	}
 }
+
 
 
 
