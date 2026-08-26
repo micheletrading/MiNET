@@ -656,6 +656,22 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		public void Acacia_procedural_fixed_seed_shape_is_registered()
+		{
+			// Regression catalog (plan §3.2, §7.4): seed -> shape hash. If this constant
+			// moves, the sampling chain changed and the catalog is re-registered DELIBERATELY.
+			Level level = CreateLevel();
+			var origin = new BlockCoordinates(4, 3, 0);
+			var generator = new ProceduralAcaciaTreeGenerator {Seed = 1};
+			Assert.IsTrue(generator.Generate(level, origin));
+
+			var cells = DumpCells(level, origin);
+			ulong hash = Fnv1a(cells);
+			// Registered 2026-08-26 with the M5 heavy-data fit (870 acacia train trees).
+			Assert.AreEqual(0xF82B8EBFE7747B9CUL, hash, "seed 1 acacia shape hash");
+		}
+
+		[TestMethod]
 		public void Birch_sapling_grows_procedurally_when_configured()
 		{
 			var originalProvider = Config.Provider;
