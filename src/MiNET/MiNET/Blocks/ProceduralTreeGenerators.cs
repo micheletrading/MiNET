@@ -438,6 +438,10 @@ namespace MiNET.Blocks
 		public required SpruceCanopyModel Normal { get; init; }
 		public required SpruceCanopyModel? Vine { get; init; }
 		public required SpruceCanopyModel? Giant { get; init; }
+		// The giant spruce's ground conversion: the per-rel-cell podzol occupancy fitted from
+		// the capture worlds (295 giants) — the ground under a giant is an IRREGULAR blob, not
+		// a disc (the mean 79.4 cells, radius ~5-6, fringe 10-50%). Null for the jungle.
+		public Dictionary<(int X, int Z), double>? PodzolCells { get; init; }
 
 		public string SampleVariant(ITreeRng rng)
 		{
@@ -742,6 +746,14 @@ namespace MiNET.Blocks
 			SpruceCanopyModel? vine = spec["vine"] is JsonObject vineSpec ? ParseSpruceCanopy(vineSpec) : null;
 			SpruceCanopyModel? giant = spec["giant"] is JsonObject giantSpec ? ParseSpruceCanopy(giantSpec) : null;
 
+			Dictionary<(int X, int Z), double>? podzol = null;
+			if (spec["podzol"] is JsonArray podzolCells)
+			{
+				podzol = podzolCells
+					.Select(c => ((c![0]!.GetValue<int>(), c[1]!.GetValue<int>()), c[2]!.GetValue<int>() / 100.0))
+					.ToDictionary(p => p.Item1, p => p.Item2);
+			}
+
 			return new SpruceProceduralModel
 			{
 				SaplingOffsetY = spec["saplingOffsetY"]!.GetValue<int>(),
@@ -751,6 +763,7 @@ namespace MiNET.Blocks
 				Normal = normal,
 				Vine = vine,
 				Giant = giant,
+				PodzolCells = podzol,
 			};
 		}
 	}
@@ -1037,13 +1050,30 @@ namespace MiNET.Blocks
 			int footprint = big ? 2 : 1;
 
 			// Trunk footprint x height, and the dirt conversion under every footprint cell.
-			for (int y = 0; y < height; y++)
-			for (int dx = 0; dx < footprint; dx++)
-			for (int dz = 0; dz < footprint; dz++)
-				cells.Add((dx, y + offset, dz, Wood + "_log"));
+			// The 2x2 giants get their per-column heights from BigColumnHeight: the SPRUCE
+			// has the NW column ONE block taller than the other three (measured in the
+			// captures: 295/295 giants at (0,0)+1, the BDS spire that carries the tip leaf);
+			// the jungle mega keeps all four equal (unverified, so unchanged).
 			if (big)
 			{
-				AddGiantGround(cells);
+				for (int dx = 0; dx < footprint; dx++)
+				for (int dz = 0; dz < footprint; dz++)
+				{
+					int h = BigColumnHeight(dx, dz, height);
+					for (int y = 0; y < h; y++)
+						cells.Add((dx, y + offset, dz, Wood + "_log"));
+				}
+			}
+			else
+			{
+				for (int y = 0; y < height; y++)
+				for (int dx = 0; dx < footprint; dx++)
+				for (int dz = 0; dz < footprint; dz++)
+					cells.Add((dx, y + offset, dz, Wood + "_log"));
+			}
+			if (big)
+			{
+				AddGiantGround(rng, cells);
 			}
 			else
 			{
@@ -1075,14 +1105,19 @@ namespace MiNET.Blocks
 
 		/// <summary>The giant's ground conversion: dirt under the 2×2 footprint by default
 		/// (the mega jungle: the wiki says "always generates with dirt under its trunk").
-		/// The giant SPRUCE overrides it — BDS converts the ground to PODZOL in a disc of
-		/// radius ~8 around the trunk center (measured in the capture worlds, 2026-08-24).</summary>
-		protected virtual void AddGiantGround(List<(int X, int Y, int Z, string Block)> cells)
+		/// The giant SPRUCE overrides it — BDS converts the ground to PODZOL in an irregular
+		/// blob fitted from the captures (the map carries the per-cell occupancy).</summary>
+		protected virtual void AddGiantGround(ITreeRng rng, List<(int X, int Y, int Z, string Block)> cells)
 		{
 			for (int dx = 0; dx < 2; dx++)
 			for (int dz = 0; dz < 2; dz++)
 				cells.Add((dx, -1, dz, "dirt"));
 		}
+
+		/// <summary>The per-column trunk height of a giant's 2×2 footprint. The base keeps
+		/// all four columns at H; the giant SPRUCE raises the NW (0,0) column by one (the
+		/// BDS spire, measured 295/295 in the captures).</summary>
+		protected virtual int BigColumnHeight(int dx, int dz, int height) => height;
 
 		private string SampleLoneVariant(ITreeRng rng)
 		{
@@ -1113,20 +1148,21 @@ namespace MiNET.Blocks
 		protected override SpruceProceduralModel Model => ModelInstance;
 		protected override string Wood => "spruce";
 
-		protected override void AddGiantGround(List<(int X, int Y, int Z, string Block)> cells)
+		protected override int BigColumnHeight(int dx, int dz, int height) => dx == 0 && dz == 0 ? height : height - 1;
+
+		protected override void AddGiantGround(ITreeRng rng, List<(int X, int Y, int Z, string Block)> cells)
 		{
-			// BDS converts the ground under the giant spruce to PODZOL in a disc of radius
-			// ~8 around the trunk footprint center (measured in the capture worlds: the
-			// podzol spans x -208..-192, z 93..108 around a trunk at -200..-199, 100..101).
-			for (int dx = -8; dx <= 8; dx++)
-			for (int dz = -8; dz <= 8; dz++)
+			// BDS converts the ground under the giant spruce to PODZOL in an IRREGULAR blob,
+			// not a disc: the per-rel-cell occupancy map fitted from 295 captured giants
+			// (min 60 / max 105 / mean 79.4 cells; the solid core ~99.7%, the fringe
+			// 10-50%). Each cell draws at its fitted probability, so the generated shape
+			// carries the same per-tree variance as the captures.
+			var map = Model.PodzolCells;
+			if (map == null) return;
+			foreach (var ((dx, dz), p) in map)
 			{
-				double cx = dx - 0.5;
-				double cz = dz - 0.5;
-				if (cx * cx + cz * cz <= 64.0)
-				{
+				if (p >= 0.995 || rng.NextDouble() < p)
 					cells.Add((dx, -1, dz, "podzol"));
-				}
 			}
 		}
 	}
@@ -1146,3 +1182,4 @@ namespace MiNET.Blocks
 		protected override string Wood => "jungle";
 	}
 }
+

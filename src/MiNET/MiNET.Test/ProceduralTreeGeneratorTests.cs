@@ -299,10 +299,11 @@ namespace MiNET.Test
 				Assert.IsTrue(trunkHeight >= 13 && trunkHeight <= 29, $"seed {seed}: giant trunk height {trunkHeight} must be 13..29");
 				Assert.IsTrue(leaves.Count > 0, $"seed {seed}: giant must produce leaves");
 				Assert.AreEqual("spruce_log", cells.Single(c => c.X == 0 && c.Y == 0 && c.Z == 0).Block, $"seed {seed}: trunk must cover the patch corner");
-				// The giant spruce converts the ground to PODZOL in a disc around the
-				// footprint (BDS behavior, measured in the capture worlds).
+				// The giant spruce converts the ground to PODZOL (BDS behavior, fitted from
+				// 295 captured giants): the footprint cells and the solid core are
+				// deterministic (>= 99.5%), the fringe draws at its fitted occupancy.
 				Assert.IsTrue(level.GetBlock(4, 2, 0) is Podzol && level.GetBlock(5, 2, 1) is Podzol, $"seed {seed}: podzol under the footprint");
-				Assert.IsTrue(level.GetBlock(0, 2, 0) is Podzol, $"seed {seed}: podzol disc around the footprint");
+				Assert.IsTrue(level.GetBlock(1, 2, 1) is Podzol, $"seed {seed}: podzol core around the footprint (rel -3,-2)");
 
 				var all = cells.Select(c => (c.X, c.Y, c.Z)).ToHashSet();
 				foreach (var leaf in leaves)
@@ -419,6 +420,54 @@ namespace MiNET.Test
 			{
 				Config.Provider = originalProvider;
 			}
+		}
+
+		[TestMethod]
+		public void Spruce_giant_podzol_matches_the_fitted_map()
+		{
+			// The giant spruce ground: the per-rel-cell occupancy map fitted from 295 BDS
+			// captures (mean 79.4 cells, min 60, max 105; the core ~99.7%, the fringe
+			// 10-50%). 295 generated giants must reproduce the distribution.
+			var counts = new List<int>();
+			var perCell = new Dictionary<(int X, int Z), int>();
+			for (ulong seed = 1; seed <= 295; seed++)
+			{
+				Level level = CreateLevel();
+				var origin = new BlockCoordinates(4, 3, 0);
+				var generator = new ProceduralSpruceTreeGenerator {Seed = seed, ForceVariant = "giant"};
+				Assert.IsTrue(generator.Generate(level, origin), $"seed {seed}: giant generate must succeed");
+
+				int n = 0;
+				for (int dx = -12; dx <= 12; dx++)
+				for (int dz = -12; dz <= 12; dz++)
+				{
+					if (level.GetBlock(origin + new BlockCoordinates(dx, -1, dz)) is Podzol)
+					{
+						n++;
+						perCell[(dx, dz)] = perCell.GetValueOrDefault((dx, dz)) + 1;
+					}
+				}
+				counts.Add(n);
+			}
+
+			double mean = counts.Average();
+			Assert.IsTrue(mean >= 76 && mean <= 83, $"mean podzol cells per giant {mean:F1}, expected ~79.4");
+			Assert.IsTrue(counts.Min() >= 50 && counts.Max() <= 115, $"count range {counts.Min()}..{counts.Max()}, captured was 60..105");
+
+			// The solid core (>= 99.5% in the fitted map) must stay near-deterministic,
+			// the fringe must vary: a sampled tree is never a clean disc, never a square.
+			foreach (var (dx, dz) in new[] {(-3, -2), (-3, 3), (4, -2), (4, 3), (-2, -3), (0, 0), (2, 1), (3, -2)})
+			{
+				int n = perCell.GetValueOrDefault((dx, dz));
+				Assert.IsTrue(n >= 285, $"core cell ({dx},{dz}) podzol in only {n}/295");
+			}
+			foreach (var (dx, dz) in new[] {(-6, -3), (6, -2), (5, 6), (-5, -5)})
+			{
+				int n = perCell.GetValueOrDefault((dx, dz));
+				Assert.IsTrue(n <= 200, $"fringe cell ({dx},{dz}) podzol in {n}/295 (fitted <= 27%)");
+			}
+			// The footprint is always converted.
+			Assert.AreEqual(295, perCell.GetValueOrDefault((0, 0)), "footprint NW cell must always be podzol");
 		}
 
 		[TestMethod]
