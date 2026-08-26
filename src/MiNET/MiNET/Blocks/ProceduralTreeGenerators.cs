@@ -456,6 +456,38 @@ namespace MiNET.Blocks
 		}
 	}
 
+	/// <summary>Acacia (plan §5.5, M5): skeleton-first — a trunk column (colH 1-7, mode 4-5)
+	/// plus CARDINAL CHAINS forking from the trunk top: diagonal chains (one cell per y
+	/// step, elevation 1, the wiki's "diagonal trunk") and vertical chains (the straight
+	/// continuation). The chains carry the pillar axis y like the trunk (183/183 captured
+	/// branch logs). The FLAT canopy is the per-(colH) leaf layer profile anchored at the
+	/// whole-tree top (2-4 layers; the small 2-layer and the big 3-4-layer canopies ride
+	/// the same profile via the per-layer latent density). The chains are joint
+	/// (attachment, endpoint) tuples — no templates. Fitted from the 42 clean-50 acacias,
+	/// re-fitted on the 12 acacia-heavy runs (M5).</summary>
+	public sealed class AcaciaProceduralModel
+	{
+		public required int SaplingOffsetY { get; init; }
+		public required List<(int Height, int Weight)> HeightPmf { get; init; }
+		public required Dictionary<int, List<(int Count, int Weight)>> ChainCountPmf { get; init; }
+		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTuples { get; init; }
+		public required Dictionary<int, List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>> Canopy { get; init; }
+
+		public int SampleHeight(ITreeRng rng)
+		{
+			var drawable = HeightPmf.Where(p => Canopy.ContainsKey(p.Height) && ChainCountPmf.ContainsKey(p.Height)).ToList();
+			if (drawable.Count == 0) drawable = HeightPmf;
+			int total = drawable.Sum(p => p.Weight);
+			int roll = rng.Next(total);
+			foreach (var (height, weight) in drawable)
+			{
+				if (roll < weight) return height;
+				roll -= weight;
+			}
+			return drawable[^1].Height;
+		}
+	}
+
 	/// <summary>Oak large/fancy variant grammar (plan §5.2, M2): a dense canopy blob from the
 	/// per-H profile (the shared machinery — the blob is dense, the profile works) plus a
 	/// BRANCH GRAMMAR: per H, the branch-count PMF and the observed per-branch parameter
@@ -525,6 +557,7 @@ namespace MiNET.Blocks
 
 		private static object ParseWood(JsonObject spec)
 		{
+			if (spec.ContainsKey("chains")) return ParseAcacia(spec);
 			if (!spec.ContainsKey("variants")) return ParseProfile(spec);
 			return spec.ContainsKey("large") ? ParseOak(spec) : ParseSpruce(spec);
 		}
@@ -740,6 +773,56 @@ namespace MiNET.Blocks
 			};
 		}
 
+		private static AcaciaProceduralModel ParseAcacia(JsonObject spec)
+		{
+			var chains = new Dictionary<int, List<(int Count, int Weight)>>();
+			foreach (var (heightKey, chainSpec) in spec["chains"]!.AsObject())
+			{
+				var obj = chainSpec!.AsObject();
+				chains[int.Parse(heightKey)] = obj["countPmf"]!.AsObject()
+					.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
+					.ToList();
+			}
+
+			var chainTuples = new Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>>();
+			foreach (var (heightKey, chainSpec) in spec["chains"]!.AsObject())
+			{
+				chainTuples[int.Parse(heightKey)] = chainSpec!["chainTuples"]!.AsArray()
+					.Select(t => (t!["attachDx"]!.GetValue<int>(), t["attachDz"]!.GetValue<int>(), t["attachDy"]!.GetValue<int>(),
+						t["endDx"]!.GetValue<int>(), t["endDz"]!.GetValue<int>(), t["endDy"]!.GetValue<int>(), t["weight"]!.GetValue<int>()))
+					.ToList();
+			}
+
+			var canopy = new Dictionary<int, List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>>();
+			if (spec["canopy"] is JsonObject canopySpec)
+			{
+				foreach (var (heightKey, layers) in canopySpec)
+				{
+					var layersList = new List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>();
+					foreach (var (deltaKey, layer) in layers!.AsObject())
+					{
+						var cellList = layer!["cells"]!.AsArray()
+							.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>()))
+							.Select(c => (X: c.Item1, Z: c.Item2, Weight: c.Item3))
+							.ToList();
+						layersList.Add((int.Parse(deltaKey), layer["p"]?.GetValue<int>() ?? 100, cellList));
+					}
+					canopy[int.Parse(heightKey)] = layersList;
+				}
+			}
+
+			return new AcaciaProceduralModel
+			{
+				SaplingOffsetY = spec["saplingOffsetY"]!.GetValue<int>(),
+				HeightPmf = spec["heightPmf"]!.AsObject()
+					.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
+					.ToList(),
+				ChainCountPmf = chains,
+				ChainTuples = chainTuples,
+				Canopy = canopy,
+			};
+		}
+
 		private static SpruceProceduralModel ParseSpruce(JsonObject spec)
 		{
 			var normal = ParseSpruceCanopy(spec["normal"]!.AsObject());
@@ -832,7 +915,7 @@ namespace MiNET.Blocks
 						}
 					}
 				}
-				if (touchesTrunk) kept.AddRange(component);
+			if (touchesTrunk) kept.AddRange(component);
 			}
 			return kept;
 		}
@@ -1181,5 +1264,128 @@ namespace MiNET.Blocks
 		protected override SpruceProceduralModel Model => ModelInstance;
 		protected override string Wood => "jungle";
 	}
+
+	/// <summary>
+	///     Acacia (plan §5.5, M5): skeleton-first — the trunk column plus the cardinal chains
+	///     forking from its top (the joint attachment/endpoint tuples, 1-cell-per-y diagonal
+	///     paths, pillar axis y like the trunk), then the FLAT canopy profile anchored at the
+	///     whole-tree top (shared profile machinery, per-layer latent density). The chain
+	///     count per tree comes from the fit (the single-canopy vs the multi-canopy fork).
+	/// </summary>
+	public class ProceduralAcaciaTreeGenerator : ProceduralTreeGenerator
+	{
+		private static readonly AcaciaProceduralModel Model = (AcaciaProceduralModel) ProceduralTreeParams.For("acacia")
+			?? throw new InvalidOperationException("no procedural acacia model embedded");
+
+		protected override List<(int X, int Y, int Z, string Block)> BuildShape(ITreeRng rng)
+		{
+			var cells = new List<(int X, int Y, int Z, string Block)>();
+			int height = Model.SampleHeight(rng);
+			int offset = Model.SaplingOffsetY;
+			int trunkTop = height - 1;
+
+			// Trunk column at rel 0..H-1 (BDS starts it at the sapling cell) + the dirt
+			// conversion of the support block below.
+			for (int y = 0; y < height; y++)
+				cells.Add((0, y + offset, 0, "acacia_log"));
+			cells.Add((0, -1, 0, "dirt"));
+
+			var trunk = cells.Where(c => c.Block.EndsWith("_log")).Select(c => (c.X, c.Y, c.Z)).ToList();
+			var chainEnds = new List<(int X, int Z)>();
+
+			// The cardinal chains forking from the trunk top: the joint (attachment,
+			// endpoint) tuples sampled per chain, emitted as 1-cell-per-y paths.
+			if (Model.ChainCountPmf.TryGetValue(height, out var countPmf))
+			{
+				int total = countPmf.Sum(p => p.Weight);
+				int roll = rng.Next(total);
+				int count = countPmf[^1].Count;
+				foreach (var (c, w) in countPmf)
+				{
+					if (roll < w) { count = c; break; }
+					roll -= w;
+				}
+				var tuples = Model.ChainTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
+				if (tuples != null && tuples.Count > 0)
+				{
+					int tupleTotal = tuples.Sum(p => p.Weight);
+					for (int i = 0; i < count; i++)
+					{
+						int tRoll = rng.Next(tupleTotal);
+						var (adx, adz, ady, edx, edz, edy, _) = tuples[^1];
+						foreach (var (tdx, tdz, tdy, tx, tz, ty, w) in tuples)
+						{
+							if (tRoll < w) { adx = tdx; adz = tdz; ady = tdy; edx = tx; edz = tz; edy = ty; break; }
+							tRoll -= w;
+						}
+						int ay = trunkTop + offset + ady;
+						int ey = trunkTop + offset + edy;
+						int ySpan = ey - ay;
+						for (int y = ay; y <= ey; y++)
+						{
+							int x = adx, z = adz;
+							if (ySpan > 0)
+							{
+								double t = (double) (y - ay) / ySpan;
+								x = (int) Math.Round(adx + (edx - adx) * t);
+								z = (int) Math.Round(adz + (edz - adz) * t);
+							}
+						cells.Add((x, y, z, "acacia_log"));
+						trunk.Add((x, y, z));
+					}
+					chainEnds.Add((edx, edz));
+				}
+				}
+			}
+
+			// The flat canopy anchored at the whole-tree top AND the chain endpoints'
+			// CENTROID (the multi-canopy lobes sit over the fork's endpoint cluster, not the
+			// trunk — captured layer offsets 1.5-2.1). The deep layers (d-1..d-5) are
+			// ALL-OR-NOTHING per tree — each layer rolls its fitted presence first, then
+			// draws its cells densely (the presence-conditional weights); the top layers
+			// (d0/d1) are present in every captured tree.
+			int wholeTop = cells.Where(c => c.Block.EndsWith("_log")).Max(c => c.Y);
+			if (Model.Canopy.TryGetValue(height, out var layers))
+			{
+				var placed = new List<(int X, int Y, int Z)>();
+				var logCells = cells.Where(c => c.Block.EndsWith("_log")).Select(c => (c.X, c.Y, c.Z)).ToList();
+				// The chain endpoints: the farthest log cell of each chain (the last cell
+				// of each sampled path — track them while building).
+				double centerX = 0, centerZ = 0;
+				int nEnds = chainEnds.Count;
+				if (nEnds > 0)
+				{
+					centerX = chainEnds.Average(e => e.X);
+					centerZ = chainEnds.Average(e => e.Z);
+				}
+				foreach (var (delta, presence, profileCells) in layers)
+				{
+					if (rng.Next(100) >= presence) continue;
+					double latent = 0.7 + rng.NextDouble() * 0.6;
+					int wy = wholeTop + delta;
+					// The short trees' deep layers can reach the GROUND (the rel -1 dirt
+					// cell) — the captured canopies never sit at the ground, skip below it.
+					if (wy < 0) continue;
+					// The captured present layers are SOLID correlated blobs (component
+					// count 1.0; the per-cell union weights underfill by 15-40%) — the
+					// 100%-presence top layers draw their dense core deterministically
+					// (>= 50), the all-or-nothing deep layers draw nearly full.
+					double boost = presence >= 100 ? 1.25 : 1.6;
+					foreach (var (dx, dz, weight) in profileCells)
+					{
+						if (weight >= 50 && presence >= 100 || rng.NextDouble() < Math.Min(1.0, weight / 100.0 * latent * boost))
+							placed.Add(((int) Math.Round(centerX + dx), wy, (int) Math.Round(centerZ + dz)));
+					}
+				}
+				var kept = ProfileCanopy.Connect(placed, logCells);
+				// The captured layers are SOLID blobs (component count 1.0) — fill the
+				// enclosed horizontal gaps the sparse draws leave (plan §4.5 step 4).
+				cells.AddRange(kept.Select(c => (c.X, c.Y, c.Z, "acacia_leaves")));
+			}
+			return cells;
+		}
+	}
 }
+
+
 

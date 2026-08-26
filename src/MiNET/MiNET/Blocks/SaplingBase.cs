@@ -173,6 +173,7 @@ namespace MiNET.Blocks
 					"oak" => ProceduralTreeParams.For("oak") != null ? new ProceduralOakTreeGenerator() : generator,
 					"spruce" => ProceduralTreeParams.For("spruce") != null ? new ProceduralSpruceTreeGenerator() : generator,
 					"jungle" => ProceduralTreeParams.For("jungle") != null ? new ProceduralJungleTreeGenerator() : generator,
+					"acacia" => ProceduralTreeParams.For("acacia") != null ? new ProceduralAcaciaTreeGenerator() : generator,
 					_ => generator,
 				};
 			}
