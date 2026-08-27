@@ -674,6 +674,63 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		public void Cherry_procedural_invariants_hold_across_seeds()
+		{
+			// The cherry (M6): trunk 3-8, cardinal chains climbing outward, a BIG rounded
+			// canopy blob (r5-8, 6-8 layers). Everything must connect to the trunk.
+			var heights = new HashSet<int>();
+			Level level = CreateLevel();
+			for (ulong seed = 1; seed <= 100; seed++)
+			{
+				var origin = new BlockCoordinates(4 + (int) (seed * 24), 3, 0);
+				var generator = new ProceduralCherryTreeGenerator {Seed = seed};
+				Assert.IsTrue(GenerateAt(generator, level, ref origin), $"seed {seed}: generate must succeed on empty ground");
+
+				var cells = DumpCells(level, origin, 10);
+				var logs = cells.Where(c => c.Block == "cherry_log").ToList();
+				var leaves = cells.Where(c => c.Block == "cherry_leaves").ToList();
+
+				int trunkHeight = logs.Count(l => l.X == 0 && l.Z == 0);
+				Assert.IsTrue(trunkHeight >= 3 && trunkHeight <= 8, $"seed {seed}: trunk height {trunkHeight} must be 3..8");
+				heights.Add(trunkHeight);
+				Assert.IsTrue(leaves.Count > 0, $"seed {seed}: must produce leaves");
+				Assert.AreEqual("cherry_log", cells.Single(c => c.X == 0 && c.Y == 0 && c.Z == 0).Block, $"seed {seed}: trunk must cover the sapling cell");
+				Assert.IsTrue(level.GetBlock(origin.X, 2, 0) is Dirt, $"seed {seed}: support block under the sapling must become dirt");
+
+				var all = cells.Select(c => (c.X, c.Y, c.Z)).ToHashSet();
+				foreach (var leaf in leaves)
+				{
+					bool connected = false;
+					for (int dx = -1; dx <= 1 && !connected; dx++)
+					for (int dy = -1; dy <= 1 && !connected; dy++)
+					for (int dz = -1; dz <= 1 && !connected; dz++)
+					{
+						if (dx == 0 && dy == 0 && dz == 0) continue;
+						if (all.Contains((leaf.X + dx, leaf.Y + dy, leaf.Z + dz))) connected = true;
+					}
+					Assert.IsTrue(connected, $"seed {seed}: leaf {leaf} is isolated");
+				}
+			}
+			Assert.IsTrue(heights.Count >= 3, "must see several cherry trunk heights");
+		}
+
+		[TestMethod]
+		public void Cherry_procedural_fixed_seed_shape_is_registered()
+		{
+			// Regression catalog (plan §3.2, §7.4): seed -> shape hash.
+			Level level = CreateLevel();
+			var origin = new BlockCoordinates(4, 3, 0);
+			var generator = new ProceduralCherryTreeGenerator {Seed = 1};
+			Assert.IsTrue(generator.Generate(level, origin));
+
+			var cells = DumpCells(level, origin, 10);
+			ulong hash = Fnv1a(cells);
+			// Registered 2026-08-26 with the M6 42-tree fit (the heavy-data fit will
+			// re-register it).
+			Assert.AreEqual(0x408B410DC33BBE29UL, hash, "seed 1 cherry shape hash");
+		}
+
+		[TestMethod]
 		public void Birch_sapling_grows_procedurally_when_configured()
 		{
 			var originalProvider = Config.Provider;
@@ -789,14 +846,14 @@ namespace MiNET.Test
 			return hash;
 		}
 
-		private static List<(int X, int Y, int Z, string Block, string Axis)> DumpCells(Level level, BlockCoordinates origin)
+		private static List<(int X, int Y, int Z, string Block, string Axis)> DumpCells(Level level, BlockCoordinates origin, int radius = 6)
 		{
 			var cells = new List<(int X, int Y, int Z, string Block, string Axis)>();
 			// The box must cover the giant spruce (trunk 13-29, canopy to rel 29) — a too-low
 			// ceiling truncates the canopy and its edge cells look isolated (false positives).
-			for (int dx = -6; dx <= 6; dx++)
+			for (int dx = -radius; dx <= radius; dx++)
 			for (int dy = -2; dy <= 34; dy++)
-			for (int dz = -6; dz <= 6; dz++)
+			for (int dz = -radius; dz <= radius; dz++)
 			{
 				Block b = level.GetBlock(origin + new BlockCoordinates(dx, dy, dz));
 				if (b is Air or GrassBlock or Dirt or Podzol or Bedrock or Water or Lava or Flowing) continue;
