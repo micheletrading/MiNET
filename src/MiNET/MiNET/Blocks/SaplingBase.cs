@@ -248,9 +248,18 @@ namespace MiNET.Blocks
 					return true;
 				}
 
-				TreeGeneratorBase generator = WoodType == "pale_oak"
-					? (Utils.Config.GetProperty("ParametricTrees", true) ? new ParametricPaleOakTreeGenerator() : new PaleOakTreeGenerator())
-					: (Utils.Config.GetProperty("ParametricTrees", true) ? new ParametricDarkOakTreeGenerator() : new DarkOakTreeGenerator());
+				TreeGeneratorBase generator;
+				if (WoodType is "dark_oak" or "pale_oak" && ProceduralTreeParams.For(WoodType) != null
+				    && Utils.Config.GetProperty("TreeGenerator", "procedural") == "procedural")
+				{
+					generator = WoodType == "dark_oak" ? new ProceduralDarkOakTreeGenerator() : new ProceduralPaleOakTreeGenerator();
+				}
+				else
+				{
+					generator = WoodType == "pale_oak"
+						? (Utils.Config.GetProperty("ParametricTrees", true) ? new ParametricPaleOakTreeGenerator() : new PaleOakTreeGenerator())
+						: (Utils.Config.GetProperty("ParametricTrees", true) ? new ParametricDarkOakTreeGenerator() : new DarkOakTreeGenerator());
+				}
 				// No SetAir of the four saplings afterwards: the 2x2 trunk's bottom layer
 				// occupies exactly those cells, and clearing them left the trunk base hollow
 				// ("the base looks cut off").

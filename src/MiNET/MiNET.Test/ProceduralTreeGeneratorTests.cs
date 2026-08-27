@@ -725,9 +725,107 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin, 10);
 			ulong hash = Fnv1a(cells);
-			// Registered 2026-08-26 with the M6 42-tree fit (the heavy-data fit will
-			// re-register it).
-			Assert.AreEqual(0x408B410DC33BBE29UL, hash, "seed 1 cherry shape hash");
+			// Registered 2026-08-27 with the M6 868-cherry heavy-data fit.
+			Assert.AreEqual(0x7F4B06AFB7B13E36UL, hash, "seed 1 cherry shape hash");
+		}
+
+		[TestMethod]
+		public void DarkOak_procedural_invariants_hold_across_seeds()
+		{
+			// The dark oak (M6): a 2x2 trunk colH 6-9, corner chains, a flat canopy r5.
+			var heights = new HashSet<int>();
+			Level level = CreateLevel();
+			for (ulong seed = 1; seed <= 80; seed++)
+			{
+				var origin = new BlockCoordinates(4 + (int) (seed * 40), 3, 0);
+				var generator = new ProceduralDarkOakTreeGenerator {Seed = seed};
+				Assert.IsTrue(GenerateAt(generator, level, ref origin), $"seed {seed}: generate must succeed on empty ground");
+
+				var cells = DumpCells(level, origin, 8);
+				var logs = cells.Where(c => c.Block == "dark_oak_log").ToList();
+				var leaves = cells.Where(c => c.Block == "dark_oak_leaves").ToList();
+
+				int trunkHeight = logs.Count(l => l.X == 0 && l.Z == 0);
+				Assert.IsTrue(logs.Any(l => l.X == 1 && l.Z == 0) && logs.Any(l => l.X == 0 && l.Z == 1) && logs.Any(l => l.X == 1 && l.Z == 1), $"seed {seed}: 2x2 trunk");
+				Assert.IsTrue(trunkHeight >= 6 && trunkHeight <= 9, $"seed {seed}: trunk height {trunkHeight} must be 6..9");
+				heights.Add(trunkHeight);
+				Assert.IsTrue(leaves.Count > 0, $"seed {seed}: must produce leaves");
+				Assert.AreEqual("dark_oak_log", cells.Single(c => c.X == 0 && c.Y == 0 && c.Z == 0).Block, $"seed {seed}: trunk must cover the patch corner");
+				Assert.IsTrue(level.GetBlock(origin.X, 2, 0) is Dirt, $"seed {seed}: dirt under the trunk");
+
+				var all = cells.Select(c => (c.X, c.Y, c.Z)).ToHashSet();
+				foreach (var leaf in leaves)
+				{
+					bool connected = false;
+					for (int dx = -1; dx <= 1 && !connected; dx++)
+					for (int dy = -1; dy <= 1 && !connected; dy++)
+					for (int dz = -1; dz <= 1 && !connected; dz++)
+					{
+						if (dx == 0 && dy == 0 && dz == 0) continue;
+						if (all.Contains((leaf.X + dx, leaf.Y + dy, leaf.Z + dz))) connected = true;
+					}
+					Assert.IsTrue(connected, $"seed {seed}: leaf {leaf} is isolated");
+				}
+			}
+			Assert.IsTrue(heights.Count >= 3, "must see several dark oak trunk heights");
+		}
+
+		[TestMethod]
+		public void DarkOak_2x2_patch_grows_procedurally()
+		{
+			var originalProvider = Config.Provider;
+			try
+			{
+				Config.Provider = new TestConfigProvider(new Dictionary<string, string> {["TreeGenerator"] = "procedural"});
+				Level level = CreateLevel();
+				for (int dx = 0; dx < 2; dx++)
+				for (int dz = 0; dz < 2; dz++)
+				{
+					var sapling = (SaplingBase) BlockFactory.GetBlockByName("minecraft:dark_oak_sapling");
+					sapling.Coordinates = new BlockCoordinates(4 + dx, 3, 4 + dz);
+					level.SetBlock(sapling);
+				}
+				var nw = (SaplingBase) level.GetBlock(4, 3, 4);
+				bool grew = false;
+				for (int i = 0; i < 200 && !grew; i++)
+				{
+					nw.OnTick(level, true);
+					grew = level.GetBlock(4, 3, 4) is not SaplingBase;
+				}
+				Assert.IsTrue(grew, "dark oak 2x2 patch must grow");
+				Assert.IsTrue(level.GetBlock(4, 4, 4) is LogBase && level.GetBlock(5, 4, 5) is LogBase, "2x2 trunk must cover the patch");
+			}
+			finally
+			{
+				Config.Provider = originalProvider;
+			}
+		}
+
+		[TestMethod]
+		public void DarkOak_procedural_fixed_seed_shape_is_registered()
+		{
+			// Regression catalog (plan §3.2, §7.4): seed -> shape hash.
+			Level level = CreateLevel();
+			var origin = new BlockCoordinates(4, 3, 0);
+			var generator = new ProceduralDarkOakTreeGenerator {Seed = 1};
+			Assert.IsTrue(generator.Generate(level, origin));
+
+			var cells = DumpCells(level, origin, 8);
+			ulong hash = Fnv1a(cells);
+			Assert.AreEqual(0x4A53FCD345AD56DDUL, hash, "seed 1 dark oak shape hash");
+		}
+
+		[TestMethod]
+		public void PaleOak_procedural_fixed_seed_shape_is_registered()
+		{
+			Level level = CreateLevel();
+			var origin = new BlockCoordinates(4, 3, 0);
+			var generator = new ProceduralPaleOakTreeGenerator {Seed = 1};
+			Assert.IsTrue(generator.Generate(level, origin));
+
+			var cells = DumpCells(level, origin, 8);
+			ulong hash = Fnv1a(cells);
+			Assert.AreEqual(0xC7E45460ECF0D03AUL, hash, "seed 1 pale oak shape hash");
 		}
 
 		[TestMethod]
@@ -899,4 +997,5 @@ namespace MiNET.Test
 		}
 	}
 }
+
 

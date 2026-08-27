@@ -456,12 +456,12 @@ namespace MiNET.Blocks
 		}
 	}
 
-	/// <summary>Cherry (plan §5.6, M6): skeleton-first — the trunk column (colH 3-8) plus
-	/// MANY cardinal chains climbing outward (the captured branches reach 4-5 blocks out,
-	/// 1-3 blocks up), then the BIG rounded canopy blob anchored at the WHOLE-tree top
-	/// (r5-8, 6-8 layers — the small ~130-leaf and the big ~350-leaf canopies ride the
-	/// same per-wholeTop profile via the per-layer latent density). The cherry is a single
-	/// blob, not per-branch chapels. No templates.</summary>
+	/// <summary>Cherry / dark oak / pale oak (plan §5.6-5.8, M6): skeleton-first — the
+	/// trunk column (cherry 1x1 colH 3-8; dark/pale 2x2 colH 6-9) plus MANY cardinal
+	/// chains climbing outward, then the canopy blob anchored at the WHOLE-tree top
+	/// (cherry: a big rounded blob r5-8; dark/pale: a flat canopy r5). The small and the
+	/// big canopies ride the same per-wholeTop profile via the per-layer latent density.
+	/// No templates.</summary>
 	public sealed class CherryProceduralModel
 	{
 		public required int SaplingOffsetY { get; init; }
@@ -469,6 +469,7 @@ namespace MiNET.Blocks
 		public required Dictionary<int, List<(int Count, int Weight)>> ChainCountPmf { get; init; }
 		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTuples { get; init; }
 		public required Dictionary<int, List<(int Delta, List<(int X, int Z, int Weight)> Cells)>> Canopy { get; init; }
+		public bool BigFootprint { get; init; }
 
 		public int SampleHeight(ITreeRng rng)
 		{
@@ -833,6 +834,7 @@ namespace MiNET.Blocks
 				ChainCountPmf = chains,
 				ChainTuples = chainTuples,
 				Canopy = ParseLayerProfiles(spec["canopy"]!.AsObject()),
+				BigFootprint = spec["bigFootprint"]?.GetValue<bool>() ?? false,
 			};
 		}
 
@@ -1481,35 +1483,38 @@ namespace MiNET.Blocks
 	}
 
 	/// <summary>
-	///     Cherry (plan §5.6, M6): the trunk column plus the cardinal chains climbing
-	///     outward (joint attachment/endpoint tuples, the branches reach 4-5 blocks out),
-	///     then the BIG rounded canopy blob anchored at the whole-tree top (the shared
-	///     profile machinery with the per-layer latent density — the small and the big
-	///     canopies ride the same profile).
+	///     Cherry / dark oak / pale oak (plan §5.6-5.8, M6): the trunk column (1x1 for the
+	///     cherry, 2x2 for the dark/pale) plus the cardinal chains climbing outward (joint
+	///     attachment/endpoint tuples), then the canopy blob anchored at the whole-tree
+	///     top (the shared profile machinery with the per-layer latent density).
 	/// </summary>
-	public class ProceduralCherryTreeGenerator : ProceduralTreeGenerator
+	public abstract class ProceduralChainBlobTreeGenerator : ProceduralTreeGenerator
 	{
-		private static readonly CherryProceduralModel Model = (CherryProceduralModel) ProceduralTreeParams.For("cherry")
-			?? throw new InvalidOperationException("no procedural cherry model embedded");
+		protected abstract string Wood { get; }
 
-		protected override List<(int X, int Y, int Z, string Block)> BuildShape(ITreeRng rng)
+		protected sealed override List<(int X, int Y, int Z, string Block)> BuildShape(ITreeRng rng)
 		{
+			var model = (CherryProceduralModel) ProceduralTreeParams.For(Wood);
 			var cells = new List<(int X, int Y, int Z, string Block)>();
-			int height = Model.SampleHeight(rng);
-			int offset = Model.SaplingOffsetY;
-			int trunkTop = height - 1;
+			int height = model.SampleHeight(rng);
+			int offset = model.SaplingOffsetY;
+			int footprint = model.BigFootprint ? 2 : 1;
 
-			// Trunk column at rel 0..H-1 (BDS starts it at the sapling cell) + the dirt
-			// conversion of the support block below.
-			for (int y = 0; y < height; y++)
-				cells.Add((0, y + offset, 0, "cherry_log"));
-			cells.Add((0, -1, 0, "dirt"));
+			// Trunk footprint x height at rel 0..H-1 (BDS starts it at the sapling cell)
+			// + the dirt conversion of the support blocks below.
+			for (int dx = 0; dx < footprint; dx++)
+			for (int dz = 0; dz < footprint; dz++)
+			{
+				for (int y = 0; y < height; y++)
+					cells.Add((dx, y + offset, dz, Wood + "_log"));
+				cells.Add((dx, -1, dz, "dirt"));
+			}
 
 			var trunk = cells.Where(c => c.Block.EndsWith("_log")).Select(c => (c.X, c.Y, c.Z)).ToList();
 
 			// The cardinal chains climbing outward from the trunk: the joint
 			// (attachment, endpoint) tuples sampled per chain, 1-cell-per-y paths.
-			if (Model.ChainCountPmf.TryGetValue(height, out var countPmf))
+			if (model.ChainCountPmf.TryGetValue(height, out var countPmf))
 			{
 				int total = countPmf.Sum(p => p.Weight);
 				int roll = rng.Next(total);
@@ -1519,7 +1524,7 @@ namespace MiNET.Blocks
 					if (roll < w) { count = c; break; }
 					roll -= w;
 				}
-				var tuples = Model.ChainTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
+				var tuples = model.ChainTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
 				if (tuples != null && tuples.Count > 0)
 				{
 					int tupleTotal = tuples.Sum(p => p.Weight);
@@ -1532,8 +1537,8 @@ namespace MiNET.Blocks
 							if (tRoll < w) { adx = tdx; adz = tdz; ady = tdy; edx = tx; edz = tz; edy = ty; break; }
 							tRoll -= w;
 						}
-						int ay = trunkTop + offset + ady;
-						int ey = trunkTop + offset + edy;
+						int ay = height - 1 + offset + ady;
+						int ey = height - 1 + offset + edy;
 						int ySpan = ey - ay;
 						for (int y = ay; y <= ey; y++)
 						{
@@ -1544,24 +1549,48 @@ namespace MiNET.Blocks
 								x = (int) Math.Round(adx + (edx - adx) * t);
 								z = (int) Math.Round(adz + (edz - adz) * t);
 							}
-							cells.Add((x, y, z, "cherry_log"));
+							cells.Add((x, y, z, Wood + "_log"));
 							trunk.Add((x, y, z));
 						}
 					}
 				}
 			}
 
-			// The BIG rounded canopy blob anchored at the whole-tree top (the chains'
-			// tops included) — the shared profile machinery. The canopy buckets are keyed
-			// by the WHOLE-tree top, not the column height.
+			// The canopy blob anchored at the whole-tree top (the chains' tops included)
+			// — the shared profile machinery. The canopy buckets are keyed by the
+			// WHOLE-tree top, not the column height.
 			int wholeTop = cells.Where(c => c.Block.EndsWith("_log")).Max(c => c.Y);
-			if (Model.Canopy.TryGetValue(wholeTop, out var layers))
+			if (model.Canopy.TryGetValue(wholeTop, out var layers))
 			{
 				cells.AddRange(ProfileCanopy.Build(rng, layers, wholeTop - offset, offset, trunk)
-					.Select(c => (c.X, c.Y, c.Z, "cherry_leaves")));
+					.Select(c => (c.X, c.Y, c.Z, Wood + "_leaves")));
 			}
 			return cells;
 		}
+	}
+
+	/// <summary>
+	///     Cherry (plan §5.6, M6): 1x1 trunk, big rounded canopy blob.
+	/// </summary>
+	public class ProceduralCherryTreeGenerator : ProceduralChainBlobTreeGenerator
+	{
+		protected override string Wood => "cherry";
+	}
+
+	/// <summary>
+	///     Dark oak (plan §5.7, M6): 2x2 trunk, corner chains, flat canopy.
+	/// </summary>
+	public class ProceduralDarkOakTreeGenerator : ProceduralChainBlobTreeGenerator
+	{
+		protected override string Wood => "dark_oak";
+	}
+
+	/// <summary>
+	///     Pale oak (plan §5.8, M6): 2x2 trunk, corner chains, flat canopy.
+	/// </summary>
+	public class ProceduralPaleOakTreeGenerator : ProceduralChainBlobTreeGenerator
+	{
+		protected override string Wood => "pale_oak";
 	}
 }
 
