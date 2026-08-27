@@ -461,21 +461,24 @@ namespace MiNET.Blocks
 	/// step, elevation 1, the wiki's "diagonal trunk") and vertical chains (the straight
 	/// continuation). The chains carry the pillar axis y like the trunk (183/183 captured
 	/// branch logs). EACH CHAIN ENDPOINT carries its own small flat-topped canopy — the
-	/// classic acacia "cappella" (dy 0: a r2 disc, dy 1: a smaller disc, dy -1..-3: sparse
-	/// underskirt) — so a tree with a second, lower branch shows a second, lower chapel.
-	/// The lobe profile is GLOBAL (the chapel is the same shape for every branch); the
-	/// chains are joint (attachment, endpoint) tuples — no templates.</summary>
+	/// classic acacia "cappella" — with TWO sizes by branch depth (measured on the
+	/// captures): the branches within 2 of the top carry the FULL chapel (r2 disc + top,
+	/// ~40 cells), the deeper branches a smaller one (just the disc, ~26 cells). The
+	/// 2-chain trees follow the captured patterns: 1+1 (a lower second chapel) 83%, 2+0
+	/// (the V-fork, both ends at the top) 17%; never 3+ chains. No templates.</summary>
 	public sealed class AcaciaProceduralModel
 	{
 		public required int SaplingOffsetY { get; init; }
 		public required List<(int Height, int Weight)> HeightPmf { get; init; }
 		public required Dictionary<int, List<(int Count, int Weight)>> ChainCountPmf { get; init; }
-		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTuples { get; init; }
-		public required List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)> Lobe { get; init; }
+		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTopTuples { get; init; }
+		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainLowerTuples { get; init; }
+		public required List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)> LobeTop { get; init; }
+		public required List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)> LobeDeep { get; init; }
 
 		public int SampleHeight(ITreeRng rng)
 		{
-			var drawable = HeightPmf.Where(p => ChainCountPmf.ContainsKey(p.Height) && ChainTuples.ContainsKey(p.Height)).ToList();
+			var drawable = HeightPmf.Where(p => ChainCountPmf.ContainsKey(p.Height) && ChainTopTuples.ContainsKey(p.Height)).ToList();
 			if (drawable.Count == 0) drawable = HeightPmf;
 			int total = drawable.Sum(p => p.Weight);
 			int roll = rng.Next(total);
@@ -784,17 +787,22 @@ namespace MiNET.Blocks
 					.ToList();
 			}
 
-			var chainTuples = new Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>>();
+			var chainTopTuples = new Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>>();
+			var chainLowerTuples = new Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>>();
 			foreach (var (heightKey, chainSpec) in spec["chains"]!.AsObject())
 			{
-				chainTuples[int.Parse(heightKey)] = chainSpec!["chainTuples"]!.AsArray()
+				chainTopTuples[int.Parse(heightKey)] = chainSpec!["topTuples"]!.AsArray()
+					.Select(t => (t!["attachDx"]!.GetValue<int>(), t["attachDz"]!.GetValue<int>(), t["attachDy"]!.GetValue<int>(),
+						t["endDx"]!.GetValue<int>(), t["endDz"]!.GetValue<int>(), t["endDy"]!.GetValue<int>(), t["weight"]!.GetValue<int>()))
+					.ToList();
+				chainLowerTuples[int.Parse(heightKey)] = chainSpec!["lowerTuples"]!.AsArray()
 					.Select(t => (t!["attachDx"]!.GetValue<int>(), t["attachDz"]!.GetValue<int>(), t["attachDy"]!.GetValue<int>(),
 						t["endDx"]!.GetValue<int>(), t["endDz"]!.GetValue<int>(), t["endDy"]!.GetValue<int>(), t["weight"]!.GetValue<int>()))
 					.ToList();
 			}
 
 			var canopy = new List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>();
-			if (spec["lobe"] is JsonObject lobeSpec)
+			if (spec["lobeTop"] is JsonObject lobeSpec)
 			{
 				foreach (var (deltaKey, layer) in lobeSpec)
 				{
@@ -805,6 +813,18 @@ namespace MiNET.Blocks
 					canopy.Add((int.Parse(deltaKey), layer["p"]?.GetValue<int>() ?? 100, cellList));
 				}
 			}
+			var canopyDeep = new List<(int Delta, int Presence, List<(int X, int Z, int Weight)> Cells)>();
+			if (spec["lobeDeep"] is JsonObject lobeDeepSpec)
+			{
+				foreach (var (deltaKey, layer) in lobeDeepSpec)
+				{
+					var cellList = layer!["cells"]!.AsArray()
+						.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>()))
+						.Select(c => (X: c.Item1, Z: c.Item2, Weight: c.Item3))
+						.ToList();
+					canopyDeep.Add((int.Parse(deltaKey), layer["p"]?.GetValue<int>() ?? 100, cellList));
+				}
+			}
 
 			return new AcaciaProceduralModel
 			{
@@ -813,8 +833,10 @@ namespace MiNET.Blocks
 					.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
 					.ToList(),
 				ChainCountPmf = chains,
-				ChainTuples = chainTuples,
-				Lobe = canopy.OrderBy(l => l.Delta).ToList(),
+				ChainTopTuples = chainTopTuples,
+				ChainLowerTuples = chainLowerTuples,
+				LobeTop = canopy.OrderBy(l => l.Delta).ToList(),
+				LobeDeep = canopyDeep.OrderBy(l => l.Delta).ToList(),
 			};
 		}
 
@@ -1300,18 +1322,43 @@ namespace MiNET.Blocks
 					if (roll < w) { count = c; break; }
 					roll -= w;
 				}
-				var tuples = Model.ChainTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
-				if (tuples != null && tuples.Count > 0)
+				var topTuples = Model.ChainTopTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
+				if (topTuples != null && topTuples.Count > 0)
 				{
-					int tupleTotal = tuples.Sum(p => p.Weight);
+					// The FIRST chain is the TOP chain (the captured trees' whole top is
+					// the highest branch end) — sample among the tree-max-height tuples.
+					int tupleTotal = topTuples.Sum(p => p.Weight);
+					int firstEndDy = 0;
 					for (int i = 0; i < count; i++)
 					{
 						int tRoll = rng.Next(tupleTotal);
-						var (adx, adz, ady, edx, edz, edy, _) = tuples[^1];
-						foreach (var (tdx, tdz, tdy, tx, tz, ty, w) in tuples)
+						var (adx, adz, ady, edx, edz, edy, _) = topTuples[^1];
+						foreach (var (tdx, tdz, tdy, tx, tz, ty, w) in topTuples)
 						{
 							if (tRoll < w) { adx = tdx; adz = tdz; ady = tdy; edx = tx; edz = tz; edy = ty; break; }
 							tRoll -= w;
+						}
+						// The 2-chain patterns (captured): 17% are V-forks with BOTH chains
+						// ending at the top (2+0); the rest have the second chain LOWER, at
+						// the fitted depth below the top (1:14%, 2:22%, 3:26%, 4:23%, 5:14%
+						// — the "1+1" double-chapel trees, whose lower chapel sits mostly
+						// 3-5 blocks below the top).
+						if (i >= 1)
+						{
+							if (rng.NextDouble() < 0.17)
+							{
+								// reuse the first chain's endpoint height (the V-fork)
+							}
+							else
+							{
+								int dRoll = rng.Next(100);
+								int depth = dRoll < 14 ? 1 : dRoll < 36 ? 2 : dRoll < 62 ? 3 : dRoll < 85 ? 4 : 5;
+								edy = firstEndDy - depth;
+							}
+						}
+						else
+						{
+							firstEndDy = edy;
 						}
 						int ay = trunkTop + offset + ady;
 						int ey = trunkTop + offset + edy;
@@ -1334,18 +1381,19 @@ namespace MiNET.Blocks
 			}
 
 			// The chapel lobes: EACH chain endpoint carries its own small flat-topped
-			// canopy — the classic acacia "cappella" (the dy 0 disc, the dy 1 top, the
-			// sparse underskirt) — so a second, lower branch shows a second, lower chapel.
-			// The lobe profile is global (the same shape for every branch); each layer
-			// rolls its fitted presence, then draws its cells densely (the
-			// presence-conditional weights).
-			if (Model.Lobe.Count > 0)
+			// canopy — the classic acacia "cappella". Two sizes by branch depth: the
+			// branches within 2 of the top carry the FULL chapel, the deeper ones a smaller
+			// disc-only chapel. A second, lower branch shows a second, lower chapel.
+			if (Model.LobeTop.Count > 0)
 			{
 				var placed = new List<(int X, int Y, int Z)>();
 				var logCells = cells.Where(c => c.Block.EndsWith("_log")).Select(c => (c.X, c.Y, c.Z)).ToList();
+				int wholeTop = logCells.Max(c => c.Y);
 				foreach (var (ex, ey, ez) in chainEnds)
 				{
-					foreach (var (delta, presence, profileCells) in Model.Lobe)
+					var lobe = wholeTop - ey >= 3 ? Model.LobeDeep : Model.LobeTop;
+					if (lobe.Count == 0) continue;
+					foreach (var (delta, presence, profileCells) in lobe)
 					{
 						if (rng.Next(100) >= presence) continue;
 						double latent = 0.7 + rng.NextDouble() * 0.6;
@@ -1354,9 +1402,11 @@ namespace MiNET.Blocks
 						// dirt cell) — the captured canopies never sit at the ground.
 						if (wy < 0) continue;
 						// The captured lobes are SOLID blobs — the 100%-presence layers
-						// draw their dense core deterministically (>= 50), the sparse
-						// underskirt layers draw nearly full when present.
-						double boost = presence >= 100 ? 1.25 : 1.6;
+						// draw their dense core deterministically (>= 50) plus a strong
+						// density boost (the top disc runs ~45 cells in the captures vs
+						// ~37 at the plain weights), the sparse underskirt layers draw
+						// nearly full when present.
+						double boost = presence >= 100 ? 1.5 : 1.6;
 						foreach (var (dx, dz, weight) in profileCells)
 						{
 							if (weight >= 50 && presence >= 100 || rng.NextDouble() < Math.Min(1.0, weight / 100.0 * latent * boost))
@@ -1370,6 +1420,7 @@ namespace MiNET.Blocks
 		}
 	}
 }
+
 
 
 

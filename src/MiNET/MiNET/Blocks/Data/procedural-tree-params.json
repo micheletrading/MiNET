@@ -17,7 +17,7 @@
           "1": 28,
           "2": 3
         },
-        "chainTuples": [
+        "topTuples": [
           {
             "attachDx": -1,
             "attachDz": 0,
@@ -103,36 +103,9 @@
             "attachDx": 0,
             "attachDz": 1,
             "attachDy": 1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
             "endDx": 3,
             "endDz": 0,
             "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 1,
             "weight": 1
           },
           {
@@ -169,6 +142,35 @@
             "endDx": 0,
             "endDz": 2,
             "endDy": 2,
+            "weight": 1
+          }
+        ],
+        "lowerTuples": [
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 1,
             "weight": 1
           }
         ]
@@ -178,7 +180,7 @@
           "1": 75,
           "2": 12
         },
-        "chainTuples": [
+        "topTuples": [
           {
             "attachDx": 1,
             "attachDz": 0,
@@ -207,15 +209,6 @@
             "weight": 4
           },
           {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
             "attachDx": 0,
             "attachDz": 1,
             "attachDy": 0,
@@ -315,24 +308,6 @@
             "weight": 3
           },
           {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
             "attachDx": 0,
             "attachDz": -1,
             "attachDy": 1,
@@ -375,15 +350,6 @@
             "endDx": 0,
             "endDz": -2,
             "endDy": 4,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 0,
             "weight": 2
           },
           {
@@ -411,15 +377,6 @@
             "endDx": 2,
             "endDz": 0,
             "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 2,
             "weight": 1
           },
           {
@@ -638,6 +595,53 @@
             "endDy": 3,
             "weight": 1
           }
+        ],
+        "lowerTuples": [
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 4
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 0,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          }
         ]
       },
       "3": {
@@ -645,7 +649,7 @@
           "1": 78,
           "2": 72
         },
-        "chainTuples": [
+        "topTuples": [
           {
             "attachDx": -1,
             "attachDz": 0,
@@ -674,15 +678,6 @@
             "weight": 8
           },
           {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 7
-          },
-          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 1,
@@ -690,24 +685,6 @@
             "endDz": 0,
             "endDy": 3,
             "weight": 7
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 1,
-            "weight": 7
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 1,
-            "weight": 6
           },
           {
             "attachDx": 1,
@@ -730,15 +707,6 @@
           {
             "attachDx": 0,
             "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": -1,
-            "weight": 5
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
             "attachDy": 1,
             "endDx": 0,
             "endDz": 2,
@@ -782,93 +750,12 @@
             "weight": 4
           },
           {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": -1,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": -1,
-            "weight": 4
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": -1,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 4
-          },
-          {
             "attachDx": 0,
             "attachDz": 1,
             "attachDy": 1,
             "endDx": 0,
             "endDz": 1,
             "endDy": 2,
-            "weight": 3
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 0,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 1,
             "weight": 3
           },
           {
@@ -887,15 +774,6 @@
             "endDx": 0,
             "endDz": -1,
             "endDy": 4,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 0,
             "weight": 3
           },
           {
@@ -959,15 +837,6 @@
             "endDx": 0,
             "endDz": -2,
             "endDy": 3,
-            "weight": 3
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 1,
             "weight": 3
           },
           {
@@ -1034,15 +903,6 @@
             "weight": 2
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 0,
@@ -1052,28 +912,10 @@
             "weight": 2
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 2
-          },
-          {
             "attachDx": 0,
             "attachDz": -1,
             "attachDy": 0,
             "endDx": -1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 3,
             "endDz": 0,
             "endDy": 2,
             "weight": 2
@@ -1139,15 +981,6 @@
             "endDx": 1,
             "endDz": 0,
             "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 2,
             "weight": 1
           },
           {
@@ -1235,15 +1068,6 @@
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
             "endDx": -3,
             "endDz": 0,
             "endDy": 2,
@@ -1304,15 +1128,6 @@
             "weight": 1
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 1
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 0,
@@ -1328,6 +1143,15 @@
             "endDx": 3,
             "endDz": 0,
             "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 2,
             "weight": 1
           },
           {
@@ -1339,6 +1163,197 @@
             "endDy": 4,
             "weight": 1
           }
+        ],
+        "lowerTuples": [
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 7
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 1,
+            "weight": 7
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 1,
+            "weight": 6
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": -1,
+            "weight": 5
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": -1,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": -1,
+            "weight": 4
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": -1,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 1,
+            "weight": 4
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 4
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 0,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 0,
+            "weight": 3
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 1
+          }
         ]
       },
       "4": {
@@ -1346,7 +1361,729 @@
           "1": 90,
           "2": 109
         },
-        "chainTuples": [
+        "topTuples": [
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 10
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 2,
+            "weight": 9
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 8
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 2,
+            "weight": 8
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 7
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 7
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 6
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 3,
+            "weight": 6
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 1,
+            "weight": 6
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 5
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 5
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 5
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 3,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 3,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 3,
+            "weight": 5
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 4
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 2,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 4,
+            "weight": 4
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 3,
+            "weight": 4
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 1,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 3,
+            "weight": 3
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 3
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 4,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 4,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 4,
+            "weight": 1
+          }
+        ],
+        "lowerTuples": [
           {
             "attachDx": -1,
             "attachDz": 0,
@@ -1363,15 +2100,6 @@
             "endDx": 3,
             "endDz": 0,
             "endDy": 1,
-            "weight": 11
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 3,
             "weight": 10
           },
           {
@@ -1385,47 +2113,11 @@
           },
           {
             "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 2,
-            "weight": 9
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 1,
-            "weight": 8
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 8
-          },
-          {
-            "attachDx": 0,
             "attachDz": -1,
             "attachDy": -1,
             "endDx": 0,
             "endDz": -2,
             "endDy": 0,
-            "weight": 8
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 2,
             "weight": 8
           },
           {
@@ -1440,15 +2132,6 @@
           {
             "attachDx": -1,
             "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 7
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
             "attachDy": -1,
             "endDx": -1,
             "endDz": 0,
@@ -1456,15 +2139,6 @@
             "weight": 7
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 7
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": -1,
@@ -1483,76 +2157,13 @@
             "weight": 7
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 6
-          },
-          {
             "attachDx": 0,
             "attachDz": 1,
-            "attachDy": 1,
+            "attachDy": -1,
             "endDx": 0,
-            "endDz": 2,
-            "endDy": 3,
-            "weight": 6
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -1,
+            "endDz": 3,
             "endDy": 1,
             "weight": 6
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 5
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 5
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 5
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 5
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 3,
-            "weight": 5
           },
           {
             "attachDx": 0,
@@ -1564,138 +2175,12 @@
             "weight": 5
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 3,
-            "weight": 5
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 3,
-            "weight": 5
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 4
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 2,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 4,
-            "weight": 4
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 3,
-            "weight": 4
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 3,
-            "weight": 3
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 3
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 0,
             "endDx": -1,
             "endDz": 0,
             "endDy": 0,
-            "weight": 3
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 4,
             "weight": 3
           },
           {
@@ -1708,6 +2193,24 @@
             "weight": 3
           },
           {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 0,
@@ -1726,93 +2229,12 @@
             "weight": 2
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 4,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 2
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 0,
             "endDx": 1,
             "endDz": 0,
             "endDy": 0,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 4,
             "weight": 2
           },
           {
@@ -1826,87 +2248,6 @@
           },
           {
             "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
             "attachDz": -1,
             "attachDy": 0,
             "endDx": 0,
@@ -1915,267 +2256,6 @@
             "weight": 1
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 0,
@@ -2186,38 +2266,11 @@
           },
           {
             "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 4,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
             "attachDz": -1,
             "attachDy": 0,
             "endDx": 0,
             "endDz": -3,
             "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 4,
             "weight": 1
           }
         ]
@@ -2227,7 +2280,7 @@
           "1": 112,
           "2": 81
         },
-        "chainTuples": [
+        "topTuples": [
           {
             "attachDx": -1,
             "attachDz": 0,
@@ -2266,15 +2319,6 @@
           },
           {
             "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 0,
-            "weight": 9
-          },
-          {
-            "attachDx": 0,
             "attachDz": -1,
             "attachDy": 1,
             "endDx": 0,
@@ -2319,24 +2363,6 @@
             "weight": 7
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": -1,
-            "weight": 6
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 6
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 1,
@@ -2346,51 +2372,6 @@
             "weight": 6
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 5
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": -1,
-            "weight": 5
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 0,
-            "weight": 5
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": -1,
-            "weight": 5
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 5
-          },
-          {
             "attachDx": 0,
             "attachDz": 1,
             "attachDy": 1,
@@ -2406,24 +2387,6 @@
             "endDx": 3,
             "endDz": 0,
             "endDy": 3,
-            "weight": 4
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": -1,
             "weight": 4
           },
           {
@@ -2443,33 +2406,6 @@
             "endDz": 2,
             "endDy": 3,
             "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 0,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 3
           },
           {
             "attachDx": 0,
@@ -2496,15 +2432,6 @@
             "endDx": 0,
             "endDz": -3,
             "endDy": 3,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 1,
             "weight": 3
           },
           {
@@ -2598,24 +2525,6 @@
             "weight": 2
           },
           {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 0,
@@ -2625,30 +2534,12 @@
             "weight": 2
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 1,
-            "weight": 2
-          },
-          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 0,
             "endDx": 0,
             "endDz": -3,
             "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 1,
             "weight": 2
           },
           {
@@ -2681,15 +2572,6 @@
           {
             "attachDx": 0,
             "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 1,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
             "attachDy": 1,
             "endDx": 0,
             "endDz": -2,
@@ -2703,15 +2585,6 @@
             "endDx": 3,
             "endDz": 0,
             "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 0,
             "weight": 2
           },
           {
@@ -2886,6 +2759,15 @@
             "weight": 1
           },
           {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 0,
@@ -2910,6 +2792,15 @@
             "endDx": 0,
             "endDz": -3,
             "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 1,
             "weight": 1
           },
           {
@@ -2949,21 +2840,21 @@
             "weight": 1
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
+            "attachDx": 1,
+            "attachDz": 0,
             "attachDy": 0,
-            "endDx": -3,
+            "endDx": 3,
             "endDz": 0,
-            "endDy": 4,
+            "endDy": 2,
             "weight": 1
           },
           {
             "attachDx": 0,
             "attachDz": 1,
             "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 0,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 4,
             "weight": 1
           },
           {
@@ -2982,6 +2873,15 @@
             "endDx": 2,
             "endDz": 0,
             "endDy": 4,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 1,
             "weight": 1
           },
           {
@@ -3048,6 +2948,15 @@
             "weight": 1
           },
           {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
             "attachDx": 0,
             "attachDz": -1,
             "attachDy": 0,
@@ -3057,12 +2966,30 @@
             "weight": 1
           },
           {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
             "attachDx": 1,
             "attachDz": 0,
             "attachDy": 0,
             "endDx": 0,
             "endDz": -2,
             "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 2,
             "weight": 1
           },
           {
@@ -3083,6 +3010,197 @@
             "endDy": 3,
             "weight": 1
           }
+        ],
+        "lowerTuples": [
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 0,
+            "weight": 9
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": -1,
+            "weight": 6
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 6
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": -1,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 0,
+            "weight": 5
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": -1,
+            "weight": 5
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": -1,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 0,
+            "weight": 4
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 3
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 0,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 1,
+            "weight": 1
+          }
         ]
       },
       "6": {
@@ -3090,7 +3208,7 @@
           "1": 81,
           "2": 65
         },
-        "chainTuples": [
+        "topTuples": [
           {
             "attachDx": 0,
             "attachDz": 1,
@@ -3138,6 +3256,395 @@
           },
           {
             "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 6
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 2,
+            "weight": 6
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 2,
+            "weight": 5
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 2,
+            "weight": 4
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 2,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 4
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 3,
+            "weight": 3
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 3
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 2,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 3
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 2,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": -3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 1,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": 2,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": 0,
+            "endDx": 3,
+            "endDz": 0,
+            "endDy": 3,
+            "weight": 1
+          }
+        ],
+        "lowerTuples": [
+          {
+            "attachDx": 0,
             "attachDz": -1,
             "attachDy": -1,
             "endDx": 0,
@@ -3155,15 +3662,6 @@
             "weight": 6
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 6
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": -1,
@@ -3175,37 +3673,10 @@
           {
             "attachDx": 0,
             "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 2,
-            "weight": 6
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
             "attachDy": -1,
             "endDx": 0,
             "endDz": 2,
             "endDy": 0,
-            "weight": 5
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 5
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 2,
             "weight": 5
           },
           {
@@ -3218,13 +3689,22 @@
             "weight": 5
           },
           {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": -1,
+            "weight": 4
+          },
+          {
             "attachDx": 1,
             "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 2,
-            "weight": 4
+            "attachDy": -1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 3
           },
           {
             "attachDx": -1,
@@ -3233,168 +3713,6 @@
             "endDx": -3,
             "endDz": 0,
             "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 2,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": -1,
-            "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 3,
-            "weight": 3
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 2,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 3
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 3
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": 2,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -3,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 3
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 1,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 1,
             "weight": 2
           },
           {
@@ -3407,128 +3725,29 @@
             "weight": 2
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 3,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": 2,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 1,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 2,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
             "attachDy": 0,
             "endDx": -2,
             "endDz": 0,
-            "endDy": 3,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -2,
             "endDy": 1,
             "weight": 2
           },
           {
             "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
+            "attachDz": 1,
             "attachDy": 0,
             "endDx": 0,
             "endDz": 2,
+            "endDy": 1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -3,
             "endDy": 2,
             "weight": 1
           },
@@ -3544,64 +3763,19 @@
           {
             "attachDx": 1,
             "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": 1,
+            "attachDy": -1,
+            "endDx": 3,
+            "endDz": 0,
             "endDy": 1,
             "weight": 1
           },
           {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": -3,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
             "attachDx": 0,
             "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 1,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 3,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": 0,
-            "endDx": 3,
-            "endDz": 0,
-            "endDy": 3,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -3,
+            "endDy": 1,
             "weight": 1
           },
           {
@@ -3611,6 +3785,15 @@
             "endDx": 3,
             "endDz": 0,
             "endDy": 2,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 3,
+            "endDy": 1,
             "weight": 1
           }
         ]
@@ -3620,7 +3803,7 @@
           "1": 43,
           "2": 39
         },
-        "chainTuples": [
+        "topTuples": [
           {
             "attachDx": 0,
             "attachDz": 1,
@@ -3676,15 +3859,6 @@
             "weight": 5
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 5
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 0,
@@ -3694,15 +3868,6 @@
             "weight": 5
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 1,
-            "weight": 4
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 0,
@@ -3710,15 +3875,6 @@
             "endDz": 0,
             "endDy": 1,
             "weight": 4
-          },
-          {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": -1,
-            "weight": 3
           },
           {
             "attachDx": -1,
@@ -3745,15 +3901,6 @@
             "endDx": 0,
             "endDz": 1,
             "endDy": 1,
-            "weight": 2
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": -1,
             "weight": 2
           },
           {
@@ -3795,19 +3942,10 @@
           {
             "attachDx": 1,
             "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 1,
+            "attachDy": 0,
+            "endDx": 2,
             "endDz": 0,
-            "endDy": -1,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 0,
+            "endDy": 1,
             "weight": 2
           },
           {
@@ -3829,15 +3967,6 @@
             "weight": 1
           },
           {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": -1,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 1
-          },
-          {
             "attachDx": 0,
             "attachDz": 1,
             "attachDy": 0,
@@ -3853,24 +3982,6 @@
             "endDx": -2,
             "endDz": 0,
             "endDy": 2,
-            "weight": 1
-          },
-          {
-            "attachDx": -1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": -2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": -1,
             "weight": 1
           },
           {
@@ -3898,15 +4009,6 @@
             "endDx": 0,
             "endDz": 2,
             "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 0,
             "weight": 1
           },
           {
@@ -3954,6 +4056,98 @@
             "endDy": 1,
             "weight": 1
           }
+        ],
+        "lowerTuples": [
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 5
+          },
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": -1,
+            "weight": 3
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 1,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": -1,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": -1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 0,
+            "weight": 2
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": -1,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 1
+          },
+          {
+            "attachDx": -1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": -2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": -1,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 0,
+            "weight": 1
+          }
         ]
       },
       "8": {
@@ -3961,7 +4155,7 @@
           "1": 8,
           "2": 16
         },
-        "chainTuples": [
+        "topTuples": [
           {
             "attachDx": -1,
             "attachDz": 0,
@@ -3999,15 +4193,6 @@
             "weight": 3
           },
           {
-            "attachDx": 0,
-            "attachDz": 1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": 1,
-            "endDy": -1,
-            "weight": 2
-          },
-          {
             "attachDx": -1,
             "attachDz": 0,
             "attachDy": 0,
@@ -4026,33 +4211,6 @@
             "weight": 2
           },
           {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": -1,
-            "endDx": 2,
-            "endDz": 0,
-            "endDy": 0,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": -1,
-            "weight": 2
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": 0,
-            "endDx": 0,
-            "endDz": -1,
-            "endDy": 0,
-            "weight": 1
-          },
-          {
             "attachDx": 0,
             "attachDz": -1,
             "attachDy": 0,
@@ -4068,15 +4226,6 @@
             "endDx": 1,
             "endDz": 0,
             "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 1,
-            "attachDz": 0,
-            "attachDy": 0,
-            "endDx": 1,
-            "endDz": 0,
-            "endDy": 0,
             "weight": 1
           },
           {
@@ -4086,15 +4235,6 @@
             "endDx": 0,
             "endDz": -3,
             "endDy": 1,
-            "weight": 1
-          },
-          {
-            "attachDx": 0,
-            "attachDz": -1,
-            "attachDy": -1,
-            "endDx": 0,
-            "endDz": -2,
-            "endDy": 0,
             "weight": 1
           },
           {
@@ -4133,12 +4273,68 @@
             "endDy": 1,
             "weight": 1
           }
+        ],
+        "lowerTuples": [
+          {
+            "attachDx": 0,
+            "attachDz": 1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": 1,
+            "endDy": -1,
+            "weight": 2
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": -1,
+            "endDx": 2,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": -1,
+            "weight": 2
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": 0,
+            "endDx": 0,
+            "endDz": -1,
+            "endDy": 0,
+            "weight": 1
+          },
+          {
+            "attachDx": 1,
+            "attachDz": 0,
+            "attachDy": 0,
+            "endDx": 1,
+            "endDz": 0,
+            "endDy": 0,
+            "weight": 1
+          },
+          {
+            "attachDx": 0,
+            "attachDz": -1,
+            "attachDy": -1,
+            "endDx": 0,
+            "endDz": -2,
+            "endDy": 0,
+            "weight": 1
+          }
         ]
       }
     },
-    "lobe": {
+    "lobeTop": {
       "-3": {
-        "p": 5,
+        "p": 6,
         "cells": [
           [
             1,
@@ -4339,11 +4535,16 @@
             2,
             -2,
             10
+          ],
+          [
+            0,
+            -4,
+            5
           ]
         ]
       },
       "-2": {
-        "p": 9,
+        "p": 10,
         "cells": [
           [
             -2,
@@ -4534,11 +4735,26 @@
             1,
             3,
             13
+          ],
+          [
+            4,
+            0,
+            9
+          ],
+          [
+            0,
+            4,
+            9
+          ],
+          [
+            0,
+            -4,
+            8
           ]
         ]
       },
       "-1": {
-        "p": 13,
+        "p": 14,
         "cells": [
           [
             0,
@@ -4724,6 +4940,16 @@
             0,
             3,
             10
+          ],
+          [
+            4,
+            0,
+            5
+          ],
+          [
+            -4,
+            0,
+            5
           ]
         ]
       },
@@ -4731,19 +4957,39 @@
         "p": 100,
         "cells": [
           [
+            0,
+            -1,
+            99
+          ],
+          [
             -1,
             1,
             99
           ],
           [
-            -1,
-            -1,
+            1,
+            0,
             99
+          ],
+          [
+            -1,
+            0,
+            99
+          ],
+          [
+            -1,
+            -1,
+            98
           ],
           [
             1,
             1,
-            99
+            98
+          ],
+          [
+            0,
+            1,
+            98
           ],
           [
             1,
@@ -4751,38 +4997,8 @@
             98
           ],
           [
-            0,
-            -1,
-            97
-          ],
-          [
-            -1,
-            0,
-            97
-          ],
-          [
-            0,
-            1,
-            97
-          ],
-          [
-            1,
-            0,
-            97
-          ],
-          [
             -2,
             0,
-            95
-          ],
-          [
-            0,
-            2,
-            95
-          ],
-          [
-            -2,
-            1,
             95
           ],
           [
@@ -4791,14 +5007,29 @@
             95
           ],
           [
-            1,
+            0,
             2,
             95
           ],
           [
             2,
-            1,
+            0,
             95
+          ],
+          [
+            -2,
+            1,
+            94
+          ],
+          [
+            1,
+            2,
+            94
+          ],
+          [
+            2,
+            1,
+            94
           ],
           [
             1,
@@ -4826,89 +5057,84 @@
             94
           ],
           [
-            2,
-            0,
-            94
-          ],
-          [
             0,
             3,
-            66
+            75
           ],
           [
             3,
             0,
-            65
+            74
           ],
           [
             -3,
             0,
-            65
+            74
           ],
           [
             0,
             -3,
-            65
+            74
           ],
           [
             3,
             1,
-            65
+            74
           ],
           [
             1,
             3,
-            65
+            73
           ],
           [
             -1,
             3,
-            65
+            73
           ],
           [
             2,
             2,
-            64
+            73
           ],
           [
             -3,
             1,
-            64
+            73
           ],
           [
             -3,
             -1,
-            64
+            72
           ],
           [
             3,
             -1,
-            64
+            72
           ],
           [
             -1,
             -3,
-            64
+            72
           ],
           [
             1,
             -3,
-            63
+            72
           ],
           [
             -2,
             -2,
-            63
+            72
           ],
           [
             2,
             -2,
-            63
+            72
           ],
           [
             -2,
             2,
-            63
+            72
           ]
         ]
       },
@@ -4921,14 +5147,19 @@
             100
           ],
           [
-            -1,
             0,
-            98
+            -1,
+            99
           ],
           [
-            0,
             -1,
-            98
+            0,
+            99
+          ],
+          [
+            1,
+            0,
+            99
           ],
           [
             0,
@@ -4938,12 +5169,7 @@
           [
             1,
             -1,
-            98
-          ],
-          [
-            1,
-            0,
-            98
+            97
           ],
           [
             -1,
@@ -4963,27 +5189,27 @@
           [
             0,
             2,
-            70
+            79
           ],
           [
             -2,
             0,
-            69
+            78
           ],
           [
             2,
             0,
-            69
+            78
           ],
           [
             0,
             -2,
-            69
+            78
           ]
         ]
       },
       "2": {
-        "p": 10,
+        "p": 11,
         "cells": [
           [
             0,
@@ -5074,51 +5300,308 @@
             1,
             -2,
             10
+          ],
+          [
+            1,
+            2,
+            8
+          ],
+          [
+            -2,
+            1,
+            8
+          ],
+          [
+            0,
+            -3,
+            8
+          ],
+          [
+            0,
+            3,
+            7
+          ],
+          [
+            2,
+            1,
+            6
+          ],
+          [
+            -3,
+            0,
+            6
+          ],
+          [
+            3,
+            0,
+            5
           ]
         ]
       },
       "3": {
-        "p": 6,
+        "p": 3,
         "cells": [
           [
             0,
+            0,
+            97
+          ]
+        ]
+      }
+    },
+    "lobeDeep": {
+      "0": {
+        "p": 100,
+        "cells": [
+          [
+            -2,
+            -1,
+            100
+          ],
+          [
+            -2,
+            1,
+            100
+          ],
+          [
+            -1,
+            -2,
+            100
+          ],
+          [
+            -1,
+            -1,
+            100
+          ],
+          [
+            -1,
+            1,
+            100
+          ],
+          [
+            -1,
+            2,
+            100
+          ],
+          [
+            1,
+            -2,
+            100
+          ],
+          [
+            1,
+            -1,
+            100
+          ],
+          [
+            1,
+            1,
+            100
+          ],
+          [
+            1,
+            2,
+            100
+          ],
+          [
+            2,
+            -1,
+            100
+          ],
+          [
+            2,
+            1,
+            100
+          ],
+          [
+            0,
+            2,
+            95
+          ],
+          [
+            -2,
             0,
             94
           ],
           [
             0,
-            -1,
-            31
+            -2,
+            94
           ],
           [
             0,
             1,
-            29
+            90
+          ],
+          [
+            2,
+            0,
+            90
           ],
           [
             -1,
             0,
-            29
+            87
+          ],
+          [
+            0,
+            -1,
+            85
           ],
           [
             1,
             0,
-            22
+            83
+          ]
+        ]
+      },
+      "1": {
+        "p": 100,
+        "cells": [
+          [
+            0,
+            0,
+            100
+          ],
+          [
+            1,
+            -1,
+            100
+          ],
+          [
+            1,
+            1,
+            100
+          ],
+          [
+            -1,
+            -1,
+            99
+          ],
+          [
+            -1,
+            1,
+            99
+          ],
+          [
+            0,
+            1,
+            90
+          ],
+          [
+            -1,
+            0,
+            90
+          ],
+          [
+            1,
+            0,
+            89
+          ],
+          [
+            0,
+            -1,
+            87
+          ]
+        ]
+      },
+      "3": {
+        "p": 33,
+        "cells": [
+          [
+            0,
+            0,
+            92
+          ],
+          [
+            0,
+            -1,
+            51
+          ],
+          [
+            0,
+            1,
+            50
+          ],
+          [
+            -1,
+            0,
+            50
+          ],
+          [
+            1,
+            0,
+            38
           ],
           [
             -2,
+            0,
+            21
+          ],
+          [
+            0,
+            -2,
+            19
+          ],
+          [
+            -1,
+            -1,
+            19
+          ],
+          [
+            0,
+            2,
+            15
+          ],
+          [
+            2,
             0,
             13
           ],
           [
-            0,
-            -2,
-            12
+            1,
+            1,
+            9
           ],
           [
             -1,
+            1,
+            9
+          ],
+          [
+            1,
             -1,
-            12
+            7
+          ]
+        ]
+      },
+      "4": {
+        "p": 6,
+        "cells": [
+          [
+            0,
+            0,
+            100
+          ],
+          [
+            -1,
+            0,
+            40
+          ],
+          [
+            0,
+            1,
+            30
+          ],
+          [
+            0,
+            -1,
+            30
+          ],
+          [
+            1,
+            0,
+            20
           ]
         ]
       }

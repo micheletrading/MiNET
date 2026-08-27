@@ -667,9 +667,10 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin);
 			ulong hash = Fnv1a(cells);
-			// Registered 2026-08-26 with the M5 heavy-data fit; re-registered the same day
-			// when the canopy became PER-CHAIN chapel lobes (the classic acacia cappella).
-			Assert.AreEqual(0x2D50F72CBC8C4DFCUL, hash, "seed 1 acacia shape hash");
+			// Registered 2026-08-26 with the M5 heavy-data fit; re-registered twice the
+			// same day: the per-chain chapel lobes, then the top/lower chain split and
+			// the depth-dependent lobe sizes (validation heights JS 0.0010).
+			Assert.AreEqual(0x318DEC4B9B4DC43BUL, hash, "seed 1 acacia shape hash");
 		}
 
 		[TestMethod]
