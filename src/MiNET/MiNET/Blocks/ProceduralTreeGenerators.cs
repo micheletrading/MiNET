@@ -466,16 +466,17 @@ namespace MiNET.Blocks
 	{
 		public required int SaplingOffsetY { get; init; }
 		public required List<(int Height, int Weight)> HeightPmf { get; init; }
-		public required Dictionary<int, List<(int Count, int Weight)>> ChainCountPmf { get; init; }
-		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTuples { get; init; }
+		public required Dictionary<int, List<(int Count, int Weight)>> ArmCountPmf { get; init; }
+		public required Dictionary<int, List<(int Axis, int AttachDx, int AttachDz, int AttachDy, string Steps, int Weight)>> ArmTuples { get; init; }
+		public required Dictionary<int, List<(int Delta, List<(int X, int Z, int Weight)> Cells)>> BranchLayers { get; init; }
 		public required Dictionary<int, List<(int Delta, List<(int X, int Z, int Weight)> Cells)>> Canopy { get; init; }
 		public bool BigFootprint { get; init; }
 
 		public int SampleHeight(ITreeRng rng)
 		{
 			// The canopy buckets are keyed by the WHOLE-tree top, not the column height,
-			// so only the chain buckets gate the draw here.
-			var drawable = HeightPmf.Where(p => ChainCountPmf.ContainsKey(p.Height) && ChainTuples.ContainsKey(p.Height)).ToList();
+			// so only the arm buckets gate the draw here.
+			var drawable = HeightPmf.Where(p => ArmCountPmf.ContainsKey(p.Height) && ArmTuples.ContainsKey(p.Height)).ToList();
 			if (drawable.Count == 0) drawable = HeightPmf;
 			int total = drawable.Sum(p => p.Weight);
 			int roll = rng.Next(total);
@@ -812,17 +813,34 @@ namespace MiNET.Blocks
 		private static CherryProceduralModel ParseCherry(JsonObject spec)
 		{
 			var chains = new Dictionary<int, List<(int Count, int Weight)>>();
-			var chainTuples = new Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>>();
+			var chainTuples = new Dictionary<int, List<(int Axis, int AttachDx, int AttachDz, int AttachDy, string Steps, int Weight)>>();
+			var branchLayers = new Dictionary<int, List<(int Delta, List<(int X, int Z, int Weight)> Cells)>>();
 			foreach (var (heightKey, chainSpec) in spec["chains"]!.AsObject())
 			{
 				var obj = chainSpec!.AsObject();
-				chains[int.Parse(heightKey)] = obj["countPmf"]!.AsObject()
-					.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
-					.ToList();
-				chainTuples[int.Parse(heightKey)] = obj["chainTuples"]!.AsArray()
-					.Select(t => (t!["attachDx"]!.GetValue<int>(), t["attachDz"]!.GetValue<int>(), t["attachDy"]!.GetValue<int>(),
-						t["endDx"]!.GetValue<int>(), t["endDz"]!.GetValue<int>(), t["endDy"]!.GetValue<int>(), t["weight"]!.GetValue<int>()))
-					.ToList();
+				if (obj["layers"] is JsonObject layersSpec)
+				{
+					var layersList = new List<(int Delta, List<(int X, int Z, int Weight)> Cells)>();
+					foreach (var (deltaKey, cells) in layersSpec)
+					{
+						var cellList = cells!.AsArray()
+							.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>()))
+							.Select(c => (X: c.Item1, Z: c.Item2, Weight: c.Item3))
+							.ToList();
+						layersList.Add((int.Parse(deltaKey), cellList));
+					}
+					branchLayers[int.Parse(heightKey)] = layersList.OrderBy(l => l.Delta).ToList();
+				}
+				else
+				{
+					chains[int.Parse(heightKey)] = obj["countPmf"]!.AsObject()
+						.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
+						.ToList();
+					chainTuples[int.Parse(heightKey)] = obj["armTuples"]!.AsArray()
+						.Select(t => (t!["axis"]!.GetValue<int>(), t["attachDx"]!.GetValue<int>(), t["attachDz"]!.GetValue<int>(),
+							t["attachDy"]!.GetValue<int>(), t["steps"]!.GetValue<string>()!, t["weight"]!.GetValue<int>()))
+						.ToList();
+				}
 			}
 
 			return new CherryProceduralModel
@@ -831,8 +849,9 @@ namespace MiNET.Blocks
 				HeightPmf = spec["heightPmf"]!.AsObject()
 					.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
 					.ToList(),
-				ChainCountPmf = chains,
-				ChainTuples = chainTuples,
+				ArmCountPmf = chains,
+				ArmTuples = chainTuples,
+				BranchLayers = branchLayers,
 				Canopy = ParseLayerProfiles(spec["canopy"]!.AsObject()),
 				BigFootprint = spec["bigFootprint"]?.GetValue<bool>() ?? false,
 			};
@@ -1512,9 +1531,23 @@ namespace MiNET.Blocks
 
 			var trunk = cells.Where(c => c.Block.EndsWith("_log")).Select(c => (c.X, c.Y, c.Z)).ToList();
 
-			// The cardinal chains climbing outward from the trunk: the joint
-			// (attachment, endpoint) tuples sampled per chain, 1-cell-per-y paths.
-			if (model.ChainCountPmf.TryGetValue(height, out var countPmf))
+			// The BRANCHES: the cherry's stepped arms (the joint axis/attachment/step
+			// sequence tuples) or the dark/pale's short horizontal corner chains (the
+			// per-(colH, delta) cell profile outside the 2x2 footprint).
+			if (model.BigFootprint && model.BranchLayers.TryGetValue(height, out var branchLayers))
+			{
+				int trunkTop = height - 1 + offset;
+				foreach (var (delta, branchCells) in branchLayers)
+				{
+					int wy = trunkTop + delta;
+					foreach (var (dx, dz, weight) in branchCells)
+					{
+						if (weight >= 80 || rng.NextDouble() < weight / 100.0)
+							cells.Add((dx, wy, dz, Wood + "_log"));
+					}
+				}
+			}
+			else if (model.ArmCountPmf.TryGetValue(height, out var countPmf))
 			{
 				int total = countPmf.Sum(p => p.Weight);
 				int roll = rng.Next(total);
@@ -1524,30 +1557,43 @@ namespace MiNET.Blocks
 					if (roll < w) { count = c; break; }
 					roll -= w;
 				}
-				var tuples = model.ChainTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
+				var tuples = model.ArmTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
 				if (tuples != null && tuples.Count > 0)
 				{
 					int tupleTotal = tuples.Sum(p => p.Weight);
 					for (int i = 0; i < count; i++)
 					{
 						int tRoll = rng.Next(tupleTotal);
-						var (adx, adz, ady, edx, edz, edy, _) = tuples[^1];
-						foreach (var (tdx, tdz, tdy, tx, tz, ty, w) in tuples)
+						var (axis, adx, adz, ady, steps, _) = tuples[^1];
+						foreach (var (ta, tdx, tdz, tdy, ts, w) in tuples)
 						{
-							if (tRoll < w) { adx = tdx; adz = tdz; ady = tdy; edx = tx; edz = tz; edy = ty; break; }
+							if (tRoll < w) { axis = ta; adx = tdx; adz = tdz; ady = tdy; steps = ts; break; }
 							tRoll -= w;
 						}
-						int ay = height - 1 + offset + ady;
-						int ey = height - 1 + offset + edy;
-						int ySpan = ey - ay;
-						for (int y = ay; y <= ey; y++)
+						int ax = axis == 1 || axis == -1 ? axis : 0;
+						int az = axis == 2 || axis == -2 ? axis / 2 : 0;
+						int x = adx, y = height - 1 + offset + ady, z = adz;
+						cells.Add((x, y, z, Wood + "_log"));
+						trunk.Add((x, y, z));
+						foreach (char step in steps)
 						{
-							int x = adx, z = adz;
-							if (ySpan > 0)
+							switch (step)
 							{
-								double t = (double) (y - ay) / ySpan;
-								x = (int) Math.Round(adx + (edx - adx) * t);
-								z = (int) Math.Round(adz + (edz - adz) * t);
+								case 'D':
+									x += ax;
+									z += az;
+									y += 1;
+									break;
+								case 'V':
+									y += 1;
+									break;
+								case 'H':
+									x += ax;
+									z += az;
+									break;
+								default:
+									y += 1; // the rare in-plane steps fall back to vertical
+									break;
 							}
 							cells.Add((x, y, z, Wood + "_log"));
 							trunk.Add((x, y, z));

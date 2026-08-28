@@ -726,7 +726,7 @@ namespace MiNET.Test
 			var cells = DumpCells(level, origin, 10);
 			ulong hash = Fnv1a(cells);
 			// Registered 2026-08-27 with the M6 868-cherry heavy-data fit.
-			Assert.AreEqual(0x7F4B06AFB7B13E36UL, hash, "seed 1 cherry shape hash");
+			Assert.AreEqual(0xCD80AE7C67F0BB60UL, hash, "seed 1 cherry shape hash");
 		}
 
 		[TestMethod]
@@ -812,7 +812,7 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin, 8);
 			ulong hash = Fnv1a(cells);
-			Assert.AreEqual(0x4A53FCD345AD56DDUL, hash, "seed 1 dark oak shape hash");
+			Assert.AreEqual(0x047B0B85A9EE3DD7UL, hash, "seed 1 dark oak shape hash");
 		}
 
 		[TestMethod]
@@ -825,7 +825,7 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin, 8);
 			ulong hash = Fnv1a(cells);
-			Assert.AreEqual(0xC7E45460ECF0D03AUL, hash, "seed 1 pale oak shape hash");
+			Assert.AreEqual(0xE4268C8CC90DBDC8UL, hash, "seed 1 pale oak shape hash");
 		}
 
 		[TestMethod]
@@ -997,5 +997,7 @@ namespace MiNET.Test
 		}
 	}
 }
+
+
 
 
