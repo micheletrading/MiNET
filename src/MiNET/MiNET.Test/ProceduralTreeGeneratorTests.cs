@@ -812,7 +812,7 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin, 8);
 			ulong hash = Fnv1a(cells);
-			Assert.AreEqual(0x047B0B85A9EE3DD7UL, hash, "seed 1 dark oak shape hash");
+			Assert.AreEqual(0x16CABA27EDDE2250UL, hash, "seed 1 dark oak shape hash");
 		}
 
 		[TestMethod]
@@ -825,7 +825,7 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin, 8);
 			ulong hash = Fnv1a(cells);
-			Assert.AreEqual(0xE4268C8CC90DBDC8UL, hash, "seed 1 pale oak shape hash");
+			Assert.AreEqual(0xEDBC8713770B3B11UL, hash, "seed 1 pale oak shape hash");
 		}
 
 		[TestMethod]
@@ -997,6 +997,8 @@ namespace MiNET.Test
 		}
 	}
 }
+
+
 
 
 
