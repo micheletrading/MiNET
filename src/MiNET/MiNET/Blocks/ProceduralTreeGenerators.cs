@@ -1603,13 +1603,26 @@ namespace MiNET.Blocks
 			}
 
 			// The canopy blob anchored at the whole-tree top (the chains' tops included)
-			// — the shared profile machinery. The canopy buckets are keyed by the
-			// WHOLE-tree top, not the column height.
+			// AND the branch centroid (the captured canopy sits off-center — the arms
+			// reach one way). The canopy buckets are keyed by the WHOLE-tree top.
 			int wholeTop = cells.Where(c => c.Block.EndsWith("_log")).Max(c => c.Y);
 			if (model.Canopy.TryGetValue(wholeTop, out var layers))
 			{
-				cells.AddRange(ProfileCanopy.Build(rng, layers, wholeTop - offset, offset, trunk)
-					.Select(c => (c.X, c.Y, c.Z, Wood + "_leaves")));
+				var branchSet = cells.Where(c => c.Block.EndsWith("_log") && (c.X < 0 || c.X > 1 || c.Z < 0 || c.Z > 1)).Select(c => (c.X, c.Z)).ToList();
+				double centerX = branchSet.Count > 0 ? branchSet.Average(c => c.X) : 0;
+				double centerZ = branchSet.Count > 0 ? branchSet.Average(c => c.Z) : 0;
+				var placed = new List<(int X, int Y, int Z)>();
+				foreach (var (delta, profileCells) in layers)
+				{
+					double latent = 0.6 + rng.NextDouble() * 0.8;
+					int wy = wholeTop + delta;
+					foreach (var (dx, dz, weight) in profileCells)
+					{
+						if (weight >= 80 || rng.NextDouble() < Math.Min(1.0, weight / 100.0 * latent))
+							placed.Add(((int) Math.Round(centerX + dx), wy, (int) Math.Round(centerZ + dz)));
+					}
+				}
+				cells.AddRange(ProfileCanopy.Connect(placed, trunk).Select(c => (c.X, c.Y, c.Z, Wood + "_leaves")));
 			}
 			return cells;
 		}
