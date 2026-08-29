@@ -829,6 +829,73 @@ namespace MiNET.Test
 		}
 
 		[TestMethod]
+		public void Mangrove_procedural_invariants_hold_across_seeds()
+		{
+			// The mangrove (M7): the roots (the ring + the columns at the rel -5..0, the
+			// SaplingOffsetY +1 — the roots start AT the propagule cell), the trunk colH
+			// 3-13, the aerial chains, the skirt canopy. Everything must connect.
+			var heights = new HashSet<int>();
+			Level level = CreateLevel();
+			for (ulong seed = 1; seed <= 100; seed++)
+			{
+				var origin = new BlockCoordinates(4 + (int) (seed * 40), 3, 0);
+				var generator = new ProceduralMangroveTreeGenerator {Seed = seed};
+				Assert.IsTrue(GenerateAt(generator, level, ref origin), $"seed {seed}: generate must succeed on empty ground");
+
+				var cells = DumpCells(level, origin, 10);
+				var logs = cells.Where(c => c.Block == "mangrove_log").ToList();
+				var leaves = cells.Where(c => c.Block == "mangrove_leaves").ToList();
+
+				int trunkHeight = logs.Count(l => l.X == 0 && l.Z == 0);
+				Assert.IsTrue(trunkHeight >= 3 && trunkHeight <= 13, $"seed {seed}: trunk height {trunkHeight} must be 3..13");
+				heights.Add(trunkHeight);
+				Assert.IsTrue(leaves.Count > 0, $"seed {seed}: must produce leaves");
+				// The trunk starts at the rel 1 (the offset +1: the propagule cell below).
+				Assert.AreEqual("mangrove_log", cells.Single(c => c.X == 0 && c.Y == 1 && c.Z == 0).Block, $"seed {seed}: trunk must sit one above the propagule cell");
+
+				// The roots: the ring + the columns below the trunk base (rel -4..0 in the
+				// dataset, shifted by the +1 offset: the world y 2..-2).
+				bool sawRoots = false;
+				for (int dy = -2; dy <= 0; dy++)
+				for (int dx = -6; dx <= 6; dx++)
+				for (int dz = -6; dz <= 6; dz++)
+				{
+					if (level.GetBlock(origin + new BlockCoordinates(dx, dy, dz)) is MangroveRoots) sawRoots = true;
+				}
+				Assert.IsTrue(sawRoots, $"seed {seed}: roots must appear below the trunk base");
+
+				var all = cells.Select(c => (c.X, c.Y, c.Z)).ToHashSet();
+				foreach (var leaf in leaves)
+				{
+					bool connected = false;
+					for (int dx = -1; dx <= 1 && !connected; dx++)
+					for (int dy = -1; dy <= 1 && !connected; dy++)
+					for (int dz = -1; dz <= 1 && !connected; dz++)
+					{
+						if (dx == 0 && dy == 0 && dz == 0) continue;
+						if (all.Contains((leaf.X + dx, leaf.Y + dy, leaf.Z + dz))) connected = true;
+					}
+					Assert.IsTrue(connected, $"seed {seed}: leaf {leaf} is isolated");
+				}
+			}
+			Assert.IsTrue(heights.Count >= 3, "must see several mangrove trunk heights");
+		}
+
+		[TestMethod]
+		public void Mangrove_procedural_fixed_seed_shape_is_registered()
+		{
+			// Regression catalog (plan §3.2, §7.4): seed -> shape hash.
+			Level level = CreateLevel();
+			var origin = new BlockCoordinates(4, 3, 0);
+			var generator = new ProceduralMangroveTreeGenerator {Seed = 1};
+			Assert.IsTrue(generator.Generate(level, origin));
+
+			var cells = DumpCells(level, origin, 10);
+			ulong hash = Fnv1a(cells);
+			Assert.AreEqual(0xA107B5D9A802B8D1UL, hash, "seed 1 mangrove shape hash");
+		}
+
+		[TestMethod]
 		public void Birch_sapling_grows_procedurally_when_configured()
 		{
 			var originalProvider = Config.Provider;
@@ -997,6 +1064,8 @@ namespace MiNET.Test
 		}
 	}
 }
+
+
 
 
 

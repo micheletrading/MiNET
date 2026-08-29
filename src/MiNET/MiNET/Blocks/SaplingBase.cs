@@ -175,6 +175,7 @@ namespace MiNET.Blocks
 					"jungle" => ProceduralTreeParams.For("jungle") != null ? new ProceduralJungleTreeGenerator() : generator,
 					"acacia" => ProceduralTreeParams.For("acacia") != null ? new ProceduralAcaciaTreeGenerator() : generator,
 					"cherry" => ProceduralTreeParams.For("cherry") != null ? new ProceduralCherryTreeGenerator() : generator,
+					"mangrove" => ProceduralTreeParams.For("mangrove") != null ? new ProceduralMangroveTreeGenerator() : generator,
 					_ => generator,
 				};
 			}

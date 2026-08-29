@@ -489,6 +489,37 @@ namespace MiNET.Blocks
 		}
 	}
 
+	/// <summary>Mangrove (plan §5.9, M7): the skeleton — the ROOTS (the horizontal ring at
+	/// the trunk base + the vertical columns going DOWN 1-5 blocks, ~25 cells consistently;
+	/// the global per-delta cell profile at the rel -5..0), the trunk column (colH 3-13,
+	/// SaplingOffsetY +1: the roots start AT the propagule cell so the trunk sits one
+	/// above), the AERIAL CHAINS (diagonal arms climbing outward, joint attach/endpoint
+	/// tuples), and the skirt canopy (the dense leaf profile anchored at the whole-tree
+	/// top). The vines and the hanging propagules are M8. No templates.</summary>
+	public sealed class MangroveProceduralModel
+	{
+		public required int SaplingOffsetY { get; init; }
+		public required List<(int Height, int Weight)> HeightPmf { get; init; }
+		public required Dictionary<int, List<(int Count, int Weight)>> ChainCountPmf { get; init; }
+		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTuples { get; init; }
+		public required List<(int Delta, List<(int X, int Z, int Weight)> Cells)> Roots { get; init; }
+		public required Dictionary<int, List<(int Delta, List<(int X, int Z, int Weight)> Cells)>> Canopy { get; init; }
+
+		public int SampleHeight(ITreeRng rng)
+		{
+			var drawable = HeightPmf.Where(p => ChainCountPmf.ContainsKey(p.Height) && ChainTuples.ContainsKey(p.Height)).ToList();
+			if (drawable.Count == 0) drawable = HeightPmf;
+			int total = drawable.Sum(p => p.Weight);
+			int roll = rng.Next(total);
+			foreach (var (height, weight) in drawable)
+			{
+				if (roll < weight) return height;
+				roll -= weight;
+			}
+			return drawable[^1].Height;
+		}
+	}
+
 	/// <summary>Acacia (plan §5.5, M5): skeleton-first — a trunk column (colH 1-8, mode 4-5)
 	/// plus CARDINAL CHAINS forking from the trunk top: diagonal chains (one cell per y
 	/// step, elevation 1, the wiki's "diagonal trunk") and vertical chains (the straight
@@ -594,6 +625,7 @@ namespace MiNET.Blocks
 		private static object ParseWood(JsonObject spec)
 		{
 			if (spec.ContainsKey("lobeTop")) return ParseAcacia(spec);
+			if (spec.ContainsKey("roots")) return ParseMangrove(spec);
 			if (spec.ContainsKey("chains") && spec.ContainsKey("canopy")) return ParseCherry(spec);
 			if (!spec.ContainsKey("variants")) return ParseProfile(spec);
 			return spec.ContainsKey("large") ? ParseOak(spec) : ParseSpruce(spec);
@@ -807,6 +839,48 @@ namespace MiNET.Blocks
 				Profile = profile,
 				Giant = giant,
 				VineProfile = ParseVineProfile(spec),
+			};
+		}
+
+		private static MangroveProceduralModel ParseMangrove(JsonObject spec)
+		{
+			var chains = new Dictionary<int, List<(int Count, int Weight)>>();
+			var chainTuples = new Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>>();
+			foreach (var (heightKey, chainSpec) in spec["chains"]!.AsObject())
+			{
+				var obj = chainSpec!.AsObject();
+				chains[int.Parse(heightKey)] = obj["countPmf"]!.AsObject()
+					.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
+					.ToList();
+				chainTuples[int.Parse(heightKey)] = obj["chainTuples"]!.AsArray()
+					.Select(t => (t!["attachDx"]!.GetValue<int>(), t["attachDz"]!.GetValue<int>(), t["attachDy"]!.GetValue<int>(),
+						t["endDx"]!.GetValue<int>(), t["endDz"]!.GetValue<int>(), t["endDy"]!.GetValue<int>(), t["weight"]!.GetValue<int>()))
+					.ToList();
+			}
+
+			var roots = new List<(int Delta, List<(int X, int Z, int Weight)> Cells)>();
+			if (spec["roots"] is JsonObject rootSpec)
+			{
+				foreach (var (deltaKey, cells) in rootSpec)
+				{
+					var cellList = cells!.AsArray()
+						.Select(c => (c![0]!.GetValue<int>(), c[1]!.GetValue<int>(), c[2]!.GetValue<int>()))
+						.Select(c => (X: c.Item1, Z: c.Item2, Weight: c.Item3))
+						.ToList();
+					roots.Add((int.Parse(deltaKey), cellList));
+				}
+			}
+
+			return new MangroveProceduralModel
+			{
+				SaplingOffsetY = spec["saplingOffsetY"]!.GetValue<int>(),
+				HeightPmf = spec["heightPmf"]!.AsObject()
+					.Select(kv => (int.Parse(kv.Key), kv.Value!.GetValue<int>()))
+					.ToList(),
+				ChainCountPmf = chains,
+				ChainTuples = chainTuples,
+				Roots = roots.OrderBy(r => r.Delta).ToList(),
+				Canopy = ParseLayerProfiles(spec["canopy"]!.AsObject()),
 			};
 		}
 
@@ -1650,6 +1724,121 @@ namespace MiNET.Blocks
 	public class ProceduralPaleOakTreeGenerator : ProceduralChainBlobTreeGenerator
 	{
 		protected override string Wood => "pale_oak";
+	}
+
+	/// <summary>
+	///     Mangrove (plan §5.9, M7): the roots (the ring + the columns at the rel -5..0,
+	///     SaplingOffsetY +1 — the roots start AT the propagule cell), the trunk column,
+	///     the aerial chains (joint attach/endpoint tuples), and the skirt canopy anchored
+	///     at the whole-tree top. The vines and the hanging propagules are M8.
+	/// </summary>
+	public class ProceduralMangroveTreeGenerator : ProceduralTreeGenerator
+	{
+		private static readonly MangroveProceduralModel Model = (MangroveProceduralModel) ProceduralTreeParams.For("mangrove")
+			?? throw new InvalidOperationException("no procedural mangrove model embedded");
+
+		protected override List<(int X, int Y, int Z, string Block)> BuildShape(ITreeRng rng)
+		{
+			var cells = new List<(int X, int Y, int Z, string Block)>();
+			int height = Model.SampleHeight(rng);
+			int offset = Model.SaplingOffsetY;
+			int trunkTop = height - 1 + offset;
+
+			// The roots: the global per-delta profile at the rel -5..0 (the dataset's
+			// baseCell-relative deltas shifted by the offset, so the ring sits AT the
+			// trunk base and the columns run down from the propagule level). The deep
+			// cells below the rel -2 are skipped: the flat test worlds put the bedrock
+			// three below the surface (real worlds have dirt there; the captured roots
+			// reach the rel -5).
+			foreach (var (delta, rootCells) in Model.Roots)
+			{
+				int wy = delta + offset;
+				if (wy < -2) continue;
+				foreach (var (dx, dz, weight) in rootCells)
+				{
+					if (weight >= 80 || rng.NextDouble() < weight / 100.0)
+						cells.Add((dx, wy, dz, "mangrove_roots"));
+				}
+			}
+
+			// The trunk column at the rel offset..H-1+offset (the roots start at the
+			// propagule cell below it).
+			for (int y = 0; y < height; y++)
+				cells.Add((0, y + offset, 0, "mangrove_log"));
+
+			var trunk = cells.Where(c => c.Block.EndsWith("_log") || c.Block.EndsWith("_roots")).Select(c => (c.X, c.Y, c.Z)).ToList();
+
+			// The aerial chains: the joint (attachment, endpoint) tuples sampled per
+			// chain, 1-cell-per-y diagonal paths.
+			if (Model.ChainCountPmf.TryGetValue(height, out var countPmf))
+			{
+				int total = countPmf.Sum(p => p.Weight);
+				int roll = rng.Next(total);
+				int count = countPmf[^1].Count;
+				foreach (var (c, w) in countPmf)
+				{
+					if (roll < w) { count = c; break; }
+					roll -= w;
+				}
+				var tuples = Model.ChainTuples.TryGetValue(height, out var tuplesAtHeight) ? tuplesAtHeight : null;
+				if (tuples != null && tuples.Count > 0)
+				{
+					int tupleTotal = tuples.Sum(p => p.Weight);
+					for (int i = 0; i < count; i++)
+					{
+						int tRoll = rng.Next(tupleTotal);
+						var (adx, adz, ady, edx, edz, edy, _) = tuples[^1];
+						foreach (var (tdx, tdz, tdy, tx, tz, ty, w) in tuples)
+						{
+							if (tRoll < w) { adx = tdx; adz = tdz; ady = tdy; edx = tx; edz = tz; edy = ty; break; }
+							tRoll -= w;
+						}
+						int ay = trunkTop + ady;
+						int ey = trunkTop + edy;
+						int ySpan = ey - ay;
+						for (int y = ay; y <= ey; y++)
+						{
+							int x = adx, z = adz;
+							if (ySpan > 0)
+							{
+								double t = (double) (y - ay) / ySpan;
+								x = (int) Math.Round(adx + (edx - adx) * t);
+								z = (int) Math.Round(adz + (edz - adz) * t);
+							}
+							cells.Add((x, y, z, "mangrove_log"));
+							trunk.Add((x, y, z));
+						}
+					}
+				}
+			}
+
+			// The skirt canopy anchored at the whole-tree top (the chains' tops included).
+			// The short trees' deep skirt layers can reach the GROUND — skip below the
+			// propagule cell (the captured canopies never sit in the ground). A wholeTop
+			// without its own bucket falls back to the nearest taller one.
+			int wholeTop = cells.Where(c => c.Block.EndsWith("_log")).Max(c => c.Y);
+			if (!Model.Canopy.TryGetValue(wholeTop, out var layers))
+			{
+				int fallback = Model.Canopy.Keys.Where(k => k >= wholeTop).DefaultIfEmpty(Model.Canopy.Keys.Max()).Min();
+				layers = Model.Canopy[fallback];
+			}
+			{
+				var placed = new List<(int X, int Y, int Z)>();
+				foreach (var (delta, profileCells) in layers)
+				{
+					double latent = 0.6 + rng.NextDouble() * 0.8;
+					int wy = wholeTop + delta;
+					if (wy < 0) continue;
+					foreach (var (dx, dz, weight) in profileCells)
+					{
+						if (weight >= 80 || rng.NextDouble() < Math.Min(1.0, weight / 100.0 * latent))
+							placed.Add((dx, wy, dz));
+					}
+				}
+				cells.AddRange(ProfileCanopy.Connect(placed, trunk).Select(c => (c.X, c.Y, c.Z, "mangrove_leaves")));
+			}
+			return cells;
+		}
 	}
 }
 
