@@ -504,6 +504,8 @@ namespace MiNET.Blocks
 		public required Dictionary<int, List<(int AttachDx, int AttachDz, int AttachDy, int EndDx, int EndDz, int EndDy, int Weight)>> ChainTuples { get; init; }
 		public required List<(int Delta, List<(int X, int Z, int Weight)> Cells)> Roots { get; init; }
 		public required Dictionary<int, List<(int Delta, List<(int X, int Z, int Weight)> Cells)>> Canopy { get; init; }
+		public required Dictionary<int, int> VineCountPmf { get; init; }
+		public required Dictionary<int, int> VineLengthPmf { get; init; }
 
 		public int SampleHeight(ITreeRng rng)
 		{
@@ -517,6 +519,30 @@ namespace MiNET.Blocks
 				roll -= weight;
 			}
 			return drawable[^1].Height;
+		}
+
+		public int SampleVineCount(ITreeRng rng)
+		{
+			int total = VineCountPmf.Sum(kv => kv.Value);
+			int roll = rng.Next(total);
+			foreach (var (count, weight) in VineCountPmf)
+			{
+				if (roll < weight) return count;
+				roll -= weight;
+			}
+			return VineCountPmf.Keys.Max();
+		}
+
+		public int SampleVineLength(ITreeRng rng)
+		{
+			int total = VineLengthPmf.Sum(kv => kv.Value);
+			int roll = rng.Next(total);
+			foreach (var (length, weight) in VineLengthPmf)
+			{
+				if (roll < weight) return length;
+				roll -= weight;
+			}
+			return VineLengthPmf.Keys.Max();
 		}
 	}
 
@@ -881,7 +907,15 @@ namespace MiNET.Blocks
 				ChainTuples = chainTuples,
 				Roots = roots.OrderBy(r => r.Delta).ToList(),
 				Canopy = ParseLayerProfiles(spec["canopy"]!.AsObject()),
+				VineCountPmf = ParsePmf(spec["vineCountPmf"]),
+				VineLengthPmf = ParsePmf(spec["vineLengthPmf"]),
 			};
+		}
+
+		private static Dictionary<int, int> ParsePmf(JsonNode? node)
+		{
+			if (node is not JsonObject obj) return new Dictionary<int, int>();
+			return obj.ToDictionary(kv => int.Parse(kv.Key), kv => kv.Value!.GetValue<int>());
 		}
 
 		private static CherryProceduralModel ParseCherry(JsonObject spec)
@@ -1812,10 +1846,11 @@ namespace MiNET.Blocks
 				}
 			}
 
-			// The skirt canopy anchored at the whole-tree top (the chains' tops included).
+			// The skirt canopy anchored at the whole-tree top (the chains' tops included)
+			// AND the branch centroid (the captured canopy sits off-center, o=1.4-2.4).
 			// The short trees' deep skirt layers can reach the GROUND — skip below the
-			// propagule cell (the captured canopies never sit in the ground). A wholeTop
-			// without its own bucket falls back to the nearest taller one.
+			// propagule cell. A wholeTop without its own bucket falls back to the
+			// nearest taller one.
 			int wholeTop = cells.Where(c => c.Block.EndsWith("_log")).Max(c => c.Y);
 			if (!Model.Canopy.TryGetValue(wholeTop, out var layers))
 			{
@@ -1824,6 +1859,9 @@ namespace MiNET.Blocks
 			}
 			{
 				var placed = new List<(int X, int Y, int Z)>();
+				var chainSet = cells.Where(c => c.Block.EndsWith("_log") && (c.X != 0 || c.Z != 0)).Select(c => (c.X, c.Z)).ToList();
+				double centerX = chainSet.Count > 0 ? chainSet.Average(c => c.X) : 0;
+				double centerZ = chainSet.Count > 0 ? chainSet.Average(c => c.Z) : 0;
 				foreach (var (delta, profileCells) in layers)
 				{
 					double latent = 0.6 + rng.NextDouble() * 0.8;
@@ -1832,10 +1870,37 @@ namespace MiNET.Blocks
 					foreach (var (dx, dz, weight) in profileCells)
 					{
 						if (weight >= 80 || rng.NextDouble() < Math.Min(1.0, weight / 100.0 * latent))
-							placed.Add((dx, wy, dz));
+							placed.Add(((int) Math.Round(centerX + dx), wy, (int) Math.Round(centerZ + dz)));
 					}
 				}
 				cells.AddRange(ProfileCanopy.Connect(placed, trunk).Select(c => (c.X, c.Y, c.Z, "mangrove_leaves")));
+			}
+
+			// The VINES (M8): the hanging columns from the canopy's underside — the
+			// fitted count (mean 49, 11-99) and length (mean 8, 1-26), grown DOWN from
+			// the exposed underside cells until the ground or the sampled length.
+			if (Model.VineCountPmf.Count > 0)
+			{
+				int vineCount = Model.SampleVineCount(rng);
+				var leaves = cells.Where(c => c.Block.EndsWith("_leaves")).Select(c => (c.X, c.Y, c.Z)).ToHashSet();
+				var logSet = cells.Where(c => c.Block.EndsWith("_log") || c.Block.EndsWith("_roots")).Select(c => (c.X, c.Y, c.Z)).ToHashSet();
+				var underside = leaves.Where(c => !leaves.Contains((c.X, c.Y - 1, c.Z)) && !logSet.Contains((c.X, c.Y - 1, c.Z))).ToList();
+				// Deterministic shuffle: pick the vines from the underside cells.
+				for (int i = underside.Count - 1; i > 0; i--)
+				{
+					int j = rng.Next(i + 1);
+					(underside[i], underside[j]) = (underside[j], underside[i]);
+				}
+				for (int i = 0; i < vineCount && i < underside.Count; i++)
+				{
+					int length = Model.SampleVineLength(rng);
+					int x = underside[i].X, z = underside[i].Z;
+					for (int y = underside[i].Y - 1; y >= 0 && length > 0; y--, length--)
+					{
+						if (logSet.Contains((x, y, z))) break;
+						cells.Add((x, y, z, "vine:1"));
+					}
+				}
 			}
 			return cells;
 		}

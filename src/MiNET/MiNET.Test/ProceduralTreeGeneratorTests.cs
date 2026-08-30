@@ -892,7 +892,7 @@ namespace MiNET.Test
 
 			var cells = DumpCells(level, origin, 10);
 			ulong hash = Fnv1a(cells);
-			Assert.AreEqual(0xC9D9F680974699E6UL, hash, "seed 1 mangrove shape hash");
+			Assert.AreEqual(0xB210362F6623F0E1UL, hash, "seed 1 mangrove shape hash");
 		}
 
 		[TestMethod]
@@ -1064,6 +1064,8 @@ namespace MiNET.Test
 		}
 	}
 }
+
+
 
 
 
